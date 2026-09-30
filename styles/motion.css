@@ -1,0 +1,183 @@
+/*
+ * Pre-animation states. Everything is gated on [data-motion="on"], which an
+ * inline script in the document head sets before first paint — so content is
+ * visible with JS disabled and never flashes in before hydration.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  [data-motion='on'] [data-reveal]:not([data-revealed]) {
+    opacity: 0;
+  }
+
+  [data-motion='on'] [data-reveal='title']:not([data-revealed]) {
+    transform: translateY(18px);
+  }
+
+  [data-motion='on'] [data-reveal='up']:not([data-revealed]) {
+    transform: translateY(22px);
+  }
+
+  [data-motion='on'] [data-reveal='card']:not([data-revealed]) {
+    transform: translateY(28px);
+  }
+
+  [data-motion='on'] [data-reveal='right']:not([data-revealed]) {
+    transform: translateX(20px);
+  }
+
+  /* Clip reveals stay opaque and unveil via clip-path instead of fading. */
+  [data-motion='on'] [data-reveal='clip']:not([data-revealed]) {
+    opacity: 1;
+    clip-path: inset(100% 0% 0% 0%);
+  }
+
+  [data-motion='on'] [data-reveal='wipe']:not([data-revealed]) {
+    opacity: 1;
+    clip-path: inset(0% 100% 0% 0%);
+  }
+
+  [data-motion='on'] [data-reveal='card']:not([data-revealed]) [data-reveal-img] {
+    clip-path: inset(100% 0% 0% 0%);
+  }
+
+  [data-motion='on'] [data-intro]:not([data-intro-done]) {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  /* Heading lines slide up out of an overflow mask, so they keep full opacity. */
+  [data-motion='on'] [data-intro-kind='line']:not([data-intro-done]) {
+    opacity: 1;
+    transform: translateY(110%);
+  }
+
+  [data-motion='on'] [data-intro-kind='clip']:not([data-intro-done]) {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(100% 0% 0% 0%);
+  }
+}
+
+/* Masks a heading line so its glyphs can rise from below the baseline. */
+.line-mask {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.14em;
+  margin-bottom: -0.14em;
+}
+
+.line-mask > span {
+  display: block;
+}
+
+/* Full-bleed brand curtain that covers a view swap. */
+.page-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 180;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--green);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.page-curtain[data-active='true'] {
+  pointer-events: auto;
+}
+
+.page-curtain span {
+  padding-left: 0.34em;
+  font-family: var(--serif);
+  font-weight: 300;
+  font-size: clamp(30px, 4.4vw, 56px);
+  letter-spacing: 0.28em;
+  color: var(--on-dark);
+}
+
+/* Opening title card, shown once on first load. */
+.intro-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--green-deep);
+  color: var(--on-dark);
+  animation: fc-curtain-fade 0.9s ease 1.15s both;
+}
+
+.intro-curtain > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.intro-curtain-word {
+  padding-left: 0.3em;
+  font-family: var(--serif);
+  font-weight: 300;
+  font-size: clamp(34px, 4.6vw, 60px);
+  line-height: 1;
+  letter-spacing: 0.3em;
+  animation: fc-in 1s var(--ease-out) 0.1s both;
+}
+
+.intro-curtain-rule {
+  width: clamp(120px, 14vw, 200px);
+  height: 1px;
+  background: var(--gold);
+  transform-origin: 0 50%;
+  animation: fc-line 1s cubic-bezier(0.65, 0, 0.35, 1) 0.25s both;
+}
+
+.intro-curtain-sub {
+  padding-left: 0.6em;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.6em;
+  color: var(--gold);
+  animation: fc-in 1s var(--ease-out) 0.4s both;
+}
+
+@keyframes fc-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fc-line {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes fc-curtain-fade {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-curtain {
+    display: none;
+  }
+
+  [data-reveal],
+  [data-intro] {
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+  }
+}

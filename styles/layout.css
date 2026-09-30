@@ -1,0 +1,379 @@
+/* ── Headers ─────────────────────────────────────────────────────────────── */
+
+.hdr {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  color: var(--on-dark);
+  background: rgba(20, 32, 28, 0);
+  box-shadow: 0 1px 0 rgba(247, 242, 232, 0);
+  transition: height 0.35s ease, background-color 0.35s ease, box-shadow 0.35s ease,
+    translate 0.6s var(--ease-soft);
+}
+
+.hdr[data-solid='true'] {
+  background: rgba(20, 32, 28, 0.96);
+  box-shadow: 0 1px 0 rgba(247, 242, 232, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.hdr-inner {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+/* The roomy desktop header. */
+.hdr-full {
+  height: var(--header-h);
+  display: none;
+}
+
+.hdr-full[data-solid='true'] {
+  height: var(--header-h-solid);
+}
+
+.hdr-full .hdr-inner {
+  padding: 0 clamp(24px, 4.44vw, 64px);
+}
+
+@media (min-width: 1080px) {
+  .hdr-full {
+    display: block;
+  }
+}
+
+/* The condensed header for tablets and phones. */
+.hdr-compact {
+  height: var(--header-h-compact);
+}
+
+.hdr-compact .hdr-inner {
+  padding: 0 clamp(10px, 2.4vw, 28px) 0 clamp(20px, 4vw, 40px);
+  gap: 16px;
+}
+
+@media (min-width: 1080px) {
+  .hdr-compact {
+    display: none;
+  }
+}
+
+/* The phone detail view supplies its own back affordance, so no header there. */
+@media (max-width: 759px) {
+  .hdr[data-hide-mobile='true'] {
+    display: none;
+  }
+}
+
+.hdr-logo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--on-dark);
+  flex: 0 0 auto;
+}
+
+.hdr-logo:hover {
+  color: var(--on-dark);
+}
+
+.hdr-logo-word {
+  font-family: var(--serif);
+  font-size: clamp(24px, 2vw, 29px);
+  line-height: 0.9;
+  letter-spacing: 0.24em;
+  font-weight: 400;
+}
+
+.hdr-logo-sub {
+  font-size: 9.5px;
+  line-height: 1;
+  letter-spacing: 0.56em;
+  font-weight: 500;
+}
+
+.hdr-wordmark {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  color: var(--on-dark);
+  white-space: nowrap;
+}
+
+.hdr-wordmark:hover {
+  color: var(--on-dark);
+}
+
+.hdr-nav {
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 2.5vw, 36px);
+}
+
+/* Small-caps nav item whose gold rule grows in from the left on hover. */
+.hdr-link {
+  padding: 10px 0;
+  font-size: clamp(11px, 0.84vw, 12px);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  color: var(--on-dark);
+  white-space: nowrap;
+  background-image: linear-gradient(var(--gold), var(--gold));
+  background-repeat: no-repeat;
+  background-position: 0 calc(100% - 5px);
+  background-size: 0% 1px;
+  transition: color 0.25s, background-size 0.45s var(--ease-soft);
+}
+
+.hdr-link:hover {
+  color: var(--gold);
+  background-size: 100% 1px;
+}
+
+.hdr-actions {
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 1.67vw, 24px);
+  flex: 0 0 auto;
+}
+
+.hdr-lang {
+  position: relative;
+}
+
+.hdr-lang-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-image: none;
+}
+
+.hdr-lang-caret {
+  font-size: 9px;
+}
+
+.hdr-lang-panel {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: -14px;
+  width: 180px;
+  background: var(--white);
+  box-shadow: 0 22px 50px rgba(20, 32, 28, 0.18);
+  padding: 8px 0;
+}
+
+.hdr-lang-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 11px 18px;
+  font-size: 13px;
+  text-align: left;
+  color: var(--ink);
+  background: var(--white);
+}
+
+.hdr-lang-option[data-selected='true'] {
+  color: var(--green);
+  background: var(--cream);
+}
+
+.hdr-lang-option:hover {
+  background: var(--cream);
+}
+
+.hdr-lang-mark {
+  font-size: 9px;
+  color: var(--gold-deep);
+}
+
+.hdr-compact-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hdr-compact-reserve {
+  height: 38px;
+  padding: 0 22px;
+  font-size: 11px;
+  display: none;
+}
+
+/* Tablets get a reserve shortcut; phones rely on the bottom bar. */
+@media (min-width: 760px) {
+  .hdr-compact-reserve {
+    display: block;
+  }
+}
+
+.hdr-burger {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.hdr-burger span {
+  display: block;
+  width: 16px;
+  height: 1.5px;
+  background: var(--on-dark);
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+
+.footer {
+  background: var(--green-deep);
+  color: var(--on-dark);
+}
+
+.footer-top {
+  padding-block: clamp(36px, 3.1vw, 44px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px 40px;
+}
+
+.footer-wordmark {
+  font-family: var(--serif);
+  font-size: 21px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  color: var(--on-dark);
+  white-space: nowrap;
+}
+
+.footer-wordmark:hover {
+  color: var(--gold);
+}
+
+.footer-tagline {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  color: var(--gold-footer);
+  white-space: nowrap;
+}
+
+.footer-socials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.footer-social {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  color: var(--footer-link);
+  transition: color 0.25s;
+}
+
+.footer-social:hover {
+  color: var(--on-dark);
+}
+
+.footer-member {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  color: var(--on-dark);
+  white-space: nowrap;
+}
+
+.footer-bottom-wrap {
+  padding-bottom: clamp(28px, 2.6vw, 36px);
+}
+
+.footer-bottom {
+  padding-top: 20px;
+  border-top: 1px solid var(--footer-rule);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 40px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--footer-dim);
+}
+
+.footer-strong {
+  color: var(--on-dark);
+}
+
+.footer-strong:hover {
+  color: var(--gold);
+}
+
+.footer-bottom-space {
+  height: 0;
+}
+
+@media (max-width: 759px) {
+  .footer-bottom-space {
+    height: 76px;
+  }
+}
+
+/* ── Mobile tab bars ─────────────────────────────────────────────────────── */
+
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  display: none;
+  background: var(--white);
+  box-shadow: 0 -1px 0 rgba(20, 32, 28, 0.08), 0 -10px 30px rgba(20, 32, 28, 0.06);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (max-width: 759px) {
+  .tabbar {
+    display: grid;
+  }
+}
+
+.tabbar-home {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tabbar-detail {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.tabbar button,
+.tabbar a {
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--white);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.tabbar button[data-active='true'],
+.tabbar .tabbar-primary {
+  background: var(--green);
+  color: #efebe0;
+}

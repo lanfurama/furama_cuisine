@@ -1,0 +1,86 @@
+.booking {
+  position: relative;
+  z-index: 5;
+  background: var(--green);
+  color: var(--on-dark);
+  padding: clamp(64px, 7.4vw, 108px) 0 clamp(64px, 6.6vw, 96px);
+}
+
+/* A phone on the restaurant view books from the bottom bar instead. */
+@media (max-width: 759px) {
+  .booking-slot[data-view='detail'] {
+    display: none;
+  }
+}
+
+.booking-title {
+  margin: 0;
+  text-align: center;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(26px, 2.9vw, 42px);
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--on-dark);
+  text-wrap: balance;
+}
+
+.booking-panel {
+  margin-top: clamp(28px, 3.2vw, 46px);
+  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  background: var(--cream);
+  color: var(--ink);
+}
+
+.booking-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 24px;
+  padding: 6px 12px;
+  align-items: center;
+}
+
+.booking-fields .dd-label {
+  color: var(--brown);
+}
+
+.booking-fields .dd-value {
+  font-size: 20px;
+}
+
+.booking-fields .dd-panel {
+  max-height: 320px;
+  box-shadow: 0 24px 60px rgba(20, 32, 28, 0.22);
+}
+
+.booking-submit {
+  min-height: 60px;
+  padding: 0 28px;
+}
+
+@media (min-width: 760px) {
+  .booking-fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1180px) {
+  .booking-panel {
+    grid-template-columns: minmax(0, 1fr) 178px;
+  }
+
+  .booking-fields {
+    grid-template-columns:
+      minmax(0, 1.35fr) minmax(0, 1.1fr) minmax(0, 1fr)
+      minmax(0, 0.75fr) minmax(0, 0.85fr);
+  }
+
+  .booking-submit {
+    min-height: 100px;
+  }
+}

@@ -1,0 +1,72 @@
+/* Palette, type scale and rhythm lifted from the Furama Cuisine design canvas. */
+:root {
+  /* Surfaces */
+  --cream: #f7f2e8;
+  --white: #fff;
+  --sand: #e8dfcd;
+  --sand-warm: #ece4d3;
+
+  /* Greens */
+  --green: #1f3d34;
+  --green-card: #1e3a31;
+  --green-deep: #14201c;
+  --green-btn: #17342b;
+  --green-btn-hover: #224a3d;
+  --green-rule: #475f56;
+  --green-muted: #adb4aa;
+  --footer-rule: #2c3b35;
+
+  /* Gold / brass */
+  --gold: #c6a664;
+  --gold-hover: #d3b574;
+  --gold-deep: #8a6b33;
+  --gold-footer: #a48c56;
+  --brown: #7a6b47;
+
+  /* Ink */
+  --ink: #232323;
+  --ink-soft: #5e5b53;
+  --ink-softer: #66635b;
+  --ink-offer: #6e6b63;
+  --on-dark: #f7f2e8;
+  --on-dark-soft: #ece6d8;
+  --on-dark-dim: rgba(247, 242, 232, 0.84);
+  --on-green-btn: #faf7f0;
+  --on-gold: #1b2a24;
+  --footer-dim: #a9aea6;
+  --footer-link: #ccc2c2;
+
+  /* Lines */
+  --line: #e4dccb;
+  --line-warm: #e7dabf;
+  --line-soft: #ede5d4;
+  --line-chip: #d8cdb5;
+  --line-field: #dcd2be;
+  --line-empty: #e4dac4;
+  --line-row: #f0e9da;
+
+  /* States */
+  --error: #b3261e;
+  --disabled: #a9a396;
+  --disabled-time: #b3ac9c;
+  --disabled-step: #c9c1b0;
+  --disabled-line: #e9e2d2;
+
+  /* Type */
+  --serif: var(--font-crimson), 'Crimson Pro', Georgia, serif;
+  --sans: var(--font-be-vietnam), 'Be Vietnam Pro', system-ui, sans-serif;
+
+  /* Rhythm */
+  --shell: 1440px;
+  --gutter: clamp(20px, 5.56vw, 80px);
+  --gutter-wide: clamp(24px, 5.56vw, 80px);
+  --header-h: 96px;
+  --header-h-solid: 76px;
+  --header-h-compact: 64px;
+
+  /* Easing */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-inout: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-soft: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-pop: cubic-bezier(0.22, 1, 0.36, 1);
+}

@@ -1,0 +1,343 @@
+/* ── Tàya House hero ─────────────────────────────────────────────────────── */
+
+.taya-hero {
+  position: relative;
+  height: 418px;
+  overflow: hidden;
+  background: var(--green-deep);
+  color: var(--on-dark);
+}
+
+@media (min-width: 760px) {
+  .taya-hero {
+    height: auto;
+    overflow: visible;
+    background: var(--green);
+    padding: clamp(112px, 10.4vw, 150px) 0 clamp(56px, 6vw, 88px);
+  }
+}
+
+/* The phone treatment: full-bleed portrait with copy laid over it. */
+.taya-hero-inner {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+}
+
+@media (min-width: 760px) {
+  .taya-hero-inner {
+    position: static;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: clamp(32px, 5.5vw, 80px);
+    align-items: center;
+  }
+}
+
+.taya-hero-copy {
+  display: none;
+}
+
+@media (min-width: 760px) {
+  .taya-hero-copy {
+    display: block;
+  }
+}
+
+.taya-portrait {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--green-deep);
+}
+
+@media (min-width: 760px) {
+  .taya-portrait {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    max-height: 680px;
+    aspect-ratio: 4 / 5;
+  }
+}
+
+.taya-hero-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(12, 18, 15, 0.5) 0%,
+    rgba(12, 18, 15, 0) 22%,
+    rgba(12, 18, 15, 0) 46%,
+    rgba(16, 24, 20, 0.86) 86%,
+    #101814 100%
+  );
+}
+
+@media (min-width: 760px) {
+  .taya-hero-scrim {
+    display: none;
+  }
+}
+
+.taya-back {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--on-dark);
+  transition: color 0.25s;
+}
+
+.taya-back:hover {
+  color: var(--gold);
+}
+
+.taya-back span {
+  font-size: 14px;
+}
+
+/* Floating back button, phone only. */
+.taya-back-float {
+  position: absolute;
+  top: 12px;
+  left: 10px;
+  z-index: 2;
+  height: 44px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--on-dark);
+}
+
+@media (min-width: 760px) {
+  .taya-back-float {
+    display: none;
+  }
+}
+
+.taya-kicker {
+  margin-top: clamp(32px, 4vw, 56px);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.taya-title {
+  margin: 18px 0 0;
+  font-family: var(--serif);
+  font-weight: 300;
+  font-size: clamp(56px, 6.4vw, 92px);
+  line-height: 1;
+  letter-spacing: -0.015em;
+  color: var(--on-dark);
+}
+
+.taya-hero-mobile-copy {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 26px;
+  pointer-events: none;
+}
+
+@media (min-width: 760px) {
+  .taya-hero-mobile-copy {
+    display: none;
+  }
+}
+
+.taya-kicker-m {
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.taya-title-m {
+  margin: 10px 0 0;
+  font-family: var(--serif);
+  font-weight: 300;
+  font-size: 44px;
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+  color: var(--on-dark);
+}
+
+.taya-story-label {
+  margin-top: clamp(28px, 3vw, 44px);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.taya-story {
+  margin: 14px 0 0;
+  max-width: 520px;
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--on-dark-dim);
+  text-wrap: pretty;
+}
+
+/* The story repeats below the phone hero, on cream. */
+.taya-story-mobile {
+  background: var(--cream);
+  padding: 40px 20px 0;
+}
+
+@media (min-width: 760px) {
+  .taya-story-mobile {
+    display: none;
+  }
+}
+
+.taya-story-mobile .taya-story-label {
+  margin-top: 0;
+  color: var(--brown);
+}
+
+.taya-story-m {
+  margin: 14px 0 0;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+  text-wrap: pretty;
+}
+
+.taya-actions {
+  margin-top: clamp(28px, 3vw, 44px);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+}
+
+.taya-reserve {
+  height: clamp(64px, 6.8vw, 96px);
+  padding: 0 clamp(28px, 3vw, 42px);
+  gap: 14px;
+}
+
+.taya-link {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(247, 242, 232, 0.4);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--on-dark);
+  transition: color 0.25s;
+}
+
+.taya-link:hover {
+  color: var(--gold);
+}
+
+/* ── At Tàya House ───────────────────────────────────────────────────────── */
+
+.dishes {
+  background: var(--cream);
+  padding: clamp(48px, 7vw, 110px) 0 clamp(56px, 7vw, 110px);
+}
+
+.dishes-rail {
+  margin: clamp(24px, 3.4vw, 48px) calc(-1 * var(--gutter)) 0;
+  padding-inline: var(--gutter);
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(min(66vw, 240px), 1fr);
+  gap: clamp(14px, 1.7vw, 24px);
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--gutter);
+}
+
+.dishes-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.dish {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
+.dish-frame {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--sand-warm);
+}
+
+.dish-zoom {
+  position: absolute;
+  inset: 0;
+}
+
+.dish-img {
+  object-fit: cover;
+}
+
+.dish-title {
+  margin-top: 16px;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(21px, 1.6vw, 24px);
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.dish-detail {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+/* ── More at the resort ──────────────────────────────────────────────────── */
+
+.more {
+  background: var(--white);
+  padding: clamp(56px, 7vw, 100px) 0;
+}
+
+.more-title {
+  font-size: clamp(24px, 2.5vw, 36px);
+  line-height: 1.15;
+}
+
+.more-rail {
+  margin: clamp(24px, 3.2vw, 44px) calc(-1 * var(--gutter)) 0;
+  padding-inline: var(--gutter);
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(min(44vw, 180px), 1fr);
+  gap: 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--gutter);
+}
+
+.more-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.more-rail .rcard {
+  scroll-snap-align: start;
+}

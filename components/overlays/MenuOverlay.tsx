@@ -1,0 +1,90 @@
+'use client';
+
+import { NAV_LINKS } from '@/lib/data';
+import { useSite } from '@/components/site/SiteProvider';
+import { useOpenAnimation } from '@/lib/motion';
+
+const MENU_LABELS: Record<string, string> = {
+  restaurants: 'Restaurants',
+  destinations: 'Destinations',
+  experiences: 'Experiences',
+  offers: 'Offers',
+  stories: 'Stories',
+  heritage: 'About',
+};
+
+export function MenuOverlay() {
+  const { overlay, close, open, scrollToId, openReserve, lang, setLang } = useSite();
+  const isOpen = overlay === 'menu';
+
+  useOpenAnimation(isOpen, (animate) => {
+    animate('[data-anim="menu"]', [{ opacity: 0 }, { opacity: 1 }], 400, 0, 'ease');
+    animate(
+      '[data-anim="menu-item"]',
+      [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }],
+      700,
+      120,
+      undefined,
+      40,
+    );
+  });
+
+  if (!isOpen) return null;
+
+  return (
+    <div data-anim="menu" className="menu-root" role="dialog" aria-modal="true" aria-label="Menu">
+      <div className="menu-head">
+        <div className="menu-wordmark">FURAMA CUISINE</div>
+        <button type="button" className="overlay-close" aria-label="Close menu" onClick={close}>
+          ×
+        </button>
+      </div>
+
+      <nav className="menu-nav" aria-label="Sections">
+        {NAV_LINKS.map((l) => (
+          <button
+            key={l.target}
+            type="button"
+            data-anim="menu-item"
+            className="menu-item"
+            onClick={() => scrollToId(l.target)}
+          >
+            {MENU_LABELS[l.target]}
+            <span className="menu-arrow" aria-hidden="true">
+              →
+            </span>
+          </button>
+        ))}
+        <button type="button" data-anim="menu-item" className="menu-item" onClick={() => open('search')}>
+          Search
+          <span className="menu-arrow" aria-hidden="true">
+            →
+          </span>
+        </button>
+      </nav>
+
+      <div className="menu-foot">
+        <button type="button" className="menu-reserve" onClick={() => openReserve()}>
+          RESERVE A TABLE
+        </button>
+        <div className="menu-foot-row">
+          <div className="menu-langs">
+            {(['EN', 'VI'] as const).map((l) => (
+              <button
+                key={l}
+                type="button"
+                className="menu-lang"
+                data-selected={lang === l}
+                aria-pressed={lang === l}
+                onClick={() => setLang(l)}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+          <div className="menu-tagline">PEOPLE | CULTURE | GREAT FOOD</div>
+        </div>
+      </div>
+    </div>
+  );
+}

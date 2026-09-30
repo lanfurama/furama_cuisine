@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Be+Vietnam+Pro:wght@300;400;500;600&display=swap">
+  <script src="image-slot.js"></script>
+  <style>
+    html,body{margin:0;padding:0;background:#F7F2E8;}
+    body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
+    *,*::before,*::after{box-sizing:border-box;}
+    a{color:#1F3D34;text-decoration:none;}
+    a:hover{color:#8A6B33;}
+    button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;}
+    input,textarea{font:inherit;color:inherit;}
+    ::selection{background:#C6A664;color:#14201C;}
+    @keyframes fcLetter{from{opacity:0;transform:translateY(105%)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fcIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+    @keyframes fcCurtainFade{to{opacity:0;visibility:hidden}}
+    @keyframes fcLine{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+    @keyframes fcLift{to{opacity:0;transform:translateY(-28px)}}
+    @keyframes fcCurtain{0%{clip-path:inset(0 0 0 0)}100%{clip-path:inset(0 0 100% 0);visibility:hidden}}
+    @keyframes fcTicker{from{transform:translateY(0)}to{transform:translateY(-88.8889%)}}
+    @keyframes fcMarquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  </style>
+</helmet>
+<div style="position:relative;min-height:100vh;background:#F7F2E8;color:#232323;font-family:'Be Vietnam Pro',system-ui,sans-serif;overflow-x:clip;">
+  <sc-if value="{{ showIntro }}" hint-placeholder-val="{{ true }}">
+    <div aria-hidden="true" style="position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:#14201C;color:#F7F2E8;animation:fcCurtainFade .9s ease 1.15s both;">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+        <div style="padding-left:.3em;font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:clamp(34px,4.6vw,60px);line-height:1;letter-spacing:.3em;animation:fcIn 1s cubic-bezier(.16,1,.3,1) .1s both;">FURAMA</div>
+        <div style="width:clamp(120px,14vw,200px);height:1px;background:#C6A664;animation:fcLine 1s cubic-bezier(.65,0,.35,1) .25s both;"></div>
+        <div style="padding-left:.6em;font-size:10px;font-weight:500;letter-spacing:.6em;color:#C6A664;animation:fcIn 1s cubic-bezier(.16,1,.3,1) .4s both;">CUISINE</div>
+      </div>
+    </div>
+  </sc-if>
+  
+  <div data-page-curtain="1" aria-hidden="true" style="position:fixed;inset:0;z-index:180;display:flex;align-items:center;justify-content:center;background:#1F3D34;transform:translateY(100%);pointer-events:none;">
+    <div style="padding-left:.34em;font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:clamp(30px,4.4vw,56px);letter-spacing:.28em;color:#F7F2E8;">FURAMA</div>
+  </div>
+  
+  <sc-if value="{{ showFullHeader }}" hint-placeholder-val="{{ true }}">
+    <header data-header="1" style="position:fixed;top:0;left:0;right:0;z-index:50;height:{{ hdr.h }};background:{{ hdr.bg }};box-shadow:{{ hdr.shadow }};backdrop-filter:{{ hdr.blur }};-webkit-backdrop-filter:{{ hdr.blur }};color:#F7F2E8;transition:height .35s ease,background-color .35s ease,box-shadow .35s ease,translate .6s cubic-bezier(.2,.7,.2,1);">
+      <div style="height:100%;padding:0 clamp(24px,4.44vw,64px);display:flex;align-items:center;justify-content:space-between;gap:24px;">
+        <a href="#" onClick="{{ goHomeTop }}" style="display:flex;flex-direction:column;gap:8px;color:#F7F2E8;flex:0 0 auto;">
+          <span style="font-family:'Crimson Pro',Georgia,serif;font-size:clamp(24px,2vw,29px);line-height:.9;letter-spacing:.24em;font-weight:400;">FURAMA</span>
+          <span style="font-size:9.5px;line-height:1;letter-spacing:.56em;font-weight:500;">CUISINE</span>
+        </a>
+        <nav style="display:flex;align-items:center;gap:clamp(16px,2.5vw,36px);">
+          <button onClick="{{ nav.restaurants }}" style="padding:10px 0;font-size:clamp(11px,.84vw,12px);font-weight:500;letter-spacing:.14em;color:#F7F2E8;white-space:nowrap;background-image:linear-gradient(#C6A664,#C6A664);background-repeat:no-repeat;background-position:0 calc(100% - 5px);background-size:0% 1px;transition:color .25s,background-size .45s cubic-bezier(.2,.7,.2,1);" style-hover="color:#C6A664;background-size:100% 1px;">RESTAURANTS</button>
+          <button onClick="{{ nav.destinations }}" style="padding:10px 0;font-size:clamp(11px,.84vw,12px);font-weight:500;letter-spacing:.14em;color:#F7F2E8;white-space:nowrap;background-image:linear-gradient(#C6A664,#C6A664);background-repeat:no-repeat;background-position:0 calc(100% - 5px);background-size:0% 1px;transition:color .25s,background-size .45s cubic-bezier(.2,.7,.2,1);" style-hover="color:#C6A664;background-size:100% 1px;">DESTINATIONS</button>
+          <button onClick="{{ nav.experiences }}" style="padding:10px 0;font-size:clamp(11px,.84vw,12px);font-weight:500;letter-spacing:.14em;color:#F7F2E8;white-space:nowrap;background-image:linear-gradient(#C6A664,#C6A664);background-repeat:no-repeat;background-position:0 calc(100% - 5px);background-size:0% 1px;transition:color .25s,background-size .45s cubic-bezier(.2,.7,.2,1);" style-hover="color:#C6A664;background-size:100% 1px;">EXPERIENCES</button>
+          <button onClick="{{ nav.offers }}" style="padding:10px 0;font-size:clamp(11px,.84vw,12px);font-weight:500;letter-spacing:.14em;color:#F7F2E8;white-space:nowrap;background-image:linear-gradient(#C6A664,#C6A664);background-repeat:no-repeat;background-position:0 calc(100% - 5px);background-size:0% 1px;transition:color .25s,background-size .45s cubic-bezier(.2,.7,.2,1);" style-hover="color:#C6A664;background-size:100% 1px;">OFFERS</button>
+          <button onClick="{{ nav.stories }}" style="padding:10px 0;font-size:clamp(11px,.84vw,12px);font-weight:500;letter-spacing:.14em;color:#F7F2E8;white-space:nowrap;background-image:linear-gradient(#C6A664,#C6A664);background-repeat:no-repeat;background-position:0 calc(100% - 5px);background-size:0% 1px;transition:color .25s,background-size .45s cubic-bezier(.2,.7,.2,1);" style-hover="color:#C6A664;background-size:100% 1px;">STORIES</button>
+          <button onClick="{{ nav.about }}" style="padding:10px 0;font-size:clamp(11px,.84vw,12px);font-weight:500;letter-spacing:.14em;color:#F7F2E8;white-space:nowrap;background-image:linear-gradient(#C6A664,#C6A664);background-repeat:no-repeat;background-position:0 calc(100% - 5px);background-size:0% 1px;transition:color .25s,background-size .45s cubic-bezier(.2,.7,.2,1);" style-hover="color:#C6A664;background-size:100% 1px;">ABOUT</button>
+        </nav>
+        <div style="display:flex;align-items:center;gap:clamp(16px,1.67vw,24px);flex:0 0 auto;">
+          <button onClick="{{ openSearch }}" style="padding:10px 0;font-size:clamp(11px,.84vw,12px);font-weight:500;letter-spacing:.14em;color:#F7F2E8;white-space:nowrap;background-image:linear-gradient(#C6A664,#C6A664);background-repeat:no-repeat;background-position:0 calc(100% - 5px);background-size:0% 1px;transition:color .25s,background-size .45s cubic-bezier(.2,.7,.2,1);" style-hover="color:#C6A664;background-size:100% 1px;">SEARCH</button>
+          <div data-dd="1" style="position:relative;">
+            <button onClick="{{ lang.toggle }}" style="display:flex;align-items:center;gap:6px;padding:10px 0;font-size:clamp(11px,.84vw,12px);font-weight:500;letter-spacing:.14em;color:#F7F2E8;transition:color .25s;" style-hover="color:#C6A664;">{{ lang.value }}<span style="font-size:9px;">▾</span></button>
+            <sc-if value="{{ lang.open }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:calc(100% + 12px);right:-14px;width:180px;background:#FFFFFF;box-shadow:0 22px 50px rgba(20,32,28,.18);padding:8px 0;">
+                <sc-for list="{{ lang.options }}" as="o" hint-placeholder-count="2">
+                  <button onClick="{{ o.onClick }}" style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:11px 18px;font-size:13px;text-align:left;color:{{ o.color }};background:{{ o.bg }};" style-hover="background:#F7F2E8;"><span>{{ o.label }}</span><span style="font-size:9px;color:#8A6B33;">{{ o.note }}</span></button>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+          <button onClick="{{ openReserve }}" style="height:41px;padding:0 30px;background:#C6A664;color:#1B2A24;font-size:12px;font-weight:600;letter-spacing:.16em;transition:background-color .3s;" style-hover="background:#D3B574;">RESERVE</button>
+        </div>
+      </div>
+    </header>
+  </sc-if>
+
+  <sc-if value="{{ showCompactHeader }}" hint-placeholder-val="{{ false }}">
+    <header data-header="1" style="position:fixed;top:0;left:0;right:0;z-index:50;height:64px;background:{{ hdr.bg }};box-shadow:{{ hdr.shadow }};backdrop-filter:{{ hdr.blur }};-webkit-backdrop-filter:{{ hdr.blur }};color:#F7F2E8;transition:background-color .35s ease,box-shadow .35s ease,translate .6s cubic-bezier(.2,.7,.2,1);">
+      <div style="height:100%;padding:0 clamp(10px,2.4vw,28px) 0 clamp(20px,4vw,40px);display:flex;align-items:center;justify-content:space-between;gap:16px;">
+        <a href="#" onClick="{{ goHomeTop }}" style="font-family:'Crimson Pro',Georgia,serif;font-size:18px;font-weight:400;line-height:1;letter-spacing:.16em;color:#F7F2E8;white-space:nowrap;">FURAMA CUISINE</a>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <sc-if value="{{ showCompactReserve }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ openReserve }}" style="height:38px;padding:0 22px;background:#C6A664;color:#1B2A24;font-size:11px;font-weight:600;letter-spacing:.16em;">RESERVE</button>
+          </sc-if>
+          <button onClick="{{ openMenu }}" aria-label="Open menu" style="width:44px;height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
+            <span style="display:block;width:16px;height:1.5px;background:#F7F2E8;"></span>
+            <span style="display:block;width:16px;height:1.5px;background:#F7F2E8;"></span>
+            <span style="display:block;width:16px;height:1.5px;background:#F7F2E8;"></span>
+          </button>
+        </div>
+      </div>
+    </header>
+  </sc-if>
+
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+    <main data-screen-label="Home">
+
+      <sc-if value="{{ heroDesktop }}" hint-placeholder-val="{{ true }}">
+        <section id="top" style="position:relative;height:clamp(600px,calc(100vh - 40px),820px);overflow:hidden;background:#14201C;color:#F7F2E8;">
+          <div data-parallax="0.3" style="position:absolute;inset:0;opacity:{{ slideC.op }};z-index:{{ slideC.z }};pointer-events:{{ slideC.pe }};transition:opacity 1.4s ease;">
+            <div style="position:absolute;inset:0;transform:scale({{ slideC.sc }});transition:transform 7s cubic-bezier(.25,.6,.3,1);">
+              <image-slot id="hero-slide-3" data-hero="2" shape="rect" src="assets/hero-indochine.jpg" placeholder="Hero slide 3" style="width:100%;height:100%;color:#E9E3D6;"></image-slot>
+            </div>
+          </div>
+          <div data-parallax="0.3" style="position:absolute;inset:0;opacity:{{ slideB.op }};z-index:{{ slideB.z }};pointer-events:{{ slideB.pe }};transition:opacity 1.4s ease;">
+            <div style="position:absolute;inset:0;transform:scale({{ slideB.sc }});transition:transform 7s cubic-bezier(.25,.6,.3,1);">
+              <image-slot id="hero-slide-2" data-hero="1" shape="rect" src="assets/hero-taya.jpg" placeholder="Hero slide 2" style="width:100%;height:100%;color:#E9E3D6;"></image-slot>
+            </div>
+          </div>
+          <div data-parallax="0.3" style="position:absolute;inset:0;opacity:{{ slideA.op }};z-index:{{ slideA.z }};pointer-events:{{ slideA.pe }};transition:opacity 1.4s ease;">
+            <div style="position:absolute;inset:0;transform:scale({{ slideA.sc }});transition:transform 7s cubic-bezier(.25,.6,.3,1);">
+              <image-slot id="hero-slide-1" data-hero="0" src="assets/hero-beach.jpg" shape="rect" placeholder="Hero slide 1" style="width:100%;height:100%;color:#E9E3D6;"></image-slot>
+            </div>
+          </div>
+          <div style="position:absolute;inset:0;z-index:3;pointer-events:none;background:linear-gradient(90deg,rgba(12,18,15,.62) 0%,rgba(12,18,15,.34) 38%,rgba(12,18,15,0) 66%),linear-gradient(180deg,rgba(12,18,15,.5) 0%,rgba(12,18,15,0) 20%,rgba(12,18,15,0) 58%,rgba(12,18,15,.55) 100%);"></div>
+          <div data-hero-content="1" style="position:relative;z-index:4;height:100%;max-width:1440px;margin:0 auto;padding:0 clamp(24px,5.56vw,80px) clamp(36px,3.8vw,54px);display:flex;flex-direction:column;justify-content:flex-end;pointer-events:none;">
+            <div style="max-width:760px;">
+              <div data-intro="0" style="font-size:12px;font-weight:500;letter-spacing:.24em;text-transform:uppercase;color:#C6A664;opacity:0;transform:translateY(18px);">People · Culture · Great Food</div>
+              <h1 style="margin:22px 0 0;font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:clamp(46px,5vw,72px);line-height:1.04;letter-spacing:-.012em;color:#F7F2E8;"><span style="display:block;overflow:hidden;padding-bottom:.14em;margin-bottom:-.14em;"><span data-intro="1" style="display:block;transform:translateY(110%);">Many Flavours.</span></span><span style="display:block;overflow:hidden;padding-bottom:.14em;margin-bottom:-.14em;"><span data-intro="2" style="display:block;transform:translateY(110%);">Many Destinations.</span></span><span style="display:block;overflow:hidden;padding-bottom:.14em;margin-bottom:-.14em;"><span data-intro="3" style="display:block;transform:translateY(110%);">One Furama Cuisine.</span></span></h1>
+              <p data-intro="4" style="margin:26px 0 0;max-width:560px;font-size:15px;line-height:1.8;color:#ECE6D8;text-wrap:pretty;opacity:0;transform:translateY(18px);">From beachfront dining to vibrant city destinations – discover the restaurants, cuisines and people of Furama Cuisine.</p>
+              <div data-intro="5" style="margin-top:38px;display:flex;align-items:center;flex-wrap:wrap;gap:24px 52px;opacity:0;transform:translateY(18px);">
+                <button onClick="{{ exploreRestaurants }}" style="pointer-events:auto;height:clamp(72px,6.8vw,98px);padding:0 clamp(28px,2.9vw,42px);display:flex;align-items:center;gap:16px;background:#F7F2E8;color:#232323;font-size:12px;font-weight:600;letter-spacing:.16em;transition:background-color .3s ease;" style-hover="background:#FFFFFF;">EXPLORE OUR RESTAURANTS<span style="font-size:14px;">→</span></button>
+                <button onClick="{{ openFilm }}" style="pointer-events:auto;display:flex;align-items:center;gap:22px;color:#F7F2E8;font-size:12px;font-weight:600;letter-spacing:.22em;transition:color .25s;" style-hover="color:#C6A664;">
+                  <span style="width:62px;height:62px;border-radius:50%;border:1px solid rgba(247,242,232,.8);display:flex;align-items:center;justify-content:center;">
+                    <span style="display:block;width:0;height:0;margin-left:3px;border-left:9px solid #F7F2E8;border-top:6px solid transparent;border-bottom:6px solid transparent;"></span>
+                  </span>
+                  WATCH THE FILM
+                </button>
+              </div>
+              <div data-intro="6" style="margin-top:28px;display:flex;align-items:center;gap:10px;pointer-events:auto;opacity:0;">
+                <button onClick="{{ slideA.go }}" aria-label="Slide 1" style="padding:10px 0;"><span style="display:block;height:2px;width:{{ slideA.w }};background:{{ slideA.c }};transition:width .5s ease,background-color .5s ease;"></span></button>
+                <button onClick="{{ slideB.go }}" aria-label="Slide 2" style="padding:10px 0;"><span style="display:block;height:2px;width:{{ slideB.w }};background:{{ slideB.c }};transition:width .5s ease,background-color .5s ease;"></span></button>
+                <button onClick="{{ slideC.go }}" aria-label="Slide 3" style="padding:10px 0;"><span style="display:block;height:2px;width:{{ slideC.w }};background:{{ slideC.c }};transition:width .5s ease,background-color .5s ease;"></span></button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ heroMobile }}" hint-placeholder-val="{{ false }}">
+        <section id="top" style="position:relative;height:600px;overflow:hidden;background:#14201C;color:#F7F2E8;">
+          <image-slot id="hero-mobile" src="assets/hero-hall-m.jpg" shape="rect" placeholder="Mobile hero image" style="position:absolute;inset:0;width:100%;height:100%;color:#E9E3D6;"></image-slot>
+          <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(12,18,15,.55) 0%,rgba(12,18,15,0) 18%,rgba(12,18,15,0) 38%,rgba(14,20,17,.8) 76%,#131A16 100%);"></div>
+          <div style="position:absolute;left:20px;right:20px;bottom:60px;pointer-events:none;">
+            <div data-intro="0" style="font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:#C6A664;opacity:0;transform:translateY(18px);">People · Culture · Great Food</div>
+            <h1 style="margin:12px 0 0;font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:37px;line-height:1.06;letter-spacing:-.01em;color:#F7F2E8;"><span style="display:block;overflow:hidden;padding-bottom:.14em;margin-bottom:-.14em;"><span data-intro="1" style="display:block;transform:translateY(110%);">Many Flavours.</span></span><span style="display:block;overflow:hidden;padding-bottom:.14em;margin-bottom:-.14em;"><span data-intro="2" style="display:block;transform:translateY(110%);">One Furama Cuisine.</span></span></h1>
+            <button data-intro="3" onClick="{{ openSheet }}" style="opacity:0;transform:translateY(18px);pointer-events:auto;margin-top:24px;width:100%;height:52px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;background:#F7F2E8;color:#232323;font-size:11px;font-weight:600;letter-spacing:.14em;">FIND A RESTAURANT<span style="font-size:13px;">→</span></button>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ showFinder }}" hint-placeholder-val="{{ true }}">
+        <section style="position:relative;z-index:6;background:#FFFFFF;">
+          <div style="max-width:1440px;margin:0 auto;padding:24px clamp(24px,5.56vw,80px);display:grid;grid-template-columns:{{ finderGrid }};gap:16px 32px;align-items:center;">
+            <div style="display:grid;grid-template-columns:{{ finderCols }};gap:12px 24px;align-items:center;">
+              <sc-for list="{{ finderFields }}" as="fd" hint-placeholder-count="4">
+                <div data-dd="1" style="position:relative;min-width:0;">
+                  <button onClick="{{ fd.toggle }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:10px;width:100%;padding:10px 0;text-align:left;">
+                    <span style="font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#8A6B33;">{{ fd.label }}</span>
+                    <span style="display:flex;align-items:center;gap:8px;max-width:100%;font-family:'Crimson Pro',Georgia,serif;font-size:21px;font-weight:400;line-height:1.2;color:#232323;"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ fd.value }}</span><span style="display:inline-block;font-size:11px;transform:rotate({{ fd.rot }});transition:transform .25s ease;">▾</span></span>
+                  </button>
+                  <sc-if value="{{ fd.open }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute;top:calc(100% + 4px);left:-18px;min-width:calc(100% + 36px);width:max-content;max-width:320px;max-height:340px;overflow-y:auto;background:#FFFFFF;border:1px solid #EDE5D4;box-shadow:0 24px 60px rgba(20,32,28,.16);padding:8px 0;z-index:40;">
+                      <sc-for list="{{ fd.options }}" as="o" hint-placeholder-count="3">
+                        <button onClick="{{ o.onClick }}" style="display:flex;align-items:center;justify-content:space-between;gap:28px;width:100%;padding:10px 18px;text-align:left;font-family:'Crimson Pro',Georgia,serif;font-size:18px;line-height:1.3;color:{{ o.color }};background:{{ o.bg }};cursor:{{ o.cursor }};" style-hover="background:#F7F2E8;"><span>{{ o.label }}</span><span style="font-family:'Be Vietnam Pro',sans-serif;font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#8A6B33;white-space:nowrap;">{{ o.note }}</span></button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+            <button onClick="{{ applyFinder }}" style="height:clamp(64px,6.9vw,100px);padding:0 32px;display:flex;align-items:center;justify-content:center;gap:14px;background:#17342B;color:#FAF7F0;font-size:12px;font-weight:600;letter-spacing:.14em;white-space:nowrap;transition:background-color .3s;" style-hover="background:#224A3D;">SHOW RESTAURANTS<span style="font-size:14px;">→</span></button>
+          </div>
+        </section>
+      </sc-if>
+
+      <section id="cuisines" style="background:#F7F2E8;padding:clamp(56px,7vw,100px) 0 0;">
+        <div style="max-width:1440px;margin:0 auto;padding:0 clamp(20px,5.56vw,80px);">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px 24px;flex-wrap:wrap;">
+            <h2 data-reveal="title" style="margin:0;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(28px,2.9vw,42px);line-height:1.1;letter-spacing:.04em;text-transform:uppercase;color:#232323;">Explore by Cuisine</h2>
+            <button data-reveal="fade" onClick="{{ allCuisines }}" style="padding:6px 0;font-size:10px;font-weight:600;letter-spacing:.16em;color:#1F3D34;transition:color .25s;" style-hover="color:#8A6B33;">ALL CUISINES →</button>
+          </div>
+          <div style="margin:clamp(28px,4vw,56px) calc(-1 * clamp(20px,5.56vw,80px)) 0;padding:6px clamp(20px,5.56vw,80px) 8px;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(104px,1fr);gap:24px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;scroll-padding:0 clamp(20px,5.56vw,80px);">
+            <sc-for list="{{ cuisines }}" as="c" hint-placeholder-count="8">
+              <div data-reveal="up" role="button" onClick="{{ c.onClick }}" style="display:flex;flex-direction:column;align-items:center;gap:18px;cursor:pointer;scroll-snap-align:start;">
+                <div style="width:80px;height:80px;border-radius:50%;box-shadow:{{ c.ring }};transition:box-shadow .3s ease,transform .45s cubic-bezier(.2,.7,.2,1);" style-hover="transform:translateY(-4px);">
+                  <image-slot id="{{ c.slot }}" src="{{ c.img }}" shape="circle" style="width:80px;height:80px;"></image-slot>
+                </div>
+                <span style="font-size:13px;line-height:1.2;white-space:nowrap;color:{{ c.color }};font-weight:{{ c.weight }};">{{ c.label }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+
+      <section id="restaurants" style="background:#F7F2E8;padding:clamp(64px,8.6vw,124px) 0 clamp(72px,8.3vw,120px);">
+        <div style="max-width:1440px;margin:0 auto;padding:0 clamp(20px,5.56vw,80px);">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px 24px;flex-wrap:wrap;">
+            <h2 data-reveal="title" style="margin:0;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(28px,2.9vw,42px);line-height:1.1;letter-spacing:.04em;text-transform:uppercase;color:#232323;">Our Restaurants</h2>
+            <button data-reveal="fade" onClick="{{ viewAll }}" style="padding:6px 0;font-size:10px;font-weight:600;letter-spacing:.16em;color:#1F3D34;transition:color .25s;" style-hover="color:#8A6B33;">VIEW ALL RESTAURANTS →</button>
+          </div>
+          <sc-if value="{{ hasFilter }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:22px;display:flex;align-items:center;flex-wrap:wrap;gap:10px;">
+              <span style="margin-right:6px;font-size:12px;color:#5E5B53;">{{ filterSummary }}</span>
+              <sc-for list="{{ filterChips }}" as="fc" hint-placeholder-count="1">
+                <button onClick="{{ fc.onClick }}" style="display:flex;align-items:center;gap:10px;height:32px;padding:0 14px;border:1px solid #D8CDB5;background:#FFFFFF;font-size:11px;font-weight:500;letter-spacing:.04em;color:#232323;transition:border-color .25s;" style-hover="border-color:#1F3D34;">{{ fc.label }}<span style="font-size:14px;line-height:1;color:#7A6B47;">×</span></button>
+              </sc-for>
+              <button onClick="{{ clearFilters }}" style="padding:8px 4px;font-size:10px;font-weight:600;letter-spacing:.16em;color:#1F3D34;text-decoration:underline;text-underline-offset:4px;">CLEAR ALL</button>
+            </div>
+          </sc-if>
+          <div id="restaurant-grid" style="margin-top:clamp(28px,3.4vw,48px);display:grid;grid-template-columns:repeat(auto-fill,minmax(max(150px,calc((100% - 80px) / 6)),1fr));column-gap:16px;row-gap:clamp(32px,3.6vw,52px);">
+            <sc-for list="{{ restaurants }}" as="r" hint-placeholder-count="12">
+              <div data-reveal="card" role="button" onClick="{{ r.onClick }}" onMouseEnter="{{ r.onEnter }}" onMouseLeave="{{ r.onLeave }}" style="display:{{ r.display }};flex-direction:column;min-width:0;cursor:pointer;">
+                <div data-reveal-img="1" style="position:relative;aspect-ratio:4/3;overflow:hidden;background:#E8DFCD;">
+                  <div style="position:absolute;inset:0;transform:scale({{ r.scale }});transition:transform .9s cubic-bezier(.2,.7,.2,1);">
+                    <image-slot id="{{ r.slot }}" src="{{ r.img }}" shape="rect" style="width:100%;height:100%;"></image-slot>
+                  </div>
+                  <div style="position:absolute;left:10px;bottom:10px;padding:7px 10px;background:rgba(247,242,232,.95);font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#1F3D34;white-space:nowrap;pointer-events:none;opacity:{{ r.tagOp }};transform:translateY({{ r.tagY }});transition:opacity .35s ease,transform .35s ease;">{{ r.tag }} →</div>
+                </div>
+                <div style="margin-top:14px;font-family:'Crimson Pro',Georgia,serif;font-size:clamp(18px,1.4vw,20px);font-weight:500;line-height:1.25;color:#232323;">{{ r.name }}</div>
+                <div style="margin-top:7px;font-size:10px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:#7A6B47;">{{ r.type }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:48px 24px;border:1px solid #E4DAC4;text-align:center;">
+              <div style="font-family:'Crimson Pro',Georgia,serif;font-size:26px;font-weight:400;line-height:1.2;color:#232323;">No restaurants match these filters</div>
+              <div style="margin-top:10px;font-size:13px;color:#5E5B53;">Try another cuisine, occasion or destination.</div>
+              <button onClick="{{ clearFilters }}" style="margin-top:22px;height:48px;padding:0 26px;background:#1F3D34;color:#F7F2E8;font-size:11px;font-weight:600;letter-spacing:.16em;">SHOW ALL RESTAURANTS</button>
+            </div>
+          </sc-if>
+        </div>
+      </section>
+
+      <section id="destinations" style="background:#FFFFFF;padding:clamp(64px,7.6vw,110px) 0 clamp(64px,6.6vw,96px);">
+        <div style="max-width:1440px;margin:0 auto;padding:0 clamp(20px,5.56vw,80px);">
+          <div style="text-align:center;">
+            <h2 data-reveal="title" style="margin:0;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(28px,2.9vw,42px);line-height:1.1;letter-spacing:.04em;text-transform:uppercase;color:#232323;">Our Destinations</h2>
+            <p data-reveal="up" style="margin:16px 0 0;font-size:14px;line-height:1.6;color:#66635B;">Different places. One culinary family.</p>
+          </div>
+          <div data-reveal="journey" aria-hidden="true" style="position:relative;height:14px;margin:clamp(32px,4vw,52px) 0 calc(-1 * clamp(8px,1.4vw,24px));display:{{ journeyDisp }};">
+            <div data-jline="1" style="position:absolute;left:12.5%;right:12.5%;top:6px;height:1px;background:repeating-linear-gradient(90deg,#C6A664 0 6px,rgba(198,166,100,0) 6px 12px);transform-origin:0 50%;"></div>
+            <span data-jdot="1" style="position:absolute;left:12.5%;top:2px;width:9px;height:9px;margin-left:-4.5px;border-radius:50%;border:1px solid #C6A664;background:#FFFFFF;"></span><span data-jdot="1" style="position:absolute;left:37.5%;top:2px;width:9px;height:9px;margin-left:-4.5px;border-radius:50%;border:1px solid #C6A664;background:#FFFFFF;"></span><span data-jdot="1" style="position:absolute;left:62.5%;top:2px;width:9px;height:9px;margin-left:-4.5px;border-radius:50%;border:1px solid #C6A664;background:#FFFFFF;"></span><span data-jdot="1" style="position:absolute;left:87.5%;top:2px;width:9px;height:9px;margin-left:-4.5px;border-radius:50%;border:1px solid #C6A664;background:#FFFFFF;"></span>
+            
+          </div>
+          <div style="margin:clamp(32px,4vw,58px) calc(-1 * clamp(20px,5.56vw,80px)) 0;padding:0 clamp(20px,5.56vw,80px);display:grid;grid-auto-flow:column;grid-auto-columns:minmax({{ destCol }},1fr);gap:16px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x mandatory;scroll-padding:0 clamp(20px,5.56vw,80px);">
+            <div data-reveal="clip" role="button" onClick="{{ dest.resort.onClick }}" onMouseEnter="{{ dest.resort.onEnter }}" onMouseLeave="{{ dest.resort.onLeave }}" style="position:relative;aspect-ratio:308/480;overflow:hidden;background:#1E3A31;color:#F7F2E8;cursor:pointer;scroll-snap-align:start;">
+              <div style="position:absolute;inset:0;transform:scale({{ dest.resort.scale }});transition:transform 1.1s cubic-bezier(.2,.7,.2,1);">
+                <image-slot id="dest-resort" src="assets/dest-resort.jpg" shape="rect" style="width:100%;height:100%;"></image-slot>
+              </div>
+              <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(30,58,49,0) 40%,rgba(30,58,49,.7) 68%,#1E3A31 100%);"></div>
+              <div style="position:absolute;left:clamp(20px,1.95vw,28px);right:clamp(20px,1.95vw,28px);bottom:clamp(28px,3vw,44px);pointer-events:none;">
+                <div style="font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(22px,1.8vw,26px);line-height:1.14;letter-spacing:.04em;text-transform:uppercase;">Furama<br>Resort Danang</div>
+                <div style="margin-top:14px;font-size:13px;line-height:1.65;color:rgba(247,242,232,.84);">Iconic beachfront dining<br>since 1997</div>
+                <div style="margin-top:18px;font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#C6A664;opacity:{{ dest.resort.op }};transform:translateY({{ dest.resort.y }});transition:opacity .4s ease,transform .4s ease;">{{ dest.resort.count }}</div>
+              </div>
+            </div>
+            <div data-reveal="clip" role="button" onClick="{{ dest.dining.onClick }}" onMouseEnter="{{ dest.dining.onEnter }}" onMouseLeave="{{ dest.dining.onLeave }}" style="position:relative;aspect-ratio:308/480;overflow:hidden;background:#1E3A31;color:#F7F2E8;cursor:pointer;scroll-snap-align:start;">
+              <div style="position:absolute;inset:0;transform:scale({{ dest.dining.scale }});transition:transform 1.1s cubic-bezier(.2,.7,.2,1);">
+                <image-slot id="dest-dining-house" src="assets/dest-dining-house.jpg" shape="rect" style="width:100%;height:100%;"></image-slot>
+              </div>
+              <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(30,58,49,0) 40%,rgba(30,58,49,.7) 68%,#1E3A31 100%);"></div>
+              <div style="position:absolute;left:clamp(20px,1.95vw,28px);right:clamp(20px,1.95vw,28px);bottom:clamp(28px,3vw,44px);pointer-events:none;">
+                <div style="font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(22px,1.8vw,26px);line-height:1.14;letter-spacing:.04em;text-transform:uppercase;">Furama<br>Dining House</div>
+                <div style="margin-top:14px;font-size:13px;line-height:1.65;color:rgba(247,242,232,.84);">4 floors · 4 flavours<br>1 night out</div>
+                <div style="margin-top:18px;font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#C6A664;opacity:{{ dest.dining.op }};transform:translateY({{ dest.dining.y }});transition:opacity .4s ease,transform .4s ease;">{{ dest.dining.count }}</div>
+              </div>
+            </div>
+            <div data-reveal="clip" role="button" onClick="{{ dest.mm.onClick }}" onMouseEnter="{{ dest.mm.onEnter }}" onMouseLeave="{{ dest.mm.onLeave }}" style="position:relative;aspect-ratio:308/480;overflow:hidden;background:#1E3A31;color:#F7F2E8;cursor:pointer;scroll-snap-align:start;">
+              <div style="position:absolute;inset:0;transform:scale({{ dest.mm.scale }});transition:transform 1.1s cubic-bezier(.2,.7,.2,1);">
+                <image-slot id="dest-mm" src="assets/dest-mm.jpg" shape="rect" style="width:100%;height:100%;"></image-slot>
+              </div>
+              <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(30,58,49,0) 40%,rgba(30,58,49,.7) 68%,#1E3A31 100%);"></div>
+              <div style="position:absolute;left:clamp(20px,1.95vw,28px);right:clamp(20px,1.95vw,28px);bottom:clamp(28px,3vw,44px);pointer-events:none;">
+                <div style="font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(22px,1.8vw,26px);line-height:1.14;letter-spacing:.04em;text-transform:uppercase;">Furama MM<br>Supercenter</div>
+                <div style="margin-top:14px;font-size:13px;line-height:1.65;color:rgba(247,242,232,.84);">Everyday dining<br>for everyone</div>
+                <div style="margin-top:18px;font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#C6A664;opacity:{{ dest.mm.op }};transform:translateY({{ dest.mm.y }});transition:opacity .4s ease,transform .4s ease;">{{ dest.mm.count }}</div>
+              </div>
+            </div>
+            <div data-reveal="clip" onMouseEnter="{{ dest.future.onEnter }}" onMouseLeave="{{ dest.future.onLeave }}" style="position:relative;aspect-ratio:308/480;overflow:hidden;background:#1E3A31;color:#F7F2E8;scroll-snap-align:start;">
+              <div style="position:absolute;inset:0;transform:scale({{ dest.future.scale }});transition:transform 1.1s cubic-bezier(.2,.7,.2,1);">
+                <image-slot id="dest-future" src="assets/dest-future.jpg" shape="rect" style="width:100%;height:100%;"></image-slot>
+              </div>
+              <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(30,58,49,0) 40%,rgba(30,58,49,.7) 68%,#1E3A31 100%);"></div>
+              <div style="position:absolute;left:clamp(20px,1.95vw,28px);right:clamp(20px,1.95vw,28px);bottom:clamp(28px,3vw,44px);pointer-events:none;">
+                <div style="font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(22px,1.8vw,26px);line-height:1.14;letter-spacing:.04em;text-transform:uppercase;">Future<br>Locations</div>
+                <div style="margin-top:14px;font-size:13px;line-height:1.65;color:rgba(247,242,232,.84);">Bringing great food<br>to more places</div>
+                <div style="margin-top:18px;font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#C6A664;opacity:{{ dest.future.op }};transform:translateY({{ dest.future.y }});transition:opacity .4s ease,transform .4s ease;">{{ dest.future.count }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="experiences" style="display:flex;flex-wrap:wrap;background:#1F3D34;color:#F7F2E8;">
+        <div data-reveal="wipe" style="position:relative;flex:1 1 460px;min-height:clamp(340px,41.6vw,600px);overflow:hidden;">
+          <image-slot id="exp-chef" src="assets/chef.jpg" shape="rect" style="position:absolute;inset:0;width:100%;height:100%;"></image-slot>
+        </div>
+        <div style="flex:1 1 460px;padding:clamp(48px,6.7vw,96px) clamp(20px,5.56vw,80px);display:flex;flex-direction:column;justify-content:center;">
+          <div data-reveal="fade" style="font-size:11px;font-weight:500;letter-spacing:.3em;text-transform:uppercase;color:#C6A664;">Experiences</div>
+          <h2 data-reveal="title" style="margin:20px 0 0;font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:clamp(34px,3.2vw,46px);line-height:1.1;letter-spacing:-.01em;color:#F7F2E8;">More than a meal.<br>A meaningful experience.</h2>
+          <div style="margin-top:clamp(20px,2.4vw,32px);display:flex;flex-direction:column;">
+            <a data-reveal="right" href="#experiences" onClick="{{ noop }}" style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding:20px 0 18px;border-bottom:1px solid #475F56;color:#F7F2E8;transition:padding .35s ease;" style-hover="padding-left:10px;color:#F7F2E8;">
+              <span style="display:flex;flex-direction:column;gap:7px;"><span style="font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(21px,1.7vw,24px);line-height:1.2;">Culinary Experiences</span><span style="font-size:12px;line-height:1.5;color:#ADB4AA;">Tàya House cooking classes · Seafood & Steak Buffet · Champa dance nights</span></span>
+              <span style="font-size:14px;color:#C6A664;">→</span>
+            </a>
+            <a data-reveal="right" href="#experiences" onClick="{{ noop }}" style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding:20px 0 18px;border-bottom:1px solid #475F56;color:#F7F2E8;transition:padding .35s ease;" style-hover="padding-left:10px;color:#F7F2E8;">
+              <span style="display:flex;flex-direction:column;gap:7px;"><span style="font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(21px,1.7vw,24px);line-height:1.2;">Private Dining & Events</span><span style="font-size:12px;line-height:1.5;color:#ADB4AA;">Weddings · Corporate · Celebrations · MICE dining</span></span>
+              <span style="font-size:14px;color:#C6A664;">→</span>
+            </a>
+            <a data-reveal="right" href="#experiences" onClick="{{ noop }}" style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding:20px 0 18px;border-bottom:1px solid #475F56;color:#F7F2E8;transition:padding .35s ease;" style-hover="padding-left:10px;color:#F7F2E8;">
+              <span style="display:flex;flex-direction:column;gap:7px;"><span style="font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(21px,1.7vw,24px);line-height:1.2;">Furama Fabulous</span><span style="font-size:12px;line-height:1.5;color:#ADB4AA;">Membership · Rewards · Dining privileges</span></span>
+              <span style="font-size:14px;color:#C6A664;">→</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section id="heritage" style="position:relative;height:clamp(440px,35.5vw,560px);overflow:hidden;background:#14201C;color:#F7F2E8;">
+        <image-slot id="heritage-banner" data-parallax="0.2" data-parallax-max="0.11" src="assets/heritage.jpg" shape="rect" style="position:absolute;left:0;right:0;top:-12%;width:100%;height:124%;"></image-slot>
+        <div style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 60% 70% at 50% 55%,rgba(12,18,15,.5) 0%,rgba(12,18,15,.25) 60%,rgba(12,18,15,.15) 100%);"></div>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 20px;text-align:center;pointer-events:none;">
+          <div data-reveal="fade" style="font-size:11px;font-weight:500;letter-spacing:.3em;text-transform:uppercase;color:#E9E3D6;">Since 1997 · Furama Resort Danang</div>
+          <h2 data-reveal="title" style="margin:22px 0 0;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(32px,3.5vw,50px);line-height:1.1;letter-spacing:.04em;text-transform:uppercase;color:#F7F2E8;text-wrap:balance;">A culinary heritage<br>that keeps evolving</h2>
+          <a data-reveal="up" href="https://furamavietnam.com/the-resort/" target="_blank" rel="noopener" style="pointer-events:auto;margin-top:26px;height:clamp(64px,6.8vw,98px);padding:0 clamp(28px,3vw,44px);display:flex;align-items:center;gap:14px;background:#F7F2E8;color:#232323;font-size:12px;font-weight:600;letter-spacing:.16em;transition:background-color .3s;" style-hover="background:#FFFFFF;">OUR STORY<span style="font-size:14px;">→</span></a>
+        </div>
+      </section>
+
+      <section id="stories" style="background:#F7F2E8;padding:clamp(64px,7.6vw,110px) 0 clamp(64px,7vw,100px);">
+        <div style="max-width:1440px;margin:0 auto;padding:0 clamp(20px,5.56vw,80px);">
+          <div style="text-align:center;">
+            <h2 data-reveal="title" style="margin:0;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(28px,2.9vw,42px);line-height:1.1;letter-spacing:.04em;text-transform:uppercase;color:#232323;text-wrap:balance;">Stories from our Kitchens</h2>
+            <p data-reveal="up" style="margin:16px 0 0;font-size:14px;line-height:1.6;color:#66635B;">Chefs, ingredients and the cultures behind every plate.</p>
+          </div>
+          <div style="margin:clamp(32px,3.6vw,56px) calc(-1 * clamp(20px,5.56vw,80px)) 0;padding:0 clamp(20px,5.56vw,80px);display:grid;grid-auto-flow:column;grid-auto-columns:minmax(min(72vw,250px),1fr);gap:24px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x mandatory;scroll-padding:0 clamp(20px,5.56vw,80px);">
+            <a data-reveal="card" href="https://www.furamadining.com/diem-den/tin/furama-dining-house-grand-opening-mot-ngoi-nha-bon-huong-vi-giua-long-an-thuong" target="_blank" rel="noopener" style="display:flex;flex-direction:column;color:#232323;scroll-snap-align:start;">
+              <div data-reveal-img="1" style="position:relative;aspect-ratio:302/222;overflow:hidden;background:#E8DFCD;">
+                <div style="position:absolute;inset:0;transition:transform .9s cubic-bezier(.2,.7,.2,1);" style-hover="transform:scale(1.05);">
+                  <image-slot id="story-chef" src="assets/story-dh-opening.jpg" shape="rect" style="width:100%;height:100%;"></image-slot>
+                </div>
+              </div>
+              <div style="margin-top:16px;font-size:10px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:#7A6B47;">Restaurant News · 9 Sep 2026</div>
+              <div style="margin-top:10px;font-family:'Crimson Pro',Georgia,serif;font-style:italic;font-weight:400;font-size:clamp(20px,1.6vw,23px);line-height:1.3;color:#232323;">Grand opening: one house, four flavours in An Thượng</div>
+            </a>
+            <a data-reveal="card" href="https://www.furamadining.com/diem-den/tin/steakhouse-the-fan-hanh-trinh-4-nha-hang-noi-am-thuc-va-nghe-thuat-gap-nhau" target="_blank" rel="noopener" style="display:flex;flex-direction:column;color:#232323;scroll-snap-align:start;">
+              <div data-reveal-img="1" style="position:relative;aspect-ratio:302/222;overflow:hidden;background:#E8DFCD;">
+                <div style="position:absolute;inset:0;transition:transform .9s cubic-bezier(.2,.7,.2,1);" style-hover="transform:scale(1.05);">
+                  <image-slot id="story-italian" src="assets/story-the-fan.jpg" shape="rect" style="width:100%;height:100%;"></image-slot>
+                </div>
+              </div>
+              <div style="margin-top:16px;font-size:10px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:#7A6B47;">Restaurant News · 5 Sep 2026</div>
+              <div style="margin-top:10px;font-family:'Crimson Pro',Georgia,serif;font-style:italic;font-weight:400;font-size:clamp(20px,1.6vw,23px);line-height:1.3;color:#232323;">Steakhouse The Fan, where fine food meets art</div>
+            </a>
+            <a data-reveal="card" href="https://www.furamadining.com/diem-den/tin/thai-siam-kitchen-tu-mot-can-bep-thai-den-nhip-cau-am-thuc-va-van-hoa-viet-nam-thai-lan" target="_blank" rel="noopener" style="display:flex;flex-direction:column;color:#232323;scroll-snap-align:start;">
+              <div data-reveal-img="1" style="position:relative;aspect-ratio:302/222;overflow:hidden;background:#E8DFCD;">
+                <div style="position:absolute;inset:0;transition:transform .9s cubic-bezier(.2,.7,.2,1);" style-hover="transform:scale(1.05);">
+                  <image-slot id="story-izakaya" src="assets/story-thai-siam.jpg" shape="rect" style="width:100%;height:100%;"></image-slot>
+                </div>
+              </div>
+              <div style="margin-top:16px;font-size:10px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:#7A6B47;">Restaurant News · 3 Sep 2026</div>
+              <div style="margin-top:10px;font-family:'Crimson Pro',Georgia,serif;font-style:italic;font-weight:400;font-size:clamp(20px,1.6vw,23px);line-height:1.3;color:#232323;">Thai Siam Kitchen, a bridge between Vietnam and Thailand</div>
+            </a>
+            <a data-reveal="card" href="https://furamavietnam.com/a-premium-central-vietnam-seafood-steak-buffet-gala-a-culinary-masterpiece-at-furama-resort-danang/" target="_blank" rel="noopener" style="display:flex;flex-direction:column;color:#232323;scroll-snap-align:start;">
+              <div data-reveal-img="1" style="position:relative;aspect-ratio:302/222;overflow:hidden;background:#E8DFCD;">
+                <div style="position:absolute;inset:0;transition:transform .9s cubic-bezier(.2,.7,.2,1);" style-hover="transform:scale(1.05);">
+                  <image-slot id="story-producers" src="assets/story-buffet-gala.jpg" shape="rect" style="width:100%;height:100%;"></image-slot>
+                </div>
+              </div>
+              <div style="margin-top:16px;font-size:10px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:#7A6B47;">Furama Resort Danang</div>
+              <div style="margin-top:10px;font-family:'Crimson Pro',Georgia,serif;font-style:italic;font-weight:400;font-size:clamp(20px,1.6vw,23px);line-height:1.3;color:#232323;">Inside the Central Vietnam Seafood & Steak Buffet Gala</div>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section id="offers" style="background:#FFFFFF;padding:clamp(64px,7.6vw,110px) 0 clamp(64px,6.6vw,96px);">
+        <div style="max-width:1440px;margin:0 auto;padding:0 clamp(20px,5.56vw,80px);">
+          <div style="text-align:center;">
+            <h2 data-reveal="title" style="margin:0;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(28px,2.9vw,42px);line-height:1.1;letter-spacing:.04em;text-transform:uppercase;color:#232323;">Offers</h2>
+            <p data-reveal="up" style="margin:16px 0 0;font-size:14px;line-height:1.6;color:#66635B;">Seasonal menus and special evenings across our restaurants — valid until 31 December 2026.</p>
+          </div>
+          <div style="margin-top:clamp(32px,3.6vw,56px);display:grid;grid-template-columns:repeat(auto-fill,minmax(max(280px,calc((100% - 48px) / 3)),1fr));gap:24px;">
+            <div data-reveal="up" style="display:flex;flex-direction:column;align-items:flex-start;padding:clamp(28px,2.8vw,40px) clamp(24px,2.2vw,32px) clamp(24px,2.4vw,34px);background:#F7F2E8;border:1px solid #E7DABF;transition:transform .6s cubic-bezier(.16,1,.3,1),box-shadow .6s ease,border-color .4s ease;" style-hover="box-shadow:0 18px 40px rgba(20,32,28,.07);border-color:#C6A664;">
+              <div style="font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#7A6B47;">Café Indochine</div>
+              <div style="margin-top:12px;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(25px,2.1vw,30px);line-height:1.15;color:#232323;">Seafood & Steak Buffet Dinner</div>
+              <div style="margin-top:12px;font-size:12px;line-height:1.5;color:#6E6B63;">VND 888,000++ per guest · Nightly 18:30–22:00</div>
+              <button onClick="{{ offer1 }}" style="margin-top:14px;padding:6px 0;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;letter-spacing:.18em;color:#1F3D34;transition:gap .3s ease,color .3s;" style-hover="gap:14px;color:#8A6B33;">VIEW OFFER<span>→</span></button>
+            </div>
+            <div data-reveal="up" style="display:flex;flex-direction:column;align-items:flex-start;padding:clamp(28px,2.8vw,40px) clamp(24px,2.2vw,32px) clamp(24px,2.4vw,34px);background:#F7F2E8;border:1px solid #E7DABF;transition:transform .6s cubic-bezier(.16,1,.3,1),box-shadow .6s ease,border-color .4s ease;" style-hover="box-shadow:0 18px 40px rgba(20,32,28,.07);border-color:#C6A664;">
+              <div style="font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#7A6B47;">Tàya House</div>
+              <div style="margin-top:12px;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(25px,2.1vw,30px);line-height:1.15;color:#232323;">Vietnamese Cooking Class</div>
+              <div style="margin-top:12px;font-size:12px;line-height:1.5;color:#6E6B63;">VND 799,000++ per guest · Daily 11:00 or 14:00</div>
+              <button onClick="{{ offer2 }}" style="margin-top:14px;padding:6px 0;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;letter-spacing:.18em;color:#1F3D34;transition:gap .3s ease,color .3s;" style-hover="gap:14px;color:#8A6B33;">VIEW OFFER<span>→</span></button>
+            </div>
+            <div data-reveal="up" style="display:flex;flex-direction:column;align-items:flex-start;padding:clamp(28px,2.8vw,40px) clamp(24px,2.2vw,32px) clamp(24px,2.4vw,34px);background:#F7F2E8;border:1px solid #E7DABF;transition:transform .6s cubic-bezier(.16,1,.3,1),box-shadow .6s ease,border-color .4s ease;" style-hover="box-shadow:0 18px 40px rgba(20,32,28,.07);border-color:#C6A664;">
+              <div style="font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#7A6B47;">Hải Vân Lounge</div>
+              <div style="margin-top:12px;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(25px,2.1vw,30px);line-height:1.15;color:#232323;">Afternoon Tea & Dessert Buffet</div>
+              <div style="margin-top:12px;font-size:12px;line-height:1.5;color:#6E6B63;">VND 450,000 net per guest · ~30 pastries, 12+ teas</div>
+              <button onClick="{{ offer3 }}" style="margin-top:14px;padding:6px 0;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;letter-spacing:.18em;color:#1F3D34;transition:gap .3s ease,color .3s;" style-hover="gap:14px;color:#8A6B33;">VIEW OFFER<span>→</span></button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+    <main data-screen-label="Restaurant Detail · Tàya House">
+      <sc-if value="{{ detailDesktop }}" hint-placeholder-val="{{ false }}">
+        <section style="background:#1F3D34;color:#F7F2E8;padding:clamp(112px,10.4vw,150px) 0 clamp(56px,6vw,88px);">
+          <div style="max-width:1440px;margin:0 auto;padding:0 clamp(24px,5.56vw,80px);display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:clamp(32px,5.5vw,80px);align-items:center;">
+            <div>
+              <button data-intro="0" onClick="{{ goBack }}" style="opacity:0;transform:translateY(18px);display:flex;align-items:center;gap:10px;padding:6px 0;font-size:11px;font-weight:600;letter-spacing:.2em;color:#F7F2E8;transition:color .25s;" style-hover="color:#C6A664;"><span style="font-size:14px;">←</span>ALL RESTAURANTS</button>
+              <div data-intro="1" style="margin-top:clamp(32px,4vw,56px);font-size:11px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:#C6A664;opacity:0;transform:translateY(18px);">A Wellness Dining Home · Furama Resort Danang</div>
+              <h1 style="margin:18px 0 0;font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:clamp(56px,6.4vw,92px);line-height:1;letter-spacing:-.015em;color:#F7F2E8;"><span style="display:block;overflow:hidden;padding-bottom:.14em;margin-bottom:-.14em;"><span data-intro="2" style="display:block;transform:translateY(110%);">Tàya House</span></span></h1>
+              <div data-intro="3" style="margin-top:clamp(28px,3vw,44px);font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:#C6A664;opacity:0;transform:translateY(18px);">Brand Story</div>
+              <p data-intro="4" style="margin:14px 0 0;max-width:520px;font-size:16px;line-height:1.8;color:rgba(247,242,232,.84);text-wrap:pretty;opacity:0;transform:translateY(18px);">Beneath the Lagoon Garden, the resort’s “Green Oasis in the Heart of the City” tells a journey from Mường Khụ, a land of stones, to Danang by the sea — with cooking classes led by Cơ Tu chef A Rất Thị Hép.</p>
+              <div data-intro="5" style="margin-top:clamp(28px,3vw,44px);display:flex;align-items:center;flex-wrap:wrap;gap:16px 32px;opacity:0;transform:translateY(18px);">
+                <button onClick="{{ reserveTaya }}" style="height:clamp(64px,6.8vw,96px);padding:0 clamp(28px,3vw,42px);display:flex;align-items:center;gap:14px;background:#F7F2E8;color:#232323;font-size:12px;font-weight:600;letter-spacing:.16em;transition:background-color .3s;" style-hover="background:#FFFFFF;">RESERVE A TABLE<span style="font-size:14px;">→</span></button>
+                <a href="tel:+842366519999" style="padding:6px 0;border-bottom:1px solid rgba(247,242,232,.4);font-size:11px;font-weight:600;letter-spacing:.2em;color:#F7F2E8;transition:color .25s;" style-hover="color:#C6A664;">CALL</a>
+                <a href="https://maps.google.com/?q=Furama+Resort+Danang" target="_blank" rel="noopener" style="padding:6px 0;border-bottom:1px solid rgba(247,242,232,.4);font-size:11px;font-weight:600;letter-spacing:.2em;color:#F7F2E8;transition:color .25s;" style-hover="color:#C6A664;">MAP</a>
+                <button onClick="{{ toDishes }}" style="padding:6px 0;border-bottom:1px solid rgba(247,242,232,.4);font-size:11px;font-weight:600;letter-spacing:.2em;color:#F7F2E8;transition:color .25s;" style-hover="color:#C6A664;">MENU</button>
+              </div>
+            </div>
+            <div data-intro="1" style="position:relative;width:100%;max-height:680px;aspect-ratio:4/5;overflow:hidden;background:#14201C;clip-path:inset(100% 0% 0% 0%);">
+              <image-slot id="taya-hero" src="assets/taya-hero.jpg" shape="rect" style="position:absolute;inset:0;width:100%;height:100%;"></image-slot>
+            </div>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ detailMobile }}" hint-placeholder-val="{{ false }}">
+        <section style="position:relative;height:418px;overflow:hidden;background:#14201C;color:#F7F2E8;">
+          <image-slot id="taya-hero" src="assets/taya-hero.jpg" shape="rect" style="position:absolute;inset:0;width:100%;height:100%;"></image-slot>
+          <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(12,18,15,.5) 0%,rgba(12,18,15,0) 22%,rgba(12,18,15,0) 46%,rgba(16,24,20,.86) 86%,#101814 100%);"></div>
+          <button onClick="{{ goBack }}" style="position:absolute;top:12px;left:10px;height:44px;padding:0 10px;display:flex;align-items:center;gap:8px;font-size:10px;font-weight:600;letter-spacing:.2em;color:#F7F2E8;"><span style="font-size:13px;">←</span>BACK</button>
+          <div style="position:absolute;left:20px;right:20px;bottom:26px;pointer-events:none;">
+            <div data-intro="0" style="font-size:9.5px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:#C6A664;opacity:0;transform:translateY(18px);">A Wellness Dining Home · Furama Resort Danang</div>
+            <h1 style="margin:10px 0 0;font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:44px;line-height:1.04;letter-spacing:-.01em;color:#F7F2E8;"><span style="display:block;overflow:hidden;padding-bottom:.14em;margin-bottom:-.14em;"><span data-intro="1" style="display:block;transform:translateY(110%);">Tàya House</span></span></h1>
+          </div>
+        </section>
+        <section style="background:#F7F2E8;padding:40px 20px 0;">
+          <div style="font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:#7A6B47;">Brand Story</div>
+          <p data-reveal="up" style="margin:14px 0 0;font-size:15px;line-height:1.7;color:#5E5B53;text-wrap:pretty;">Beneath the Lagoon Garden, the resort’s “Green Oasis in the Heart of the City” tells a journey from Mường Khụ, a land of stones, to Danang by the sea — with cooking classes led by Cơ Tu chef A Rất Thị Hép.</p>
+        </section>
+      </sc-if>
+
+      <section id="dishes" style="background:#F7F2E8;padding:clamp(48px,7vw,110px) 0 clamp(56px,7vw,110px);">
+        <div style="max-width:1440px;margin:0 auto;padding:0 clamp(20px,5.56vw,80px);">
+          <h2 data-reveal="title" style="margin:0;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(28px,2.9vw,42px);line-height:1.1;letter-spacing:.04em;text-transform:uppercase;color:#232323;">At Tàya House</h2>
+          <div style="margin:clamp(24px,3.4vw,48px) calc(-1 * clamp(20px,5.56vw,80px)) 0;padding:0 clamp(20px,5.56vw,80px);display:grid;grid-auto-flow:column;grid-auto-columns:minmax(min(66vw,240px),1fr);gap:clamp(14px,1.7vw,24px);overflow-x:auto;scrollbar-width:none;scroll-snap-type:x mandatory;scroll-padding:0 clamp(20px,5.56vw,80px);">
+            <div data-reveal="card" style="display:flex;flex-direction:column;min-width:0;scroll-snap-align:start;">
+              <div data-reveal-img="1" style="position:relative;aspect-ratio:4/3;overflow:hidden;background:#ECE4D3;color:#8C7F63;">
+                <image-slot id="taya-exp-class" src="assets/taya-class.jpg" shape="rect" placeholder="Cooking class photo" style="position:absolute;inset:0;width:100%;height:100%;"></image-slot>
+              </div>
+              <div style="margin-top:16px;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(21px,1.6vw,24px);line-height:1.2;color:#232323;">Vietnamese Cooking Class</div>
+              <div style="margin-top:6px;font-size:13px;line-height:1.6;color:#5E5B53;">Daily at 11:00 or 14:00 · VND 799,000++ per guest</div>
+            </div>
+            <div data-reveal="card" style="display:flex;flex-direction:column;min-width:0;scroll-snap-align:start;">
+              <div data-reveal-img="1" style="position:relative;aspect-ratio:4/3;overflow:hidden;background:#ECE4D3;color:#8C7F63;">
+                <image-slot id="taya-exp-drinks" src="assets/taya-lounge.jpg" shape="rect" placeholder="Tàya House interior" style="position:absolute;inset:0;width:100%;height:100%;"></image-slot>
+              </div>
+              <div style="margin-top:16px;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(21px,1.6vw,24px);line-height:1.2;color:#232323;">Healthy Drinks & Snacks</div>
+              <div style="margin-top:6px;font-size:13px;line-height:1.6;color:#5E5B53;">Served in the garden house, daily 10:00–22:00</div>
+            </div>
+            <div data-reveal="card" style="display:flex;flex-direction:column;min-width:0;scroll-snap-align:start;">
+              <div data-reveal-img="1" style="position:relative;aspect-ratio:4/3;overflow:hidden;background:#ECE4D3;color:#8C7F63;">
+                <image-slot id="taya-exp-garden" src="assets/taya-garden.jpg" shape="rect" placeholder="Lagoon Garden" style="position:absolute;inset:0;width:100%;height:100%;"></image-slot>
+              </div>
+              <div style="margin-top:16px;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(21px,1.6vw,24px);line-height:1.2;color:#232323;">Private Gatherings</div>
+              <div style="margin-top:6px;font-size:13px;line-height:1.6;color:#5E5B53;">Outdoor celebrations and intimate events among the palms</div>
+            </div>
+            <div data-reveal="card" style="display:flex;flex-direction:column;min-width:0;scroll-snap-align:start;">
+              <div data-reveal-img="1" style="position:relative;aspect-ratio:4/3;overflow:hidden;background:#ECE4D3;color:#8C7F63;">
+                <image-slot id="taya-exp-stay" src="assets/taya-stay.jpg" shape="rect" placeholder="Cooking class & stay" style="position:absolute;inset:0;width:100%;height:100%;"></image-slot>
+              </div>
+              <div style="margin-top:16px;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(21px,1.6vw,24px);line-height:1.2;color:#232323;">Cooking Class & Stay</div>
+              <div style="margin-top:6px;font-size:13px;line-height:1.6;color:#5E5B53;">From USD 420 · 2 nights for 2 guests</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section style="background:#FFFFFF;padding:clamp(56px,7vw,100px) 0;">
+        <div style="max-width:1440px;margin:0 auto;padding:0 clamp(20px,5.56vw,80px);">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px 24px;flex-wrap:wrap;">
+            <h2 data-reveal="title" style="margin:0;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(24px,2.5vw,36px);line-height:1.15;letter-spacing:.04em;text-transform:uppercase;color:#232323;">More at Furama Resort Danang</h2>
+            <button data-reveal="fade" onClick="{{ allRestaurants }}" style="padding:6px 0;font-size:10px;font-weight:600;letter-spacing:.16em;color:#1F3D34;transition:color .25s;" style-hover="color:#8A6B33;">ALL RESTAURANTS →</button>
+          </div>
+          <div style="margin:clamp(24px,3.2vw,44px) calc(-1 * clamp(20px,5.56vw,80px)) 0;padding:0 clamp(20px,5.56vw,80px);display:grid;grid-auto-flow:column;grid-auto-columns:minmax(min(44vw,180px),1fr);gap:16px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x mandatory;scroll-padding:0 clamp(20px,5.56vw,80px);">
+            <sc-for list="{{ moreRestaurants }}" as="r" hint-placeholder-count="5">
+              <div data-reveal="card" role="button" onClick="{{ r.onClick }}" onMouseEnter="{{ r.onEnter }}" onMouseLeave="{{ r.onLeave }}" style="display:flex;flex-direction:column;min-width:0;cursor:pointer;scroll-snap-align:start;">
+                <div data-reveal-img="1" style="position:relative;aspect-ratio:4/3;overflow:hidden;background:#E8DFCD;">
+                  <div style="position:absolute;inset:0;transform:scale({{ r.scale }});transition:transform .9s cubic-bezier(.2,.7,.2,1);">
+                    <image-slot id="{{ r.slot }}" src="{{ r.img }}" shape="rect" style="width:100%;height:100%;"></image-slot>
+                  </div>
+                  <div style="position:absolute;left:10px;bottom:10px;padding:7px 10px;background:rgba(247,242,232,.95);font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#1F3D34;white-space:nowrap;pointer-events:none;opacity:{{ r.tagOp }};transform:translateY({{ r.tagY }});transition:opacity .35s ease,transform .35s ease;">{{ r.tag }} →</div>
+                </div>
+                <div style="margin-top:14px;font-family:'Crimson Pro',Georgia,serif;font-size:clamp(18px,1.4vw,20px);font-weight:500;line-height:1.25;color:#232323;">{{ r.name }}</div>
+                <div style="margin-top:7px;font-size:10px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:#7A6B47;">{{ r.type }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </main>
+  </sc-if>
+
+  <sc-if value="{{ showBooking }}" hint-placeholder-val="{{ true }}">
+    <section id="reserve" style="position:relative;z-index:5;background:#1F3D34;color:#F7F2E8;padding:clamp(64px,7.4vw,108px) 0 clamp(64px,6.6vw,96px);">
+      <div style="max-width:1440px;margin:0 auto;padding:0 clamp(20px,5.56vw,80px);">
+        <h2 data-reveal="title" style="margin:0;text-align:center;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:clamp(26px,2.9vw,42px);line-height:1.15;letter-spacing:.04em;text-transform:uppercase;color:#F7F2E8;text-wrap:balance;">Where would you like to dine?</h2>
+        <div data-reveal="up" style="margin-top:clamp(28px,3.2vw,46px);padding:12px;display:grid;grid-template-columns:{{ bookGrid }};gap:12px;align-items:stretch;background:#F7F2E8;color:#232323;">
+          <div style="display:grid;grid-template-columns:{{ bookCols }};gap:4px 24px;padding:6px 12px;align-items:center;">
+            <sc-for list="{{ bookingFields }}" as="fd" hint-placeholder-count="5">
+              <div data-dd="1" style="position:relative;min-width:0;">
+                <button onClick="{{ fd.toggle }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:9px;width:100%;padding:12px 0;text-align:left;">
+                  <span style="font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#7A6B47;">{{ fd.label }}</span>
+                  <span style="display:flex;align-items:center;gap:8px;max-width:100%;font-family:'Crimson Pro',Georgia,serif;font-size:20px;font-weight:400;line-height:1.2;color:#232323;"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ fd.value }}</span><span style="display:inline-block;font-size:11px;transform:rotate({{ fd.rot }});transition:transform .25s ease;">▾</span></span>
+                </button>
+                <sc-if value="{{ fd.open }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute;top:calc(100% + 4px);left:-18px;min-width:calc(100% + 36px);width:max-content;max-width:320px;max-height:320px;overflow-y:auto;background:#FFFFFF;border:1px solid #EDE5D4;box-shadow:0 24px 60px rgba(20,32,28,.22);padding:8px 0;z-index:40;">
+                    <sc-for list="{{ fd.options }}" as="o" hint-placeholder-count="3">
+                      <button onClick="{{ o.onClick }}" style="display:flex;align-items:center;justify-content:space-between;gap:28px;width:100%;padding:10px 18px;text-align:left;font-family:'Crimson Pro',Georgia,serif;font-size:18px;line-height:1.3;color:{{ o.color }};background:{{ o.bg }};cursor:{{ o.cursor }};" style-hover="background:#F7F2E8;"><span>{{ o.label }}</span><span style="font-family:'Be Vietnam Pro',sans-serif;font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#8A6B33;white-space:nowrap;">{{ o.note }}</span></button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <button onClick="{{ findTable }}" style="min-height:{{ bookBtnH }};padding:0 28px;display:flex;align-items:center;justify-content:center;gap:14px;background:#17342B;color:#FAF7F0;font-size:12px;font-weight:600;letter-spacing:.14em;white-space:nowrap;transition:background-color .3s;" style-hover="background:#224A3D;">FIND A TABLE<span style="font-size:14px;">→</span></button>
+        </div>
+      </div>
+    </section>
+  </sc-if>
+
+  <footer style="background:#14201C;color:#F7F2E8;">
+    <div data-reveal="fade" style="max-width:1440px;margin:0 auto;padding:clamp(36px,3.1vw,44px) clamp(20px,5.56vw,80px);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px 40px;">
+      <a href="#" onClick="{{ goHomeTop }}" style="font-family:'Crimson Pro',Georgia,serif;font-size:21px;font-weight:400;line-height:1;letter-spacing:.16em;color:#F7F2E8;white-space:nowrap;">FURAMA CUISINE</a>
+      <div style="font-size:11px;font-weight:500;letter-spacing:.18em;color:#A48C56;white-space:nowrap;">PEOPLE | CULTURE | GREAT FOOD</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px 16px;">
+        <a href="https://www.facebook.com/furamaresort" target="_blank" rel="noopener" style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#CCCAC2;transition:color .25s;" style-hover="color:#F7F2E8;">FACEBOOK</a>
+        <a href="https://www.instagram.com/furamaculinaryworld/" target="_blank" rel="noopener" style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#CCCAC2;transition:color .25s;" style-hover="color:#F7F2E8;">INSTAGRAM</a>
+        <a href="https://www.youtube.com/user/furamaresortvietnam" target="_blank" rel="noopener" style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#CCCAC2;transition:color .25s;" style-hover="color:#F7F2E8;">YOUTUBE</a>
+        <a href="https://www.tiktok.com/@furama.dining.hous" target="_blank" rel="noopener" style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#CCCAC2;transition:color .25s;" style-hover="color:#F7F2E8;">TIKTOK</a>
+      </div>
+      <div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#F7F2E8;white-space:nowrap;">A MEMBER OF FURAMA</div>
+    </div>
+    <div style="max-width:1440px;margin:0 auto;padding:0 clamp(20px,5.56vw,80px) clamp(28px,2.6vw,36px);"><div style="padding-top:20px;border-top:1px solid #2C3B35;display:flex;flex-wrap:wrap;gap:10px 40px;font-size:12px;line-height:1.6;color:#A9AEA6;"><span>Furama Resort Danang · 103–105 Võ Nguyên Giáp, Ngũ Hành Sơn, Đà Nẵng · <a href="tel:+842366519999" style="color:#F7F2E8;">+84 236 651 9999</a></span><span>Furama Dining House · 73 Trần Bạch Đằng, An Thượng · <a href="tel:0859555759" style="color:#F7F2E8;">0859 555 759</a></span><a href="mailto:fb@furamavietnam.com" style="color:#F7F2E8;">fb@furamavietnam.com</a></div></div>
+    <div style="height:{{ bottomSpace }};"></div>
+  </footer>
+
+  <sc-if value="{{ showHomeBar }}" hint-placeholder-val="{{ false }}">
+    <nav style="position:fixed;left:0;right:0;bottom:0;z-index:60;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:#FFFFFF;box-shadow:0 -1px 0 rgba(20,32,28,.08),0 -10px 30px rgba(20,32,28,.06);padding-bottom:env(safe-area-inset-bottom);">
+      <button onClick="{{ tabExplore }}" style="height:76px;background:{{ tabs.explore.bg }};color:{{ tabs.explore.fg }};font-size:11px;font-weight:600;letter-spacing:.14em;transition:background-color .3s,color .3s;">EXPLORE</button>
+      <button onClick="{{ tabRestaurants }}" style="height:76px;background:{{ tabs.restaurants.bg }};color:{{ tabs.restaurants.fg }};font-size:11px;font-weight:600;letter-spacing:.14em;transition:background-color .3s,color .3s;">RESTAURANTS</button>
+      <button onClick="{{ openReserve }}" style="height:76px;background:{{ tabs.reserve.bg }};color:{{ tabs.reserve.fg }};font-size:11px;font-weight:600;letter-spacing:.14em;transition:background-color .3s,color .3s;">RESERVE</button>
+    </nav>
+  </sc-if>
+
+  <sc-if value="{{ showDetailBar }}" hint-placeholder-val="{{ false }}">
+    <nav style="position:fixed;left:0;right:0;bottom:0;z-index:60;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:#FFFFFF;box-shadow:0 -1px 0 rgba(20,32,28,.08),0 -10px 30px rgba(20,32,28,.06);padding-bottom:env(safe-area-inset-bottom);">
+      <a href="tel:+842366519999" style="height:76px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;letter-spacing:.14em;color:#232323;">CALL</a>
+      <a href="https://maps.google.com/?q=Furama+Resort+Danang" target="_blank" rel="noopener" style="height:76px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;letter-spacing:.14em;color:#232323;">MAP</a>
+      <button onClick="{{ toDishes }}" style="height:76px;font-size:11px;font-weight:600;letter-spacing:.14em;color:#232323;">MENU</button>
+      <button onClick="{{ reserveTaya }}" style="height:76px;background:#1F3D34;color:#EFEBE0;font-size:11px;font-weight:600;letter-spacing:.14em;">RESERVE</button>
+    </nav>
+  </sc-if>
+
+  <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+    <div role="dialog" aria-label="Find a restaurant" style="position:fixed;inset:0;z-index:95;">
+      <div data-anim="backdrop" onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(10,16,13,.56);"></div>
+      <div data-anim="sheet" style="position:absolute;left:0;right:0;bottom:0;max-height:88vh;overflow-y:auto;padding:10px 20px calc(20px + env(safe-area-inset-bottom));background:#FFFFFF;">
+        <div style="width:40px;height:4px;margin:0 auto;border-radius:2px;background:#E4DCCB;"></div>
+        <div style="margin-top:14px;display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:28px;line-height:1.1;color:#232323;">Find a restaurant</div>
+          <button onClick="{{ closeSheet }}" aria-label="Close" style="width:44px;height:44px;margin-right:-10px;font-size:28px;line-height:1;color:#232323;">×</button>
+        </div>
+        <sc-for list="{{ sheetFields }}" as="fd" hint-placeholder-count="3">
+          <div style="margin-top:20px;">
+            <div style="font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#8A6B33;">{{ fd.label }}</div>
+            <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;">
+              <sc-for list="{{ fd.options }}" as="o" hint-placeholder-count="4">
+                <button onClick="{{ o.onClick }}" style="height:38px;padding:0 14px;border:1px solid {{ o.chipBd }};background:{{ o.chipBg }};color:{{ o.chipFg }};font-size:12px;transition:background-color .2s,color .2s;">{{ o.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+        <button onClick="{{ applyFinder }}" style="margin-top:28px;width:100%;height:56px;display:flex;align-items:center;justify-content:center;gap:12px;background:#17342B;color:#FAF7F0;font-size:12px;font-weight:600;letter-spacing:.14em;">SHOW RESTAURANTS<span>→</span></button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+    <div data-anim="menu" role="dialog" aria-label="Menu" style="position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;overflow-y:auto;background:#1F3D34;color:#F7F2E8;">
+      <div style="flex:0 0 auto;height:64px;padding:0 clamp(10px,2.4vw,28px) 0 clamp(20px,4vw,40px);display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-family:'Crimson Pro',Georgia,serif;font-size:18px;font-weight:400;line-height:1;letter-spacing:.16em;">FURAMA CUISINE</div>
+        <button onClick="{{ closeMenu }}" aria-label="Close menu" style="width:44px;height:44px;font-size:30px;line-height:1;color:#F7F2E8;">×</button>
+      </div>
+      <nav style="padding:20px clamp(20px,4vw,40px) 0;display:flex;flex-direction:column;">
+        <button onClick="{{ nav.restaurants }}" data-anim="menu-item" style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid #475F56;text-align:left;font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:32px;line-height:1.1;color:#F7F2E8;">Restaurants<span style="font-size:14px;color:#C6A664;">→</span></button>
+        <button onClick="{{ nav.destinations }}" data-anim="menu-item" style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid #475F56;text-align:left;font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:32px;line-height:1.1;color:#F7F2E8;">Destinations<span style="font-size:14px;color:#C6A664;">→</span></button>
+        <button onClick="{{ nav.experiences }}" data-anim="menu-item" style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid #475F56;text-align:left;font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:32px;line-height:1.1;color:#F7F2E8;">Experiences<span style="font-size:14px;color:#C6A664;">→</span></button>
+        <button onClick="{{ nav.offers }}" data-anim="menu-item" style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid #475F56;text-align:left;font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:32px;line-height:1.1;color:#F7F2E8;">Offers<span style="font-size:14px;color:#C6A664;">→</span></button>
+        <button onClick="{{ nav.stories }}" data-anim="menu-item" style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid #475F56;text-align:left;font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:32px;line-height:1.1;color:#F7F2E8;">Stories<span style="font-size:14px;color:#C6A664;">→</span></button>
+        <button onClick="{{ nav.about }}" data-anim="menu-item" style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid #475F56;text-align:left;font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:32px;line-height:1.1;color:#F7F2E8;">About<span style="font-size:14px;color:#C6A664;">→</span></button>
+        <button onClick="{{ openSearch }}" data-anim="menu-item" style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid #475F56;text-align:left;font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:32px;line-height:1.1;color:#F7F2E8;">Search<span style="font-size:14px;color:#C6A664;">→</span></button>
+      </nav>
+      <div style="margin-top:auto;padding:32px clamp(20px,4vw,40px) calc(32px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:22px;">
+        <button onClick="{{ openReserve }}" style="height:56px;background:#C6A664;color:#1B2A24;font-size:12px;font-weight:600;letter-spacing:.16em;">RESERVE A TABLE</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+          <div style="display:flex;gap:6px;">
+            <button onClick="{{ setEN }}" style="height:36px;padding:0 14px;border:1px solid {{ langEN.bd }};color:{{ langEN.fg }};font-size:11px;font-weight:600;letter-spacing:.14em;">EN</button>
+            <button onClick="{{ setVI }}" style="height:36px;padding:0 14px;border:1px solid {{ langVI.bd }};color:{{ langVI.fg }};font-size:11px;font-weight:600;letter-spacing:.14em;">VI</button>
+          </div>
+          <div style="font-size:10px;font-weight:500;letter-spacing:.18em;color:#A48C56;">PEOPLE | CULTURE | GREAT FOOD</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:100;display:flex;justify-content:flex-end;">
+      <div data-anim="backdrop" onClick="{{ closeDrawer }}" style="position:absolute;inset:0;background:rgba(10,16,13,.56);"></div>
+      <aside data-anim="drawer" role="dialog" aria-label="Reserve a table" style="position:relative;display:flex;flex-direction:column;width:min(520px,100%);height:100%;background:#F7F2E8;box-shadow:-24px 0 80px rgba(0,0,0,.25);">
+        <div style="flex:0 0 auto;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:26px clamp(20px,3vw,32px) 20px;border-bottom:1px solid #E7DABF;">
+          <div style="min-width:0;">
+            <div style="font-size:10px;font-weight:600;letter-spacing:.2em;color:#8A6B33;">RESERVE A TABLE</div>
+            <div style="margin-top:10px;font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:30px;line-height:1.1;color:#232323;">{{ rs.name }}</div>
+            <div style="margin-top:6px;font-size:12px;line-height:1.5;color:#5E5B53;">{{ rs.meta }}</div>
+          </div>
+          <button onClick="{{ closeDrawer }}" aria-label="Close" style="flex:0 0 auto;width:44px;height:44px;margin:-8px -12px 0 0;font-size:28px;line-height:1;color:#232323;">×</button>
+        </div>
+
+        <sc-if value="{{ rs.form }}" hint-placeholder-val="{{ true }}">
+          <div style="flex:1 1 auto;overflow-y:auto;padding:22px clamp(20px,3vw,32px) 28px;">
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+              <sc-for list="{{ drawerFields }}" as="fd" hint-placeholder-count="2">
+                <div data-dd="1" style="position:relative;min-width:0;">
+                  <button onClick="{{ fd.toggle }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:100%;padding:12px 14px;border:1px solid #E4DCCB;background:#FFFFFF;text-align:left;">
+                    <span style="font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#7A6B47;">{{ fd.label }}</span>
+                    <span style="display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;font-family:'Crimson Pro',Georgia,serif;font-size:18px;line-height:1.2;color:#232323;"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ fd.value }}</span><span style="display:inline-block;font-size:10px;transform:rotate({{ fd.rot }});transition:transform .25s ease;">▾</span></span>
+                  </button>
+                  <sc-if value="{{ fd.open }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute;top:calc(100% + 4px);left:0;min-width:100%;width:max-content;max-width:300px;max-height:300px;overflow-y:auto;background:#FFFFFF;border:1px solid #EDE5D4;box-shadow:0 24px 60px rgba(20,32,28,.18);padding:8px 0;z-index:10;">
+                      <sc-for list="{{ fd.options }}" as="o" hint-placeholder-count="3">
+                        <button onClick="{{ o.onClick }}" style="display:flex;align-items:center;justify-content:space-between;gap:24px;width:100%;padding:10px 16px;text-align:left;font-family:'Crimson Pro',Georgia,serif;font-size:17px;line-height:1.3;color:{{ o.color }};background:{{ o.bg }};cursor:{{ o.cursor }};" style-hover="background:#F7F2E8;"><span>{{ o.label }}</span><span style="font-family:'Be Vietnam Pro',sans-serif;font-size:9px;font-weight:600;letter-spacing:.14em;color:#8A6B33;">{{ o.note }}</span></button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="margin-top:26px;font-size:10px;font-weight:600;letter-spacing:.2em;color:#7A6B47;">DATE</div>
+            <div style="margin:12px calc(-1 * clamp(20px,3vw,32px)) 0;padding:0 clamp(20px,3vw,32px) 4px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;">
+              <sc-for list="{{ rs.days }}" as="d" hint-placeholder-count="7">
+                <button onClick="{{ d.onClick }}" style="flex:0 0 auto;width:62px;padding:10px 0 11px;display:flex;flex-direction:column;align-items:center;gap:5px;border:1px solid {{ d.bd }};background:{{ d.bg }};color:{{ d.fg }};transition:background-color .2s,color .2s;">
+                  <span style="font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:{{ d.sub }};">{{ d.wd }}</span>
+                  <span style="font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:24px;line-height:1;font-variant-numeric:lining-nums;">{{ d.dn }}</span>
+                  <span style="font-size:9px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:{{ d.sub }};">{{ d.mo }}</span>
+                </button>
+              </sc-for>
+            </div>
+
+            <div style="margin-top:22px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px;border:1px solid #E4DCCB;background:#FFFFFF;">
+              <div>
+                <div style="font-size:9px;font-weight:600;letter-spacing:.16em;color:#7A6B47;">GUESTS</div>
+                <div style="margin-top:6px;font-family:'Crimson Pro',Georgia,serif;font-size:20px;line-height:1.1;color:#232323;">{{ rs.guests }}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <button onClick="{{ rs.dec }}" aria-label="Fewer guests" style="width:44px;height:44px;border:1px solid #DCD2BE;font-size:18px;line-height:1;color:{{ rs.decFg }};">−</button>
+                <button onClick="{{ rs.inc }}" aria-label="More guests" style="width:44px;height:44px;border:1px solid #DCD2BE;font-size:18px;line-height:1;color:{{ rs.incFg }};">+</button>
+              </div>
+            </div>
+
+            <div style="margin-top:26px;font-size:10px;font-weight:600;letter-spacing:.2em;color:#7A6B47;">TIME</div>
+            <sc-for list="{{ rs.groups }}" as="g" hint-placeholder-count="1">
+              <div style="margin-top:12px;">
+                <div style="font-size:11px;color:#5E5B53;">{{ g.meal }}</div>
+                <div style="margin-top:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;">
+                  <sc-for list="{{ g.times }}" as="t" hint-placeholder-count="5">
+                    <button onClick="{{ t.onClick }}" style="height:42px;border:1px solid {{ t.bd }};background:{{ t.bg }};color:{{ t.fg }};font-size:13px;font-weight:500;text-decoration:{{ t.deco }};cursor:{{ t.cur }};transition:background-color .2s,color .2s;">{{ t.t }}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ rs.noSlots }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:12px;font-size:12px;line-height:1.5;color:#B3261E;">No tables left on this date — please choose another day.</div>
+            </sc-if>
+
+            <div style="margin-top:30px;padding-top:24px;border-top:1px solid #E7DABF;">
+              <div style="font-size:10px;font-weight:600;letter-spacing:.2em;color:#7A6B47;">YOUR DETAILS</div>
+              <div style="margin-top:14px;display:grid;gap:14px;">
+                <label style="display:flex;flex-direction:column;gap:6px;">
+                  <span style="font-size:11px;color:#5E5B53;">Full name *</span>
+                  <input value="{{ rs.fName.value }}" onChange="{{ rs.fName.onChange }}" placeholder="Nguyễn Minh Anh" style="height:48px;padding:0 14px;border:1px solid {{ rs.fName.bd }};background:#FFFFFF;font-size:14px;color:#232323;outline:none;" style-focus="border-color:#1F3D34;">
+                  <sc-if value="{{ rs.errName }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;color:#B3261E;">Please enter your name.</span></sc-if>
+                </label>
+                <label style="display:flex;flex-direction:column;gap:6px;">
+                  <span style="font-size:11px;color:#5E5B53;">Phone *</span>
+                  <input type="tel" value="{{ rs.fPhone.value }}" onChange="{{ rs.fPhone.onChange }}" placeholder="+84 905 000 000" style="height:48px;padding:0 14px;border:1px solid {{ rs.fPhone.bd }};background:#FFFFFF;font-size:14px;color:#232323;outline:none;" style-focus="border-color:#1F3D34;">
+                  <sc-if value="{{ rs.errPhone }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;color:#B3261E;">Please enter a valid phone number.</span></sc-if>
+                </label>
+                <label style="display:flex;flex-direction:column;gap:6px;">
+                  <span style="font-size:11px;color:#5E5B53;">Email</span>
+                  <input type="email" value="{{ rs.fEmail.value }}" onChange="{{ rs.fEmail.onChange }}" placeholder="you@example.com" style="height:48px;padding:0 14px;border:1px solid {{ rs.fEmail.bd }};background:#FFFFFF;font-size:14px;color:#232323;outline:none;" style-focus="border-color:#1F3D34;">
+                  <sc-if value="{{ rs.errEmail }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;color:#B3261E;">Please check your email address.</span></sc-if>
+                </label>
+                <label style="display:flex;flex-direction:column;gap:6px;">
+                  <span style="font-size:11px;color:#5E5B53;">Special requests</span>
+                  <textarea rows="3" value="{{ rs.fNote.value }}" onChange="{{ rs.fNote.onChange }}" placeholder="Occasion, dietary needs, seating preference" style="padding:12px 14px;border:1px solid #DCD2BE;background:#FFFFFF;font-size:14px;line-height:1.5;color:#232323;outline:none;resize:vertical;" style-focus="border-color:#1F3D34;"></textarea>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div style="flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px clamp(20px,3vw,32px) calc(16px + env(safe-area-inset-bottom));border-top:1px solid #E7DABF;background:#FFFFFF;">
+            <div style="min-width:0;">
+              <div style="font-size:9px;font-weight:600;letter-spacing:.16em;color:#7A6B47;">YOUR TABLE</div>
+              <div style="margin-top:6px;font-size:13px;line-height:1.4;color:#232323;">{{ rs.summary }}</div>
+            </div>
+            <button onClick="{{ submit }}" style="flex:0 0 auto;height:56px;padding:0 24px;background:#17342B;color:#FAF7F0;font-size:11px;font-weight:600;letter-spacing:.16em;transition:background-color .3s;" style-hover="background:#224A3D;">REQUEST BOOKING</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ rs.done }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1 1 auto;overflow-y:auto;padding:44px clamp(20px,3vw,32px);display:flex;flex-direction:column;align-items:flex-start;">
+            <div style="position:relative;width:56px;height:56px;border-radius:50%;border:1px solid #C6A664;display:flex;align-items:center;justify-content:center;font-size:22px;color:#8A6B33;">✓</div>
+            <div style="margin-top:24px;font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:36px;line-height:1.1;color:#232323;">Thank you, {{ rs.guestName }}.</div>
+            <p style="margin:14px 0 0;font-size:14px;line-height:1.7;color:#5E5B53;">Your table request at {{ rs.name }} has been received. Our team will contact you shortly to confirm.</p>
+            <div style="margin-top:26px;width:100%;border:1px solid #E7DABF;background:#FFFFFF;">
+              <div style="display:flex;justify-content:space-between;gap:16px;padding:14px 18px;border-bottom:1px solid #F0E9DA;font-size:13px;"><span style="color:#7A6B47;">Date</span><span style="color:#232323;">{{ rs.dateLabel }}</span></div>
+              <div style="display:flex;justify-content:space-between;gap:16px;padding:14px 18px;border-bottom:1px solid #F0E9DA;font-size:13px;"><span style="color:#7A6B47;">Time</span><span style="color:#232323;">{{ rs.time }}</span></div>
+              <div style="display:flex;justify-content:space-between;gap:16px;padding:14px 18px;border-bottom:1px solid #F0E9DA;font-size:13px;"><span style="color:#7A6B47;">Guests</span><span style="color:#232323;">{{ rs.guests }}</span></div>
+              <div style="display:flex;justify-content:space-between;gap:16px;padding:14px 18px;font-size:13px;"><span style="color:#7A6B47;">Reference</span><span style="font-weight:600;letter-spacing:.08em;color:#1F3D34;">{{ rs.ref }}</span></div>
+            </div>
+            <button onClick="{{ closeDrawer }}" style="margin-top:28px;height:56px;padding:0 34px;background:#1F3D34;color:#F7F2E8;font-size:11px;font-weight:600;letter-spacing:.16em;">DONE</button>
+          </div>
+        </sc-if>
+      </aside>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ searchOpen }}" hint-placeholder-val="{{ false }}">
+    <div data-anim="search" role="dialog" aria-label="Search" style="position:fixed;inset:0;z-index:110;overflow-y:auto;background:#F7F2E8;">
+      <div style="max-width:980px;margin:0 auto;padding:clamp(16px,3vw,36px) clamp(20px,5.56vw,80px) 64px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-family:'Crimson Pro',Georgia,serif;font-size:18px;font-weight:400;line-height:1;letter-spacing:.16em;color:#232323;">FURAMA CUISINE</div>
+          <button onClick="{{ closeSearch }}" aria-label="Close search" style="width:44px;height:44px;margin-right:-10px;font-size:30px;line-height:1;color:#232323;">×</button>
+        </div>
+        <input data-anim="search-item" ref="{{ searchRef }}" value="{{ q }}" onChange="{{ onQ }}" placeholder="Search restaurants, cuisines, places" style="margin-top:clamp(32px,6vw,72px);width:100%;padding:0 0 16px;border:0;border-bottom:1px solid #232323;background:transparent;font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:clamp(30px,4vw,48px);line-height:1.2;color:#232323;outline:none;">
+        <sc-if value="{{ searchEmpty }}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top:32px;font-size:10px;font-weight:600;letter-spacing:.2em;color:#7A6B47;">POPULAR CUISINES</div>
+          <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;">
+            <sc-for list="{{ popular }}" as="p" hint-placeholder-count="8">
+              <button onClick="{{ p.onClick }}" style="height:38px;padding:0 16px;border:1px solid #D8CDB5;background:#FFFFFF;font-size:12px;color:#232323;transition:border-color .25s;" style-hover="border-color:#1F3D34;">{{ p.label }}</button>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ hasResults }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:28px;font-size:10px;font-weight:600;letter-spacing:.2em;color:#7A6B47;">{{ resultsLabel }}</div>
+          <div style="margin-top:8px;display:flex;flex-direction:column;">
+            <sc-for list="{{ results }}" as="it" hint-placeholder-count="3">
+              <div role="button" onClick="{{ it.onClick }}" style="display:flex;align-items:center;gap:18px;padding:14px 0;border-bottom:1px solid #E4DAC4;cursor:pointer;transition:padding .3s ease;" style-hover="padding-left:8px;">
+                <span style="flex:0 0 auto;width:80px;height:60px;background:#E8DFCD center/cover no-repeat;background-image:{{ it.bg }};"></span>
+                <div style="flex:1 1 auto;min-width:0;">
+                  <div style="font-family:'Crimson Pro',Georgia,serif;font-weight:400;font-size:23px;line-height:1.2;color:#232323;">{{ it.name }}</div>
+                  <div style="margin-top:5px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7A6B47;">{{ it.meta }}</div>
+                </div>
+                <span style="flex:0 0 auto;font-size:10px;font-weight:600;letter-spacing:.16em;color:#1F3D34;white-space:nowrap;">{{ it.action }} →</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ searchNone }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:32px;font-size:14px;line-height:1.6;color:#5E5B53;">No matches for “{{ q }}”. Try a cuisine such as Vietnamese or Italian.</div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ filmOpen }}" hint-placeholder-val="{{ false }}">
+    <div role="dialog" aria-label="Furama Cuisine film" style="position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(8,12,10,.9);">
+      <div onClick="{{ closeFilm }}" style="position:absolute;inset:0;"></div>
+      <button onClick="{{ closeFilm }}" aria-label="Close film" style="position:absolute;top:14px;right:14px;z-index:2;width:48px;height:48px;font-size:32px;line-height:1;color:#F7F2E8;">×</button>
+      <div data-anim="film" style="position:relative;width:min(1100px,100%);aspect-ratio:16/9;overflow:hidden;background:#000000;">
+        <image-slot id="film-poster" src="assets/hero-beach.jpg" shape="rect" style="position:absolute;inset:0;width:100%;height:100%;"></image-slot>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:20px;text-align:center;background:rgba(10,14,12,.45);color:#F7F2E8;pointer-events:none;">
+          <span style="width:84px;height:84px;border-radius:50%;border:1px solid rgba(247,242,232,.85);display:flex;align-items:center;justify-content:center;"><span style="display:block;width:0;height:0;margin-left:4px;border-left:13px solid #F7F2E8;border-top:8px solid transparent;border-bottom:8px solid transparent;"></span></span>
+          <div style="font-family:'Crimson Pro',Georgia,serif;font-weight:300;font-size:clamp(28px,3.2vw,42px);line-height:1.1;">One Furama Cuisine</div>
+          <div style="font-size:11px;font-weight:500;letter-spacing:.22em;color:#C6A664;">THE FILM · COMING SOON</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;motion&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Bold&quot;,&quot;options&quot;:[&quot;Bold&quot;,&quot;Subtle&quot;,&quot;Off&quot;],&quot;tsType&quot;:&quot;'Bold' | 'Subtle' | 'Off'&quot;,&quot;section&quot;:&quot;Motion&quot;},&quot;introCurtain&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Motion&quot;},&quot;heroAutoplay&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Hero&quot;},&quot;heroInterval&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:7,&quot;min&quot;:4,&quot;max&quot;:14,&quot;step&quot;:1,&quot;unit&quot;:&quot;s&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Hero&quot;},&quot;startView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Home&quot;,&quot;options&quot;:[&quot;Home&quot;,&quot;Restaurant detail&quot;],&quot;tsType&quot;:&quot;'Home' | 'Restaurant detail'&quot;,&quot;section&quot;:&quot;Page&quot;}}">
+class Component extends DCLogic {
+  RESTAURANTS = [
+    { id: 'cafe-indochine', name: 'Café Indochine', type: 'Asian & International', cuisines: ['International'], dest: 'resort', meals: ['Breakfast', 'Lunch', 'Dinner'] },
+    { id: 'don-ciprianis', name: 'Don Cipriani’s', type: 'Italian Trattoria', cuisines: ['Italian'], dest: 'resort', meals: ['Lunch', 'Dinner'] },
+    { id: 'taya-house', name: 'Tàya House', type: 'Vietnamese · Cooking Class', cuisines: ['Vietnamese'], dest: 'resort', meals: ['Lunch', 'Dinner'] },
+    { id: 'danaksara', name: 'Danaksara', type: 'Central Vietnamese', cuisines: ['Vietnamese'], dest: 'resort', meals: ['Breakfast', 'Dinner'] },
+    { id: 'the-fan', name: 'Steakhouse The Fan', type: 'Steak & Wine · 3F', cuisines: ['Steak & Grill'], dest: 'dining-house', meals: ['Lunch', 'Dinner'] },
+    { id: 'pho-cuon', name: 'Phố Cuốn', type: 'Vietnamese · 1F', cuisines: ['Vietnamese'], dest: 'dining-house', meals: ['Breakfast', 'Lunch', 'Dinner'] },
+    { id: 'thai-siam-kitchen', name: 'Thai Siam Kitchen', type: 'Thai · 2F', cuisines: ['Thai'], dest: 'dining-house', meals: ['Lunch', 'Dinner'] },
+    { id: 'hura-izakaya', name: 'Hura Izakaya', type: 'Japanese Izakaya · 4F', cuisines: ['Japanese'], dest: 'dining-house', meals: ['Dinner'] },
+    { id: 'yum-food-village', name: 'Yum Food Village', type: 'Asian Food Hall', cuisines: ['International', 'Vietnamese', 'Thai'], dest: 'mm', meals: ['Lunch', 'Dinner'] },
+    { id: 'chaoshan-hotpot', name: 'ChaoShan Hotpot', type: 'Chinese Hotpot', cuisines: ['Hotpot'], dest: 'mm', meals: ['Lunch', 'Dinner'] },
+    { id: 'v-senses-cafe', name: 'V-Senses Cafe', type: 'Northern Vietnamese', cuisines: ['Vietnamese', 'Café & Lounge'], dest: 'resort', meals: ['Breakfast', 'Lunch', 'Dinner'] },
+    { id: 'hai-van-lounge', name: 'Hải Vân Lounge', type: 'Lounge · Live Jazz', cuisines: ['Café & Lounge'], dest: 'resort', meals: ['Drinks'] }
+  ];
+  CUISINES = [['Vietnamese', 'vietnamese'], ['Italian', 'italian'], ['Thai', 'thai'], ['Japanese', 'japanese'], ['Steak & Grill', 'steak-grill'], ['Hotpot', 'hotpot'], ['International', 'international'], ['Café & Lounge', 'cafe-lounge']];
+  DESTS = { resort: 'Furama Resort Danang', 'dining-house': 'Furama Dining House', mm: 'Furama MM Supercenter' };
+  SLOTS = {
+    Breakfast: ['06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30'],
+    Lunch: ['11:30', '12:00', '12:30', '13:00', '13:30'],
+    Dinner: ['18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00'],
+    Drinks: ['17:00', '18:00', '19:00', '20:00', '21:00', '22:00']
+  };
+  WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  searchRef = React.createRef();
+  state = {
+    w: typeof window !== 'undefined' ? window.innerWidth : 1440,
+    view: (typeof location !== 'undefined' && location.hash === '#taya-house') || (this.props && this.props.startView === 'Restaurant detail') ? 'detail' : 'home',
+    scrolled: false, tab: 'explore', slide: 0, heroZoom: false, hover: null, openDD: null,
+    finder: { location: 'Da Nang', cuisine: 'all', occasion: 'Dinner', destination: 'all' },
+    filter: { cuisine: 'all', occasion: 'all', destination: 'all' },
+    booking: { destination: 'resort', restaurant: 'taya-house', day: new Date().getHours() >= 21 ? 1 : 0, time: '19:00', guests: 2 },
+    drawer: false, done: false, tried: false, ref: '', form: { name: '', phone: '', email: '', note: '' },
+    search: false, q: '', menu: false, film: false, sheet: false, lang: 'EN',
+    intro: !(this.props && this.props.introCurtain === false), fine: false
+  };
+
+  componentDidMount() {
+    this._onResize = () => { if (window.innerWidth !== this.state.w) this.setState({ w: window.innerWidth }); };
+    this._onScroll = () => this.syncScroll();
+    this._onHash = () => this.transitionTo(location.hash === '#taya-house' ? 'detail' : 'home');
+    this._onDoc = (e) => { if (this.state.openDD && !(e.target && e.target.closest && e.target.closest('[data-dd]'))) this.setState({ openDD: null }); };
+    this._onKey = (e) => { if (e.key === 'Escape') this.setState({ openDD: null, drawer: false, search: false, menu: false, film: false, sheet: false }); };
+    window.addEventListener('resize', this._onResize);
+    window.addEventListener('scroll', this._onScroll, { passive: true });
+    window.addEventListener('hashchange', this._onHash);
+    window.addEventListener('popstate', this._onHash);
+    document.addEventListener('click', this._onDoc);
+    document.addEventListener('keydown', this._onKey);
+    this.setBooking({});
+    this.resetTimer();
+    this._ml = this.motionLevel();
+    this._pending = new Set();
+    this._revealMap = new WeakMap();
+    this._magS = new WeakMap();
+    this._io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(es => this.onReveal(es), { rootMargin: '0px 0px -8% 0px', threshold: 0.12 }) : null;
+    const fine = typeof matchMedia !== 'undefined' && matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const curtain = !!this.state.intro && this._ml > 0;
+    this.setState({ fine, intro: curtain });
+    if (curtain) this._introT = setTimeout(() => this.setState({ intro: false }), 2150);
+    this._zoomT = setTimeout(() => this.runIntro(0), curtain ? 1150 : 60);
+    this._onMove = e => { this._mx = e.clientX; this._my = e.clientY; this._mouseSeen = true; this.hoverCursor(e.target); };
+    this._onDocLeave = () => { this._mouseSeen = false; };
+    window.addEventListener('mousemove', this._onMove, { passive: true });
+    document.documentElement.addEventListener('mouseleave', this._onDocLeave);
+    this.refreshEls();
+    this.scanReveals();
+    this._loop = t => this.frame(t);
+    this._raf = requestAnimationFrame(this._loop);
+    this.syncScroll();
+    this.refreshSlots();
+    this._prevS = this.state; this._prevP = this.props;
+  }
+
+  refreshSlots() {
+    (this._slotT || []).forEach(clearTimeout);
+    this._slotT = [0, 400, 1500].map(ms => setTimeout(() => {
+      document.querySelectorAll('image-slot').forEach(el => { if (el._render) el._render(); });
+    }, ms));
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('resize', this._onResize);
+    window.removeEventListener('scroll', this._onScroll);
+    window.removeEventListener('hashchange', this._onHash);
+    window.removeEventListener('popstate', this._onHash);
+    document.removeEventListener('click', this._onDoc);
+    document.removeEventListener('keydown', this._onKey);
+    clearInterval(this._timer);
+    clearTimeout(this._zoomT);
+    clearTimeout(this._introT);
+    cancelAnimationFrame(this._raf);
+    if (this._io) this._io.disconnect();
+    window.removeEventListener('mousemove', this._onMove);
+    document.documentElement.removeEventListener('mouseleave', this._onDocLeave);
+    (this._slotT || []).forEach(clearTimeout);
+    document.documentElement.style.overflow = '';
+  }
+
+  componentDidUpdate(pp0) {
+    const s = this.state, ps = this._prevS || s, pp = this._prevP || pp0 || this.props;
+    this._prevS = s; this._prevP = this.props;
+    const lock = !!(s.drawer || s.search || s.menu || s.film || s.sheet);
+    if (lock !== !!this._locked) { this._locked = lock; document.documentElement.style.overflow = lock ? 'hidden' : ''; }
+    if (s.search && !ps.search) setTimeout(() => { if (this.searchRef.current) this.searchRef.current.focus(); }, 60);
+    if (pp.startView !== this.props.startView && this.props.startView) this.navigate(this.props.startView === 'Restaurant detail' ? 'detail' : 'home');
+    if (pp.heroInterval !== this.props.heroInterval || pp.heroAutoplay !== this.props.heroAutoplay) this.resetTimer();
+    if (pp.motion !== this.props.motion) {
+      this._ml = this.motionLevel();
+      if (!this._ml) { this._pending.forEach(el => { const a = this._revealMap.get(el); if (a) a.forEach(x => x.cancel()); this._revealMap.set(el, null); }); this._pending.clear(); }
+    }
+    this.refreshEls();
+    this.scanReveals();
+    if (this._introReady) this.runIntro(ps.view !== s.view ? 380 : 0);
+    if (!this._ml) return;
+    if (ps.filter !== s.filter) requestAnimationFrame(() => {
+      Array.from(document.querySelectorAll('#restaurant-grid [data-reveal="card"]')).filter(el => el.style.display !== 'none' && this._revealMap.get(el) === null)
+        .forEach((el, i) => el.animate([{ opacity: 0, transform: 'translateY(28px) scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 800, delay: i * 50, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' }));
+    });
+    if (s.drawer && !ps.drawer) { this.animOpen('[data-anim="drawer"]', [{ transform: 'translateX(100%)' }, { transform: 'none' }], 800); this.animOpen('[data-anim="backdrop"]', [{ opacity: 0 }, { opacity: 1 }], 450); }
+    if (s.sheet && !ps.sheet) { this.animOpen('[data-anim="sheet"]', [{ transform: 'translateY(100%)' }, { transform: 'none' }], 700); this.animOpen('[data-anim="backdrop"]', [{ opacity: 0 }, { opacity: 1 }], 400); }
+    if (s.search && !ps.search) { this.animOpen('[data-anim="search"]', [{ opacity: 0 }, { opacity: 1 }], 400, 0, 'ease'); this.animOpen('[data-anim="search-item"]', [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], 800, 150); }
+    if (s.menu && !ps.menu) { this.animOpen('[data-anim="menu"]', [{ opacity: 0 }, { opacity: 1 }], 400, 0, 'ease'); this.animOpen('[data-anim="menu-item"]', [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], 700, 120, null, 40); }
+    if (s.film && !ps.film) this.animOpen('[data-anim="film"]', [{ opacity: 0, transform: 'scale(.97)' }, { opacity: 1, transform: 'none' }], 600);
+  }
+
+  syncScroll() {
+    const y = window.scrollY || 0, vh = window.innerHeight || 800;
+    const scrolled = y > 40;
+    let tab = 'explore';
+    const r = document.getElementById('restaurants'), d = document.getElementById('destinations');
+    if (r && d) {
+      const rt = r.getBoundingClientRect().top, dt = d.getBoundingClientRect().top;
+      if (rt < vh * 0.55 && dt > vh * 0.55) tab = 'restaurants';
+    }
+    if (scrolled !== this.state.scrolled || tab !== this.state.tab) this.setState({ scrolled, tab });
+  }
+
+  applyView(view, after) {
+    if (view === this.state.view) { if (after) setTimeout(after, 30); return; }
+    this.setState({ view, menu: false, search: false, sheet: false, openDD: null, hover: null }, () => {
+      window.scrollTo(0, 0);
+      this.syncScroll();
+      this.refreshSlots();
+      if (after) setTimeout(after, 60);
+    });
+  }
+
+  navigate(view, after) {
+    try {
+      if (view === 'detail') { if (location.hash !== '#taya-house') history.pushState(null, '', '#taya-house'); }
+      else if (location.hash) history.pushState(null, '', location.pathname + location.search);
+    } catch (e) {}
+    this.transitionTo(view, after);
+  }
+
+  transitionTo(view, after) {
+    const c = document.querySelector('[data-page-curtain]');
+    if (view === this.state.view || !this._ml || !c || !c.animate) { this.applyView(view, after); return; }
+    if (this._transitioning) return;
+    this._transitioning = true;
+    const ease = 'cubic-bezier(.76,0,.24,1)';
+    const a1 = c.animate([{ transform: 'none', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 380, easing: 'ease', fill: 'forwards' });
+    let swapped = false;
+    const fallback = setTimeout(() => { if (!swapped) { swapped = true; a1.cancel(); this._transitioning = false; this.applyView(view, after); } }, 900);
+    a1.onfinish = () => {
+      if (swapped) return;
+      swapped = true; clearTimeout(fallback);
+      this.applyView(view, after);
+      setTimeout(() => {
+        const a2 = c.animate([{ transform: 'none', opacity: 1 }, { transform: 'none', opacity: 0 }], { duration: 520, easing: 'ease', fill: 'forwards' });
+        a2.onfinish = () => { a1.cancel(); a2.cancel(); this._transitioning = false; };
+      }, 140);
+    };
+  }
+
+  scrollToId(id) {
+    this.setState({ menu: false, search: false, sheet: false, openDD: null });
+    const go = () => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const off = this.state.w < 1080 ? 63 : 75;
+      window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - off), behavior: 'smooth' });
+    };
+    if (!document.getElementById(id) && this.state.view !== 'home') this.navigate('home', go);
+    else setTimeout(go, 30);
+  }
+
+  resetTimer() {
+    clearInterval(this._timer);
+    const sec = Math.min(20, Math.max(3, Number(this.props.heroInterval) || 7));
+    this._timer = setInterval(() => this.autoAdvance(), sec * 1000);
+  }
+
+  autoAdvance() {
+    if (this.props.heroAutoplay === false || this.state.view !== 'home' || this.state.w < 760 || document.hidden) return;
+    const slots = Array.from(document.querySelectorAll('image-slot[data-hero]')).sort((a, b) => Number(a.getAttribute('data-hero')) - Number(b.getAttribute('data-hero')));
+    const filled = slots.map((el, i) => (el.hasAttribute('data-filled') ? i : -1)).filter(i => i >= 0);
+    if (filled.length < 2) return;
+    const next = filled.find(i => i > this.state.slide);
+    this.setState({ slide: next === undefined ? filled[0] : next });
+  }
+
+  goSlide(i) { this.setState({ slide: i }); this.resetTimer(); }
+
+  setFinder(patch) { this.setState(st => ({ finder: Object.assign({}, st.finder, patch) })); }
+
+  setFilter(patch, reveal) {
+    this.setState(st => ({ filter: Object.assign({}, st.filter, patch), finder: Object.assign({}, st.finder, patch) }), reveal ? () => setTimeout(() => this.revealGrid(), 30) : undefined);
+  }
+
+  clearFilters() { this.setFilter({ cuisine: 'all', occasion: 'all', destination: 'all' }); }
+
+  applyFinder() {
+    const fd = this.state.finder;
+    this.setState({ filter: { cuisine: fd.cuisine, occasion: fd.occasion, destination: fd.destination } });
+    this.scrollToId('restaurants');
+  }
+
+  pickCuisine(c) { this.setFilter({ cuisine: this.state.filter.cuisine === c ? 'all' : c }, true); }
+
+  pickDest(k) { this.setFilter({ destination: k, cuisine: 'all', occasion: 'all' }); this.scrollToId('restaurants'); }
+
+  revealGrid() {
+    const g = document.getElementById('restaurant-grid');
+    if (!g) return;
+    const t = g.getBoundingClientRect().top, vh = window.innerHeight;
+    if (t > vh * 0.62) window.scrollTo({ top: window.scrollY + t - vh * 0.3, behavior: 'smooth' });
+  }
+
+  days() {
+    const out = [], base = new Date();
+    base.setHours(0, 0, 0, 0);
+    for (let i = 0; i < 14; i++) { const d = new Date(base); d.setDate(base.getDate() + i); out.push(d); }
+    return out;
+  }
+
+  fmtDay(d) { return this.WD[d.getDay()] + ', ' + d.getDate() + ' ' + this.MO[d.getMonth()]; }
+
+  toMin(t) { return parseInt(t.slice(0, 2), 10) * 60 + parseInt(t.slice(3), 10); }
+
+  slotsFor(rid) {
+    const r = this.RESTAURANTS.find(x => x.id === rid);
+    return (r ? r.meals : ['Dinner']).map(m => ({ meal: m, times: this.SLOTS[m] }));
+  }
+
+  unavailable(rid, day, t) {
+    if (day === 0) { const n = new Date(); if (this.toMin(t) <= n.getHours() * 60 + n.getMinutes() + 30) return true; }
+    let h = 7;
+    const k = rid + '|' + day + '|' + t;
+    for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) % 100003;
+    return h % 5 === 0;
+  }
+
+  normTime(rid, day, t) {
+    const all = [];
+    this.slotsFor(rid).forEach(g => g.times.forEach(x => { if (!this.unavailable(rid, day, x)) all.push(x); }));
+    if (!all.length || all.indexOf(t) >= 0) return t;
+    const m = this.toMin(t);
+    return all.reduce((a, x) => (Math.abs(this.toMin(x) - m) < Math.abs(this.toMin(a) - m) ? x : a), all[0]);
+  }
+
+  setBooking(patch) {
+    this.setState(st => {
+      const b = Object.assign({}, st.booking, patch);
+      if (patch.destination && patch.destination !== st.booking.destination && !patch.restaurant) {
+        const first = this.RESTAURANTS.find(r => r.dest === patch.destination);
+        if (first) b.restaurant = first.id;
+      }
+      const r = this.RESTAURANTS.find(x => x.id === b.restaurant);
+      if (r) b.destination = r.dest;
+      b.time = this.normTime(b.restaurant, b.day, b.time);
+      return { booking: b };
+    });
+  }
+
+  openReserve(preset, note) {
+    this.setState(st => ({ drawer: true, done: false, tried: false, search: false, menu: false, sheet: false, openDD: null, form: note && !st.form.note ? Object.assign({}, st.form, { note }) : st.form }));
+    this.setBooking(preset || {});
+  }
+
+  openRestaurant(r) {
+    if (r.id === 'taya-house') { this.setBooking({ restaurant: 'taya-house' }); this.setState({ search: false }); this.navigate('detail'); }
+    else this.openReserve({ restaurant: r.id });
+  }
+
+  validForm() {
+    const f = this.state.form;
+    return { name: f.name.trim().length >= 2, phone: f.phone.replace(/\D/g, '').length >= 8, email: !f.email.trim() || /^\S+@\S+\.\S+$/.test(f.email.trim()) };
+  }
+
+  submit() {
+    const v = this.validForm(), b = this.state.booking;
+    const slotOk = !this.unavailable(b.restaurant, b.day, b.time) && this.slotsFor(b.restaurant).some(g => g.times.indexOf(b.time) >= 0);
+    if (!(v.name && v.phone && v.email && slotOk)) { this.setState({ tried: true }); return; }
+    this.setState({ done: true, ref: 'FC-' + String(Math.floor(10000 + Math.random() * 90000)) });
+  }
+
+  closeDrawer() {
+    this.setState(st => (st.done ? { drawer: false, done: false, tried: false, form: { name: '', phone: '', email: '', note: '' } } : { drawer: false }));
+  }
+
+  motionLevel() {
+    const m = (this.props && this.props.motion) || 'Bold';
+    if (m === 'Off') return 0;
+    if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) return 0;
+    return m === 'Subtle' ? 1 : 2;
+  }
+
+  refreshEls() {
+    const q = sel => Array.from(document.querySelectorAll(sel));
+    this._els = {
+      ring: document.querySelector('[data-cursor-ring]'), ringLabel: document.querySelector('[data-cursor-label]'),
+      progress: document.querySelector('[data-progress]'), headers: q('[data-header]'), skew: q('[data-skew]'),
+      marquee: q('[data-marquee]').reduce((a, el) => a.concat(el.getAnimations ? el.getAnimations() : []), []),
+      plx: q('[data-parallax]'), mag: q('[data-magnetic]'), hero: document.querySelector('[data-hero-content]'),
+      fx: document.querySelector('[data-fx]'), embers: q('[data-embers]'), steam: q('[data-steam]')
+    };
+  }
+
+  runIntro(base) {
+    this._introReady = true;
+    if (!this.state.heroZoom) this.setState({ heroZoom: true });
+    Array.from(document.querySelectorAll('[data-intro]')).filter(el => !el.hasAttribute('data-done')).forEach(el => {
+      el.setAttribute('data-done', '');
+      const to = {};
+      if (el.style.opacity !== '') to.opacity = '1';
+      if (el.style.transform) to.transform = 'none';
+      if (el.style.clipPath) to.clipPath = 'inset(0% 0% 0% 0%)';
+      const settle = () => Object.keys(to).forEach(k => { el.style[k] = to[k]; });
+      if (!this._ml || !el.animate) { settle(); return; }
+      const i = Number(el.getAttribute('data-intro')) || 0, clip = !!el.style.clipPath;
+      const a = el.animate([to], { duration: clip ? 1500 : 1250, delay: (base || 0) + i * 110, easing: clip ? 'cubic-bezier(.76,0,.24,1)' : 'cubic-bezier(.16,1,.3,1)', fill: 'forwards' });
+      a.onfinish = () => { settle(); a.cancel(); };
+    });
+  }
+
+  revealSpec(kind) {
+    const E = 'cubic-bezier(.16,1,.3,1)', IO = 'cubic-bezier(.76,0,.24,1)';
+    if (kind === 'title') return { f: [{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'none' }], d: 1000, e: E };
+    if (kind === 'fade') return { f: [{ opacity: 0 }, { opacity: 1 }], d: 1000, e: 'ease' };
+    if (kind === 'pop') return { f: [{ opacity: 0, transform: 'scale(.3) rotate(-18deg)' }, { opacity: 1, transform: 'scale(1.12) rotate(3deg)', offset: 0.62 }, { opacity: 1, transform: 'none' }], d: 1000, e: 'cubic-bezier(.22,1,.36,1)' };
+    if (kind === 'card') return { f: [{ opacity: 0, transform: 'translateY(28px)' }, { opacity: 1, transform: 'none' }], d: 1100, e: E };
+    if (kind === 'clip') return { f: [{ clipPath: 'inset(100% 0% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 0%)' }], d: 1400, e: IO };
+    if (kind === 'wipe') return { f: [{ clipPath: 'inset(0% 100% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 0%)' }], d: 1500, e: IO };
+    if (kind === 'plate') return { f: [{ opacity: 0, transform: 'translateY(30px)' }, { opacity: 1, transform: 'none' }], d: 1000, e: E };
+    if (kind === 'journey') return { f: [{ opacity: 0 }, { opacity: 1 }], d: 400, e: 'ease' };
+    if (kind === 'right') return { f: [{ opacity: 0, transform: 'translateX(20px)' }, { opacity: 1, transform: 'none' }], d: 1000, e: E };
+    return { f: [{ opacity: 0, transform: 'translateY(22px)' }, { opacity: 1, transform: 'none' }], d: 1000, e: E };
+  }
+
+  scanReveals() {
+    if (!this._ml || !this._io) return;
+    document.querySelectorAll('[data-reveal]').forEach(el => {
+      if (this._revealMap.has(el) || !el.animate) return;
+      const kind = el.getAttribute('data-reveal'), sp = this.revealSpec(kind);
+      const clipKind = kind === 'clip' || kind === 'wipe';
+      const first = clipKind ? el.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 1, fill: 'both' }) : el.animate(sp.f, { duration: sp.d, easing: sp.e, fill: 'both' });
+      if (clipKind) first._swap = sp;
+      const anims = [first];
+      if (kind === 'plate') { const sl = el.querySelector('image-slot'); if (sl) anims.push(sl.animate([{ transform: 'rotate(-150deg) scale(.55)' }, { transform: 'rotate(10deg) scale(1.05)', offset: 0.7 }, { transform: 'none' }], { duration: 1300, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'both' })); }
+      if (kind === 'journey') {
+        el.querySelectorAll('[data-jline]').forEach(x => anims.push(x.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: 1700, easing: 'cubic-bezier(.76,0,.24,1)', fill: 'both' })));
+        el.querySelectorAll('[data-jdot]').forEach((x, i) => { const a = x.animate([{ transform: 'scale(0)' }, { transform: 'scale(1.6)', offset: 0.6 }, { transform: 'scale(1)' }], { duration: 700, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'both' }); a._d = 150 + i * 420; anims.push(a); });
+        el.querySelectorAll('[data-jtraveller]').forEach(x => { const a = x.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, fill: 'both' }); a._d = 1500; anims.push(a); });
+      }
+      if (kind === 'card' || kind === 'clip' || kind === 'wipe') {
+        const box = kind === 'card' ? el.querySelector('[data-reveal-img]') : el;
+        if (box && kind === 'card') anims.push(box.animate([{ clipPath: 'inset(100% 0% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 0%)' }], { duration: 1200, easing: 'cubic-bezier(.76,0,.24,1)', fill: 'both' }));
+        const slot = box ? box.querySelector('image-slot') : null;
+        if (slot) anims.push(slot.animate([{ transform: 'scale(1.08)' }, { transform: 'scale(1)' }], { duration: 1600, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'both' }));
+      }
+      anims.forEach(a => { a.pause(); a.currentTime = 0; });
+      this._revealMap.set(el, anims);
+      this._pending.add(el);
+      this._io.observe(el);
+    });
+  }
+
+  onReveal(entries) {
+    const vis = entries.filter(e => e.isIntersecting).map(e => e.target);
+    vis.sort((a, b) => { const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect(); return (Math.round(ra.top / 40) - Math.round(rb.top / 40)) || (ra.left - rb.left); });
+    vis.forEach((el, i) => {
+      this._io.unobserve(el);
+      const anims = this._revealMap.get(el);
+      this._revealMap.set(el, null);
+      this._pending.delete(el);
+      if (!anims) return;
+      const delay = Math.min(i, 10) * 70;
+      const run = anims.map(a => {
+        if (a._swap) { const sp = a._swap; a.cancel(); return el.animate(sp.f, { duration: sp.d, easing: sp.e, delay, fill: 'both' }); }
+        a.effect.updateTiming({ delay: delay + (a._d || 0) }); a.play(); return a;
+      });
+      Promise.all(run.map(a => a.finished)).then(() => run.forEach(a => a.cancel())).catch(() => {});
+      const yr = el.querySelector('[data-year-roll]');
+      if (yr) setTimeout(() => this.rollYear(yr), delay + 250);
+      if (el.getAttribute('data-reveal') === 'journey') { const tr = el.querySelector('[data-jtraveller]'); if (tr) tr.animate([{ left: '12.5%' }, { left: '87.5%' }], { duration: 7000, delay: delay + 1800, iterations: Infinity, direction: 'alternate', easing: 'cubic-bezier(.65,0,.35,1)', fill: 'both' }); }
+    });
+  }
+
+  animOpen(sel, frames, dur, delay, ease, stagger) {
+    Array.from(document.querySelectorAll(sel)).forEach((el, i) => { if (el.animate) el.animate(frames, { duration: dur, delay: (delay || 0) + (stagger || 0) * i, easing: ease || 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' }); });
+  }
+
+  rollYear(span) {
+    const to = Number(span.getAttribute('data-year-roll')) || 1997, from = new Date().getFullYear(), t0 = performance.now(), dur = 1800;
+    const step = now => { const u = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - u, 3); span.textContent = String(Math.round(from + (to - from) * e)); if (u < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
+
+  plateHover(el) {
+    if (el === this._plateEl) return;
+    if (this._plateEl) this.plateAnim(this._plateEl, false);
+    this._plateEl = el;
+    if (el) this.plateAnim(el, true);
+  }
+
+  plateAnim(el, on) {
+    if (!this._ml || !el.animate) return;
+    const slot = el.querySelector('image-slot'), ring = el.querySelector('[data-plate]');
+    if (slot) slot.animate([{ transform: on ? 'rotate(32deg)' : 'rotate(0deg)' }], { duration: on ? 1100 : 800, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'forwards' });
+    if (on && ring) ring.animate([{ boxShadow: '0 0 0 0 rgba(198,166,100,.6), 0 0 0 0 rgba(198,166,100,.35)' }, { boxShadow: '0 0 0 14px rgba(198,166,100,0), 0 0 0 30px rgba(198,166,100,0)' }], { duration: 1200, easing: 'cubic-bezier(.16,1,.3,1)', iterations: 2 });
+  }
+
+  bubbles() {
+    const host = document.querySelector('[data-bubble-host]');
+    if (!host || !host.animate) return;
+    for (let i = 0; i < 28; i++) {
+      const b = document.createElement('span'), r = 2 + Math.random() * 5, fill = Math.random() < 0.35;
+      b.style.cssText = 'position:absolute;left:0;top:0;width:' + (r * 2) + 'px;height:' + (r * 2) + 'px;margin:' + (-r) + 'px 0 0 ' + (-r) + 'px;border-radius:50%;border:1px solid rgba(198,166,100,.9);background:' + (fill ? 'rgba(198,166,100,.55)' : 'transparent') + ';pointer-events:none;';
+      host.appendChild(b);
+      const dx = (Math.random() - 0.5) * 170, dy = 60 + Math.random() * 160;
+      const a = b.animate([{ transform: 'translate(0,0) scale(.3)', opacity: 0 }, { opacity: 1, offset: 0.15 }, { transform: 'translate(' + dx.toFixed(0) + 'px,' + (-dy).toFixed(0) + 'px) scale(1)', opacity: 0 }], { duration: 1300 + Math.random() * 1100, delay: Math.random() * 350, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'both' });
+      a.onfinish = () => b.remove();
+    }
+    const ring = host.parentElement;
+    if (ring && ring.animate) ring.animate([{ transform: 'scale(.6)', opacity: 0 }, { transform: 'scale(1.12)', opacity: 1, offset: 0.6 }, { transform: 'none', opacity: 1 }], { duration: 800, easing: 'cubic-bezier(.22,1,.36,1)' });
+  }
+
+  makeSprites() {
+    const mk = (rgb, soft) => {
+      const c = document.createElement('canvas'); c.width = c.height = 64;
+      const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, 'rgba(' + rgb + ',1)'); gr.addColorStop(soft ? 0.45 : 0.16, 'rgba(' + rgb + ',' + (soft ? 0.4 : 0.5) + ')'); gr.addColorStop(1, 'rgba(' + rgb + ',0)');
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return c;
+    };
+    this._spE = ['255,203,125', '255,168,82', '250,224,172', '255,236,196'].map(c => mk(c, false));
+    this._spW = mk('255,252,245', true);
+  }
+
+  fx(dtMs) {
+    const E = this._els, c = E.fx;
+    if (!c || !c.getContext) return;
+    if (!this._ctx) { this._ctx = c.getContext('2d'); this.makeSprites(); this._parts = []; }
+    const ctx = this._ctx, dpr = Math.min(2, window.devicePixelRatio || 1), W = window.innerWidth, H = window.innerHeight;
+    const cw = Math.round(W * dpr), ch = Math.round(H * dpr);
+    if (c.width !== cw || c.height !== ch) { c.width = cw; c.height = ch; }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const dt = dtMs / 1000, sy = window.scrollY || 0, P = this._parts, boxes = [];
+    const add = el => { const r = el.getBoundingClientRect(); if (!r.width || r.bottom < -50 || r.top > H + 50) return null; const b = { el, r }; boxes.push(b); return b; };
+    E.embers.forEach(el => {
+      const b = add(el); if (!b || P.length > 170) return;
+      let n = (Number(el.getAttribute('data-embers')) || 1) * 24 * Math.max(0.45, (b.r.width * b.r.height) / (1440 * 800)) * dt;
+      for (; n > 0; n -= 1) if (Math.random() < n) P.push({ el, t: 0, x: b.r.left + Math.random() * b.r.width, y: b.r.top + sy + b.r.height * (0.3 + Math.random() * 0.7), vx: (Math.random() - 0.5) * 10, vy: -(12 + Math.random() * 30), r: 0.7 + Math.random() * 2.1, life: 3 + Math.random() * 4, ph: Math.random() * 6.28, col: (Math.random() * 4) | 0 });
+    });
+    E.steam.forEach(el => {
+      const b = add(el); if (!b || P.length > 170) return;
+      const a = (el.getAttribute('data-steam') || '0.5,0.8,1,1').split(',').map(Number);
+      const sc = Math.max(b.r.width / a[2], b.r.height / a[3]);
+      const px = b.r.left + (b.r.width - a[2] * sc) / 2 + a[0] * sc, py = b.r.top + (b.r.height - a[3] * sc) / 2 + a[1] * sc + sy, k = Math.max(0.6, sc);
+      for (let n = 10 * dt; n > 0; n -= 1) if (Math.random() < n) P.push({ el, s: 1, t: 0, x: px + (Math.random() - 0.5) * 70 * sc, y: py, vx: (Math.random() - 0.5) * 8, vy: -(24 + Math.random() * 26), r: (8 + Math.random() * 10) * k, grow: (30 + Math.random() * 30) * k, life: 2.4 + Math.random() * 1.6, ph: Math.random() * 6.28, sway: 8 + Math.random() * 18 });
+    });
+    for (let i = P.length - 1; i >= 0; i--) { const p = P[i]; p.t += dt; if (p.t >= p.life || !p.el.isConnected) { P.splice(i, 1); continue; } p.x += p.vx * dt; p.y += p.vy * dt; }
+    ctx.globalCompositeOperation = 'lighter';
+    boxes.forEach(b => {
+      ctx.save(); ctx.beginPath(); ctx.rect(b.r.left, b.r.top, b.r.width, b.r.height); ctx.clip();
+      for (let i = 0; i < P.length; i++) {
+        const p = P[i]; if (p.el !== b.el) continue;
+        const u = p.t / p.life, y = p.y - sy;
+        if (p.s) {
+          const rad = p.r + p.grow * u, x = p.x + Math.sin(p.ph + p.t * 1.7) * p.sway * u;
+          ctx.globalAlpha = Math.max(0, 0.17 * Math.sin(Math.PI * Math.min(1, u * 1.1)));
+          ctx.drawImage(this._spW, x - rad, y - rad, rad * 2, rad * 2);
+        } else {
+          const g = p.r * 7, x = p.x + Math.sin(p.ph + p.t * 2.3) * 7;
+          ctx.globalAlpha = Math.max(0, Math.sin(Math.PI * u) * (0.55 + 0.45 * Math.sin(p.ph * 3 + p.t * 8)));
+          ctx.drawImage(this._spE[p.col], x - g, y - g, g * 2, g * 2);
+        }
+      }
+      ctx.restore();
+    });
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  }
+
+  hoverCursor(t) {
+    this.plateHover(t && t.closest ? t.closest('[data-plate-item]') : null);
+    const E = this._els; if (!E || !E.ring) return;
+    const lab = t && t.closest ? t.closest('[data-cursor]') : null;
+    const act = t && t.closest ? t.closest('a,button,[role="button"],input,textarea') : null;
+    const label = lab ? (lab.getAttribute('data-cursor') || '') : '';
+    const mode = label ? 'label' : (act ? 'act' : 'idle');
+    if (mode === this._cmode && label === this._clabel) return;
+    this._cmode = mode; this._clabel = label;
+    const size = mode === 'label' ? 88 : (mode === 'act' ? 58 : 40);
+    E.ring.style.width = size + 'px'; E.ring.style.height = size + 'px'; E.ring.style.margin = (-size / 2) + 'px 0 0 ' + (-size / 2) + 'px';
+    E.ring.style.backgroundColor = mode === 'label' ? 'rgba(198,166,100,.95)' : 'rgba(198,166,100,0)';
+    E.ring.style.borderColor = mode === 'label' ? 'rgba(198,166,100,0)' : 'rgba(198,166,100,.85)';
+    if (E.ringLabel) { E.ringLabel.textContent = label; E.ringLabel.style.opacity = mode === 'label' ? '1' : '0'; }
+  }
+
+  frame(t) {
+    this._raf = requestAnimationFrame(this._loop);
+    const E = this._els; if (!E) return;
+    const dtMs = Math.min(60, Math.max(0, (t || 0) - (this._lt || t || 0))); this._lt = t;
+    const y = window.scrollY || 0, vh = window.innerHeight || 800;
+    const v = y - (this._ly === undefined ? y : this._ly); this._ly = y;
+    if (E.progress) { const max = Math.max(1, document.documentElement.scrollHeight - vh); E.progress.style.scale = Math.min(1, y / max).toFixed(4) + ' 1'; }
+    if (!this._ml) return;
+    const s = this.state, overlay = s.menu || s.drawer || s.search || s.sheet;
+    let hide = !!this._hdrHide;
+    if (overlay || y < 240) hide = false; else if (v > 6) hide = true; else if (v < -6) hide = false;
+    if (hide !== !!this._hdrHide) { this._hdrHide = hide; E.headers.forEach(el => { el.style.translate = hide ? '0 -110%' : '0 0'; }); }
+    E.plx.forEach(el => {
+      const p = el.parentElement; if (!p) return;
+      const r = p.getBoundingClientRect(); if (r.bottom < -200 || r.top > vh + 200) return;
+      const f = Number(el.getAttribute('data-parallax')) || 0, mx = Number(el.getAttribute('data-parallax-max')) || 0;
+      let off = (r.top + r.height / 2 - vh / 2) * -f;
+      if (mx) off = Math.max(-r.height * mx, Math.min(r.height * mx, off));
+      el.style.translate = '0 ' + off.toFixed(1) + 'px';
+    });
+    if (E.hero && y < vh * 1.4) { E.hero.style.translate = '0 ' + (-y * 0.12).toFixed(1) + 'px'; E.hero.style.opacity = Math.max(0, 1 - y / (vh * 0.75)).toFixed(3); }
+  }
+
+  renderVals() {
+    const s = this.state, R = this.RESTAURANTS, f = s.filter, b = s.booking;
+    const mobile = s.w < 760, compact = s.w < 1080, isHome = s.view === 'home', isDetail = !isHome;
+    const match = r => (f.cuisine === 'all' || r.cuisines.indexOf(f.cuisine) >= 0) && (f.destination === 'all' || r.dest === f.destination) && (f.occasion === 'all' || r.meals.indexOf(f.occasion) >= 0);
+    const shown = R.filter(match).length;
+    const hoverOn = key => () => this.setState({ hover: key });
+    const hoverOff = key => () => this.setState(st => (st.hover === key ? { hover: null } : null));
+    const noop = e => { if (e && e.preventDefault) e.preventDefault(); };
+    const go = id => () => this.scrollToId(id);
+
+    const card = (r, pre) => {
+      const key = pre + r.id, hov = s.hover === key;
+      return {
+        name: r.name, type: r.type, slot: 'r-' + r.id, img: 'assets/r-' + r.id + '.jpg',
+        display: pre === 'g:' && !match(r) ? 'none' : 'flex',
+        scale: hov ? 1.05 : 1, tagOp: hov ? 1 : 0, tagY: hov ? '0px' : '8px',
+        tag: r.id === 'taya-house' ? 'View restaurant' : 'Reserve a table', cursor: r.id === 'taya-house' ? 'View' : 'Book',
+        onClick: () => this.openRestaurant(r), onEnter: hoverOn(key), onLeave: hoverOff(key)
+      };
+    };
+    const destCard = k => {
+      const key = 'd:' + k, hov = s.hover === key, n = R.filter(r => r.dest === k).length;
+      return {
+        scale: hov ? 1.06 : 1, op: hov || mobile ? 1 : 0, y: hov || mobile ? '0px' : '10px',
+        count: k === 'future' ? 'Coming soon' : n + ' restaurants →',
+        onEnter: hoverOn(key), onLeave: hoverOff(key), onClick: () => { if (k !== 'future') this.pickDest(k); }
+      };
+    };
+    const mkDD = (id, label, cur, options, onPick) => {
+      const curOpt = options.find(o => o.v === cur), open = s.openDD === id;
+      return {
+        label, value: curOpt ? curOpt.l : '—', open, rot: open ? '180deg' : '0deg',
+        toggle: () => this.setState(st => ({ openDD: st.openDD === id ? null : id })),
+        options: options.map(o => {
+          const sel = o.v === cur;
+          return {
+            label: o.l, note: o.note || (sel ? '●' : ''),
+            color: o.disabled ? '#A9A396' : (sel ? '#1F3D34' : '#232323'), bg: sel ? '#F7F2E8' : '#FFFFFF', cursor: o.disabled ? 'default' : 'pointer',
+            chipBg: sel ? '#1F3D34' : '#FFFFFF', chipFg: sel ? '#F7F2E8' : (o.disabled ? '#A9A396' : '#232323'), chipBd: sel ? '#1F3D34' : '#E4DCCB',
+            onClick: () => { if (o.disabled) return; onPick(o.v); this.setState({ openDD: null }); }
+          };
+        })
+      };
+    };
+
+    const fd = s.finder, destKeys = Object.keys(this.DESTS);
+    const cuisineOpts = [{ v: 'all', l: 'All cuisines' }].concat(this.CUISINES.map(c => ({ v: c[0], l: c[0] })));
+    const occOpts = [{ v: 'all', l: 'Any occasion' }].concat(['Breakfast', 'Lunch', 'Dinner', 'Drinks'].map(m => ({ v: m, l: m })));
+    const destAny = [{ v: 'all', l: 'Any destination' }].concat(destKeys.map(k => ({ v: k, l: this.DESTS[k] })));
+    const fLoc = mkDD('fLocation', 'Location', fd.location, [{ v: 'Da Nang', l: 'Da Nang' }, { v: 'soon', l: 'More cities', note: 'Coming soon', disabled: true }], v => this.setFinder({ location: v }));
+    const fCui = mkDD('fCuisine', 'Cuisine', fd.cuisine, cuisineOpts, v => this.setFinder({ cuisine: v }));
+    const fOcc = mkDD('fOccasion', 'Occasion', fd.occasion, occOpts, v => this.setFinder({ occasion: v }));
+    const fDst = mkDD('fDestination', 'Destination', fd.destination, destAny, v => this.setFinder({ destination: v }));
+
+    const rest = R.find(r => r.id === b.restaurant) || R[2];
+    const days = this.days();
+    const destOpts = destKeys.map(k => ({ v: k, l: this.DESTS[k] }));
+    const restOpts = R.filter(r => r.dest === b.destination).map(r => ({ v: r.id, l: r.name }));
+    const dayOpts = days.map((d, i) => ({ v: i, l: this.fmtDay(d), note: i === 0 ? 'Today' : (i === 1 ? 'Tomorrow' : '') }));
+    const groups0 = this.slotsFor(rest.id);
+    const timeOpts = [];
+    groups0.forEach(g => g.times.forEach(t => { const un = this.unavailable(rest.id, b.day, t); timeOpts.push({ v: t, l: t, note: un ? 'Full' : g.meal, disabled: un }); }));
+    const guestOpts = [];
+    for (let i = 1; i <= 12; i++) guestOpts.push({ v: i, l: i + (i === 1 ? ' guest' : ' guests') });
+    const pickB = k => v => this.setBooking({ [k]: v });
+
+    let anyAvail = false;
+    const groups = groups0.map(g => ({
+      meal: g.meal,
+      times: g.times.map(t => {
+        const un = this.unavailable(rest.id, b.day, t), on = !un && t === b.time;
+        if (!un) anyAvail = true;
+        return {
+          t, bg: on ? '#1F3D34' : (un ? 'rgba(255,255,255,0)' : '#FFFFFF'), fg: on ? '#F7F2E8' : (un ? '#B3AC9C' : '#232323'),
+          bd: on ? '#1F3D34' : (un ? '#E9E2D2' : '#E4DCCB'), deco: un ? 'line-through' : 'none', cur: un ? 'not-allowed' : 'pointer',
+          onClick: () => { if (!un) this.setBooking({ time: t }); }
+        };
+      })
+    }));
+    const v = this.validForm();
+    const field = (k, ok) => ({
+      value: s.form[k], bd: s.tried && !ok ? '#B3261E' : '#DCD2BE',
+      onChange: e => { const val = e.target.value; this.setState(st => ({ form: Object.assign({}, st.form, { [k]: val }) })); }
+    });
+    const gn = b.guests, gl = gn + (gn === 1 ? ' guest' : ' guests');
+    const rs = {
+      form: !s.done, done: s.done, name: rest.name, meta: rest.type + ' · ' + this.DESTS[rest.dest],
+      days: days.map((d, i) => {
+        const on = i === b.day;
+        return { wd: i === 0 ? 'Today' : this.WD[d.getDay()], dn: String(d.getDate()), mo: this.MO[d.getMonth()], bg: on ? '#1F3D34' : '#FFFFFF', fg: on ? '#F7F2E8' : '#232323', sub: on ? 'rgba(247,242,232,0.72)' : '#7A6B47', bd: on ? '#1F3D34' : '#E4DCCB', onClick: () => this.setBooking({ day: i }) };
+      }),
+      groups, noSlots: !anyAvail, guests: gl,
+      dec: () => this.setBooking({ guests: Math.max(1, gn - 1) }), inc: () => this.setBooking({ guests: Math.min(12, gn + 1) }),
+      decFg: gn <= 1 ? '#C9C1B0' : '#232323', incFg: gn >= 12 ? '#C9C1B0' : '#232323',
+      fName: field('name', v.name), fPhone: field('phone', v.phone), fEmail: field('email', v.email), fNote: field('note', true),
+      errName: s.tried && !v.name, errPhone: s.tried && !v.phone, errEmail: s.tried && !v.email,
+      summary: this.fmtDay(days[b.day]) + ' · ' + b.time + ' · ' + gl,
+      dateLabel: this.fmtDay(days[b.day]), time: b.time, ref: s.ref, guestName: s.form.name.trim() || 'you'
+    };
+
+    const chips = [];
+    if (f.cuisine !== 'all') chips.push({ label: f.cuisine, onClick: () => this.setFilter({ cuisine: 'all' }) });
+    if (f.occasion !== 'all') chips.push({ label: f.occasion, onClick: () => this.setFilter({ occasion: 'all' }) });
+    if (f.destination !== 'all') chips.push({ label: this.DESTS[f.destination], onClick: () => this.setFilter({ destination: 'all' }) });
+
+    const fold = x => String(x).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+    const q = fold(s.q.trim());
+    const results = !q ? [] : R.filter(r => fold([r.name, r.type, r.cuisines.join(' '), this.DESTS[r.dest]].join(' ')).indexOf(q) >= 0).map(r => ({
+      name: r.name, meta: r.type + ' · ' + this.DESTS[r.dest], bg: "url('assets/r-" + r.id + ".jpg')", action: r.id === 'taya-house' ? 'View' : 'Reserve', onClick: () => this.openRestaurant(r)
+    }));
+
+    const sl = i => {
+      const on = s.slide === i;
+      return { op: on ? 1 : 0, z: on ? 2 : 1, pe: on ? 'auto' : 'none', sc: on && s.heroZoom ? 1 : 1.05, w: on ? '48px' : '18px', c: on ? '#C6A664' : 'rgba(247,242,232,0.5)', go: () => this.goSlide(i) };
+    };
+    const solid = s.scrolled;
+    const at = s.drawer ? 'reserve' : s.tab;
+    const tab = k => ({ bg: at === k ? '#1F3D34' : '#FFFFFF', fg: at === k ? '#EFEBE0' : '#232323' });
+    const lang = mkDD('lang', 'Language', s.lang, [{ v: 'EN', l: 'English' }, { v: 'VI', l: 'Tiếng Việt' }], val => this.setState({ lang: val }));
+    lang.value = s.lang;
+    const langBtn = k => ({ bd: s.lang === k ? '#C6A664' : 'rgba(247,242,232,0.3)', fg: s.lang === k ? '#C6A664' : '#F7F2E8' });
+
+    return {
+      journeyDisp: s.w >= 1140 ? 'block' : 'none', destCol: mobile ? 'min(76vw,300px)' : '240px',
+      isHome, isDetail, showIntro: s.intro, showCursor: s.fine && this.motionLevel() === 2,
+      heroDesktop: isHome && !mobile, heroMobile: isHome && mobile, showFinder: isHome && !mobile,
+      detailDesktop: isDetail && !mobile, detailMobile: isDetail && mobile,
+      showFullHeader: !compact && !(mobile && isDetail), showCompactHeader: compact && !(mobile && isDetail), showCompactReserve: compact && !mobile,
+      showHomeBar: mobile && isHome, showDetailBar: mobile && isDetail, showBooking: !(mobile && isDetail),
+      bottomSpace: mobile ? '76px' : '0px',
+      hdr: { bg: solid ? 'rgba(20,32,28,0.96)' : 'rgba(20,32,28,0)', shadow: solid ? '0 1px 0 rgba(247,242,232,0.08)' : '0 1px 0 rgba(247,242,232,0)', h: solid ? '76px' : '96px', blur: solid ? 'blur(10px)' : 'none' },
+      nav: { restaurants: go('restaurants'), destinations: go('destinations'), experiences: go('experiences'), offers: go('offers'), stories: go('stories'), about: go('heritage') },
+      goHomeTop: e => { noop(e); this.setState({ menu: false }); if (this.state.view !== 'home') this.navigate('home'); else window.scrollTo({ top: 0, behavior: 'smooth' }); },
+      goBack: () => this.navigate('home', () => this.scrollToId('restaurants')),
+      noop,
+      exploreRestaurants: go('restaurants'),
+      openFilm: () => this.setState({ film: true }), closeFilm: () => this.setState({ film: false }),
+      openSearch: () => this.setState({ search: true, menu: false, q: '' }), closeSearch: () => this.setState({ search: false }),
+      openMenu: () => this.setState({ menu: true }), closeMenu: () => this.setState({ menu: false }),
+      openSheet: () => this.setState({ sheet: true }), closeSheet: () => this.setState({ sheet: false, openDD: null }),
+      openReserve: () => this.openReserve(),
+      reserveTaya: () => this.openReserve({ restaurant: 'taya-house' }),
+      findTable: () => this.openReserve(),
+      toDishes: () => { const w = window.open('https://furamavietnam.com/wp-content/uploads/2026/03/Taya-CC-Tariff-A4-1-25.pdf', '_blank', 'noopener'); if (!w) this.scrollToId('dishes'); },
+      allRestaurants: () => { this.clearFilters(); this.scrollToId('restaurants'); },
+      slideA: sl(0), slideB: sl(1), slideC: sl(2),
+      finderFields: [fLoc, fCui, fOcc, fDst], sheetFields: [fCui, fOcc, fDst],
+      finderGrid: compact ? 'minmax(0,1fr)' : 'minmax(0,1fr) 235px',
+      finderCols: compact ? 'repeat(2,minmax(0,1fr))' : 'repeat(4,minmax(0,1fr))',
+      applyFinder: () => this.applyFinder(),
+      cuisines: this.CUISINES.map(c => {
+        const on = f.cuisine === c[0];
+        return { label: c[0], slot: 'cuisine-' + c[1], img: 'assets/cuisine-' + c[1] + '.jpg', ring: on ? '0 0 0 3px #F7F2E8, 0 0 0 4px #1F3D34' : '0 0 0 3px rgba(247,242,232,0), 0 0 0 4px rgba(31,61,52,0)', color: on ? '#1F3D34' : '#232323', weight: on ? 600 : 400, onClick: () => this.pickCuisine(c[0]) };
+      }),
+      allCuisines: () => { this.setFilter({ cuisine: 'all' }); this.scrollToId('restaurants'); },
+      viewAll: () => this.clearFilters(),
+      restaurants: R.map(r => card(r, 'g:')),
+      moreRestaurants: R.filter(r => r.dest === 'resort' && r.id !== 'taya-house').map(r => card(r, 'm:')),
+      hasFilter: chips.length > 0, filterChips: chips, noResults: shown === 0,
+      filterSummary: shown ? 'Showing ' + shown + ' of ' + R.length + ' restaurants' : 'No matches',
+      clearFilters: () => this.clearFilters(),
+      dest: { resort: destCard('resort'), dining: destCard('dining-house'), mm: destCard('mm'), future: destCard('future') },
+      offer1: () => this.openReserve({ restaurant: 'cafe-indochine' }, 'Offer: Seafood & Steak Buffet Dinner'),
+      offer2: () => this.openReserve({ restaurant: 'taya-house' }, 'Offer: Vietnamese Cooking Class'),
+      offer3: () => this.openReserve({ restaurant: 'hai-van-lounge' }, 'Offer: Afternoon Tea & Dessert Buffet'),
+      bookingFields: [
+        mkDD('bDestination', 'Destination', b.destination, destOpts, pickB('destination')),
+        mkDD('bRestaurant', 'Restaurant', b.restaurant, restOpts, pickB('restaurant')),
+        mkDD('bDate', 'Date', b.day, dayOpts, pickB('day')),
+        mkDD('bTime', 'Time', b.time, timeOpts, pickB('time')),
+        mkDD('bGuests', 'Guests', b.guests, guestOpts, pickB('guests'))
+      ],
+      drawerFields: [
+        mkDD('dDestination', 'Destination', b.destination, destOpts, pickB('destination')),
+        mkDD('dRestaurant', 'Restaurant', b.restaurant, restOpts, pickB('restaurant'))
+      ],
+      bookGrid: s.w < 1180 ? 'minmax(0,1fr)' : 'minmax(0,1fr) 178px',
+      bookCols: mobile ? 'repeat(2,minmax(0,1fr))' : (s.w < 1180 ? 'repeat(3,minmax(0,1fr))' : 'minmax(0,1.35fr) minmax(0,1.1fr) minmax(0,1fr) minmax(0,.75fr) minmax(0,.85fr)'),
+      bookBtnH: s.w < 1180 ? '60px' : '100px',
+      drawerOpen: s.drawer, closeDrawer: () => this.closeDrawer(), submit: () => this.submit(), rs,
+      searchOpen: s.search, searchRef: this.searchRef, q: s.q, onQ: e => this.setState({ q: e.target.value }),
+      searchEmpty: !q, hasResults: results.length > 0, searchNone: !!q && !results.length, results,
+      resultsLabel: results.length + (results.length === 1 ? ' RESULT' : ' RESULTS'),
+      popular: this.CUISINES.map(c => ({ label: c[0], onClick: () => this.setState({ q: c[0] }) })),
+      menuOpen: s.menu, filmOpen: s.film, sheetOpen: s.sheet,
+      lang, langEN: langBtn('EN'), langVI: langBtn('VI'), setEN: () => this.setState({ lang: 'EN' }), setVI: () => this.setState({ lang: 'VI' }),
+      tabs: { explore: tab('explore'), restaurants: tab('restaurants'), reserve: tab('reserve') },
+      tabExplore: () => { this.setState({ drawer: false }); window.scrollTo({ top: 0, behavior: 'smooth' }); },
+      tabRestaurants: () => this.scrollToId('restaurants')
+    };
+  }
+}
+</script>
+</body>
+</html>
