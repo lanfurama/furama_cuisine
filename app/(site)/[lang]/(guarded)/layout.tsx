@@ -18,7 +18,8 @@ import { Chrome } from '@/components/site/Chrome';
 export default async function GuardedLayout({ children }: { children: React.ReactNode }) {
   const locale = await lang();
   const enabled = await getEnabledLocales();
-  if (!enabled.some((l) => l.code === locale)) notFound();
+  // `locale` is string | undefined since app/admin added a second root layout (next-root-params.md:286-313).
+  if (!locale || !enabled.some((l) => l.code === locale)) notFound();
   const [restaurants, strings] = await Promise.all([getRestaurants(locale), getStrings(locale, CLIENT_KEYS)]);
 
   return (

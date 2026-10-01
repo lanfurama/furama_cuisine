@@ -1,0 +1,297 @@
+/*
+ * The admin's own stylesheet: loaded only by app/admin/layout.tsx, so none of
+ * it reaches the guest site, and none of the guest layout (styles/*.css via
+ * app/globals.css) reaches the admin. Colours echo the brand; the type is Be
+ * Vietnam Pro (lib/fonts), which covers Vietnamese.
+ *
+ * CSP: style-src allows files and nonced <style> only, so admin markup must
+ * not use style="" attributes. Put every rule here or in a CSS module.
+ */
+:root {
+  --a-bg: #f5f3ee;
+  --a-surface: #ffffff;
+  --a-ink: #1f2522;
+  --a-ink-soft: #56605b;
+  --a-line: #e2ded4;
+  --a-brand: #14201c;
+  --a-brand-ink: #f7f2e8;
+  --a-accent: #8a6b33;
+  --a-focus: #2f6fd6;
+  --a-danger: #a3261b;
+  --a-danger-bg: #fbecea;
+  --a-radius: 8px;
+  --a-sidebar: 232px;
+  --a-font: var(--font-be-vietnam), 'Be Vietnam Pro Fallback', system-ui, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body.admin {
+  background: var(--a-bg);
+  color: var(--a-ink);
+  font-family: var(--a-font);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.admin a {
+  color: inherit;
+}
+
+.admin :focus-visible {
+  outline: 2px solid var(--a-focus);
+  outline-offset: 2px;
+}
+
+/* ---------- Shell: sidebar + header + main ---------- */
+
+.a-shell {
+  display: grid;
+  grid-template-columns: var(--a-sidebar) 1fr;
+  min-height: 100vh;
+}
+
+.a-sidebar {
+  background: var(--a-brand);
+  color: var(--a-brand-ink);
+  padding: 20px 12px;
+}
+
+.a-brand {
+  display: block;
+  padding: 4px 12px 20px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.a-brand small {
+  display: block;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.a-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.a-nav a {
+  display: block;
+  padding: 9px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  opacity: 0.86;
+}
+
+.a-nav a:hover {
+  background: rgba(247, 242, 232, 0.08);
+  opacity: 1;
+}
+
+.a-nav a[aria-current='page'] {
+  background: rgba(247, 242, 232, 0.14);
+  opacity: 1;
+  font-weight: 600;
+}
+
+.a-main-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.a-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  height: 56px;
+  padding: 0 24px;
+  background: var(--a-surface);
+  border-bottom: 1px solid var(--a-line);
+}
+
+.a-user {
+  text-align: right;
+  line-height: 1.25;
+}
+
+.a-user small {
+  display: block;
+  color: var(--a-ink-soft);
+}
+
+.a-main {
+  padding: 28px 32px 48px;
+  max-width: 1200px;
+}
+
+.a-main h1 {
+  margin: 0 0 6px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.a-lede {
+  margin: 0 0 24px;
+  color: var(--a-ink-soft);
+}
+
+/* ---------- Controls ---------- */
+
+.a-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--a-brand);
+  border-radius: 6px;
+  background: var(--a-brand);
+  color: var(--a-brand-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.a-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.a-btn--ghost {
+  background: transparent;
+  color: var(--a-ink);
+  border-color: var(--a-line);
+}
+
+.a-field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.a-field label {
+  font-weight: 600;
+}
+
+.a-field input {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--a-line);
+  border-radius: 6px;
+  background: var(--a-surface);
+  color: var(--a-ink);
+  font: inherit;
+}
+
+.a-field input[aria-invalid='true'] {
+  border-color: var(--a-danger);
+}
+
+.a-field-error {
+  margin: 0;
+  color: var(--a-danger);
+  font-size: 14px;
+}
+
+.a-alert {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--a-danger-bg);
+  color: var(--a-danger);
+}
+
+/* ---------- Auth pages (sign-in, accept-invite, reset-password) ---------- */
+
+.a-auth {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px 16px;
+}
+
+.a-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 32px 28px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--a-radius);
+  background: var(--a-surface);
+}
+
+.a-card h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+
+.a-card .a-lede {
+  margin-bottom: 20px;
+}
+
+.a-card .a-btn {
+  width: 100%;
+}
+
+.a-card-foot {
+  margin: 16px 0 0;
+  text-align: center;
+  font-size: 14px;
+}
+
+/* ---------- Tables ---------- */
+
+.a-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--a-surface);
+  border: 1px solid var(--a-line);
+  border-radius: var(--a-radius);
+}
+
+.a-table th,
+.a-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--a-line);
+  text-align: left;
+}
+
+.a-table th {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--a-ink-soft);
+}
+
+@media (max-width: 760px) {
+  .a-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .a-sidebar {
+    padding: 12px;
+  }
+
+  .a-nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .a-main {
+    padding: 20px 16px 40px;
+  }
+}

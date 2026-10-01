@@ -47,7 +47,8 @@ const MOTION_BOOTSTRAP = `try{document.documentElement.dataset.motion=matchMedia
  * data reads live in (guarded)/layout.tsx.
  */
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
-  const code = await lang();
+  // string | undefined: app/admin has a root layout of its own with no [lang] (next-root-params.md:286-313).
+  const code = (await lang()) ?? DEFAULT_LOCALE;
 
   /* suppressHydrationWarning: the inline script below stamps data-motion onto
      <html> before React hydrates, so the server markup differs by design. */

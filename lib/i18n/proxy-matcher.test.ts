@@ -6,7 +6,20 @@ import { config } from '@/proxy';
 const m = (url: string) => matches({ config, url });
 
 describe('proxy matcher', () => {
-  it.each(['/', '/restaurants', '/restaurants/taya-house', '/anything', '/english', '/admin', '/admin/sign-in', '/admin/a/b'])(
+  it.each([
+    '/',
+    '/restaurants',
+    '/restaurants/taya-house',
+    '/anything',
+    '/english',
+    '/admin',
+    '/admin/sign-in',
+    '/admin/sign-in?next=%2Fadmin%2Fusers',
+    '/admin/accept-invite?token=abc',
+    '/admin/reset-password',
+    '/admin/users',
+    '/admin/a/b',
+  ])(
     'runs on %s',
     (u) => expect(m(u)).toBe(true),
   );
@@ -22,6 +35,9 @@ describe('proxy matcher', () => {
     '/pt-br/a',
     '/xx/nope',
     '/api/availability',
+    // Better Auth's HTTP endpoints never pass through the proxy (spec §7.1 blocks /api/auth/admin/* in the auth hooks instead).
+    '/api/auth/sign-in/email',
+    '/api/auth/admin/set-role',
     '/api',
     '/_next/static/a.js',
     '/_next/image',

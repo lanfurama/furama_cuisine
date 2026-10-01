@@ -4,7 +4,9 @@
  *
  * 1. The guest pages must be fully prerendered with cacheLife('max') and carry
  *    every cache tag their data readers declare, or a write that refreshes one
- *    of those tags (spec §6.2) would never reach them.
+ *    of those tags (spec §6.2) would never reach them. The admin pages are the
+ *    opposite (1b): no static shell at all, since a shell built at build time
+ *    could not carry the per-request CSP nonce (spec §11).
  * 2. The web fonts must reach the pages as one family each. lib/fonts/index.ts
  *    loads every subset with its own localFont call and joins the calls into
  *    one family through `declarations`, which relies on the bundler naming a
@@ -74,6 +76,18 @@ for (const [route, file] of Object.entries(PAGES)) {
   }
 }
 
+/* 1b. The admin has no static shell: its scripts could not carry the per-request CSP nonce (spec §11). */
+const adminRoutes = [...Object.entries(manifest.routes), ...Object.entries(manifest.dynamicRoutes)].filter(
+  ([route]) => route === '/admin' || route.startsWith('/admin/'),
+);
+// Next records an empty, blocking entry for every admin route; finding none means the check sees nothing.
+if (adminRoutes.length === 0) problems.push('no /admin route in the prerender manifest');
+for (const [route, entry] of adminRoutes) {
+  if (entry.response !== 'empty' || entry.htmlSize !== 0) {
+    problems.push(`${route} has a static shell (response ${entry.response}, ${entry.htmlSize} bytes); admin pages must render at request time`);
+  }
+}
+
 /* 2. Fonts */
 const fontSummary = checkFonts();
 
@@ -82,6 +96,7 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(`Prerender check passed: ${Object.keys(PAGES).join(', ')} (tags: ${TAGS.join(', ')}).`);
+console.log(`Admin check passed: ${adminRoutes.map(([route]) => route).join(', ')} have no static shell.`);
 console.log(`Font check passed: ${fontSummary}.`);
 
 function checkFonts() {

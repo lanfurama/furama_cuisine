@@ -1,4 +1,7 @@
+import { getSessionCookie } from 'better-auth/cookies';
 import { NextResponse, type NextRequest } from 'next/server';
+import { adminContentSecurityPolicy, adminSecurityHeaders, createNonce } from '@/lib/admin/csp';
+import { ADMIN_SIGN_IN, isAdminPath, isPublicAdminPath } from '@/lib/admin/paths';
 import { ENABLED_LOCALES, LOCALE_COOKIE, pickLocale } from '@/lib/i18n/locales';
 
 /*
@@ -18,9 +21,8 @@ export const config = {
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
-    return NextResponse.next(); // phase 3: the session-cookie check
-  }
+  if (isAdminPath(pathname)) return adminProxy(request);
+
   const locale = pickLocale(
     request.cookies.get(LOCALE_COOKIE)?.value,
     request.headers.get('accept-language'),
@@ -31,5 +33,38 @@ export function proxy(request: NextRequest) {
   // 307, not 308: the target depends on the cookie and Accept-Language, so no one may cache it as permanent.
   const res = NextResponse.redirect(url, 307);
   res.headers.append('Vary', 'Cookie, Accept-Language');
+  return res;
+}
+
+/*
+ * /admin: an optimistic check only (authentication.md:1033 — the proxy reads
+ * the cookie, never the database). The cookie may be stale or forged, so every
+ * admin page and action still verifies the session itself.
+ */
+function adminProxy(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
+
+  // getSessionCookie knows Better Auth's names: better-auth.session_token, and
+  // __Secure-better-auth.session_token once the base URL is https.
+  if (!isPublicAdminPath(pathname) && !getSessionCookie(request)) {
+    const url = request.nextUrl.clone();
+    url.pathname = ADMIN_SIGN_IN;
+    url.search = '';
+    const next = new URLSearchParams(search);
+    next.delete('_rsc');
+    const query = next.toString();
+    if (pathname !== '/admin' || query) url.searchParams.set('next', `${pathname}${query ? `?${query}` : ''}`);
+    return NextResponse.redirect(url, 307);
+  }
+
+  const csp = adminContentSecurityPolicy(createNonce(), {
+    dev: process.env.NODE_ENV === 'development',
+    https: request.nextUrl.protocol === 'https:',
+  });
+  // Next takes the nonce from the request's CSP header and stamps it on its scripts.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('Content-Security-Policy', csp);
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  for (const [name, value] of Object.entries(adminSecurityHeaders(csp))) res.headers.set(name, value);
   return res;
 }
