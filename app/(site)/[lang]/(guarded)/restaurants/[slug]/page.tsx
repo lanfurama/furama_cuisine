@@ -16,7 +16,9 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  return Object.hasOwn(DETAIL_SEO, slug) ? DETAIL_SEO[slug] : {};
+  return Object.hasOwn(DETAIL_SEO, slug)
+    ? DETAIL_SEO[slug]
+    : { title: 'Page not found — Furama Cuisine', robots: { index: false } };
 }
 
 /* The params read below blocks on purpose (see the comment on the page); this tells dev validation so. */

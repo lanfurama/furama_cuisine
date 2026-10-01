@@ -7,6 +7,8 @@ test.use({ javaScriptEnabled: false });
 test('the home page lists every restaurant', async ({ page }) => {
   await page.goto(HOME_PATH);
   await expect(page.locator('.rcard')).toHaveCount(12);
+  const html = await (await page.request.get(HOME_PATH)).text();
+  expect(html).not.toContain('hidden id="S:');
 });
 
 test('the restaurant page is in the HTML itself, not streamed in by a script', async ({ page, request }) => {

@@ -35,7 +35,6 @@ export const DETAIL_SEO: Record<string, { title: string; description: string }> 
   },
 };
 
-
 /** [label, slug] — order drives the cuisine rail and the search suggestions. The slug is the filter key and the image name. */
 export const CUISINES: [string, string][] = [
   ['Vietnamese', 'vietnamese'],

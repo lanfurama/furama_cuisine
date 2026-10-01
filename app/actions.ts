@@ -15,7 +15,7 @@ export type ReservationResult =
  * Failures come back as codes; the browser turns them into copy.
  */
 export async function submitReservation(input: ReservationInput): Promise<ReservationResult> {
-  const checked = checkReservation(input, await listRestaurants());
+  const checked = checkReservation(input, await listRestaurants({ lenient: true }));
   if (!checked.ok) return checked;
 
   const v = checked.value;

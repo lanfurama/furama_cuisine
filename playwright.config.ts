@@ -15,7 +15,9 @@ const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
 function isLocalDatabaseUrl(url: string | undefined): boolean {
   if (!url) return false;
   try {
-    return LOCAL_HOSTS.includes(new URL(url).hostname);
+    const parsed = new URL(url);
+    // pg lets a query string (?host=...) override the hostname, so none is allowed.
+    return LOCAL_HOSTS.includes(parsed.hostname) && parsed.search === '';
   } catch {
     return false;
   }

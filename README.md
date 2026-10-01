@@ -52,6 +52,7 @@ CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5
 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test npx next start -p 3201 &
 for i in $(seq 1 60); do curl -s -o /dev/null http://localhost:3201/ && break; sleep 1; done
 VISUAL_BASE_URL=http://localhost:3201 npm run test:visual
+kill %1   # stop the server (or: lsof -ti tcp:3201 | xargs kill)
 ```
 
 `E2E_BASE_URL=http://localhost:<port>` points the main Playwright suite at a
@@ -101,9 +102,14 @@ deliberately, after the dev branch has been migrated and verified.
 | --- | --- | --- |
 | `/` and other unprefixed paths | Proxy (`proxy.ts`) | 307 to `/<locale>…` by the `NEXT_LOCALE` cookie, then `Accept-Language`, then `en` (only `en` is enabled in phase 2); the query is kept |
 | `/en` | Static, `cacheLife('max')` | Home: hero, finder, cuisines, restaurants, destinations, experiences, heritage, stories, offers |
-| `/en/restaurants/[slug]` | Static for `taya-house`; any other slug is a 404 | Restaurant detail (Tàya House only until phase 6) |
+| `/en/restaurants/[slug]` | Static for `taya-house`. Any other slug is a 404: the first visit is a soft 404 (status 200 with `noindex`), later visits get the cached 404, and without JavaScript the body is empty | Restaurant detail (Tàya House only until phase 6) |
 | `/taya-house` | Redirect | 308 to `/en/restaurants/taya-house` (`next.config.ts`) |
 | `/api/availability` | Dynamic | Booked covers per slot for one restaurant/day |
+
+The proxy skips `/api`, `/_next`, `/admin` (its own branch), any path with a dot
+(files such as `/icon.svg`) and any unprefixed top-level segment of 2–3 letters,
+which it reads as a locale. Such unknown top-level paths are not redirected; they
+become cached 404s.
 
 The design toggled between these two views with a `#taya-house` hash. They are
 real routes here so each gets its own metadata and can be linked directly; the
@@ -113,7 +119,12 @@ Guest pages live in `app/(site)/[lang]`. The root layout there reads no
 database and never throws; `(guarded)/layout.tsx` checks the language
 against the `locales` table and reads the catalogue and UI strings, so a
 disabled language gets the site's 404 and a database error gets
-`[lang]/error.tsx`. Pages carry the cache tags `restaurants`, `i18n:<code>`,
+`[lang]/error.tsx`, but only for request-time renders with JavaScript on.
+An expired static route that fails to re-render, or a disabled-locale 404, gets
+a plain 500 or an empty shell instead. Guest pages are cached with
+`cacheLife('max')` (30 days) rather than hourly ISR, so a catalogue edit made
+directly on Neon needs a redeploy (or a tag purge) to appear; the uncached
+booking action reads the database directly. Pages carry the cache tags `restaurants`, `i18n:<code>`,
 `locales` and `content:ui`; `lib/cache-tags.ts` names every tag of the CMS
 (spec §6.2), so later phases never spell a tag by hand. Each page wraps its
 content in `<ViewMarker>`: with Cache Components the router keeps the page

@@ -34,6 +34,7 @@ for (const [route, file] of Object.entries(PAGES)) {
     problems.push(`${route} expires after ${entry.initialExpireSeconds}s, expected ${EXPIRE}s`);
   }
   const meta = JSON.parse(readFileSync(join(dir, 'server', 'app', `${file}.meta`), 'utf8'));
+  if (meta.postponed) problems.push(`${route} is only partially prerendered`);
   const tags = String(meta.headers?.['x-next-cache-tags'] ?? '').split(',');
   for (const tag of TAGS) {
     if (!tags.includes(tag)) problems.push(`${route} is missing the cache tag ${tag}`);

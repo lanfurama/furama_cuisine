@@ -93,6 +93,11 @@ test.describe('pages that do not exist', () => {
     expect(html).toContain('Page not found');
   });
 
+  test('an unknown restaurant has its own tab title, not the home page one', async ({ page }) => {
+    await page.goto('/en/restaurants/nope');
+    await expect(page).toHaveTitle('Page not found — Furama Cuisine');
+  });
+
   test('a URL that matches no page gets the site 404 in the site fonts', async ({ page }) => {
     const res = await page.goto('/nothing/here');
     expect(res?.status()).toBe(404);

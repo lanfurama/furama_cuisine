@@ -13,8 +13,13 @@ type RestaurantRow = {
   slot_capacity: number;
 };
 
-/** The restaurant catalogue, ordered as the design lays it out. */
-export async function listRestaurants(): Promise<Restaurant[]> {
+/**
+ * The restaurant catalogue, ordered as the design lays it out. An unknown
+ * cuisine label throws (the cached guest read must fail loudly); with
+ * `lenient` it is logged and skipped, for the booking path, which only needs
+ * ids, meals and capacity and must not die over a filter label.
+ */
+export async function listRestaurants(options: { lenient?: boolean } = {}): Promise<Restaurant[]> {
   const rows = await query<RestaurantRow>(
     `SELECT id, name, type, destination, cuisines, meals, slot_capacity
        FROM restaurants
@@ -27,7 +32,15 @@ export async function listRestaurants(): Promise<Restaurant[]> {
     name: r.name,
     type: r.type,
     dest: r.destination as DestKey,
-    cuisines: r.cuisines.map(cuisineSlug),
+    cuisines: r.cuisines.flatMap((label) => {
+      try {
+        return [cuisineSlug(label)];
+      } catch (error) {
+        if (!options.lenient) throw error;
+        console.error('unknown_cuisine_label', label);
+        return [];
+      }
+    }),
     meals: r.meals as Meal[],
     slotCapacity: r.slot_capacity,
   }));

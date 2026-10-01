@@ -34,4 +34,19 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('submitReservation (database)', 
     await submitReservation(request);
     expect(await submitReservation({ ...request, phone: '+84 905 000 000' })).toEqual({ ok: false, code: 'duplicate' });
   });
+
+  it('still books a valid restaurant, logging the label instead of failing', async () => {
+    const pool = getPool();
+    const { rows } = await pool.query<{ cuisines: string[] }>(`SELECT cuisines FROM restaurants WHERE id = 'cafe-indochine'`);
+    const original = rows[0].cuisines;
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await pool.query(`UPDATE restaurants SET cuisines = $1 WHERE id = 'cafe-indochine'`, [[...original, 'Molecular']]);
+      expect(await submitReservation(request)).toMatchObject({ ok: true });
+      expect(log).toHaveBeenCalledWith('unknown_cuisine_label', 'Molecular');
+    } finally {
+      log.mockRestore();
+      await pool.query(`UPDATE restaurants SET cuisines = $1 WHERE id = 'cafe-indochine'`, [original]);
+    }
+  });
 });
