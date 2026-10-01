@@ -11,6 +11,7 @@
     "test": "TZ=UTC vitest run",
     "test:watch": "TZ=UTC vitest",
     "test:e2e": "playwright test",
+    "test:visual": "playwright test -c playwright.visual.config.ts",
     "db:migrate": "dotenv -e .env.local -- node scripts/migrate.mjs",
     "db:psql": "dotenv -e .env.local -- sh -c 'psql $DATABASE_URL_UNPOOLED'"
   },

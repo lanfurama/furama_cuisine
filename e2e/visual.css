@@ -1,0 +1,11 @@
+/* Injected by toHaveScreenshot: freeze everything that moves on its own. */
+*, *::before, *::after {
+  transition: none !important;
+  animation: none !important;
+  scroll-behavior: auto !important;
+  caret-color: transparent !important;
+}
+/* Hero Ken Burns: the 7s transition races the capture; pin the end state. */
+.hero-slide-zoom { transform: scale(1) !important; }
+/* Scroll-linked parallax is rAF-driven and lags the scroll back to 0; at scrollY=0 its true offset is none. */
+[data-parallax] { transform: none !important; translate: none !important; }
