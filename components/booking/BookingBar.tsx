@@ -1,18 +1,19 @@
 'use client';
 
 import { DESTS, DEST_KEYS } from '@/lib/data';
-import { days, fmtDay, guestLabel, seatsLeft, slotsFor, unavailable } from '@/lib/booking';
+import { MAX_GUESTS, fmtDay, guestLabel, seatsLeft, slotsFor, unavailable } from '@/lib/booking';
 import { useSite } from '@/components/site/SiteProvider';
 import { Dropdown, type Option } from '@/components/ui/Dropdown';
 import { useReveal } from '@/lib/motion';
 
 /** The wide "Where would you like to dine?" bar above the footer. */
 export function BookingBar() {
-  const { restaurants, booking, setBooking, availability, openReserve } = useSite();
+  const { restaurants, booking, setBooking, availability, openReserve, dayList, now } = useSite();
   const title = useReveal<HTMLHeadingElement>('title');
   const panel = useReveal<HTMLDivElement>('up');
 
-  const dayList = days();
+  // No date during the server render, so no clock read either.
+  const at = booking.date ? now() : undefined;
 
   const destinationOptions: Option<string>[] = DEST_KEYS.map((k) => ({
     value: k,
@@ -23,15 +24,15 @@ export function BookingBar() {
     .filter((r) => r.dest === booking.destination)
     .map((r) => ({ value: r.id, label: r.name }));
 
-  const dayOptions: Option<number>[] = dayList.map((d, i) => ({
-    value: i,
+  const dayOptions: Option<string>[] = dayList.map((d, i) => ({
+    value: d,
     label: fmtDay(d),
     note: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : undefined,
   }));
 
   const timeOptions: Option<string>[] = slotsFor(restaurants, booking.restaurant).flatMap((g) =>
     g.times.map((t) => {
-      const taken = unavailable(booking.day, t, booking.guests, availability);
+      const taken = unavailable(booking.date, t, booking.guests, availability, at);
       const left = seatsLeft(t, availability);
       return {
         value: t,
@@ -42,7 +43,7 @@ export function BookingBar() {
     }),
   );
 
-  const guestOptions: Option<number>[] = Array.from({ length: 12 }, (_, i) => ({
+  const guestOptions: Option<number>[] = Array.from({ length: MAX_GUESTS }, (_, i) => ({
     value: i + 1,
     label: guestLabel(i + 1),
   }));
@@ -73,9 +74,9 @@ export function BookingBar() {
             <Dropdown
               id="bDate"
               label="Date"
-              value={booking.day}
+              value={booking.date}
               options={dayOptions}
-              onPick={(day) => setBooking({ day })}
+              onPick={(date) => setBooking({ date })}
             />
             <Dropdown
               id="bTime"

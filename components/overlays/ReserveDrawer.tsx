@@ -2,7 +2,7 @@
 
 import { DESTS, DEST_KEYS } from '@/lib/data';
 import {
-  days,
+  MAX_GUESTS,
   findRestaurant,
   fmtDay,
   guestLabel,
@@ -10,7 +10,7 @@ import {
   slotsFor,
   unavailable,
 } from '@/lib/booking';
-import { MO, WD } from '@/lib/data';
+import { formatDay } from '@/lib/venue-time';
 import { useSite } from '@/components/site/SiteProvider';
 import { Dropdown, type Option } from '@/components/ui/Dropdown';
 import { animateSelector, useOpenAnimation } from '@/lib/motion';
@@ -23,6 +23,9 @@ export function ReserveDrawer() {
     booking,
     setBooking,
     availability,
+    dayList,
+    now,
+    confirmedDate,
     form,
     setFormField,
     errors,
@@ -43,10 +46,10 @@ export function ReserveDrawer() {
   if (!open) return null;
 
   const restaurant = findRestaurant(restaurants, booking.restaurant) ?? restaurants[0];
-  const dayList = days();
+  const at = now();
   const groups = slotsFor(restaurants, booking.restaurant);
   const anyAvailable = groups.some((g) =>
-    g.times.some((t) => !unavailable(booking.day, t, booking.guests, availability)),
+    g.times.some((t) => !unavailable(booking.date, t, booking.guests, availability, at)),
   );
 
   const destinationOptions: Option<string>[] = DEST_KEYS.map((k) => ({ value: k, label: DESTS[k] }));
@@ -54,7 +57,9 @@ export function ReserveDrawer() {
     .filter((r) => r.dest === booking.destination)
     .map((r) => ({ value: r.id, label: r.name }));
 
-  const summary = `${fmtDay(dayList[booking.day])} · ${booking.time} · ${guestLabel(booking.guests)}`;
+  const summary = [booking.date ? fmtDay(booking.date) : '', booking.time, guestLabel(booking.guests)]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <div className="drawer-root" role="dialog" aria-modal="true" aria-label="Reserve a table">
@@ -93,7 +98,7 @@ export function ReserveDrawer() {
             <div className="drawer-summary">
               <div className="drawer-summary-row">
                 <span>Date</span>
-                <span>{fmtDay(dayList[booking.day])}</span>
+                <span>{confirmedDate ? fmtDay(confirmedDate) : ''}</span>
               </div>
               <div className="drawer-summary-row">
                 <span>Time</span>
@@ -136,20 +141,23 @@ export function ReserveDrawer() {
 
               <div className="drawer-label">DATE</div>
               <div className="daystrip">
-                {dayList.map((d, i) => (
-                  <button
-                    type="button"
-                    key={i}
-                    className="day"
-                    data-selected={i === booking.day}
-                    aria-pressed={i === booking.day}
-                    onClick={() => setBooking({ day: i })}
-                  >
-                    <span className="day-wd">{i === 0 ? 'Today' : WD[d.getDay()]}</span>
-                    <span className="day-num">{d.getDate()}</span>
-                    <span className="day-mo">{MO[d.getMonth()]}</span>
-                  </button>
-                ))}
+                {dayList.map((d, i) => {
+                  const day = formatDay(d);
+                  return (
+                    <button
+                      type="button"
+                      key={d}
+                      className="day"
+                      data-selected={d === booking.date}
+                      aria-pressed={d === booking.date}
+                      onClick={() => setBooking({ date: d })}
+                    >
+                      <span className="day-wd">{i === 0 ? 'Today' : day.weekday}</span>
+                      <span className="day-num">{day.day}</span>
+                      <span className="day-mo">{day.month}</span>
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="guests">
@@ -169,8 +177,8 @@ export function ReserveDrawer() {
                   <button
                     type="button"
                     aria-label="More guests"
-                    disabled={booking.guests >= 12}
-                    onClick={() => setBooking({ guests: Math.min(12, booking.guests + 1) })}
+                    disabled={booking.guests >= MAX_GUESTS}
+                    onClick={() => setBooking({ guests: Math.min(MAX_GUESTS, booking.guests + 1) })}
                   >
                     +
                   </button>
@@ -183,7 +191,7 @@ export function ReserveDrawer() {
                   <div className="slotgroup-meal">{g.meal}</div>
                   <div className="slotgrid">
                     {g.times.map((t) => {
-                      const taken = unavailable(booking.day, t, booking.guests, availability);
+                      const taken = unavailable(booking.date, t, booking.guests, availability, at);
                       const left = seatsLeft(t, availability);
                       return (
                         <button

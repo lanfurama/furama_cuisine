@@ -1,13 +1,13 @@
-import { MO, SLOTS, WD, type Meal, type Restaurant } from './data';
-import { addDays, daysBetween, minutesUntil, type IsoDate } from './venue-time';
+import { SLOTS, type Meal, type Restaurant } from './data';
+import { addDays, daysBetween, formatDay, minutesUntil, toMinutes, type IsoDate } from './venue-time';
 
 export type BookingForm = { name: string; phone: string; email: string; note: string };
 
 export type Booking = {
   destination: string;
   restaurant: string;
-  /** Offset in days from today, 0–13. */
-  day: number;
+  /** Da Nang calendar date; empty until the browser knows today. */
+  date: IsoDate | '';
   time: string;
   guests: number;
 };
@@ -15,9 +15,10 @@ export type Booking = {
 /** Covers already booked per slot, plus the room each slot has. From Neon. */
 export type Availability = { booked: Record<string, number>; capacity: number };
 
-export const NO_AVAILABILITY: Availability = { booked: {}, capacity: Number.POSITIVE_INFINITY };
+/** What GET /api/availability returns: the slot board plus the server's clock. */
+export type AvailabilityResponse = Availability & { today: IsoDate; now: string; date: IsoDate };
 
-export const DAY_COUNT = 14;
+export const NO_AVAILABILITY: Availability = { booked: {}, capacity: Number.POSITIVE_INFINITY };
 
 /** Online booking window: today plus the next 13 days, in Da Nang time. */
 export const BOOKING_WINDOW_DAYS = 14;
@@ -35,32 +36,8 @@ export function inWindow(date: IsoDate, today: IsoDate): boolean {
   return offset >= 0 && offset < BOOKING_WINDOW_DAYS;
 }
 
-/** True once a sitting is within LEAD_MINUTES of starting, in Da Nang time. */
-export function isSittingClosed(date: IsoDate, time: string, now: Date = new Date()): boolean {
-  return minutesUntil(date, time, now) <= LEAD_MINUTES;
-}
-
-/** The next 14 days, starting today at midnight. */
-export function days(from: Date = new Date()): Date[] {
-  const base = new Date(from);
-  base.setHours(0, 0, 0, 0);
-  return Array.from({ length: DAY_COUNT }, (_, i) => {
-    const d = new Date(base);
-    d.setDate(base.getDate() + i);
-    return d;
-  });
-}
-
-export const fmtDay = (d: Date) => `${WD[d.getDay()]}, ${d.getDate()} ${MO[d.getMonth()]}`;
-
-/** Local calendar date as YYYY-MM-DD — never UTC, so "today" matches the guest's day. */
-export function isoDate(d: Date): string {
-  const m = `${d.getMonth() + 1}`.padStart(2, '0');
-  const day = `${d.getDate()}`.padStart(2, '0');
-  return `${d.getFullYear()}-${m}-${day}`;
-}
-
-export const toMin = (t: string) => parseInt(t.slice(0, 2), 10) * 60 + parseInt(t.slice(3), 10);
+/** "Thu, 1 Oct". */
+export const fmtDay = (d: IsoDate) => formatDay(d).label;
 
 export const findRestaurant = (restaurants: Restaurant[], id: string) =>
   restaurants.find((r) => r.id === id);
@@ -72,6 +49,11 @@ export function slotsFor(
   const r = findRestaurant(restaurants, restaurantId);
   const meals: Meal[] = r ? r.meals : ['Dinner'];
   return meals.map((meal) => ({ meal, times: SLOTS[meal] }));
+}
+
+/** True once a sitting is within LEAD_MINUTES of starting, in Da Nang time. */
+export function isSittingClosed(date: IsoDate, time: string, now: Date = new Date()): boolean {
+  return minutesUntil(date, time, now) <= LEAD_MINUTES;
 }
 
 /** Today, unless every sitting of the restaurant has already closed for today. */
@@ -87,20 +69,15 @@ export function defaultDate(
   return open ? today : addDays(today, 1);
 }
 
-/** Today's slots stop being bookable 30 minutes ahead of the sitting. */
-export function isPast(day: number, time: string, now: Date = new Date()): boolean {
-  return day === 0 && toMin(time) <= now.getHours() * 60 + now.getMinutes() + 30;
-}
-
-/** A slot is closed when it has passed, or when the party would exceed its remaining covers. */
+/** A slot is closed when its sitting has closed, or when the party would exceed its remaining covers. */
 export function unavailable(
-  day: number,
+  date: IsoDate | '',
   time: string,
   guests: number,
   availability: Availability,
   now?: Date,
 ): boolean {
-  if (isPast(day, time, now)) return true;
+  if (!date || isSittingClosed(date, time, now)) return true;
   const taken = availability.booked[time] ?? 0;
   return taken + guests > availability.capacity;
 }
@@ -119,11 +96,11 @@ export function normTime(
 ): string {
   const open: string[] = [];
   for (const g of slotsFor(restaurants, b.restaurant)) {
-    for (const t of g.times) if (!unavailable(b.day, t, b.guests, availability, now)) open.push(t);
+    for (const t of g.times) if (!unavailable(b.date, t, b.guests, availability, now)) open.push(t);
   }
   if (!open.length || open.includes(b.time)) return b.time;
-  const m = toMin(b.time);
-  return open.reduce((a, x) => (Math.abs(toMin(x) - m) < Math.abs(toMin(a) - m) ? x : a), open[0]);
+  const m = toMinutes(b.time);
+  return open.reduce((a, x) => (Math.abs(toMinutes(x) - m) < Math.abs(toMinutes(a) - m) ? x : a), open[0]);
 }
 
 /**
@@ -167,7 +144,7 @@ export function slotBookable(
   now?: Date,
 ): boolean {
   return (
-    !unavailable(b.day, b.time, b.guests, availability, now) &&
+    !unavailable(b.date, b.time, b.guests, availability, now) &&
     slotsFor(restaurants, b.restaurant).some((g) => g.times.includes(b.time))
   );
 }

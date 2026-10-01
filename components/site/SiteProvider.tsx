@@ -13,14 +13,19 @@ import {
 import type { DestKey, Restaurant } from '@/lib/data';
 import {
   NO_AVAILABILITY,
+  bookingDates,
+  defaultDate,
   findRestaurant,
   reconcile,
   slotBookable,
   validate,
   type Availability,
+  type AvailabilityResponse,
   type Booking,
   type BookingForm,
 } from '@/lib/booking';
+import { bookingErrorMessage } from '@/lib/booking-errors';
+import { venueNow, type IsoDate } from '@/lib/venue-time';
 import { readMotionLevel } from '@/lib/motion';
 import { submitReservation } from '@/app/actions';
 import { coverThen } from '@/components/site/PageCurtain';
@@ -31,6 +36,16 @@ export type Overlay = 'drawer' | 'search' | 'menu' | 'film' | 'sheet';
 
 const EMPTY_FORM: BookingForm = { name: '', phone: '', email: '', note: '' };
 const DETAIL_PATH = '/taya-house';
+
+function loadAvailability(
+  restaurant: string,
+  date: IsoDate,
+  signal?: AbortSignal,
+): Promise<AvailabilityResponse | null> {
+  return fetch(`/api/availability?restaurant=${encodeURIComponent(restaurant)}&date=${date}`, { signal }).then(
+    (r) => (r.ok ? (r.json() as Promise<AvailabilityResponse>) : null),
+  );
+}
 
 type SiteState = {
   restaurants: Restaurant[];
@@ -52,6 +67,14 @@ type SiteState = {
   booking: Booking;
   setBooking: (patch: Partial<Booking>) => void;
   availability: Availability;
+  /** Da Nang's today once known in the browser; null during the server render. */
+  today: IsoDate | null;
+  /** The bookable dates, today first; empty until `today` is known. */
+  dayList: IsoDate[];
+  /** The server's clock, as last reported by /api/availability. */
+  now: () => Date;
+  /** The date the server stored for the last confirmed request. */
+  confirmedDate: IsoDate | '';
   form: BookingForm;
   setFormField: (key: keyof BookingForm, value: string) => void;
   tried: boolean;
@@ -124,7 +147,7 @@ export function SiteProvider({
   const [booking, setBookingState] = useState<Booking>({
     destination: 'resort',
     restaurant: 'taya-house',
-    day: 0,
+    date: '',
     time: '19:00',
     guests: 2,
   });
@@ -135,6 +158,9 @@ export function SiteProvider({
   const [pending, setPending] = useState(false);
   const [reference, setReference] = useState('');
   const [serverError, setServerError] = useState<string | null>(null);
+  const [today, setToday] = useState<IsoDate | null>(null);
+  const [clockOffset, setClockOffset] = useState(0);
+  const [confirmedDate, setConfirmedDate] = useState<IsoDate | ''>('');
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   const [query, setQuery] = useState('');
   const [lang, setLang] = useState<'EN' | 'VI'>('EN');
@@ -143,35 +169,50 @@ export function SiteProvider({
   const availabilityRef = useRef(availability);
   availabilityRef.current = availability;
 
-  /* Default to tomorrow once the kitchens have closed for the night. Resolved on
-     the client so the server render stays deterministic. */
+  const now = useCallback(() => new Date(Date.now() + clockOffset), [clockOffset]);
+
+  /* "Today" is Da Nang's date, resolved after hydration so the server render
+     carries no date at all. The availability response then corrects it with
+     the server's clock. */
   useEffect(() => {
+    const venueToday = venueNow().date;
+    setToday(venueToday);
     setBookingState((b) =>
-      reconcile(restaurants, b, new Date().getHours() >= 21 ? { day: 1 } : {}, NO_AVAILABILITY),
+      b.date
+        ? b
+        : reconcile(restaurants, b, { date: defaultDate(restaurants, b.restaurant, venueToday) }, NO_AVAILABILITY),
     );
   }, [restaurants]);
 
   const setBooking = useCallback(
     (patch: Partial<Booking>) => {
-      setBookingState((b) => reconcile(restaurants, b, patch, availabilityRef.current));
+      setBookingState((b) => reconcile(restaurants, b, patch, availabilityRef.current, now()));
     },
-    [restaurants],
+    [now, restaurants],
   );
 
-  /* Pull live slot pressure whenever the restaurant or date changes. */
+  /* Pull live slot pressure whenever the restaurant or date changes. The
+     response carries the server's clock, which becomes the authority for
+     "today" and for which sittings have closed. */
   useEffect(() => {
+    const date = booking.date;
+    if (!date) return;
     let cancelled = false;
     const controller = new AbortController();
 
-    fetch(`/api/availability?restaurant=${encodeURIComponent(booking.restaurant)}&day=${booking.day}`, {
-      signal: controller.signal,
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: Availability | null) => {
+    loadAvailability(booking.restaurant, date, controller.signal)
+      .then((data) => {
         if (cancelled || !data) return;
-        setAvailability(data);
-        // A slot that filled while the drawer was open slides to the nearest free one.
-        setBookingState((b) => reconcile(restaurants, b, {}, data));
+        const serverNow = new Date(data.now);
+        const board: Availability = { booked: data.booked, capacity: data.capacity };
+        setClockOffset(serverNow.getTime() - Date.now());
+        setToday(data.today);
+        setAvailability(board);
+        // A date the server considers past moves to today; a slot that filled
+        // while the drawer was open slides to the nearest free one.
+        setBookingState((b) =>
+          reconcile(restaurants, b, b.date && b.date < data.today ? { date: data.today } : {}, board, serverNow),
+        );
       })
       .catch(() => {});
 
@@ -179,7 +220,7 @@ export function SiteProvider({
       cancelled = true;
       controller.abort();
     };
-  }, [booking.restaurant, booking.day, restaurants]);
+  }, [booking.restaurant, booking.date, restaurants]);
 
   const setFinder = useCallback((patch: Partial<Finder>) => {
     setFinderState((f) => ({ ...f, ...patch }));
@@ -315,7 +356,8 @@ export function SiteProvider({
 
   const submit = useCallback(() => {
     setServerError(null);
-    if (!(valid.name && valid.phone && valid.email && slotBookable(restaurants, booking, availability))) {
+    const date = booking.date;
+    if (!(date && valid.name && valid.phone && valid.email && slotBookable(restaurants, booking, availability, now()))) {
       setTried(true);
       return;
     }
@@ -323,7 +365,7 @@ export function SiteProvider({
     setPending(true);
     submitReservation({
       restaurant: booking.restaurant,
-      day: booking.day,
+      date,
       time: booking.time,
       guests: booking.guests,
       name: form.name,
@@ -333,23 +375,27 @@ export function SiteProvider({
     })
       .then((result) => {
         if (result.ok) {
-          setReference(result.reference);
+          setReference(result.data.reference);
+          setConfirmedDate(result.data.date);
           setDone(true);
           return;
         }
-        setServerError(result.error);
+        setServerError(bookingErrorMessage(result.code, result.params));
         setTried(true);
-        // Re-read the slot board so a lost race shows up immediately.
-        return fetch(
-          `/api/availability?restaurant=${encodeURIComponent(booking.restaurant)}&day=${booking.day}`,
-        )
-          .then((r) => (r.ok ? r.json() : null))
-          .then((data: Availability | null) => data && setAvailability(data))
+        // Re-read the slot board so a lost race shows up immediately, and move
+        // the chosen time off a slot that has just filled.
+        return loadAvailability(booking.restaurant, date)
+          .then((data) => {
+            if (!data) return;
+            const board: Availability = { booked: data.booked, capacity: data.capacity };
+            setAvailability(board);
+            setBookingState((b) => reconcile(restaurants, b, {}, board, new Date(data.now)));
+          })
           .catch(() => {});
       })
-      .catch(() => setServerError('We could not reach the reservations desk. Please try again.'))
+      .catch(() => setServerError(bookingErrorMessage('network')))
       .finally(() => setPending(false));
-  }, [availability, booking, form, restaurants, valid]);
+  }, [availability, booking, form, now, restaurants, valid]);
 
   const setFormField = useCallback((key: keyof BookingForm, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -449,6 +495,8 @@ export function SiteProvider({
     return () => window.clearInterval(timer);
   }, [overlay, view]);
 
+  const dayList = useMemo(() => (today ? bookingDates(today) : []), [today]);
+
   const value = useMemo<SiteState>(
     () => ({
       restaurants,
@@ -468,6 +516,10 @@ export function SiteProvider({
       booking,
       setBooking,
       availability,
+      today,
+      dayList,
+      now,
+      confirmedDate,
       form,
       setFormField,
       tried,
@@ -498,11 +550,11 @@ export function SiteProvider({
       navigate,
     }),
     [
-      applyFinder, availability, booking, clearFilters, close, closeDrawer, closeDropdown, done,
-      errors, filter, finder, form, goBackToRestaurants, goHomeTop, goSlide, lang, matches,
-      navigate, open, openDropdown, openReserve, openRestaurant, overlay, pending, pickCuisine,
+      applyFinder, availability, booking, clearFilters, close, closeDrawer, closeDropdown, confirmedDate,
+      dayList, done, errors, filter, finder, form, goBackToRestaurants, goHomeTop, goSlide, lang, matches,
+      navigate, now, open, openDropdown, openReserve, openRestaurant, overlay, pending, pickCuisine,
       pickDestination, query, reference, restaurants, scrollToId, scrolled, serverError, setBooking,
-      setFilter, setFinder, setFormField, shownCount, slide, submit, tab, toggleDropdown, tried, view,
+      setFilter, setFinder, setFormField, shownCount, slide, submit, tab, today, toggleDropdown, tried, view,
     ],
   );
 

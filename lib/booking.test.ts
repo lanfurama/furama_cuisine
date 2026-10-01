@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import type { Restaurant } from './data';
-import { bookingDates, defaultDate, fold, inWindow, isSittingClosed } from './booking';
+import {
+  NO_AVAILABILITY,
+  bookingDates,
+  defaultDate,
+  fold,
+  inWindow,
+  isSittingClosed,
+  reconcile,
+  unavailable,
+  type Booking,
+} from './booking';
 
 describe('fold', () => {
   it('ignores accents and đ so guests can search without Vietnamese input', () => {
@@ -56,5 +66,24 @@ describe('defaultDate', () => {
   it('moves to tomorrow once the last sitting has closed', () => {
     // 20:45 in Da Nang: the 21:00 sitting is 15 minutes away, inside the 30-minute lead.
     expect(defaultDate([taya], 'taya-house', '2026-10-02', new Date('2026-10-02T13:45:00Z'))).toBe('2026-10-03');
+  });
+});
+
+describe('the slot board', () => {
+  const noon = new Date('2026-10-02T05:00:00Z'); // 12:00 in Da Nang
+  const chosen: Booking = { destination: 'resort', restaurant: 'taya-house', date: '2026-10-02', time: '19:00', guests: 4 };
+
+  it('treats every slot as closed until the date is known', () => {
+    expect(unavailable('', '19:00', 2, NO_AVAILABILITY, noon)).toBe(true);
+  });
+
+  it('moves the chosen time to the nearest slot that still fits once it fills', () => {
+    const board = { booked: { '19:00': 14 }, capacity: 16 };
+    expect(reconcile([taya], chosen, {}, board, noon).time).toBe('18:30');
+  });
+
+  it('keeps the chosen time while the party still fits', () => {
+    const board = { booked: { '19:00': 12 }, capacity: 16 };
+    expect(reconcile([taya], chosen, {}, board, noon).time).toBe('19:00');
   });
 });
