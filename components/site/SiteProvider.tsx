@@ -42,9 +42,13 @@ function loadAvailability(
   date: IsoDate,
   signal?: AbortSignal,
 ): Promise<AvailabilityResponse | null> {
-  return fetch(`/api/availability?restaurant=${encodeURIComponent(restaurant)}&date=${date}`, { signal }).then(
-    (r) => (r.ok ? (r.json() as Promise<AvailabilityResponse>) : null),
-  );
+  const base = `/api/availability?restaurant=${encodeURIComponent(restaurant)}`;
+  return fetch(`${base}&date=${date}`, { signal }).then((r) => {
+    if (r.ok) return r.json() as Promise<AvailabilityResponse>;
+    // 400 means the date left the server's window (stale tab or clock): ask for the server's today instead.
+    if (r.status !== 400) return null;
+    return fetch(base, { signal }).then((r2) => (r2.ok ? (r2.json() as Promise<AvailabilityResponse>) : null));
+  });
 }
 
 type SiteState = {
@@ -176,7 +180,7 @@ export function SiteProvider({
      the server's clock. */
   useEffect(() => {
     const venueToday = venueNow().date;
-    setToday(venueToday);
+    setToday((t) => t ?? venueToday); // never overwrite a server-provided today
     setBookingState((b) =>
       b.date
         ? b
@@ -208,10 +212,19 @@ export function SiteProvider({
         setClockOffset(serverNow.getTime() - Date.now());
         setToday(data.today);
         setAvailability(board);
-        // A date the server considers past moves to today; a slot that filled
+        // A date the server considers past moves to the first bookable day (the
+        // moved date re-triggers this effect and fetches its own board); a slot that filled
         // while the drawer was open slides to the nearest free one.
         setBookingState((b) =>
-          reconcile(restaurants, b, b.date && b.date < data.today ? { date: data.today } : {}, board, serverNow),
+          reconcile(
+            restaurants,
+            b,
+            b.date && b.date < data.today
+              ? { date: defaultDate(restaurants, b.restaurant, data.today, serverNow) }
+              : {},
+            board,
+            serverNow,
+          ),
         );
       })
       .catch(() => {});
@@ -314,15 +327,24 @@ export function SiteProvider({
 
   const openReserve = useCallback(
     (preset?: Partial<Booking>, note?: string) => {
+      // Refresh "today" from the server-adjusted clock: the tab may have been open past midnight.
+      const venueToday = venueNow(now()).date;
+      setToday(venueToday);
       setOverlay('drawer');
       setOpenDropdown(null);
       setDone(false);
       setTried(false);
       setServerError(null);
       if (note) setForm((f) => (f.note ? f : { ...f, note }));
-      setBooking(preset ?? {});
+      setBookingState((b) => {
+        const patch: Partial<Booking> = { ...preset };
+        if (b.date && b.date < venueToday) {
+          patch.date = defaultDate(restaurants, patch.restaurant ?? b.restaurant, venueToday, now());
+        }
+        return reconcile(restaurants, b, patch, availabilityRef.current, now());
+      });
     },
-    [setBooking],
+    [now, restaurants],
   );
 
   const closeDrawer = useCallback(() => {
