@@ -96,6 +96,24 @@ point at dev). Run
 `DATABASE_URL_UNPOOLED=<production direct URL> node scripts/migrate.mjs`
 deliberately, after the dev branch has been migrated and verified.
 
+### First Admin
+
+Staff accounts exist only by invitation (spec §7.1); the one exception is the
+first Admin, created once per environment by `scripts/create-admin.mjs`. It
+goes through the same invitation gate, which admits `BOOTSTRAP_ADMIN_EMAIL`
+only while no Admin exists, so a second run is refused. The script reads no
+`.env` file: give it the target environment's variables explicitly, and set
+`BOOTSTRAP_ADMIN_*` in that one shell only, never in Vercel.
+
+```bash
+BOOTSTRAP_ADMIN_EMAIL=owner@furamavietnam.com BOOTSTRAP_ADMIN_NAME='Chủ quán' \
+  npx dotenv -e <file with that branch's DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL> -- \
+  node scripts/create-admin.mjs
+```
+
+It asks for the password (12–128 characters) unless `BOOTSTRAP_ADMIN_PASSWORD`
+is set, and writes a `staff.bootstrap` row to `audit_log`.
+
 ## Routes
 
 | Route | Rendering | Notes |
