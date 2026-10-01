@@ -187,6 +187,11 @@ BOOTSTRAP_ADMIN_EMAIL=owner@furamavietnam.com BOOTSTRAP_ADMIN_NAME='Chủ quán'
 It asks for the password (12–128 characters) unless `BOOTSTRAP_ADMIN_PASSWORD`
 is set, and writes a `staff.bootstrap` row to `audit_log`.
 
+Apply migration 005 to that database first; check the `Target database:` line
+the script prints before you type the password; and never run it with
+`.env.local` while that file points at the shared production database, unless
+bootstrapping production is what you mean to do.
+
 ## Routes
 
 | Route | Rendering | Notes |
