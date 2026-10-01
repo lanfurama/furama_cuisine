@@ -82,11 +82,36 @@ test('the last Admin cannot demote themselves', async ({ page }) => {
   await openUsers(page);
   await withAdminCountLock(async () => {
     const row = staffRow(page, STAFF.admin.email);
-    await row.getByRole('combobox').selectOption('editor');
+    // Changing your own role asks with a stronger warning first.
+    const asked = page.waitForEvent('dialog');
+    const changed = row.getByRole('combobox').selectOption('editor');
+    const dialog = await asked;
+    expect(dialog.message()).toBe(
+      `Đổi vai trò của chính bạn (${STAFF.admin.email}) thành Editor? Bạn sẽ mất quyền quản lý nhân viên ngay, và chỉ một Admin khác mới đổi lại được.`,
+    );
+    await dialog.accept();
+    await changed;
     await expect(row.getByRole('alert')).toHaveText('Không thể hạ quyền, khóa hoặc xóa Admin cuối cùng.');
     await expect(row.getByRole('combobox')).toHaveValue('admin');
     expect(await one('SELECT role FROM staff_user WHERE email = $1', [STAFF.admin.email])).toEqual({ role: 'admin' });
   });
+});
+
+test('a role change asks first; dismissing the question changes nothing', async ({ page }) => {
+  const id = unique();
+  const member = { id: `e2e-role-${id}`, name: 'Hỏi Trước', email: `role-${id}@furama.test`, password: 'role passphrase 2026', role: 'editor', banned: false } as const;
+  await seedStaff([member]);
+  await openUsers(page);
+  const select = staffRow(page, member.email).getByRole('combobox');
+  const asked = page.waitForEvent('dialog');
+  const changed = select.selectOption('admin');
+  const dialog = await asked;
+  expect(dialog.message()).toBe(`Đổi vai trò của ${member.email} thành Admin?`);
+  await dialog.dismiss();
+  await changed;
+  await expect(select).toHaveValue('editor');
+  expect(await one('SELECT role FROM staff_user WHERE id = $1', [member.id])).toEqual({ role: 'editor' });
+  expect(await one('SELECT count(*)::int AS n FROM audit_log WHERE entity_id = $1', [member.id])).toEqual({ n: 0 });
 });
 
 test('ban ends the member’s session and keeps them out; unban lets them back', async ({ page, browser }, testInfo) => {

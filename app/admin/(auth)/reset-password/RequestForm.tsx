@@ -23,19 +23,19 @@ export function RequestForm() {
         </p>
       ) : null}
       <div className="a-field">
-        <label htmlFor="email">Email</label>
+        <label htmlFor="reset-request-email">Email</label>
         <input
-          id="email"
+          id="reset-request-email"
           name="email"
           type="email"
           autoComplete="username"
           required
           defaultValue={state?.email ?? ''}
           aria-invalid={errors.email ? true : undefined}
-          aria-describedby={errors.email ? 'email-error' : undefined}
+          aria-describedby={errors.email ? 'reset-request-email-error' : undefined}
         />
         {errors.email ? (
-          <p className="a-field-error" id="email-error">
+          <p className="a-field-error" id="reset-request-email-error">
             {errors.email[0]}
           </p>
         ) : null}

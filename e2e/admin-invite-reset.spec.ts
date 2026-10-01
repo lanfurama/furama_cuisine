@@ -39,8 +39,8 @@ test.describe('accepting an invitation', () => {
     await page.goto(link);
     await expectHydrated(page);
     await expect(page.getByText(email)).toBeVisible();
-    await page.getByLabel('Họ tên').fill('Lê Thị An');
-    await page.getByLabel('Mật khẩu').fill('an passphrase 2026');
+    await page.getByLabel('Họ tên', { exact: true }).fill('Lê Thị An');
+    await page.getByLabel('Mật khẩu (12–128 ký tự)', { exact: true }).fill('an passphrase 2026');
     await page.getByRole('button', { name: 'Tạo tài khoản' }).click();
     await expect(page).toHaveURL(/\/admin$/);
     await expect(page.getByTestId('staff-name')).toHaveText('Lê Thị An');
@@ -65,10 +65,10 @@ test.describe('accepting an invitation', () => {
   test('a short password is refused in Vietnamese and nothing is created', async ({ page }) => {
     const email = `invitee-${unique()}@furama.test`;
     await page.goto(await invitation(email));
-    await page.getByLabel('Họ tên').fill('Ngắn');
-    await page.getByLabel('Mật khẩu').fill('ngan qua');
+    await page.getByLabel('Họ tên', { exact: true }).fill('Ngắn');
+    await page.getByLabel('Mật khẩu (12–128 ký tự)', { exact: true }).fill('ngan qua');
     await page.getByRole('button', { name: 'Tạo tài khoản' }).click();
-    await expect(page.getByText('Mật khẩu cần ít nhất 12 ký tự.')).toBeVisible();
+    await expect(page.locator('form').getByText('Mật khẩu cần ít nhất 12 ký tự.')).toBeVisible();
     await expect(page).toHaveURL(/\/admin\/accept-invite\?token=/);
     const client = db();
     await client.connect();
@@ -98,7 +98,7 @@ test.describe('resetting a forgotten password', () => {
 
     const link = await nextLink(member.email, '/admin/reset-password');
     await page.goto(link);
-    await page.getByLabel('Mật khẩu mới').fill('new passphrase 2026');
+    await page.getByLabel('Mật khẩu mới (12–128 ký tự)', { exact: true }).fill('new passphrase 2026');
     await page.getByRole('button', { name: 'Đặt mật khẩu' }).click();
     await expect(page.getByRole('main').getByRole('status')).toHaveText('Đã đổi mật khẩu. Hãy đăng nhập bằng mật khẩu mới.');
 
@@ -112,7 +112,7 @@ test.describe('resetting a forgotten password', () => {
 
     // The link worked once.
     await page.goto(link);
-    await page.getByLabel('Mật khẩu mới').fill('another passphrase 2026');
+    await page.getByLabel('Mật khẩu mới (12–128 ký tự)', { exact: true }).fill('another passphrase 2026');
     await page.getByRole('button', { name: 'Đặt mật khẩu' }).click();
     await expect(formAlert(page)).toHaveText('Liên kết không hợp lệ hoặc đã được dùng. Hãy yêu cầu một liên kết mới.');
   });

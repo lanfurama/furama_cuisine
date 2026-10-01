@@ -58,6 +58,17 @@ function StaffRow({ member }: { member: StaffItem }) {
           disabled={pending}
           onChange={(event) => {
             const select = event.currentTarget;
+            // A closed select also changes on arrow keys (Chrome on Windows), so tabbing
+            // through the table could promote or demote someone by accident: ask first.
+            const label = select.options[select.selectedIndex]?.text ?? select.value;
+            const question =
+              member.isSelf && select.value !== 'admin'
+                ? `Đổi vai trò của chính bạn (${member.email}) thành ${label}? Bạn sẽ mất quyền quản lý nhân viên ngay, và chỉ một Admin khác mới đổi lại được.`
+                : `Đổi vai trò của ${member.email} thành ${label}?`;
+            if (!window.confirm(question)) {
+              select.value = member.role;
+              return;
+            }
             run(
               () => changeStaffRole(member.id, select.value),
               () => {

@@ -64,8 +64,8 @@ test('a wrong password: a Vietnamese message, the email kept', async ({ page }) 
 test('field errors come from zod, in Vietnamese', async ({ page }) => {
   await page.goto('/admin/sign-in');
   await signIn(page, 'khong-phai-email', '');
-  await expect(page.getByText('Nhập email công việc, ví dụ ten@furamavietnam.com.')).toBeVisible();
-  await expect(page.getByText('Nhập mật khẩu.')).toBeVisible();
+  await expect(page.locator('form').getByText('Nhập email công việc, ví dụ ten@furamavietnam.com.')).toBeVisible();
+  await expect(page.locator('form').getByText('Nhập mật khẩu.')).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Email' })).toHaveAttribute('aria-invalid', 'true');
 });
 

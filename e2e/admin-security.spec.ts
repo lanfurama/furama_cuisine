@@ -100,7 +100,7 @@ test.describe('hydration under the CSP', () => {
     await expectHydrated(page);
     // A client-side state update (useActionState) proves the client bundle runs.
     await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
-    await expect(page.getByText('Nhập email công việc, ví dụ ten@furamavietnam.com.')).toBeVisible();
+    await expect(page.locator('form').getByText('Nhập email công việc, ví dụ ten@furamavietnam.com.')).toBeVisible();
     expect(violations).toEqual([]);
   });
 

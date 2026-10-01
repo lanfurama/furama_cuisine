@@ -17,37 +17,37 @@ export function SignInForm({ next }: { next?: string }) {
       ) : null}
 
       <div className="a-field">
-        <label htmlFor="email">Email</label>
+        <label htmlFor="signin-email">Email</label>
         <input
-          id="email"
+          id="signin-email"
           name="email"
           type="email"
           autoComplete="username"
           required
           defaultValue={state?.email ?? ''}
           aria-invalid={errors.email ? true : undefined}
-          aria-describedby={errors.email ? 'email-error' : undefined}
+          aria-describedby={errors.email ? 'signin-email-error' : undefined}
         />
         {errors.email ? (
-          <p className="a-field-error" id="email-error">
+          <p className="a-field-error" id="signin-email-error">
             {errors.email[0]}
           </p>
         ) : null}
       </div>
 
       <div className="a-field">
-        <label htmlFor="password">Mật khẩu</label>
+        <label htmlFor="signin-password">Mật khẩu</label>
         <input
-          id="password"
+          id="signin-password"
           name="password"
           type="password"
           autoComplete="current-password"
           required
           aria-invalid={errors.password ? true : undefined}
-          aria-describedby={errors.password ? 'password-error' : undefined}
+          aria-describedby={errors.password ? 'signin-password-error' : undefined}
         />
         {errors.password ? (
-          <p className="a-field-error" id="password-error">
+          <p className="a-field-error" id="signin-password-error">
             {errors.password[0]}
           </p>
         ) : null}

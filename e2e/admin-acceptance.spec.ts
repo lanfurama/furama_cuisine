@@ -45,8 +45,8 @@ test('1. invite → accept → sign in', async ({ page, browser }, testInfo) => 
   const link = await nextLink(invitee.email, '/admin/accept-invite');
   const newcomer = await newVisitor(browser, testInfo);
   await newcomer.goto(link);
-  await newcomer.getByLabel('Họ tên').fill(invitee.name);
-  await newcomer.getByLabel('Mật khẩu').fill(invitee.password);
+  await newcomer.getByLabel('Họ tên', { exact: true }).fill(invitee.name);
+  await newcomer.getByLabel('Mật khẩu (12–128 ký tự)', { exact: true }).fill(invitee.password);
   await newcomer.getByRole('button', { name: 'Tạo tài khoản' }).click();
   await expect(newcomer).toHaveURL(/\/admin$/);
   await expect(newcomer.getByTestId('staff-name')).toHaveText(invitee.name);
@@ -68,6 +68,8 @@ test('2. a role change writes exactly one audit row, with the acting Admin', asy
   await withAdminCountLock(async () => {
     const before = await auditCount();
     const actionRequest = page.waitForRequest((r) => r.method() === 'POST' && !!r.headers()['next-action']);
+    // A role change asks first (StaffTable); with no listener Playwright would dismiss it.
+    page.once('dialog', (dialog) => dialog.accept());
     await select.selectOption('admin');
     roleAction = await actionRequest;
     await expect.poll(() => roleOf(inviteeId)).toBe('admin');
@@ -90,6 +92,7 @@ test('2. a role change writes exactly one audit row, with the acting Admin', asy
     ]);
 
     // Back to Editor: one more row.
+    page.once('dialog', (dialog) => dialog.accept());
     await select.selectOption('editor');
     await expect.poll(() => roleOf(inviteeId)).toBe('editor');
     expect(await auditCount()).toBe(before + 2);

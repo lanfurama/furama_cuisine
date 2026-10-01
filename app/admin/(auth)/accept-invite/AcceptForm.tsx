@@ -23,35 +23,35 @@ export function AcceptForm({ token, email }: { token: string; email: string }) {
       ) : null}
 
       <div className="a-field">
-        <label htmlFor="name">Họ tên</label>
+        <label htmlFor="accept-name">Họ tên</label>
         <input
-          id="name"
+          id="accept-name"
           name="name"
           autoComplete="name"
           required
           aria-invalid={errors.name ? true : undefined}
-          aria-describedby={errors.name ? 'name-error' : undefined}
+          aria-describedby={errors.name ? 'accept-name-error' : undefined}
         />
         {errors.name ? (
-          <p className="a-field-error" id="name-error">
+          <p className="a-field-error" id="accept-name-error">
             {errors.name[0]}
           </p>
         ) : null}
       </div>
 
       <div className="a-field">
-        <label htmlFor="password">Mật khẩu (12–128 ký tự)</label>
+        <label htmlFor="accept-password">Mật khẩu (12–128 ký tự)</label>
         <input
-          id="password"
+          id="accept-password"
           name="password"
           type="password"
           autoComplete="new-password"
           required
           aria-invalid={errors.password ? true : undefined}
-          aria-describedby={errors.password ? 'password-error' : undefined}
+          aria-describedby={errors.password ? 'accept-password-error' : undefined}
         />
         {errors.password ? (
-          <p className="a-field-error" id="password-error">
+          <p className="a-field-error" id="accept-password-error">
             {errors.password[0]}
           </p>
         ) : null}

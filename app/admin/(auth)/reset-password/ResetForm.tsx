@@ -30,18 +30,18 @@ export function ResetForm({ token }: { token: string }) {
         </p>
       ) : null}
       <div className="a-field">
-        <label htmlFor="password">Mật khẩu mới (12–128 ký tự)</label>
+        <label htmlFor="reset-password">Mật khẩu mới (12–128 ký tự)</label>
         <input
-          id="password"
+          id="reset-password"
           name="password"
           type="password"
           autoComplete="new-password"
           required
           aria-invalid={errors.password ? true : undefined}
-          aria-describedby={errors.password ? 'password-error' : undefined}
+          aria-describedby={errors.password ? 'reset-password-error' : undefined}
         />
         {errors.password ? (
-          <p className="a-field-error" id="password-error">
+          <p className="a-field-error" id="reset-password-error">
             {errors.password[0]}
           </p>
         ) : null}

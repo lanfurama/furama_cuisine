@@ -54,6 +54,18 @@ describe('admin pages', () => {
     }
   });
 
+  it('no two admin files use the same element id', () => {
+    // Cache Components keeps a page you left mounted but hidden (<Activity>), so the sign-in
+    // and reset forms can be in the document together: a shared id="email" sends the label,
+    // and aria-describedby, to the hidden input.
+    const owners = new Map<string, Set<string>>();
+    for (const f of all) {
+      for (const [, id] of readFileSync(f, 'utf8').matchAll(/\bid="([^"]+)"/g)) owners.set(id, (owners.get(id) ?? new Set()).add(f));
+    }
+    const shared = [...owners].filter(([, where]) => where.size > 1);
+    expect(shared.map(([id, where]) => `${id}: ${[...where].join(', ')}`)).toEqual([]);
+  });
+
   it('no inline style attributes', () => {
     expect(all.filter((f) => /\bstyle=\{/.test(readFileSync(f, 'utf8')))).toEqual([]);
   });
