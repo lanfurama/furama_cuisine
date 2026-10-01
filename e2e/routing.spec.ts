@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { DETAIL_PATH, HOME_PATH } from './paths';
 
@@ -68,6 +70,18 @@ test.describe('pages that do not exist', () => {
     expect(res?.status()).toBe(404);
     await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
     expect(await page.evaluate(() => getComputedStyle(document.body).fontFamily)).toContain('Be Vietnam Pro');
+  });
+
+  test('the cached 404 of a disabled language carries the locales tag, so enabling it clears the 404', async ({
+    request,
+  }) => {
+    test.skip(!!process.env.E2E_BASE_URL, 'reads the cache of the production build that next start serves');
+    expect((await request.get('/vi')).status()).toBe(404);
+    expect((await request.get('/vi')).status()).toBe(404);
+    const meta = join(process.cwd(), '.next', 'server', 'app', 'vi.meta');
+    await expect.poll(() => existsSync(meta)).toBe(true);
+    const tags = String(JSON.parse(readFileSync(meta, 'utf8')).headers['x-next-cache-tags']).split(',');
+    expect(tags).toContain('locales');
   });
 
   test('an unknown restaurant says so and is not indexed', async ({ request }) => {

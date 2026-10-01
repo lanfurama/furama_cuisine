@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { lang } from 'next/root-params';
 import { fontVariables } from '@/lib/fonts';
-import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALE_CODE_RE, toBcp47 } from '@/lib/i18n/locales';
+import { DEFAULT_LOCALE, LOCALE_CODE_RE, toBcp47 } from '@/lib/i18n/locales';
 import { MotionProvider } from '@/lib/motion';
+import { getEnabledLocales } from '@/lib/server/content/locales';
 import '../../globals.css';
 
 export const metadata: Metadata = {
@@ -23,9 +24,14 @@ export const viewport: Viewport = {
   themeColor: '#14201c',
 };
 
-/** Every enabled locale is prerendered; Cache Components needs at least one. */
+/**
+ * Every language enabled at build time is prerendered (the default one always:
+ * Cache Components needs at least one). This runs at build only; rendering the
+ * layout still reads no database.
+ */
 export async function generateStaticParams() {
-  return ENABLED_LOCALES.map((code) => ({ lang: code }));
+  const codes = (await getEnabledLocales()).map((l) => l.code);
+  return (codes.includes(DEFAULT_LOCALE) ? codes : [DEFAULT_LOCALE, ...codes]).map((code) => ({ lang: code }));
 }
 
 /*

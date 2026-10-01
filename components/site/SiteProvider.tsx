@@ -25,7 +25,7 @@ import {
   type Booking,
   type BookingForm,
 } from '@/lib/booking';
-import { bookingErrorMessage } from '@/lib/booking-errors';
+import { bookingErrorMessage, type ErrorStrings } from '@/lib/booking-errors';
 import { venueNow, type IsoDate } from '@/lib/venue-time';
 import { submitReservation } from '@/app/actions';
 import { coverThen } from '@/components/site/PageCurtain';
@@ -135,12 +135,15 @@ export function SiteProvider({
   locale,
   restaurants,
   defaultRestaurantId,
+  strings,
   children,
 }: {
   locale: string;
   restaurants: Restaurant[];
   /** The restaurant the booking bar starts on (DEFAULT_RESTAURANT_ID until phase 6). */
   defaultRestaurantId: string;
+  /** The error.* copy for this language, resolved on the server (DB override, else registry). */
+  strings: ErrorStrings;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -403,7 +406,7 @@ export function SiteProvider({
         // The form is fine, so the slot is the problem (it closed or filled
         // while the drawer sat open): say so and slide to the nearest open one.
         const at = now();
-        setServerError(bookingErrorMessage(isSittingClosed(date, booking.time, at) ? 'past' : 'full'));
+        setServerError(bookingErrorMessage(isSittingClosed(date, booking.time, at) ? 'past' : 'full', {}, strings));
         setBookingState((b) => reconcile(restaurants, b, {}, availability, at));
       }
       return;
@@ -427,7 +430,7 @@ export function SiteProvider({
           setDone(true);
           return;
         }
-        setServerError(bookingErrorMessage(result.code, result.params));
+        setServerError(bookingErrorMessage(result.code, result.params, strings));
         setTried(true);
         // Re-read the slot board so a lost race shows up immediately, and move
         // the chosen time off a slot that has just filled.
@@ -440,9 +443,9 @@ export function SiteProvider({
           })
           .catch(() => {});
       })
-      .catch(() => setServerError(bookingErrorMessage('network')))
+      .catch(() => setServerError(bookingErrorMessage('network', {}, strings)))
       .finally(() => setPending(false));
-  }, [availability, booking, form, now, restaurants, valid]);
+  }, [availability, booking, form, now, restaurants, strings, valid]);
 
   const setFormField = useCallback((key: keyof BookingForm, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));

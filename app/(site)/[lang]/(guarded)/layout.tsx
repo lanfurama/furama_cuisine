@@ -1,24 +1,33 @@
 import { notFound } from 'next/navigation';
 import { lang } from 'next/root-params';
 import { DEFAULT_RESTAURANT_ID } from '@/lib/data';
-import { ENABLED_LOCALES } from '@/lib/i18n/locales';
+import { CLIENT_KEYS } from '@/lib/i18n/registry';
+import { getEnabledLocales } from '@/lib/server/content/locales';
 import { getRestaurants } from '@/lib/server/content/restaurants';
+import { getStrings } from '@/lib/server/content/strings';
 import { SiteProvider } from '@/components/site/SiteProvider';
 import { Chrome } from '@/components/site/Chrome';
 
 /*
- * Every guest page sits below this layout. It checks the language, so notFound()
- * renders [lang]/not-found.tsx with a real 404, and reads the catalogue, so a
- * database failure renders [lang]/error.tsx. In the root layout neither could
- * be caught.
+ * Every guest page sits below this layout. It checks the language against the
+ * locales table, so notFound() renders [lang]/not-found.tsx with a real 404 (and
+ * that cached 404 carries the `locales` tag, so enabling the language clears
+ * it), and it reads the catalogue and the UI strings, so a database failure
+ * renders [lang]/error.tsx. In the root layout neither could be caught.
  */
 export default async function GuardedLayout({ children }: { children: React.ReactNode }) {
   const locale = await lang();
-  if (!ENABLED_LOCALES.includes(locale)) notFound();
-  const restaurants = await getRestaurants(locale);
+  const enabled = await getEnabledLocales();
+  if (!enabled.some((l) => l.code === locale)) notFound();
+  const [restaurants, strings] = await Promise.all([getRestaurants(locale), getStrings(locale, CLIENT_KEYS)]);
 
   return (
-    <SiteProvider locale={locale} restaurants={restaurants} defaultRestaurantId={DEFAULT_RESTAURANT_ID}>
+    <SiteProvider
+      locale={locale}
+      restaurants={restaurants}
+      defaultRestaurantId={DEFAULT_RESTAURANT_ID}
+      strings={strings}
+    >
       <Chrome>{children}</Chrome>
     </SiteProvider>
   );

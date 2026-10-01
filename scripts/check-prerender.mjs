@@ -13,7 +13,7 @@ const PAGES = {
   '/en': 'en',
   '/en/restaurants/taya-house': 'en/restaurants/taya-house',
 };
-const TAGS = ['restaurants', 'i18n:en'];
+const TAGS = ['restaurants', 'i18n:en', 'locales', 'content:ui'];
 const REVALIDATE = 2_592_000; // cacheLife('max'): 30 days
 const EXPIRE = 31_536_000; // 1 year
 
