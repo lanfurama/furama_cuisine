@@ -8,6 +8,8 @@ with reservations persisted in Neon Postgres.
 - **Next.js 16** (App Router, Turbopack) + **React 19** + TypeScript
 - **Neon Postgres** via the Vercel Marketplace, reached with `pg` (node-postgres)
   on Fluid Compute per Neon's own guidance
+- **Better Auth** for staff sign-in (invitation only, Admin and Editor roles)
+  and **Resend** with react-email for the staff emails
 - Plain CSS with design tokens — the design is built on fluid `clamp()` values
   throughout, so the tokens mirror them directly rather than round-tripping
   through a utility framework
@@ -26,19 +28,28 @@ data and would overwrite those lines.
 
 Apply migrations to the dev branch with `npm run db:migrate`.
 
+The admin (`/admin`) also needs `BETTER_AUTH_SECRET` and
+`BETTER_AUTH_URL=http://localhost:3000` in `.env.local`; leave
+`EMAIL_DELIVERY` unset there (log mode: invitation and reset links are
+printed to the terminal). Create your Admin with `scripts/create-admin.mjs`
+(see Deploying → First Admin).
+
 ## Testing
 
 | Command | What it runs |
 | --- | --- |
 | `npm test` | Unit tests (Vitest, process timezone pinned to UTC) |
 | `TEST_DATABASE_URL=postgres://localhost:5432/furama_cuisine_test npm test` | Unit and integration tests. The database is dropped and recreated on every run, and its name must end in `_test`. |
-| `npm run test:e2e` | Playwright against `next start` on port 3100 (or `E2E_PORT`). Set `CI` and a local `_test` `DATABASE_URL` (variables below), or `E2E_BASE_URL` for a server you started; without either it refuses to run, because `next dev` reads `.env.local`. Run `npx playwright install chromium` once first. |
+| `npm run test:e2e` | Playwright against `next start` on port 3100 (or `E2E_PORT`). Set `CI`, a local `_test` `DATABASE_URL`, `EMAIL_DELIVERY=log`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL=http://localhost:<port>` and `EMAIL_LOG_FILE` (variables below), or `E2E_BASE_URL` for a server you started; otherwise it refuses to run, because `next dev` and `next start` read `.env.local`. Run `npx playwright install chromium` once first. |
 | `npm run test:visual` | Pixel-exact screenshots of the home and Tàya House pages, with and without JavaScript, against `e2e/__visual__/` (macOS baselines from before phase 2; CI skips them). Needs a running `next start`, see below. |
 | `npm run lint` | oxlint (typescript-eslint does not support TypeScript 7) |
 
 CI (`.github/workflows/ci.yml`) runs typecheck, lint, unit, integration,
 build, the prerender and font check (`scripts/check-prerender.mjs`) and
-end-to-end tests against a Postgres 18 service container.
+end-to-end tests against a Postgres 18 service container. The build needs no
+auth or email variable; the end-to-end step gets a fresh `BETTER_AUTH_SECRET`
+per run, `EMAIL_DELIVERY=log` and an `EMAIL_LOG_FILE` the admin specs read
+invitation and reset links from.
 
 To run the production build locally against a throwaway database, keep
 `.env.local` out of it: process variables win over that file, and the blank
@@ -48,8 +59,11 @@ To run the production build locally against a throwaway database, keep
 RESET_DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test node scripts/reset-db.mjs
 CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test npm run build
 node scripts/check-prerender.mjs
-CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test npm run test:e2e
-PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test npx next start -p 3201 &
+CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
+  BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3100 \
+  EMAIL_DELIVERY=log EMAIL_LOG_FILE=$TMPDIR/emails.ndjson npm run test:e2e
+PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
+  BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3201 EMAIL_DELIVERY=log npx next start -p 3201 &
 for i in $(seq 1 60); do curl -s -o /dev/null http://localhost:3201/ && break; sleep 1; done
 VISUAL_BASE_URL=http://localhost:3201 npm run test:visual
 kill %1   # stop the server (or: lsof -ti tcp:3201 | xargs kill)
@@ -57,7 +71,10 @@ kill %1   # stop the server (or: lsof -ti tcp:3201 | xargs kill)
 
 `E2E_BASE_URL=http://localhost:<port>` points the main Playwright suite at a
 server you started yourself (for example `next dev` with the same variables)
-instead of starting one. Never update the visual baselines to make a run
+instead of starting one. The admin specs still write their staff accounts
+(with known passwords) straight into `DATABASE_URL`, so `e2e/staff-fixtures.ts`
+refuses anything but a local database named `*_test` or `*_ci`, whichever way
+Playwright runs. Never update the visual baselines to make a run
 pass: open `test-results/**/*-diff.png` and fix the page.
 
 ## Deploying
@@ -96,6 +113,58 @@ point at dev). Run
 `DATABASE_URL_UNPOOLED=<production direct URL> node scripts/migrate.mjs`
 deliberately, after the dev branch has been migrated and verified.
 
+Migration 005 (the `staff_*` tables, `auth_rate_limit`, `staff_invitation`,
+`audit_log` and the `audit_feed` view) must be on an environment's Neon
+branch before that environment runs the phase-3 code: Better Auth checks its
+tables when it starts (`database.validateSchema`) and every admin page reads
+them. 005 only adds tables, so the guest site keeps working on a migrated
+database. Apply it with `node scripts/migrate.mjs` like the others.
+
+**Never run `npx auth migrate`** (or `generate`) without
+`--config scripts/auth-cli.config.ts`: the Better Auth CLI loads `.env` and
+`.env.local` by itself, which point at the shared database. That config reads
+`AUTH_CLI_DATABASE_URL`, refuses anything but a local database, and drops every
+`PG*` variable the CLI copied from `.env.local` before it connects (blank them
+in the shell too):
+
+```bash
+RESET_DATABASE_URL=postgres://localhost:5432/furama_cuisine_cli_test node scripts/reset-db.mjs
+PGHOST= PGUSER= PGPASSWORD= PGDATABASE= AUTH_CLI_DATABASE_URL=postgres://localhost:5432/furama_cuisine_cli_test npx auth check --config scripts/auth-cli.config.ts
+```
+
+The staff tables' columns come from `lib/server/auth/config.ts`; change that
+file, regenerate with `npx auth generate --config scripts/auth-cli.config.ts`
+against an empty local database, and write the difference as a new migration.
+
+### Environment variables (admin)
+
+| Variable | Production | Preview | Local E2E / CI |
+| --- | --- | --- | --- |
+| `BETTER_AUTH_SECRET` | its own, 32+ random bytes | its own | a fresh `openssl rand -base64 32` |
+| `BETTER_AUTH_URL` | `https://<production domain>`, the origin of emailed links | the preview's own URL | `http://localhost:<port>` |
+| `EMAIL_DELIVERY` | `live` | `redirect` | `log` (also the default when unset) |
+| `EMAIL_REDIRECT_TO` | — | the team inbox that receives every preview email | — |
+| `EMAIL_FROM` | `Furama Cuisine <no-reply@mail.furamavietnam.com>` | same | — |
+| `RESEND_API_KEY` | the production key | a separate key | — |
+| `EMAIL_LOG_FILE` | never | never | a scratch file; log mode appends each email as one JSON line |
+| `BOOTSTRAP_ADMIN_EMAIL` | never (only in the shell that runs `scripts/create-admin.mjs`) | never | — |
+
+`EMAIL_DELIVERY` is read when an email is sent, never at build time; an
+unknown value throws instead of sending. On a Vercel deployment
+(`VERCEL_ENV=production` or `preview`) the log mode prints neither addresses
+nor links and writes no `EMAIL_LOG_FILE`.
+
+### Resend
+
+Invitation and reset emails go straight to Resend (spec §10.4), from a
+subdomain of furamavietnam.com verified in Resend: IT adds the MX, SPF, DKIM
+and DMARC records Resend lists for `mail.furamavietnam.com` (check first
+whether the root domain already has a DMARC record), then `EMAIL_FROM` uses
+that subdomain. Until it is verified, keep `EMAIL_DELIVERY=redirect` or `log`.
+A failed invitation email leaves the invitation in place and the staff
+screen says "Chưa gửi được email, bấm Gửi lại"; a failed reset email is only
+logged.
+
 ### First Admin
 
 Staff accounts exist only by invitation (spec §7.1); the one exception is the
@@ -123,6 +192,15 @@ is set, and writes a `staff.bootstrap` row to `audit_log`.
 | `/en/restaurants/[slug]` | Static for `taya-house`. Any other slug is a 404: the first visit is a soft 404 (status 200 with `noindex`), later visits get the cached 404, and without JavaScript the body is empty | Restaurant detail (Tàya House only until phase 6) |
 | `/taya-house` | Redirect | 308 to `/en/restaurants/taya-house` (`next.config.ts`) |
 | `/api/availability` | Dynamic | Booked covers per slot for one restaurant/day |
+| `/admin/sign-in`, `/admin/accept-invite`, `/admin/reset-password` | Request time, nonce CSP | The only admin pages open without a session cookie |
+| `/admin`, `/admin/users`, `/admin/audit` | Request time, nonce CSP | Overview; staff and invitations (Admin); audit log (Admin). Without a session cookie the proxy sends them to sign-in (307, `?next=` kept) |
+| `/api/auth/*` | Dynamic | Better Auth; `/api/auth/admin/*` is refused with 403 |
+
+Every admin page renders at request time (`app/admin/layout.tsx`: `instant =
+false` and `await connection()` before `<html>`), so each response carries the
+nonce `proxy.ts` made for it. On `next start` and Vercel an admin page answers
+200 even when it renders the sign-in redirect, the 403 view or the 404 view:
+those arrive in the page payload, not the status.
 
 The proxy skips `/api`, `/_next`, `/admin` (its own branch), any path with a dot
 (files such as `/icon.svg`) and any unprefixed top-level segment of 2–3 letters,
@@ -219,7 +297,7 @@ reference so future design revisions can be diffed against what was built.
 | -------------------- | ------------------------------ |
 | `npm run dev`        | Dev server                     |
 | `npm run build`      | Production build               |
-| `npm run typecheck`  | `tsc --noEmit`                 |
+| `npm run typecheck`  | `next typegen`, then `tsc` (no incremental cache) |
 | `npm run lint`       | oxlint                         |
 | `npm test`           | Vitest (unit, integration)     |
 | `npm run test:e2e`   | Playwright                     |
