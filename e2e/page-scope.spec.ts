@@ -118,3 +118,30 @@ test('a second visit to the restaurant page plays its entrance again', async ({ 
   }
   expect(samples.some((o) => o < 1)).toBe(true);
 });
+
+test('navigation still works after the error page replaces a page the curtain was covering', async ({ page }) => {
+  await page.goto(HOME_PATH);
+  // Test-only fault: while armed, TayaHero's restaurants.find(r => r.slug === slug) throws,
+  // so the restaurant page fails to render under the covering curtain and [lang]/error.tsx
+  // takes over (and unmounts the curtain mid-cover). No production code is involved.
+  await page.evaluate(() => {
+    const w = window as unknown as { __fail: boolean };
+    w.__fail = true;
+    const find = Array.prototype.find;
+    Array.prototype.find = function (this: unknown[], ...args: Parameters<typeof find>) {
+      if (w.__fail && String(args[0]).includes('slug')) throw new Error('forced render failure');
+      return find.apply(this, args);
+    } as typeof find;
+  });
+  await tayaCard(page).click();
+  await expect(page.getByRole('heading', { name: 'We could not load this page.' })).toBeVisible();
+  reactErrors = []; // the forced failure is expected
+
+  await page.evaluate(() => ((window as unknown as { __fail: boolean }).__fail = false));
+  await page.getByRole('button', { name: 'TRY AGAIN' }).click();
+  await expect(page.locator('.taya-kicker:visible')).toBeVisible();
+  await expect(page.locator('.page-curtain')).toHaveAttribute('data-active', 'false');
+
+  await page.locator('.taya-back:visible').click();
+  await page.waitForURL((u) => u.pathname === HOME_PATH, { timeout: 5000 });
+});

@@ -72,6 +72,14 @@ export function PageCurtain() {
 
   useEffect(() => {
     curtain = ref.current;
+    // A previous mount can have been unmounted mid-cover (the error page replaces
+    // this subtree): its `busy` and its inline curtain state must not carry over.
+    busy = false;
+    if (curtain) {
+      curtain.getAnimations?.().forEach((a) => a.cancel());
+      curtain.style.opacity = '';
+      curtain.dataset.active = 'false';
+    }
     return () => {
       curtain = null;
     };
