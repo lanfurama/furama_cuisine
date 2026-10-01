@@ -1,4 +1,5 @@
 import { MO, SLOTS, WD, type Meal, type Restaurant } from './data';
+import { addDays, daysBetween, minutesUntil, type IsoDate } from './venue-time';
 
 export type BookingForm = { name: string; phone: string; email: string; note: string };
 
@@ -17,6 +18,27 @@ export type Availability = { booked: Record<string, number>; capacity: number };
 export const NO_AVAILABILITY: Availability = { booked: {}, capacity: Number.POSITIVE_INFINITY };
 
 export const DAY_COUNT = 14;
+
+/** Online booking window: today plus the next 13 days, in Da Nang time. */
+export const BOOKING_WINDOW_DAYS = 14;
+/** A sitting closes to online booking this many minutes before it starts. */
+export const LEAD_MINUTES = 30;
+export const MAX_GUESTS = 12;
+
+/** The dates a guest can pick, starting with the venue's today. */
+export function bookingDates(today: IsoDate): IsoDate[] {
+  return Array.from({ length: BOOKING_WINDOW_DAYS }, (_, i) => addDays(today, i));
+}
+
+export function inWindow(date: IsoDate, today: IsoDate): boolean {
+  const offset = daysBetween(today, date);
+  return offset >= 0 && offset < BOOKING_WINDOW_DAYS;
+}
+
+/** True once a sitting is within LEAD_MINUTES of starting, in Da Nang time. */
+export function isSittingClosed(date: IsoDate, time: string, now: Date = new Date()): boolean {
+  return minutesUntil(date, time, now) <= LEAD_MINUTES;
+}
 
 /** The next 14 days, starting today at midnight. */
 export function days(from: Date = new Date()): Date[] {
@@ -50,6 +72,19 @@ export function slotsFor(
   const r = findRestaurant(restaurants, restaurantId);
   const meals: Meal[] = r ? r.meals : ['Dinner'];
   return meals.map((meal) => ({ meal, times: SLOTS[meal] }));
+}
+
+/** Today, unless every sitting of the restaurant has already closed for today. */
+export function defaultDate(
+  restaurants: Restaurant[],
+  restaurantId: string,
+  today: IsoDate,
+  now: Date = new Date(),
+): IsoDate {
+  const open = slotsFor(restaurants, restaurantId).some((g) =>
+    g.times.some((t) => !isSittingClosed(today, t, now)),
+  );
+  return open ? today : addDays(today, 1);
 }
 
 /** Today's slots stop being bookable 30 minutes ahead of the sitting. */
