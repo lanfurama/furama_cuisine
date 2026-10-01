@@ -584,6 +584,7 @@ Mỗi lần lưu cấu hình đều ghi audit và gọi `updateTag('ai-settings'
 **API, không cache:**
 - `GET /api/availability?restaurant=&from=&to=&lang=` trả `{today, nowMinutes, maxParty, days:[{date, state, reason?}]}`.
 - `GET /api/availability?restaurant=&date=&guests=&lang=` trả các ca và slot, kèm số chỗ còn lại.
+- Ghi chú (đợt 1): `/api/availability` hiện trả `now` là một thời điểm ISO (client suy ra độ lệch đồng hồ từ đó) thay vì `nowMinutes`.
 
 **Phía client:**
 - Lấy "hôm nay" từ server.
@@ -717,6 +718,7 @@ Mỗi lần lưu cấu hình đều ghi audit và gọi `updateTag('ai-settings'
     - thay `email_outbox.to_email` bằng giá trị ẩn;
     - xóa các khóa chứa dữ liệu cá nhân trong `reservation_events.changes`.
   - Giữ lại ngày, giờ, số khách, nhà hàng và trạng thái để làm thống kê.
+  - Lưu ý: migration 003 đã đặt `reservations.phone_e164` là NOT NULL, nên job ẩn danh ở đợt 10 phải chạy `ALTER … DROP NOT NULL` (hoặc ghi một giá trị thay thế) trước khi đặt cột này về NULL.
   - Dữ liệu test hiện có được đánh dấu `is_test`. Admin xóa chúng trước khi ra mắt.
 
 ## 12. Xử lý lỗi
@@ -745,7 +747,8 @@ Mỗi lần lưu cấu hình đều ghi audit và gọi `updateTag('ai-settings'
 | Bảo vệ | Mọi export `'use server'` (trừ danh sách action công khai) và mọi route `/api/admin/*` đều gọi `requirePermission`; mọi chữ khách nhìn thấy đều nằm trong registry hoặc bảng nội dung; mọi key đều có màn hình sửa |
 
 **CI trên GitHub Actions:**
-- Chạy: typecheck, ESLint (thay cho `next lint` đã bị bỏ ở Next 16), unit, tích hợp, E2E, build.
+- Chạy: typecheck, lint, unit, tích hợp, E2E, build.
+- Lint dùng oxlint, không dùng ESLint (`next lint` đã bị bỏ ở Next 16), vì typescript-eslint chỉ hỗ trợ TypeScript < 6.1 mà dự án dùng TypeScript 7.
 - Từ khi web khách đọc dữ liệu từ DB, `next build` cũng truy vấn DB. Vì vậy trong CI, bước build chạy sau `db:migrate` và seed trên Postgres của CI. Build trên Vercel đọc branch Neon của đúng môi trường.
 
 ## 14. Lộ trình
@@ -756,7 +759,7 @@ Mỗi lần lưu cấu hình đều ghi audit và gọi `updateTag('ai-settings'
 
 | # | Đợt | Bàn giao | Nghiệm thu | Ngày công |
 |---|---|---|---|---|
-| 0 | Môi trường an toàn | Branch Neon `dev` và branch cho từng preview; `.env.local` trỏ sang `dev`; tắt đăng ký Neon Auth; Vitest, Playwright, ESLint; CI trên GitHub Actions; sửa `npm run lint` | CI xanh; môi trường dev không còn dùng DB production | 1–2 |
+| 0 | Môi trường an toàn | Branch Neon `dev` và branch cho từng preview; `.env.local` trỏ sang `dev`; tắt đăng ký Neon Auth; Vitest, Playwright, oxlint (không dùng ESLint vì typescript-eslint chỉ hỗ trợ TypeScript < 6.1, còn dự án dùng TypeScript 7); CI trên GitHub Actions; sửa `npm run lint` | CI xanh; môi trường dev không còn dùng DB production | 1–2 |
 | 1 | Sửa lỗi đặt bàn và giao diện | `venue-time`; ngày ISO giữa client và server; "hôm nay" do server cấp; cutoff đúng; mã tham chiếu mới có thử lại; `phone_e164` và index chặn trùng mới; mã lỗi; ngày render sau khi mount; `IntroTrigger` | Test giờ VN 00:00–07:00 lưu đúng ngày; hero hiện lại sau khi chuyển trang; hết lỗi hydration | 4–5 |
 | 2 | Tái cấu trúc web khách | `app/(site)/[lang]` (chỉ `en`); `proxy.ts`; chuyển `app/taya-house` thành `restaurants/[slug]` (tạm dùng hằng) và chuyển hướng `/taya-house`; `global-not-found`, `error.tsx`; Cache Components và Partial Prefetching; bảng `locales`, `content_strings`, `destinations`; khung lớp đọc dữ liệu và registry; slug cho ẩm thực và bữa ăn; bỏ code viết riêng cho Tàya; hero và chấm hành trình tính theo số lượng; `ViewMarker`; truy vấn DOM theo trang | `/en` giống hệt trang hiện tại (so ảnh chụp màn hình); `/taya-house` chuyển hướng đúng; build xanh | 6–8 |
 | 3 | Đăng nhập và khung admin | Better Auth, vai trò, mời (thu hồi, gửi lại), đặt lại mật khẩu, khóa endpoint plugin admin, `audit_log`, màn nhân viên, layout admin tiếng Việt (render động, CSP nonce), Resend cho email đăng nhập | Mời → nhận → đăng nhập; Editor bị chặn khỏi khu vực Admin; đổi vai trò tạo đúng một dòng audit với đúng người thực hiện; gọi thẳng `/api/auth/admin/*` từ trình duyệt bị từ chối | 7–9 |
