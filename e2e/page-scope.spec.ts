@@ -125,11 +125,11 @@ test('navigation still works after the error page replaces a page the curtain wa
   // so the restaurant page fails to render under the covering curtain and [lang]/error.tsx
   // takes over (and unmounts the curtain mid-cover). No production code is involved.
   await page.evaluate(() => {
-    const w = window as unknown as { __fail: boolean };
-    w.__fail = true;
+    const w = window as unknown as { failRender: boolean };
+    w.failRender = true;
     const find = Array.prototype.find;
     Array.prototype.find = function (this: unknown[], ...args: Parameters<typeof find>) {
-      if (w.__fail && String(args[0]).includes('slug')) throw new Error('forced render failure');
+      if (w.failRender && String(args[0]).includes('slug')) throw new Error('forced render failure');
       return find.apply(this, args);
     } as typeof find;
   });
@@ -137,7 +137,7 @@ test('navigation still works after the error page replaces a page the curtain wa
   await expect(page.getByRole('heading', { name: 'We could not load this page.' })).toBeVisible();
   reactErrors = []; // the forced failure is expected
 
-  await page.evaluate(() => ((window as unknown as { __fail: boolean }).__fail = false));
+  await page.evaluate(() => ((window as unknown as { failRender: boolean }).failRender = false));
   await page.getByRole('button', { name: 'TRY AGAIN' }).click();
   await expect(page.locator('.taya-kicker:visible')).toBeVisible();
   await expect(page.locator('.page-curtain')).toHaveAttribute('data-active', 'false');
