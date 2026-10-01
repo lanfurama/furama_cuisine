@@ -32,11 +32,32 @@ Apply migrations to the dev branch with `npm run db:migrate`.
 | --- | --- |
 | `npm test` | Unit tests (Vitest, process timezone pinned to UTC) |
 | `TEST_DATABASE_URL=postgres://localhost:5432/furama_cuisine_test npm test` | Unit and integration tests. The database is dropped and recreated on every run, and its name must end in `_test`. |
-| `npm run test:e2e` | Playwright against `next dev` locally, `next start` in CI (port 3100). Run `npx playwright install chromium` once first. |
+| `npm run test:e2e` | Playwright against `next start` on port 3100. Set `CI` and a local `_test` `DATABASE_URL` (variables below), or `E2E_BASE_URL` for a server you started; without either it refuses to run, because `next dev` reads `.env.local`. Run `npx playwright install chromium` once first. |
+| `npm run test:visual` | Pixel-exact screenshots of the home and Tàya House pages, with and without JavaScript, against `e2e/__visual__/` (macOS baselines from before phase 2; CI skips them). Needs a running `next start`, see below. |
 | `npm run lint` | oxlint (typescript-eslint does not support TypeScript 7) |
 
 CI (`.github/workflows/ci.yml`) runs typecheck, lint, unit, integration,
-build and end-to-end tests against a Postgres 18 service container.
+build, the prerender check (`scripts/check-prerender.mjs`) and end-to-end
+tests against a Postgres 18 service container.
+
+To run the production build locally against a throwaway database, keep
+`.env.local` out of it: process variables win over that file, and the blank
+`PG*` variables stop Next from handing its user and password to `pg`.
+
+```bash
+RESET_DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test node scripts/reset-db.mjs
+CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test npm run build
+node scripts/check-prerender.mjs
+CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test npm run test:e2e
+PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test npx next start -p 3201 &
+for i in $(seq 1 60); do curl -s -o /dev/null http://localhost:3201/ && break; sleep 1; done
+VISUAL_BASE_URL=http://localhost:3201 npm run test:visual
+```
+
+`E2E_BASE_URL=http://localhost:<port>` points the main Playwright suite at a
+server you started yourself (for example `next dev` with the same variables)
+instead of starting one. Never update the visual baselines to make a run
+pass: open `test-results/**/*-diff.png` and fix the page.
 
 ## Deploying
 
@@ -51,6 +72,20 @@ immediately before (or together with) its first deploy of this branch. Before
 `NOT NULL`. The site has never been deployed, so there is no live traffic to
 break today.
 
+Migration 004 (`locales`, `content_strings`, `destinations` and the
+`restaurants_destination_fk` constraint) must be on an environment's Neon
+branch **before** that environment builds the phase-2 code: `next build`
+reads the `locales` table (the guest layout's `generateStaticParams`) and
+prerenders `/en` from the database, so a build against a branch without 004
+fails. A failed build is safe (the previous deployment stays live), but
+migrate first: apply 004 to a preview branch before its first phase-2
+preview, and to production right before the production deploy, with the
+`node scripts/migrate.mjs` command below. 004 only adds tables and a
+constraint the current data already satisfies, so the code from before
+phase 2 keeps working on a migrated database. Check
+`SELECT DISTINCT destination FROM restaurants` on the target branch first:
+every value must exist in `destinations`, or the constraint fails.
+
 Neon preview branches fork from production, so a preview deployment needs
 `node scripts/migrate.mjs` run against its preview branch (with
 `DATABASE_URL_UNPOOLED` set to that branch) before bookings work there.
@@ -62,15 +97,28 @@ deliberately, after the dev branch has been migrated and verified.
 
 ## Routes
 
-| Route                | Rendering | Notes                                        |
-| -------------------- | --------- | -------------------------------------------- |
-| `/`                  | Static, ISR 1h | Home: hero, finder, cuisines, restaurants, destinations, experiences, heritage, stories, offers |
-| `/taya-house`        | Static, ISR 1h | Tàya House restaurant detail                 |
-| `/api/availability`  | Dynamic   | Booked covers per slot for one restaurant/day |
+| Route | Rendering | Notes |
+| --- | --- | --- |
+| `/` and other unprefixed paths | Proxy (`proxy.ts`) | 307 to `/<locale>…` by the `NEXT_LOCALE` cookie, then `Accept-Language`, then `en` (only `en` is enabled in phase 2); the query is kept |
+| `/en` | Static, `cacheLife('max')` | Home: hero, finder, cuisines, restaurants, destinations, experiences, heritage, stories, offers |
+| `/en/restaurants/[slug]` | Static for `taya-house`; any other slug is a 404 | Restaurant detail (Tàya House only until phase 6) |
+| `/taya-house` | Redirect | 308 to `/en/restaurants/taya-house` (`next.config.ts`) |
+| `/api/availability` | Dynamic | Booked covers per slot for one restaurant/day |
 
 The design toggled between these two views with a `#taya-house` hash. They are
 real routes here so each gets its own metadata and can be linked directly; the
 brand curtain still plays over the swap via client-side navigation.
+
+Guest pages live in `app/(site)/[lang]`. The root layout there reads no
+database and never throws; `(guarded)/layout.tsx` checks the language
+against the `locales` table and reads the catalogue and UI strings, so a
+disabled language gets the site's 404 and a database error gets
+`[lang]/error.tsx`. Pages carry the cache tags `restaurants`, `i18n:<code>`,
+`locales` and `content:ui`; `lib/cache-tags.ts` names every tag of the CMS
+(spec §6.2), so later phases never spell a tag by hand. Each page wraps its
+content in `<ViewMarker>`: with Cache Components the router keeps the page
+you left mounted but hidden, so page DOM is only queried inside the visible
+page's `<main>` (`lib/page-scope.guard.test.ts` enforces it).
 
 ## Database
 
@@ -78,6 +126,14 @@ The restaurant catalogue is the database's job, not the code's — `restaurants`
 is seeded by `db/migrations/002_seed_restaurants.sql` and read by
 `db/queries.ts#listRestaurants`, then handed to the client through
 `SiteProvider`. Editing the catalogue means editing a migration.
+
+`locales`, `content_strings` and `destinations` (migration 004) are the
+shared foundations of the CMS. Which UI strings exist is decided by
+`lib/i18n/registry.ts`; `content_strings` only overrides or translates them,
+and while it is empty the registry's English text is served. Guest pages
+read through cached functions in `lib/server/content/` (`'use cache'`,
+`cacheLife('max')`); their uncached loaders (`*.queries.ts`) are what the
+integration tests exercise.
 
 `reservations` records table requests. Availability is **derived from booked
 covers** against each restaurant's `slot_capacity`, replacing the design's
@@ -138,5 +194,6 @@ reference so future design revisions can be diffed against what was built.
 | `npm run lint`       | oxlint                         |
 | `npm test`           | Vitest (unit, integration)     |
 | `npm run test:e2e`   | Playwright                     |
+| `npm run test:visual` | Screenshot comparison (local) |
 | `npm run db:migrate` | Apply pending SQL migrations   |
 | `npm run db:psql`    | psql shell against Neon        |
