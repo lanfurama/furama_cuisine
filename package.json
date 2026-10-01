@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "oxlint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit --incremental false",
     "test": "TZ=UTC vitest run",
     "test:watch": "TZ=UTC vitest",
     "test:e2e": "playwright test",
@@ -17,11 +17,13 @@
   },
   "dependencies": {
     "@vercel/functions": "^3.9.9",
+    "better-auth": "^1.7.7",
     "libphonenumber-js": "^1.13.14",
     "next": "^16.3.7",
     "pg": "^8.23.0",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
@@ -29,6 +31,7 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "auth": "^1.7.7",
     "dotenv-cli": "^11.0.0",
     "oxlint": "^1.86.0",
     "typescript": "^7.0.2",
