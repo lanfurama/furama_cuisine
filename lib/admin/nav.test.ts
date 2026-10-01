@@ -1,0 +1,9 @@
+import { describe, expect, it } from 'vitest';
+import { navFor } from './nav';
+
+describe('navFor', () => {
+  it('shows each role only what its permissions open', () => {
+    expect(navFor('admin').map((i) => i.label)).toEqual(['Tổng quan']);
+    expect(navFor('editor').map((i) => i.label)).toEqual(['Tổng quan']);
+  });
+});

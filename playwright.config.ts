@@ -35,6 +35,17 @@ if (!external) {
       'Refusing to start the app: next start reads .env.local (the shared Neon database). Set DATABASE_URL to a local postgres://localhost:5432/<name>_test database, or set E2E_BASE_URL to a server you started with local env.',
     );
   }
+  // The admin specs sign in and read emailed links: the server needs its own auth
+  // settings, and must never send real mail (.env.local may say EMAIL_DELIVERY=live).
+  if (process.env.EMAIL_DELIVERY !== 'log') {
+    throw new Error('Refusing to start the app: set EMAIL_DELIVERY=log, so no test sends real mail (process env beats .env.local).');
+  }
+  if (!process.env.BETTER_AUTH_SECRET) {
+    throw new Error('Refusing to start the app: set BETTER_AUTH_SECRET (for example $(openssl rand -base64 32)).');
+  }
+  if (process.env.BETTER_AUTH_URL !== `http://localhost:${PORT}`) {
+    throw new Error(`Refusing to start the app: set BETTER_AUTH_URL=http://localhost:${PORT}, the server's own origin (links and Better Auth's origin check use it).`);
+  }
 }
 
 export default defineConfig({

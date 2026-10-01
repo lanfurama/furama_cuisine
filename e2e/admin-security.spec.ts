@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
 import { expectHydrated, watchCsp } from './csp';
+import { STAFF, expect, seedStaff, signIn, test } from './staff-fixtures';
 
 /*
  * Spec §11: every admin response carries a per-request nonce CSP plus
@@ -8,6 +8,8 @@ import { expectHydrated, watchCsp } from './csp';
  * get none of it. Spec §6.1: without a session cookie the proxy sends /admin/*
  * to the sign-in page, except the three public pages.
  */
+
+test.beforeAll(() => seedStaff());
 
 const nonceOf = (csp: string | undefined) => /'nonce-([A-Za-z0-9+/_-]+={0,2})'/.exec(csp ?? '')?.[1];
 
@@ -96,7 +98,26 @@ test.describe('hydration under the CSP', () => {
     const violations = await watchCsp(page);
     await page.goto('/admin/sign-in');
     await expectHydrated(page);
-    await expect(page.getByRole('heading', { name: 'Đăng nhập' })).toBeVisible();
+    // A client-side state update (useActionState) proves the client bundle runs.
+    await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+    await expect(page.getByText('Nhập email công việc, ví dụ ten@furamavietnam.com.')).toBeVisible();
+    expect(violations).toEqual([]);
+  });
+
+  test('signing in moves into the shell without a document request or a violation', async ({ page }) => {
+    const violations = await watchCsp(page);
+    await page.goto('/admin/sign-in');
+    await expectHydrated(page);
+    // The action's redirect is a soft navigation: the page keeps its first nonce,
+    // and the shell's new chunks load under 'strict-dynamic'.
+    let documents = 0;
+    page.on('request', (r) => {
+      if (r.resourceType() === 'document') documents++;
+    });
+    await signIn(page, STAFF.admin.email, STAFF.admin.password);
+    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page.getByRole('heading', { name: 'Tổng quan' })).toBeVisible();
+    expect(documents).toBe(0);
     expect(violations).toEqual([]);
   });
 
