@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { DESTINATION_CARDS, type DestKey, type DestinationCard } from '@/lib/data';
+import { journeyStops } from '@/lib/journey';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 
@@ -10,6 +11,7 @@ export function Destinations() {
   const title = useReveal<HTMLHeadingElement>('title');
   const lede = useReveal<HTMLParagraphElement>('up');
   const journey = useReveal<HTMLDivElement>('journey');
+  const { inset, stops } = journeyStops(DESTINATION_CARDS.length);
 
   return (
     <section id="destinations" className="destinations">
@@ -25,8 +27,8 @@ export function Destinations() {
 
         {/* The dotted route line that ties the destinations together. */}
         <div ref={journey} data-reveal="journey" className="journey" aria-hidden="true">
-          <div data-jline="1" className="journey-line" />
-          {[12.5, 37.5, 62.5, 87.5].map((left) => (
+          <div data-jline="1" className="journey-line" style={{ left: `${inset}%`, right: `${inset}%` }} />
+          {stops.map((left) => (
             <span key={left} data-jdot="1" className="journey-dot" style={{ left: `${left}%` }} />
           ))}
         </div>

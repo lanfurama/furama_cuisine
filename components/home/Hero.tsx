@@ -1,7 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { HERO_SLIDES } from '@/lib/data';
 import { useSite } from '@/components/site/SiteProvider';
+import { readMotionLevel } from '@/lib/motion';
 
 /*
  * One hero serves every width: the three cross-fading slides run on desktop,
@@ -10,7 +12,20 @@ import { useSite } from '@/components/site/SiteProvider';
  * #top anchor instead of duplicating the section per breakpoint.
  */
 export function Hero() {
-  const { slide, goSlide, open, scrollToId } = useSite();
+  const { open, overlay, scrollToId } = useSite();
+  const [slide, setSlide] = useState(0);
+  const count = HERO_SLIDES.length;
+
+  /* Slideshow: desktop only, paused behind an overlay or a hidden tab. It lives
+     in the hero, so it stops whenever the home page is not on screen. */
+  useEffect(() => {
+    if (overlay || count < 2 || !readMotionLevel()) return;
+    const timer = window.setInterval(() => {
+      if (document.hidden || window.innerWidth < 760) return;
+      setSlide((s) => (s + 1) % count);
+    }, 7000);
+    return () => window.clearInterval(timer);
+  }, [count, overlay]);
 
   return (
     <section id="top" className="hero">
@@ -91,20 +106,22 @@ export function Hero() {
             </button>
           </div>
 
-          <div className="hero-dots" data-intro="6">
-            {HERO_SLIDES.map((s, i) => (
-              <button
-                key={s.id}
-                type="button"
-                aria-label={`Slide ${i + 1}`}
-                aria-current={i === slide}
-                onClick={() => goSlide(i)}
-                className="hero-dot"
-              >
-                <span data-active={i === slide} />
-              </button>
-            ))}
-          </div>
+          {count > 1 && (
+            <div className="hero-dots" data-intro="6">
+              {HERO_SLIDES.map((s, i) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  aria-label={`Slide ${i + 1}`}
+                  aria-current={i === slide}
+                  onClick={() => setSlide(i)}
+                  className="hero-dot"
+                >
+                  <span data-active={i === slide} />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>

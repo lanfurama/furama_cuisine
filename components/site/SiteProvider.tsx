@@ -27,7 +27,6 @@ import {
 } from '@/lib/booking';
 import { bookingErrorMessage } from '@/lib/booking-errors';
 import { venueNow, type IsoDate } from '@/lib/venue-time';
-import { readMotionLevel } from '@/lib/motion';
 import { submitReservation } from '@/app/actions';
 import { coverThen } from '@/components/site/PageCurtain';
 
@@ -106,9 +105,6 @@ type SiteState = {
   toggleDropdown: (id: string) => void;
   closeDropdown: () => void;
 
-  slide: number;
-  goSlide: (i: number) => void;
-
   scrollToId: (id: string) => void;
   goHomeTop: () => void;
   goBackToRestaurants: () => void;
@@ -140,7 +136,6 @@ export function SiteProvider({
 
   const [scrolled, setScrolled] = useState(false);
   const [tab, setTab] = useState<SiteState['tab']>('explore');
-  const [slide, setSlide] = useState(0);
   const [finder, setFinderState] = useState<Finder>({
     location: 'Da Nang',
     cuisine: 'all',
@@ -461,7 +456,6 @@ export function SiteProvider({
   }, []);
 
   const closeDropdown = useCallback(() => setOpenDropdown(null), []);
-  const goSlide = useCallback((i: number) => setSlide(i), []);
 
   /* Header solidity, plus which pill the mobile bar highlights. */
   useEffect(() => {
@@ -516,16 +510,6 @@ export function SiteProvider({
     window.scrollTo(0, 0);
   }, [pathname]);
 
-  /* Hero slideshow: desktop only, paused behind an overlay or a hidden tab. */
-  useEffect(() => {
-    if (view !== 'home' || overlay || !readMotionLevel()) return;
-    const timer = window.setInterval(() => {
-      if (document.hidden || window.innerWidth < 760) return;
-      setSlide((s) => (s + 1) % 3);
-    }, 7000);
-    return () => window.clearInterval(timer);
-  }, [overlay, view]);
-
   const dayList = useMemo(() => (today ? bookingDates(today) : []), [today]);
 
   const value = useMemo<SiteState>(
@@ -572,8 +556,6 @@ export function SiteProvider({
       openDropdown,
       toggleDropdown,
       closeDropdown,
-      slide,
-      goSlide,
       scrollToId,
       goHomeTop,
       goBackToRestaurants,
@@ -582,10 +564,10 @@ export function SiteProvider({
     }),
     [
       applyFinder, availability, booking, clearFilters, close, closeDrawer, closeDropdown, confirmedDate,
-      dayList, done, errors, filter, finder, form, goBackToRestaurants, goHomeTop, goSlide, lang, matches,
+      dayList, done, errors, filter, finder, form, goBackToRestaurants, goHomeTop, lang, matches,
       navigate, now, open, openDropdown, openReserve, openRestaurant, overlay, pending, pickCuisine,
       pickDestination, query, reference, restaurants, scrollToId, scrolled, serverError, setBooking,
-      setFilter, setFinder, setFormField, shownCount, slide, submit, tab, today, toggleDropdown, tried, view,
+      setFilter, setFinder, setFormField, shownCount, submit, tab, today, toggleDropdown, tried, view,
     ],
   );
 
