@@ -10,8 +10,8 @@ import { join } from 'node:path';
 
 /** Route -> its file under .next/server/app (without the extension). */
 const PAGES = {
-  '/': 'index',
-  '/taya-house': 'taya-house',
+  '/en': 'en',
+  '/en/restaurants/taya-house': 'en/restaurants/taya-house',
 };
 const TAGS = ['restaurants', 'i18n:en'];
 const REVALIDATE = 2_592_000; // cacheLife('max'): 30 days

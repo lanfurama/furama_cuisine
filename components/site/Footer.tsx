@@ -2,17 +2,18 @@
 
 import { CONTACT, SOCIALS } from '@/lib/data';
 import { useSite } from '@/components/site/SiteProvider';
+import { homeHref } from '@/lib/i18n/href';
 import { useReveal } from '@/lib/motion';
 
 export function Footer() {
-  const { goHomeTop } = useSite();
+  const { goHomeTop, locale } = useSite();
   const reveal = useReveal<HTMLDivElement>('fade');
 
   return (
     <footer className="footer">
       <div ref={reveal} data-reveal="fade" className="footer-top shell">
         <a
-          href="/"
+          href={homeHref(locale)}
           className="footer-wordmark"
           onClick={(e) => {
             e.preventDefault();

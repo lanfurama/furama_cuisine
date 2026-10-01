@@ -2,6 +2,7 @@
 
 import { NAV_LINKS } from '@/lib/data';
 import { useSite } from '@/components/site/SiteProvider';
+import { homeHref } from '@/lib/i18n/href';
 
 const LANGS: { value: 'EN' | 'VI'; label: string }[] = [
   { value: 'EN', label: 'English' },
@@ -10,6 +11,7 @@ const LANGS: { value: 'EN' | 'VI'; label: string }[] = [
 
 export function Header() {
   const {
+    locale,
     scrolled,
     open,
     openReserve,
@@ -33,7 +35,7 @@ export function Header() {
       >
         <div className="hdr-inner">
           <a
-            href="/"
+            href={homeHref(locale)}
             className="hdr-logo"
             onClick={(e) => {
               e.preventDefault();
@@ -104,7 +106,7 @@ export function Header() {
       >
         <div className="hdr-inner">
           <a
-            href="/"
+            href={homeHref(locale)}
             className="hdr-wordmark"
             onClick={(e) => {
               e.preventDefault();

@@ -29,11 +29,13 @@ import { bookingErrorMessage } from '@/lib/booking-errors';
 import { venueNow, type IsoDate } from '@/lib/venue-time';
 import { submitReservation } from '@/app/actions';
 import { coverThen } from '@/components/site/PageCurtain';
+import { homeHref, restaurantHref } from '@/lib/i18n/href';
 
 export type Filter = { cuisine: string; occasion: string; destination: string };
 export type Finder = Filter & { location: string };
 export type Overlay = 'drawer' | 'search' | 'menu' | 'film' | 'sheet';
-export type View = 'home' | 'detail';
+/** 'other': a page with no view of its own (an unknown restaurant), so the chrome's links go home. */
+export type View = 'home' | 'detail' | 'other';
 
 /** The page currently on screen, as registered by its <ViewMarker>. `restaurant` is a detail page's slug. */
 export type PageView = { view: View; restaurant: string | null; root: HTMLElement };
@@ -55,6 +57,8 @@ function loadAvailability(
 }
 
 type SiteState = {
+  /** The URL locale code (`en`). */
+  locale: string;
   restaurants: Restaurant[];
   /** Which page is showing; 'home' until the first <ViewMarker> registers. */
   view: View;
@@ -128,18 +132,19 @@ export function useSite(): SiteState {
 }
 
 export function SiteProvider({
+  locale,
   restaurants,
   defaultRestaurantId,
   children,
 }: {
+  locale: string;
   restaurants: Restaurant[];
   /** The restaurant the booking bar starts on (DEFAULT_RESTAURANT_ID until phase 6). */
   defaultRestaurantId: string;
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  /* Today's URLs; the route move under /[lang] (Task 9) swaps these for lib/i18n/href. */
-  const home = '/';
+  const home = homeHref(locale);
   const [page, setPage] = useState<PageView | null>(null);
   const view: View = page?.view ?? 'home';
   /* Changes once per page shown; DOM-dependent effects key on it. */
@@ -377,9 +382,9 @@ export function SiteProvider({
       setOverlay(null);
       setOpenDropdown(null);
       if (page?.view === 'detail' && page.restaurant === r.slug) return;
-      coverThen(() => router.push(`/${r.slug}`));
+      coverThen(() => router.push(restaurantHref(locale, r.slug)));
     },
-    [openReserve, page, router, setBooking],
+    [locale, openReserve, page, router, setBooking],
   );
 
   const valid = useMemo(() => validate(form), [form]);
@@ -531,6 +536,7 @@ export function SiteProvider({
 
   const value = useMemo<SiteState>(
     () => ({
+      locale,
       restaurants,
       view,
       pageRoot,
@@ -582,7 +588,7 @@ export function SiteProvider({
     }),
     [
       applyFinder, availability, booking, clearFilters, close, closeDrawer, closeDropdown, confirmedDate,
-      dayList, done, errors, filter, finder, form, goBackToRestaurants, goHomeTop, lang, matches,
+      dayList, done, errors, filter, finder, form, goBackToRestaurants, goHomeTop, lang, locale, matches,
       now, open, openDropdown, openReserve, openRestaurant, overlay, pageRoot, pending, pickCuisine,
       pickDestination, query, reference, restaurants, scrollToId, scrolled, serverError, setBooking,
       setFilter, setFinder, setFormField, showPage, shownCount, submit, tab, today, toggleDropdown, tried,

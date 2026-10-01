@@ -26,6 +26,15 @@ export const DETAIL_PAGE_IDS: ReadonlySet<string> = new Set(['taya-house']);
 /** The restaurant the booking bar starts on. Phase 6: site_settings.default_restaurant_id. */
 export const DEFAULT_RESTAURANT_ID = 'taya-house';
 
+/** <title> and description of each restaurant page. Phase 6: restaurant_i18n.seo_title / seo_description. */
+export const DETAIL_SEO: Record<string, { title: string; description: string }> = {
+  'taya-house': {
+    title: 'Tàya House — Furama Cuisine',
+    description:
+      'A wellness dining home beneath the Lagoon Garden at Furama Resort Danang, with Vietnamese cooking classes led by Cơ Tu chef A Rất Thị Hép.',
+  },
+};
+
 
 /** [label, slug] — order drives the cuisine rail and the search suggestions. The slug is the filter key and the image name. */
 export const CUISINES: [string, string][] = [
