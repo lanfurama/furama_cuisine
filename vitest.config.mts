@@ -16,5 +16,8 @@ export default defineConfig({
     exclude: ['node_modules/**', '.next/**', 'e2e/**'],
     environment: 'node',
     setupFiles: ['./test/setup-env.ts'],
+    globalSetup: ['./test/global-setup.ts'],
+    // Integration tests share one database, so files run one at a time.
+    fileParallelism: false,
   },
 });

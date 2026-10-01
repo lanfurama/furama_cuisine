@@ -3,10 +3,13 @@ import { attachDatabasePool } from '@vercel/functions';
 
 /*
  * One pool per warm Fluid Compute instance. `attachDatabasePool` lets Vercel
- * drain it on shutdown so Neon does not accumulate idle connections, and the
- * pool is created lazily so `next build` never needs DATABASE_URL.
+ * drain it on shutdown so Neon does not accumulate idle connections. The pool
+ * is created lazily, on the first query.
  */
 let pool: Pool | null = null;
+
+/** Throwaway databases for tests and CI run on this machine without TLS. */
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 /**
  * Neon hands out `sslmode=require`, which node-postgres currently treats as
@@ -15,6 +18,7 @@ let pool: Pool | null = null;
  */
 function withVerifyFull(url: string): string {
   const parsed = new URL(url);
+  if (LOCAL_HOSTS.has(parsed.hostname)) return url;
   if (parsed.searchParams.get('sslmode') !== 'verify-full') {
     parsed.searchParams.set('sslmode', 'verify-full');
   }

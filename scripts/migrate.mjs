@@ -20,9 +20,20 @@ if (!connectionString) {
   process.exit(1);
 }
 
-// Pin full TLS verification; see db/client.ts for why.
+// `--until 002_seed_restaurants.sql` stops after that file; tests use it to
+// build a database as it was before a later migration.
+const untilAt = process.argv.indexOf('--until');
+const until = untilAt === -1 ? null : process.argv[untilAt + 1];
+if (untilAt !== -1 && !until) {
+  console.error('--until needs a migration file name.');
+  process.exit(1);
+}
+
+// Pin full TLS verification for Neon (see db/client.ts); local throwaway
+// databases have no TLS.
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 const url = new URL(connectionString);
-url.searchParams.set('sslmode', 'verify-full');
+if (!LOCAL_HOSTS.has(url.hostname)) url.searchParams.set('sslmode', 'verify-full');
 
 const client = new pg.Client({ connectionString: url.toString() });
 await client.connect();
@@ -41,6 +52,7 @@ try {
 
   let ran = 0;
   for (const file of files) {
+    if (until && file > until) break;
     if (applied.has(file)) {
       console.log(`  · ${file} (already applied)`);
       continue;
