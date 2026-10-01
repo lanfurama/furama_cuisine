@@ -363,3 +363,19 @@ body.admin {
 .a-inline-form .a-btn {
   margin-top: 4px;
 }
+
+/* ---------- Audit log ---------- */
+
+.a-pre {
+  max-width: 420px;
+  margin: 8px 0 0;
+  overflow-x: auto;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.a-pager {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+}
