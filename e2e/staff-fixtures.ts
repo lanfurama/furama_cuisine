@@ -156,3 +156,30 @@ export async function signInAs(page: Page, who: { email: string; password: strin
   await signIn(page, who.email, who.password);
   await expect(page).toHaveURL(/\/admin$/);
 }
+
+/**
+ * Runs `fn` while no other test in any worker changes how many Admins exist:
+ * the last-Admin check (spec §7.1) depends on that count, so the test that
+ * expects it and the tests that briefly add an Admin take this lock.
+ */
+export async function withAdminCountLock<T>(fn: () => Promise<T>): Promise<T> {
+  const client = db();
+  await client.connect();
+  try {
+    await client.query("SELECT pg_advisory_lock(hashtext('e2e-admin-count'))");
+    return await fn();
+  } finally {
+    await client.end(); // ends the session, which releases the lock even if fn threw
+  }
+}
+
+/** One row of a query, for assertions on what the database holds. */
+export async function one<T extends Record<string, unknown>>(sql: string, values: unknown[] = []): Promise<T | undefined> {
+  const client = db();
+  await client.connect();
+  try {
+    return (await client.query<T>(sql, values)).rows[0];
+  } finally {
+    await client.end();
+  }
+}

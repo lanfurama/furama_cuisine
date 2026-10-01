@@ -1,6 +1,6 @@
 import 'server-only';
 import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { forbidden, redirect } from 'next/navigation';
 import { cache } from 'react';
 import { ADMIN_SIGN_IN } from '@/lib/admin/paths';
 import type { AuditActor } from '@/lib/server/audit';
@@ -53,6 +53,18 @@ export const getStaffSession = cache(async (): Promise<StaffSession | null> => {
 export async function verifySession(): Promise<StaffSession> {
   const staff = await getStaffSession();
   if (!staff) redirect(ADMIN_SIGN_IN);
+  return staff;
+}
+
+/**
+ * Pages for some roles only: the staff member, or the 403 view of the nearest
+ * forbidden.tsx (app/admin/(shell)/forbidden.tsx), with the URL kept. Under
+ * Cache Components the response status stays 200 on next start (the shell's
+ * status is sent before the render resumes); the page body still carries no data.
+ */
+export async function requirePagePermission(permissions: Permissions): Promise<StaffSession> {
+  const staff = await verifySession();
+  if (!roleCan(staff.role, permissions)) forbidden();
   return staff;
 }
 

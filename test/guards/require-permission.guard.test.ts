@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { adminPluginCalls, adminPluginCallsIn, checkActions, publicActionsMissing, scanRepo } from './server-actions';
+import { adminOnlyProblems, adminPluginCalls, adminPluginCallsIn, checkActions, publicActionsMissing, scanRepo } from './server-actions';
 
 /*
  * Spec §7.1 / §13 "Bảo vệ": every Server Action ('use server' export or inline
@@ -33,7 +33,14 @@ describe('requirePermission guard (the repository)', () => {
   it('the admin plugin’s endpoints are called only from lib/server/auth/staff.ts and scripts/create-admin.mjs', () => {
     expect(adminPluginCalls(ROOT)).toEqual([]);
   });
+
+  it('every staff-screen action asks for a permission the Editor lacks', () => {
+    expect(adminOnlyProblems(ROOT, ADMIN_ONLY_ACTIONS)).toEqual([]);
+  });
 });
+
+/** Files whose every action is Admin-only (spec §7.1: staff, invitations). */
+const ADMIN_ONLY_ACTIONS = ['app/admin/(shell)/users/actions.ts'];
 
 describe('requirePermission guard (what it catches)', () => {
   const none = new Set<string>();
@@ -133,6 +140,17 @@ export async function b() {
       'app/x/actions.ts: auth.api.revokeUserSessions',
     ]);
     expect(adminPluginCallsIn('lib/server/auth/staff.ts', source)).toEqual([]);
+  });
+
+  it('an Admin-only action whose permission an Editor also has, or that is not a literal', () => {
+    const source = `'use server';
+export async function a() { await requirePermission({ user: ['create'] }); }
+export async function b() { await requirePermission({ content: ['update'] }); }
+export async function c() { await requirePermission(PERMS); }`;
+    expect(adminOnlyProblems(ROOT, ['x.ts'], () => source)).toEqual([
+      'x.ts#b: an Editor passes requirePermission({"content":["update"]})',
+      'x.ts#c: requirePermission() must take an object literal',
+    ]);
   });
 
   it('the public list exempts exactly the named export', () => {

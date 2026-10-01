@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
   experimental: {
     // app/global-not-found.tsx: there is no app/layout.tsx to hold a 404 for unmatched URLs.
     globalNotFound: true,
+    // forbidden() for admin pages a role may not open (lib/server/dal/session.ts, app/admin/(shell)/forbidden.tsx).
+    authInterrupts: true,
   },
   async redirects() {
     return [

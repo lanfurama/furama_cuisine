@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { admin } from 'better-auth/plugins/admin';
 import { parseSync } from 'oxc-parser';
-import { ac, roles } from '../../lib/server/auth/permissions';
+import { ac, roleCan, roles, type Permissions } from '../../lib/server/auth/permissions';
 
 /*
  * The scanner behind test/guards/require-permission.guard.test.ts. TypeScript
@@ -258,3 +258,50 @@ export function adminPluginCalls(root: string): string[] {
   return sourceFiles(root).flatMap((rel) => adminPluginCallsIn(rel, readFileSync(join(root, rel), 'utf8')));
 }
 
+/** The first requirePermission(...) call inside a node. */
+function requirePermissionCall(node: unknown): Node | null {
+  let call: Node | null = null;
+  walk(node, (n) => {
+    const callee = n.type === 'CallExpression' ? (n.callee as Node) : null;
+    if (!call && callee?.type === 'Identifier' && callee.name === 'requirePermission') call = n;
+  });
+  return call;
+}
+
+/** `{ user: ['set-role'] }` as written in the source, or null if it is anything but a literal of string arrays. */
+function literalPermissions(arg: unknown): Permissions | null {
+  if (!isNode(arg) || arg.type !== 'ObjectExpression') return null;
+  const out: Record<string, string[]> = {};
+  for (const prop of arg.properties as Node[]) {
+    const key = prop.key as Node | undefined;
+    const value = prop.value as Node | undefined;
+    const name = key?.type === 'Identifier' ? key.name : key?.type === 'Literal' ? key.value : undefined;
+    if (prop.type !== 'Property' || typeof name !== 'string' || value?.type !== 'ArrayExpression') return null;
+    const actions = (value.elements as Node[]).map((e) => (e?.type === 'Literal' && typeof e.value === 'string' ? e.value : null));
+    if (actions.some((a) => a === null)) return null;
+    out[name] = actions as string[];
+  }
+  return out as Permissions;
+}
+
+/**
+ * Every action in these files must ask for a permission the Editor lacks,
+ * written as a literal so this check can read it: a typo or a shared
+ * permission would otherwise open an Admin-only action to Editors.
+ */
+export function adminOnlyProblems(
+  root: string,
+  rels: readonly string[],
+  read: (rel: string) => string = (rel) => readFileSync(join(root, rel), 'utf8'),
+): string[] {
+  return rels.flatMap((rel) =>
+    exportedFunctions(parse(rel, read(rel))).flatMap(({ name, fn }) => {
+      const [first] = fn ? statements(fn) : [];
+      const scope = first?.type === 'TryStatement' ? ((first.block as Node).body as Node[])[0] : first;
+      const permissions = literalPermissions((requirePermissionCall(scope)?.arguments as unknown[] | undefined)?.[0]);
+      if (!permissions) return [`${rel}#${name}: requirePermission() must take an object literal`];
+      if (roleCan('editor', permissions)) return [`${rel}#${name}: an Editor passes requirePermission(${JSON.stringify(permissions)})`];
+      return [];
+    }),
+  );
+}

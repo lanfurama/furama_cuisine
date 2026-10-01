@@ -126,6 +126,11 @@ test.describe('hydration under the CSP', () => {
     await signIn(page, STAFF.admin.email, STAFF.admin.password);
     await expect(page).toHaveURL(/\/admin$/);
     await expect(page.getByRole('heading', { name: 'Tổng quan' })).toBeVisible();
+    await expectHydrated(page);
+    // A link inside the shell: another soft navigation with chunks of its own.
+    await page.getByRole('navigation', { name: 'Điều hướng quản trị' }).getByRole('link', { name: 'Nhân viên' }).click();
+    await expect(page.getByRole('heading', { name: 'Nhân viên', level: 1 })).toBeVisible();
+    await expect(page).toHaveURL(/\/admin\/users$/);
     expect(documents).toBe(0);
     expect(violations).toEqual([]);
   });
