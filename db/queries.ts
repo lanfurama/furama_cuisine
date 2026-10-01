@@ -1,6 +1,7 @@
 import 'server-only';
-import { query } from './client';
+import { getPool, query } from './client';
 import type { DestKey, Meal, Restaurant } from '@/lib/data';
+import { newReference } from '@/lib/server/reference';
 
 type RestaurantRow = {
   id: string;
@@ -56,13 +57,15 @@ export async function slotCapacity(restaurantId: string): Promise<number> {
 }
 
 export type NewReservation = {
-  reference: string;
   restaurantId: string;
   isoDate: string;
   time: string;
   guests: number;
   name: string;
+  /** As the guest typed it. */
   phone: string;
+  /** Canonical form; the duplicate check keys on this. */
+  phoneE164: string;
   email?: string;
   note?: string;
 };
@@ -71,13 +74,39 @@ export type CreateResult =
   | { ok: true; reference: string }
   | { ok: false; reason: 'full' | 'duplicate' | 'unknown-restaurant' };
 
+const REFERENCE_ATTEMPTS = 3;
+
+/** The unique constraint a Postgres error violated, if it is one. */
+function violatedConstraint(err: unknown): string | null {
+  if (typeof err !== 'object' || err === null) return null;
+  const e = err as { code?: string; constraint?: string };
+  return e.code === '23505' ? (e.constraint ?? null) : null;
+}
+
 /**
- * Books a table if the slot still has room. The capacity check and the insert
- * share one transaction and take a row lock on the restaurant, so two
- * simultaneous requests for the last seats cannot both succeed.
+ * Books a table if the slot still has room. A reference that collides with an
+ * existing one is redrawn, up to three times.
  */
-export async function createReservation(input: NewReservation): Promise<CreateResult> {
-  const { getPool } = await import('./client');
+export async function createReservation(
+  input: NewReservation,
+  makeReference: () => string = newReference,
+): Promise<CreateResult> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await insertReservation(input, makeReference());
+    } catch (err) {
+      if (violatedConstraint(err) === 'reservations_reference_key' && attempt < REFERENCE_ATTEMPTS) continue;
+      throw err;
+    }
+  }
+}
+
+/**
+ * The capacity check and the insert share one transaction and take a row lock
+ * on the restaurant, so two simultaneous requests for the last seats cannot
+ * both succeed.
+ */
+async function insertReservation(input: NewReservation, reference: string): Promise<CreateResult> {
   const client = await getPool().connect();
 
   try {
@@ -110,29 +139,28 @@ export async function createReservation(input: NewReservation): Promise<CreateRe
 
     await client.query(
       `INSERT INTO reservations
-         (reference, restaurant_id, reserved_on, reserved_at, guests, guest_name, phone, email, note)
-       VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8, $9)`,
+         (reference, restaurant_id, reserved_on, reserved_at, guests, guest_name, phone, phone_e164, email, note)
+       VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8, $9, $10)`,
       [
-        input.reference,
+        reference,
         input.restaurantId,
         input.isoDate,
         input.time,
         input.guests,
         input.name,
         input.phone,
+        input.phoneE164,
         input.email || null,
         input.note || null,
       ],
     );
 
     await client.query('COMMIT');
-    return { ok: true, reference: input.reference };
+    return { ok: true, reference };
   } catch (err) {
     await client.query('ROLLBACK');
-    // The partial unique index rejects an identical re-submit.
-    if (typeof err === 'object' && err && (err as { code?: string }).code === '23505') {
-      return { ok: false, reason: 'duplicate' };
-    }
+    // The partial unique index rejects a second request for the same table and number.
+    if (violatedConstraint(err) === 'reservations_dedupe_v2_idx') return { ok: false, reason: 'duplicate' };
     throw err;
   } finally {
     client.release();

@@ -139,8 +139,6 @@ export function slotBookable(
 
 export const guestLabel = (n: number) => `${n} ${n === 1 ? 'guest' : 'guests'}`;
 
-export const newReference = () => `FC-${Math.floor(10000 + Math.random() * 90000)}`;
-
 /** Accent- and đ-insensitive fold, so "pho cuon" matches "Phố Cuốn". */
 export const fold = (x: string) =>
   String(x)

@@ -2,7 +2,8 @@
 
 import { bookedCovers, createReservation, listRestaurants, slotCapacity } from '@/db/queries';
 import { SLOTS, type Meal } from '@/lib/data';
-import { DAY_COUNT, days, isoDate, isPast, newReference, validate } from '@/lib/booking';
+import { DAY_COUNT, days, isoDate, isPast, validate } from '@/lib/booking';
+import { toE164 } from '@/lib/phone';
 
 export type ReservationInput = {
   restaurant: string;
@@ -56,18 +57,19 @@ export async function submitReservation(input: ReservationInput): Promise<Reserv
     note: input.note,
   });
   if (!checks.name) return { ok: false, error: 'Please enter your name.' };
-  if (!checks.phone) return { ok: false, error: 'Please enter a valid phone number.' };
+  const phoneE164 = toE164(input.phone);
+  if (!checks.phone || !phoneE164) return { ok: false, error: 'Please enter a valid phone number.' };
   if (!checks.email) return { ok: false, error: 'Please check your email address.' };
 
   const date = days()[day];
   const result = await createReservation({
-    reference: newReference(),
     restaurantId: restaurant.id,
     isoDate: isoDate(date),
     time: input.time,
     guests,
     name: input.name.trim(),
     phone: input.phone.trim(),
+    phoneE164,
     email: input.email.trim() || undefined,
     note: input.note.trim() || undefined,
   });
