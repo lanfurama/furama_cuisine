@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { Be_Vietnam_Pro, Crimson_Pro } from 'next/font/google';
-import { listRestaurants } from '@/db/queries';
 import { DEFAULT_RESTAURANT_ID } from '@/lib/data';
+import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
+import { getRestaurants } from '@/lib/server/content/restaurants';
 import { SiteProvider } from '@/components/site/SiteProvider';
 import { MotionProvider } from '@/lib/motion';
 import { Chrome } from '@/components/site/Chrome';
@@ -33,9 +34,6 @@ export const metadata: Metadata = {
   },
 };
 
-/* The catalogue changes rarely; re-read it hourly instead of only on deploy. */
-export const revalidate = 3600;
-
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -50,7 +48,7 @@ export const viewport: Viewport = {
 const MOTION_BOOTSTRAP = `try{document.documentElement.dataset.motion=matchMedia('(prefers-reduced-motion: reduce)').matches?'off':'on'}catch(e){}`;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const restaurants = await listRestaurants();
+  const restaurants = await getRestaurants(DEFAULT_LOCALE);
 
   /* suppressHydrationWarning: the inline script below stamps data-motion onto
      <html> before React hydrates, so the server markup differs by design. */

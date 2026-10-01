@@ -3,12 +3,13 @@ import { bookedCovers, slotCapacity } from '@/db/queries';
 import { inWindow, type AvailabilityResponse } from '@/lib/booking';
 import { isValidIsoDate, venueNow } from '@/lib/venue-time';
 
-export const dynamic = 'force-dynamic';
-
 /**
  * Booked covers per slot for one restaurant on one date (Da Nang's today when
  * no date is given). It also reports the server's clock, which the browser
  * uses as the authority for "today" and for which sittings have closed.
+ *
+ * Under Cache Components a GET handler runs per request once it reads the
+ * request (request.url below), so no `dynamic` export is needed or allowed.
  */
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
