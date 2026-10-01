@@ -21,7 +21,8 @@ export type AuditEntry = {
 };
 
 export async function insertAudit(client: PoolClient, actor: AuditActor | null, entry: AuditEntry): Promise<void> {
-  const ip = actor?.ip && isIP(actor.ip) ? actor.ip : null;
+  // isIP accepts an IPv6 zone id ('fe80::1%lo0') but Postgres inet rejects it, which would roll back the whole action.
+  const ip = actor?.ip && !actor.ip.includes('%') && isIP(actor.ip) ? actor.ip : null;
   await client.query(
     `INSERT INTO audit_log (actor_id, actor_email, action, entity_type, entity_id, locale, before, after, ip)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,

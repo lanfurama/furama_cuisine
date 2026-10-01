@@ -221,6 +221,31 @@ describe.skipIf(!TEST_DATABASE_URL)('staff management on migration 005', () => {
       expect(await rows(`SELECT 1 FROM staff_user WHERE email = 'ed@furama.test'`)).toHaveLength(0);
     });
 
+    it('a revoke landing between createUser and mark-used still writes the accept audit row', async () => {
+      const admin = await owner();
+      const invited = await createInvitation(deps(), admin, { email: 'ed@furama.test', role: 'editor' });
+      if (!invited.ok) throw new Error('unreachable');
+      const racing: StaffDeps = {
+        ...deps(),
+        auth: {
+          ...auth,
+          api: {
+            ...auth.api,
+            createUser: async (...args: Parameters<Auth['api']['createUser']>) => {
+              const created = await auth.api.createUser(...args);
+              await revokeInvitation(deps(), admin, invited.id);
+              return created;
+            },
+          },
+        } as Auth,
+      };
+      expect(await acceptInvitation(racing, { token: lastToken(), name: 'Ed', password: PASSWORD })).toMatchObject({ ok: true });
+      expect(await rows(`SELECT 1 FROM audit_log WHERE action = 'staff.invite_accept'`)).toHaveLength(1);
+      expect(await rows('SELECT revoked_at IS NOT NULL AS revoked, used_at IS NULL AS unused FROM staff_invitation')).toEqual([
+        { revoked: true, unused: true },
+      ]);
+    });
+
     it('reopening a link whose account exists answers already_staff and closes the invitation', async () => {
       const admin = await owner();
       await createInvitation(deps(), admin, { email: 'ed@furama.test', role: 'editor' });
@@ -296,6 +321,14 @@ describe.skipIf(!TEST_DATABASE_URL)('staff management on migration 005', () => {
         }),
       ).rejects.toThrow(/audit_log_action_check/);
       expect(await rows('SELECT role FROM staff_user WHERE id = $1', [editor.id])).toEqual([{ role: 'editor' }]);
+    });
+
+    it('stores no IP for an IPv6 address with a zone id, which inet rejects', async () => {
+      const admin = await owner();
+      await withTransaction(pool, (c) =>
+        insertAudit(c, { ...admin, ip: 'fe80::1%lo0' }, { action: 'staff.role', entityType: 'staff_user', entityId: admin.id }),
+      );
+      expect(await rows('SELECT ip FROM audit_log')).toEqual([{ ip: null }]);
     });
 
     it('stores no IP that is not an address', async () => {

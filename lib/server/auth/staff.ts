@@ -215,7 +215,12 @@ export async function acceptInvitation(
   }
 
   await withTransaction(deps.pool, async (c) => {
-    await c.query('UPDATE staff_invitation SET used_at = now() WHERE id = $1 AND used_at IS NULL', [invitation.id]);
+    // A revoke can land after createUser's check; marking a revoked row used would
+    // violate staff_invitation_closed_once and roll back the audit row, so skip it.
+    await c.query(
+      'UPDATE staff_invitation SET used_at = now() WHERE id = $1 AND used_at IS NULL AND revoked_at IS NULL',
+      [invitation.id],
+    );
     await insertAudit(
       c,
       { id: user.id, email: user.email, ip },
