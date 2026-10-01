@@ -68,11 +68,14 @@ export async function b(x) { if (x) await requirePermission({ user: ['ban'] }); 
     ]);
   });
 
-  it('accepts the check as the first statement of a top-level try', () => {
+  it('accepts the check as the first statement of a top-level try whose catch only returns or throws', () => {
     expect(
-      check(`'use server';\nexport async function a(x) {\n  try {\n    const actor = await requirePermission({ user: ['ban'] });\n    return actor;\n  } catch (e) { return e; }\n}`),
+      check(`'use server';\nexport async function a(x) {\n  try {\n    const actor = await requirePermission({ user: ['ban'] });\n    return actor;\n  } catch (e) { return actionError(e); }\n}
+export async function b() {\n  try { await requirePermission({ user: ['ban'] }); } catch (e) { throw e; }\n  await write();\n}`),
     ).toEqual([]);
   });
+
+  const runsMore = 'a failed requirePermission() can run more code (its catch must be one return or throw statement; no finally)';
 
   it('a try whose catch lets a failed check fall through, or that has a finally', () => {
     const source = `'use server';
@@ -83,8 +86,18 @@ export async function a() {
 export async function b() {
   try { await requirePermission({ user: ['ban'] }); } finally { await write(); }
 }`;
-    const fallsThrough = 'a failed requirePermission() can fall through its try (end the catch with return or throw; no finally)';
-    expect(check(source)).toEqual([`app/x/actions.ts#a: ${fallsThrough}`, `app/x/actions.ts#b: ${fallsThrough}`]);
+    expect(check(source)).toEqual([`app/x/actions.ts#a: ${runsMore}`, `app/x/actions.ts#b: ${runsMore}`]);
+  });
+
+  it('a catch that does anything besides one return or throw (it runs for a refused caller)', () => {
+    const source = `'use server';
+export async function a() {
+  try { await requirePermission({ user: ['ban'] }); await write(); } catch (e) { await db.query('DELETE FROM staff_user'); return actionError(e); }
+}
+export async function b() {
+  try { await requirePermission({ user: ['ban'] }); await write(); } catch (e) { notify(e); throw e; }
+}`;
+    expect(check(source)).toEqual([`app/x/actions.ts#a: ${runsMore}`, `app/x/actions.ts#b: ${runsMore}`]);
   });
 
   it('an export that is not a function declared in the file', () => {
@@ -149,7 +162,18 @@ export async function b() { await requirePermission({ content: ['update'] }); }
 export async function c() { await requirePermission(PERMS); }`;
     expect(adminOnlyProblems(ROOT, ['x.ts'], () => source)).toEqual([
       'x.ts#b: an Editor passes requirePermission({"content":["update"]})',
-      'x.ts#c: requirePermission() must take an object literal',
+      'x.ts#c: requirePermission() must take an object literal of plain keys and string arrays',
+    ]);
+  });
+
+  it('a computed key, which names whatever the variable holds (here a resource the Editor has)', () => {
+    const source = `'use server';
+const r = 'content';
+export async function d() { await requirePermission({ [r]: ['update'] }); }
+export async function e() { await requirePermission({ ['user']: ['create'] }); }`;
+    expect(adminOnlyProblems(ROOT, ['x.ts'], () => source)).toEqual([
+      'x.ts#d: requirePermission() must take an object literal of plain keys and string arrays',
+      'x.ts#e: requirePermission() must take an object literal of plain keys and string arrays',
     ]);
   });
 

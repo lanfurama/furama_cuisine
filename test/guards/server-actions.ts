@@ -18,7 +18,8 @@ const SOURCE = /\.(?:[cm]?[jt]s|[jt]sx)$/;
 const HTTP_METHODS = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']);
 const ADMIN_ROUTE = /^app\/api\/admin\/(?:.*\/)?route\.[jt]sx?$/;
 const NOT_FIRST = 'does not start with await requirePermission()';
-const FALLS_THROUGH = 'a failed requirePermission() can fall through its try (end the catch with return or throw; no finally)';
+const FALLS_THROUGH = 'a failed requirePermission() can run more code (its catch must be one return or throw statement; no finally)';
+const NOT_LITERAL = 'requirePermission() must take an object literal of plain keys and string arrays';
 
 /** Every source file under `dir` except tests and type declarations. */
 function files(dir: string, top = false): string[] {
@@ -77,8 +78,10 @@ function awaitsCheck(statement: Node | undefined): boolean {
 /**
  * Why a function does not check first, or null. Its first statement must await
  * requirePermission(…) (not call it without await, not under a condition), or
- * be a try that starts so. That try's catch must end in return or throw, so no
- * code after the try runs when the check fails, and it may have no finally,
+ * be a try that starts so. That try's catch must be exactly one return or
+ * throw statement: then no code after the try runs when the check fails, and
+ * neither does anything else in the catch (a write placed before the return
+ * would run for a caller the check just refused). It may have no finally,
  * which would run anyway.
  */
 function firstStatementProblem(fn: Node): string | null {
@@ -86,8 +89,8 @@ function firstStatementProblem(fn: Node): string | null {
   if (first?.type !== 'TryStatement') return awaitsCheck(first) ? null : NOT_FIRST;
   if (!awaitsCheck(((first.block as Node).body as Node[])[0])) return NOT_FIRST;
   const handler = first.handler as Node | null;
-  const last = handler ? ((handler.body as Node).body as Node[]).at(-1) : undefined;
-  const exits = !handler || last?.type === 'ReturnStatement' || last?.type === 'ThrowStatement';
+  const caught = handler ? ((handler.body as Node).body as Node[]) : [];
+  const exits = !handler || (caught.length === 1 && ['ReturnStatement', 'ThrowStatement'].includes(caught[0].type));
   return exits && !first.finalizer ? null : FALLS_THROUGH;
 }
 
@@ -268,7 +271,12 @@ function requirePermissionCall(node: unknown): Node | null {
   return call;
 }
 
-/** `{ user: ['set-role'] }` as written in the source, or null if it is anything but a literal of string arrays. */
+/**
+ * `{ user: ['set-role'] }` as written in the source, or null if it is anything
+ * but plain keys and string arrays. A computed key (`{ [r]: ['update'] }`)
+ * names whatever `r` holds at run time, not the resource "r", so it is not
+ * a literal this check can read.
+ */
 function literalPermissions(arg: unknown): Permissions | null {
   if (!isNode(arg) || arg.type !== 'ObjectExpression') return null;
   const out: Record<string, string[]> = {};
@@ -276,7 +284,7 @@ function literalPermissions(arg: unknown): Permissions | null {
     const key = prop.key as Node | undefined;
     const value = prop.value as Node | undefined;
     const name = key?.type === 'Identifier' ? key.name : key?.type === 'Literal' ? key.value : undefined;
-    if (prop.type !== 'Property' || typeof name !== 'string' || value?.type !== 'ArrayExpression') return null;
+    if (prop.type !== 'Property' || prop.computed || typeof name !== 'string' || value?.type !== 'ArrayExpression') return null;
     const actions = (value.elements as Node[]).map((e) => (e?.type === 'Literal' && typeof e.value === 'string' ? e.value : null));
     if (actions.some((a) => a === null)) return null;
     out[name] = actions as string[];
@@ -299,7 +307,7 @@ export function adminOnlyProblems(
       const [first] = fn ? statements(fn) : [];
       const scope = first?.type === 'TryStatement' ? ((first.block as Node).body as Node[])[0] : first;
       const permissions = literalPermissions((requirePermissionCall(scope)?.arguments as unknown[] | undefined)?.[0]);
-      if (!permissions) return [`${rel}#${name}: requirePermission() must take an object literal`];
+      if (!permissions) return [`${rel}#${name}: ${NOT_LITERAL}`];
       if (roleCan('editor', permissions)) return [`${rel}#${name}: an Editor passes requirePermission(${JSON.stringify(permissions)})`];
       return [];
     }),
