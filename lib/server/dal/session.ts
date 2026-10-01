@@ -1,4 +1,5 @@
 import 'server-only';
+import { getSessionCookie } from 'better-auth/cookies';
 import { headers } from 'next/headers';
 import { forbidden, redirect } from 'next/navigation';
 import { cache } from 'react';
@@ -36,6 +37,12 @@ export const getStaffSession = cache(async (): Promise<StaffSession | null> => {
   // first request-time call, and getAuth() before it would build Better Auth
   // (and the pool) at build time.
   const requestHeaders = await headers();
+  // No session cookie, no session: answer without Better Auth. Anonymous and bot
+  // hits on /admin/sign-in (the proxy lets them through) then neither build Better
+  // Auth nor run its first-use schema check against the database on a cold start.
+  // Same helper and cookie names as proxy.ts. A cookie that is present is still
+  // checked against the database below.
+  if (!getSessionCookie(requestHeaders)) return null;
   const session = await getAuth().api.getSession({ headers: requestHeaders });
   if (!session) return null;
   const { user } = session;
