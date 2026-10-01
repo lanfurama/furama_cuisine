@@ -4,6 +4,7 @@ import { TayaExperiences } from '@/components/detail/TayaExperiences';
 import { MoreRestaurants } from '@/components/detail/MoreRestaurants';
 import { IntroTrigger } from '@/components/site/IntroTrigger';
 import { MobileBar } from '@/components/site/MobileBar';
+import { ViewMarker } from '@/components/site/ViewMarker';
 
 /* This route becomes /[lang]/restaurants/[slug] in the route move; until then its slug is fixed. */
 const SLUG = 'taya-house';
@@ -16,12 +17,12 @@ export const metadata: Metadata = {
 
 export default function TayaHousePage() {
   return (
-    <main>
+    <ViewMarker view="detail" restaurant={SLUG}>
       <IntroTrigger />
       <TayaHero slug={SLUG} />
       <TayaExperiences />
       <MoreRestaurants slug={SLUG} />
       <MobileBar slug={SLUG} />
-    </main>
+    </ViewMarker>
   );
 }

@@ -10,7 +10,6 @@ const LANGS: { value: 'EN' | 'VI'; label: string }[] = [
 
 export function Header() {
   const {
-    view,
     scrolled,
     open,
     openReserve,
@@ -25,16 +24,12 @@ export function Header() {
 
   const langOpen = openDropdown === 'lang';
 
-  // On a phone the detail view carries its own in-hero back button instead.
-  const hideOnMobile = view === 'detail';
-
   return (
     <>
       <header
         className="hdr hdr-full"
         data-header="1"
         data-solid={scrolled}
-        data-hide-mobile={hideOnMobile}
       >
         <div className="hdr-inner">
           <a
@@ -106,7 +101,6 @@ export function Header() {
         className="hdr hdr-compact"
         data-header="1"
         data-solid={scrolled}
-        data-hide-mobile={hideOnMobile}
       >
         <div className="hdr-inner">
           <a

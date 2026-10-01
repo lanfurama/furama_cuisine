@@ -64,9 +64,10 @@
   }
 }
 
-/* The phone detail view supplies its own back affordance, so no header there. */
+/* The phone detail view supplies its own back affordance, so no header there (see styles/booking.css for the selector). */
 @media (max-width: 759px) {
-  .hdr[data-hide-mobile='true'] {
+  html[data-view='detail'] .hdr,
+  html:not([data-view]):has(main[data-view='detail']) .hdr {
     display: none;
   }
 }

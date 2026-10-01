@@ -4,8 +4,9 @@ import { CONTACT, contactFor } from '@/lib/data';
 import { useSite } from '@/components/site/SiteProvider';
 
 /**
- * The phone tab bar. Each page renders its own, so the right variant is in the
- * server HTML: the home page passes nothing, a restaurant page passes its slug.
+ * The phone tab bar. Each page renders its own (inside its <ViewMarker>), so the
+ * right variant is in the server HTML and a page hidden by <Activity> hides its
+ * bar with it. The home page passes nothing, a restaurant page passes its slug.
  */
 export function MobileBar({ slug }: { slug?: string }) {
   const { restaurants, tab, openReserve, scrollToId, setBooking, close } = useSite();

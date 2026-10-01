@@ -9,10 +9,11 @@ import { Stories } from '@/components/home/Stories';
 import { Offers } from '@/components/home/Offers';
 import { IntroTrigger } from '@/components/site/IntroTrigger';
 import { MobileBar } from '@/components/site/MobileBar';
+import { ViewMarker } from '@/components/site/ViewMarker';
 
 export default function HomePage() {
   return (
-    <main>
+    <ViewMarker view="home">
       <IntroTrigger />
       <Hero />
       <Finder />
@@ -24,6 +25,6 @@ export default function HomePage() {
       <Stories />
       <Offers />
       <MobileBar />
-    </main>
+    </ViewMarker>
   );
 }

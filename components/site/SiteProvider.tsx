@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
   createContext,
   useCallback,
@@ -33,9 +33,12 @@ import { coverThen } from '@/components/site/PageCurtain';
 export type Filter = { cuisine: string; occasion: string; destination: string };
 export type Finder = Filter & { location: string };
 export type Overlay = 'drawer' | 'search' | 'menu' | 'film' | 'sheet';
+export type View = 'home' | 'detail';
+
+/** The page currently on screen, as registered by its <ViewMarker>. `restaurant` is a detail page's slug. */
+export type PageView = { view: View; restaurant: string | null; root: HTMLElement };
 
 const EMPTY_FORM: BookingForm = { name: '', phone: '', email: '', note: '' };
-const DETAIL_PATH = '/taya-house';
 
 function loadAvailability(
   restaurant: string,
@@ -53,7 +56,12 @@ function loadAvailability(
 
 type SiteState = {
   restaurants: Restaurant[];
-  view: 'home' | 'detail';
+  /** Which page is showing; 'home' until the first <ViewMarker> registers. */
+  view: View;
+  /** The visible page's <main>; DOM queries search inside it. */
+  pageRoot: HTMLElement | null;
+  /** Called by <ViewMarker> when its page shows; returns the hide callback. */
+  showPage: (page: PageView) => () => void;
   scrolled: boolean;
   tab: 'explore' | 'restaurants' | 'reserve';
 
@@ -109,7 +117,6 @@ type SiteState = {
   goHomeTop: () => void;
   goBackToRestaurants: () => void;
   openRestaurant: (r: Restaurant) => void;
-  navigate: (view: 'home' | 'detail') => void;
 };
 
 const SiteContext = createContext<SiteState | null>(null);
@@ -131,8 +138,19 @@ export function SiteProvider({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const view: 'home' | 'detail' = pathname === DETAIL_PATH ? 'detail' : 'home';
+  /* Today's URLs; the route move under /[lang] (Task 9) swaps these for lib/i18n/href. */
+  const home = '/';
+  const [page, setPage] = useState<PageView | null>(null);
+  const view: View = page?.view ?? 'home';
+  /* Changes once per page shown; DOM-dependent effects key on it. */
+  const pageRoot = page?.root ?? null;
+
+  const showPage = useCallback((next: PageView) => {
+    setPage(next);
+    // Drives the view-specific chrome CSS (styles/layout.css, styles/booking.css).
+    document.documentElement.dataset.view = next.view;
+    return () => setPage((cur) => (cur === next ? null : cur));
+  }, []);
 
   const [scrolled, setScrolled] = useState(false);
   const [tab, setTab] = useState<SiteState['tab']>('explore');
@@ -265,61 +283,57 @@ export function SiteProvider({
     if (o === 'search') setQuery('');
   }, []);
 
+  /* Only the visible page counts: hidden <Activity> pages keep their sections in the DOM. */
+  const findSection = useCallback(
+    (id: string) => page?.root.querySelector<HTMLElement>(`[id="${CSS.escape(id)}"]`) ?? null,
+    [page],
+  );
+
   const scrollTo = useCallback((id: string) => {
-    const el = document.getElementById(id);
+    const el = findSection(id);
     if (!el) return;
     const offset = window.innerWidth < 1080 ? 63 : 75;
     window.scrollTo({
       top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - offset),
       behavior: 'smooth',
     });
-  }, []);
+  }, [findSection]);
 
   const scrollToId = useCallback(
     (id: string) => {
       setOverlay(null);
       setOpenDropdown(null);
-      if (!document.getElementById(id) && view !== 'home') {
+      if (!findSection(id) && view !== 'home') {
         pendingScroll.current = id;
-        coverThen(() => router.push('/'));
+        coverThen(() => router.push(home));
         return;
       }
       window.setTimeout(() => scrollTo(id), 30);
     },
-    [router, scrollTo, view],
+    [findSection, home, router, scrollTo, view],
   );
 
   /* A cross-view scroll target survives the route change and fires once the
-     destination section is in the DOM. */
+     destination page has registered. */
   useEffect(() => {
     const id = pendingScroll.current;
-    if (!id) return;
+    if (!id || !pageRoot) return;
     pendingScroll.current = null;
     const frame = requestAnimationFrame(() => scrollTo(id));
     return () => cancelAnimationFrame(frame);
-  }, [pathname, scrollTo]);
-
-  const navigate = useCallback(
-    (next: 'home' | 'detail') => {
-      if (next === view) return;
-      setOverlay(null);
-      setOpenDropdown(null);
-      coverThen(() => router.push(next === 'detail' ? DETAIL_PATH : '/'));
-    },
-    [router, view],
-  );
+  }, [pageRoot, scrollTo]);
 
   const goHomeTop = useCallback(() => {
     setOverlay(null);
-    if (view !== 'home') coverThen(() => router.push('/'));
+    if (view !== 'home') coverThen(() => router.push(home));
     else window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [router, view]);
+  }, [home, router, view]);
 
   const goBackToRestaurants = useCallback(() => {
     pendingScroll.current = 'restaurants';
     setOverlay(null);
-    coverThen(() => router.push('/'));
-  }, [router]);
+    coverThen(() => router.push(home));
+  }, [home, router]);
 
   const openReserve = useCallback(
     (preset?: Partial<Booking>, note?: string) => {
@@ -355,15 +369,17 @@ export function SiteProvider({
 
   const openRestaurant = useCallback(
     (r: Restaurant) => {
-      if (r.hasDetailPage) {
-        setBooking({ restaurant: r.id });
-        setOverlay(null);
-        navigate('detail');
-      } else {
+      if (!r.hasDetailPage) {
         openReserve({ restaurant: r.id });
+        return;
       }
+      setBooking({ restaurant: r.id });
+      setOverlay(null);
+      setOpenDropdown(null);
+      if (page?.view === 'detail' && page.restaurant === r.slug) return;
+      coverThen(() => router.push(`/${r.slug}`));
     },
-    [navigate, openReserve, setBooking],
+    [openReserve, page, router, setBooking],
   );
 
   const valid = useMemo(() => validate(form), [form]);
@@ -463,8 +479,8 @@ export function SiteProvider({
       const y = window.scrollY || 0;
       const vh = window.innerHeight || 800;
       let nextTab: SiteState['tab'] = 'explore';
-      const r = document.getElementById('restaurants');
-      const d = document.getElementById('destinations');
+      const r = pageRoot?.querySelector('#restaurants');
+      const d = pageRoot?.querySelector('#destinations');
       if (r && d) {
         const rt = r.getBoundingClientRect().top;
         const dt = d.getBoundingClientRect().top;
@@ -476,7 +492,7 @@ export function SiteProvider({
     sync();
     window.addEventListener('scroll', sync, { passive: true });
     return () => window.removeEventListener('scroll', sync);
-  }, [pathname]);
+  }, [pageRoot]);
 
   /* Escape closes everything; a click outside a dropdown closes just that. */
   useEffect(() => {
@@ -506,9 +522,10 @@ export function SiteProvider({
     };
   }, [overlay]);
 
+  /* Each page shown starts at the top (the pending-scroll effect above may then move it). */
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
+    if (pageRoot) window.scrollTo(0, 0);
+  }, [pageRoot]);
 
   const dayList = useMemo(() => (today ? bookingDates(today) : []), [today]);
 
@@ -516,6 +533,8 @@ export function SiteProvider({
     () => ({
       restaurants,
       view,
+      pageRoot,
+      showPage,
       scrolled,
       tab: overlay === 'drawer' ? 'reserve' : tab,
       finder,
@@ -560,14 +579,14 @@ export function SiteProvider({
       goHomeTop,
       goBackToRestaurants,
       openRestaurant,
-      navigate,
     }),
     [
       applyFinder, availability, booking, clearFilters, close, closeDrawer, closeDropdown, confirmedDate,
       dayList, done, errors, filter, finder, form, goBackToRestaurants, goHomeTop, lang, matches,
-      navigate, now, open, openDropdown, openReserve, openRestaurant, overlay, pending, pickCuisine,
+      now, open, openDropdown, openReserve, openRestaurant, overlay, pageRoot, pending, pickCuisine,
       pickDestination, query, reference, restaurants, scrollToId, scrolled, serverError, setBooking,
-      setFilter, setFinder, setFormField, shownCount, submit, tab, today, toggleDropdown, tried, view,
+      setFilter, setFinder, setFormField, showPage, shownCount, submit, tab, today, toggleDropdown, tried,
+      view,
     ],
   );
 

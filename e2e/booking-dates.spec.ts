@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { DETAIL_PATH, HOME_PATH } from './paths';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem('fc-intro-seen', '1'));
@@ -10,17 +11,22 @@ test.describe('hydration', () => {
   // render and surface as a hydration error. UTC in both places would hide it.
   test.use({ timezoneId: 'Pacific/Kiritimati' });
 
-  test('the home page hydrates without React errors', async ({ page }) => {
-    const problems: string[] = [];
-    page.on('console', (m) => {
-      if (m.type() === 'error') problems.push(m.text());
+  for (const [name, path] of [
+    ['home', HOME_PATH],
+    ['restaurant', DETAIL_PATH],
+  ] as const) {
+    test(`the ${name} page hydrates without React errors`, async ({ page }) => {
+      const problems: string[] = [];
+      page.on('console', (m) => {
+        if (m.type() === 'error') problems.push(m.text());
+      });
+      page.on('pageerror', (e) => problems.push(e.message));
+      await page.clock.setFixedTime(new Date(Date.now() + 3 * 86_400_000));
+      await page.goto(path);
+      await page.waitForLoadState('networkidle');
+      expect(problems.filter((p) => /hydrat|#418|#423|#425/i.test(p))).toEqual([]);
     });
-    page.on('pageerror', (e) => problems.push(e.message));
-    await page.clock.setFixedTime(new Date(Date.now() + 3 * 86_400_000));
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    expect(problems.filter((p) => /hydrat|#418|#423|#425/i.test(p))).toEqual([]);
-  });
+  }
 });
 
 test.describe('a guest whose phone is set to Honolulu time', () => {
@@ -35,7 +41,7 @@ test.describe('a guest whose phone is set to Honolulu time', () => {
       }),
     );
 
-    await page.goto('/');
+    await page.goto(HOME_PATH);
     await page.getByRole('button', { name: 'RESERVE', exact: true }).first().click();
 
     const first = page.locator('.daystrip .day').first();
@@ -58,7 +64,7 @@ test("a guest whose device clock is a day behind still books from Da Nang's toda
     });
   });
 
-  await page.goto('/');
+  await page.goto(HOME_PATH);
   await page.getByRole('button', { name: 'RESERVE', exact: true }).first().click();
 
   const first = page.locator('.daystrip .day').first();
@@ -82,7 +88,7 @@ test('reopening the drawer the next day moves Today forward', async ({ page }) =
     });
   });
 
-  await page.goto('/');
+  await page.goto(HOME_PATH);
   const reserve = page.getByRole('button', { name: 'RESERVE', exact: true }).first();
   await reserve.click();
   await expect(page.locator('.daystrip .day').first().locator('.day-num')).toHaveText('1');
@@ -120,7 +126,7 @@ test('submitting after the chosen sitting has closed explains why and moves the 
       : route.fallback(),
   );
 
-  await page.goto('/');
+  await page.goto(HOME_PATH);
   await page.getByRole('button', { name: 'RESERVE', exact: true }).first().click();
   await expect(page.locator('.daystrip')).toBeVisible();
   await page.locator('.slot', { hasText: '19:00' }).first().click();

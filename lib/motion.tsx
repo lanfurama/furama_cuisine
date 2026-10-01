@@ -227,14 +227,15 @@ const INTRO_FRAMES: Record<IntroKind, Keyframe[]> = {
  * hidden state through the delay — a single target keyframe would resolve its
  * start against the already-visible element and animate nothing.
  */
-export function useIntro(active: boolean, baseDelay = 0) {
+export function useIntro(active: boolean, baseDelay = 0, root?: RefObject<HTMLElement | null> | null) {
   const motion = useMotion();
 
   useEffect(() => {
     if (!active) return;
-    const els = Array.from(document.querySelectorAll<HTMLElement>('[data-intro]')).filter(
-      (el) => !el.hasAttribute('data-intro-done'),
-    );
+    const scope: ParentNode | null = root ? root.current : document;
+    if (!scope) return;
+    const all = Array.from(scope.querySelectorAll<HTMLElement>('[data-intro]'));
+    const els = all.filter((el) => !el.hasAttribute('data-intro-done'));
     if (!els.length) return;
 
     const timer = window.setTimeout(() => {
@@ -253,18 +254,27 @@ export function useIntro(active: boolean, baseDelay = 0) {
       });
     }, 30);
 
-    return () => window.clearTimeout(timer);
-  }, [active, baseDelay, motion]);
+    return () => {
+      window.clearTimeout(timer);
+      // A page hidden by <Activity> keeps its DOM; re-arm the entrance so it
+      // plays again when the page is shown (its effects re-run then).
+      if (root) all.forEach((el) => el.removeAttribute('data-intro-done'));
+    };
+  }, [active, baseDelay, motion, root]);
 }
 
-/** One rAF loop for everything scroll-driven: header auto-hide, parallax, hero fade. */
-export function useScrollMotion(overlayOpen: boolean) {
+/**
+ * One rAF loop for everything scroll-driven: header auto-hide, parallax, hero fade.
+ * Parallax and the hero fade only touch `page` (the visible page's <main>): a page
+ * hidden by <Activity>, or one still hydrating, is left alone.
+ */
+export function useScrollMotion(overlayOpen: boolean, page: HTMLElement | null) {
   const motion = useMotion();
   const hidden = useRef(false);
   const lastY = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!motion) return;
+    if (!motion || !page) return;
     let raf = 0;
 
     const frame = () => {
@@ -287,7 +297,7 @@ export function useScrollMotion(overlayOpen: boolean) {
         });
       }
 
-      document.querySelectorAll<HTMLElement>('[data-parallax]').forEach((el) => {
+      page.querySelectorAll<HTMLElement>('[data-parallax]').forEach((el) => {
         const parent = el.parentElement;
         if (!parent) return;
         const r = parent.getBoundingClientRect();
@@ -299,7 +309,7 @@ export function useScrollMotion(overlayOpen: boolean) {
         el.style.translate = `0 ${off.toFixed(1)}px`;
       });
 
-      const hero = document.querySelector<HTMLElement>('[data-hero-content]');
+      const hero = page.querySelector<HTMLElement>('[data-hero-content]');
       if (hero && y < vh * 1.4) {
         hero.style.translate = `0 ${(-y * 0.12).toFixed(1)}px`;
         hero.style.opacity = Math.max(0, 1 - y / (vh * 0.75)).toFixed(3);
@@ -308,7 +318,7 @@ export function useScrollMotion(overlayOpen: boolean) {
 
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [motion, overlayOpen]);
+  }, [motion, overlayOpen, page]);
 }
 
 /** Entrance animations for overlays (drawer, sheet, search, menu, film). */

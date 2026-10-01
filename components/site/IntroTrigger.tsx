@@ -1,6 +1,7 @@
 'use client';
 
 import { useIntro } from '@/lib/motion';
+import { usePageRoot } from '@/components/site/ViewMarker';
 
 /**
  * Plays the staggered [data-intro] entrance for the page it is rendered in.
@@ -8,6 +9,6 @@ import { useIntro } from '@/lib/motion';
  * runs again after every client-side navigation.
  */
 export function IntroTrigger() {
-  useIntro(true, 0);
+  useIntro(true, 0, usePageRoot());
   return null;
 }

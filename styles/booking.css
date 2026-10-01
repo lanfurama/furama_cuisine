@@ -6,9 +6,14 @@
   padding: clamp(64px, 7.4vw, 108px) 0 clamp(64px, 6.6vw, 96px);
 }
 
-/* A phone on the restaurant view books from the bottom bar instead. */
+/*
+ * A phone on the restaurant view books from the bottom bar instead. <ViewMarker>
+ * sets html[data-view] once hydrated; before that the server HTML holds exactly
+ * one page, so :has() on its <main> decides.
+ */
 @media (max-width: 759px) {
-  .booking-slot[data-view='detail'] {
+  html[data-view='detail'] .booking-slot,
+  html:not([data-view]):has(main[data-view='detail']) .booking-slot {
     display: none;
   }
 }

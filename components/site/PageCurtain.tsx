@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { usePathname } from 'next/navigation';
 import { readMotionLevel } from '@/lib/motion';
+import { useSite } from '@/components/site/SiteProvider';
 
 /*
  * The brand curtain that covers a view swap: it wipes in, the route changes
@@ -65,8 +65,10 @@ function uncover() {
 
 export function PageCurtain() {
   const ref = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
-  const first = useRef(true);
+  // The page on screen, from its <ViewMarker>: it changes once the new page has
+  // actually rendered, so the curtain lifts onto content rather than a fallback.
+  const { pageRoot } = useSite();
+  const shown = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     curtain = ref.current;
@@ -76,12 +78,11 @@ export function PageCurtain() {
   }, []);
 
   useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
-    uncover();
-  }, [pathname]);
+    if (!pageRoot || pageRoot === shown.current) return;
+    const first = shown.current === null;
+    shown.current = pageRoot;
+    if (!first) uncover();
+  }, [pageRoot]);
 
   return (
     <div ref={ref} className="page-curtain" data-active="false" aria-hidden="true">
