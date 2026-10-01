@@ -1,6 +1,6 @@
 'use client';
 
-import { DESTS, type DestKey } from '@/lib/data';
+import { DESTS, MEAL_LABELS, cuisineLabel, type DestKey, type Meal } from '@/lib/data';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 import { RestaurantCard } from './RestaurantCard';
@@ -12,10 +12,10 @@ export function Restaurants() {
 
   const chips: { label: string; clear: () => void }[] = [];
   if (filter.cuisine !== 'all') {
-    chips.push({ label: filter.cuisine, clear: () => setFilter({ cuisine: 'all' }) });
+    chips.push({ label: cuisineLabel(filter.cuisine), clear: () => setFilter({ cuisine: 'all' }) });
   }
   if (filter.occasion !== 'all') {
-    chips.push({ label: filter.occasion, clear: () => setFilter({ occasion: 'all' }) });
+    chips.push({ label: MEAL_LABELS[filter.occasion as Meal], clear: () => setFilter({ occasion: 'all' }) });
   }
   if (filter.destination !== 'all') {
     chips.push({

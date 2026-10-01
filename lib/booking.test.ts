@@ -21,9 +21,11 @@ describe('fold', () => {
 
 const taya: Restaurant = {
   id: 'taya-house',
+  slug: 'taya-house',
+  hasDetailPage: true,
   name: 'Tàya House',
   type: 'Vietnamese · Cooking Class',
-  cuisines: ['Vietnamese'],
+  cuisines: ['vietnamese'],
   dest: 'resort',
   meals: ['Lunch', 'Dinner'],
   slotCapacity: 16,

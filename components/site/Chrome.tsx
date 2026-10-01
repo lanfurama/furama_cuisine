@@ -3,7 +3,6 @@
 import { useSite } from '@/components/site/SiteProvider';
 import { Header } from '@/components/site/Header';
 import { Footer } from '@/components/site/Footer';
-import { MobileBar } from '@/components/site/MobileBar';
 import { IntroCurtain } from '@/components/site/IntroCurtain';
 import { PageCurtain } from '@/components/site/PageCurtain';
 import { ReserveDrawer } from '@/components/overlays/ReserveDrawer';
@@ -40,8 +39,6 @@ export function Chrome({ children }: { children: React.ReactNode }) {
 
         <Footer />
       </div>
-
-      <MobileBar />
 
       <ReserveDrawer />
       <SearchOverlay />

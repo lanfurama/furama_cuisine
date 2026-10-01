@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { CUISINES, DESTS, restaurantImage } from '@/lib/data';
+import { CUISINES, DESTS, cuisineLabel, restaurantImage } from '@/lib/data';
 import { fold } from '@/lib/booking';
 import { useSite } from '@/components/site/SiteProvider';
 import { useOpenAnimation } from '@/lib/motion';
@@ -33,7 +33,7 @@ export function SearchOverlay() {
   const results = !q
     ? []
     : restaurants.filter((r) =>
-        fold([r.name, r.type, r.cuisines.join(' '), DESTS[r.dest]].join(' ')).includes(q),
+        fold([r.name, r.type, r.cuisines.map(cuisineLabel).join(' '), DESTS[r.dest]].join(' ')).includes(q),
       );
 
   return (
@@ -92,7 +92,7 @@ export function SearchOverlay() {
                     <span className="search-result-meta">{`${r.type} · ${DESTS[r.dest]}`}</span>
                   </span>
                   <span className="search-result-action">
-                    {r.id === 'taya-house' ? 'View' : 'Reserve'} →
+                    {r.hasDetailPage ? 'View' : 'Reserve'} →
                   </span>
                 </button>
               ))}

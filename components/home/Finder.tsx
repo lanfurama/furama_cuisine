@@ -1,17 +1,17 @@
 'use client';
 
-import { CUISINES, DESTS, DEST_KEYS, MEALS } from '@/lib/data';
+import { CUISINES, DESTS, DEST_KEYS, MEALS, MEAL_LABELS } from '@/lib/data';
 import { useSite } from '@/components/site/SiteProvider';
 import { Dropdown, type Option } from '@/components/ui/Dropdown';
 
 export const cuisineOptions = (): Option<string>[] => [
   { value: 'all', label: 'All cuisines' },
-  ...CUISINES.map(([label]) => ({ value: label, label })),
+  ...CUISINES.map(([label, slug]) => ({ value: slug, label })),
 ];
 
 export const occasionOptions = (): Option<string>[] => [
   { value: 'all', label: 'Any occasion' },
-  ...MEALS.map((m) => ({ value: m, label: m })),
+  ...MEALS.map((m) => ({ value: m, label: MEAL_LABELS[m] })),
 ];
 
 export const destinationOptions = (): Option<string>[] => [

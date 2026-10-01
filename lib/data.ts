@@ -3,8 +3,13 @@ export type DestKey = 'resort' | 'dining-house' | 'mm';
 
 export type Restaurant = {
   id: string;
+  /** URL segment of /[lang]/restaurants/[slug]. Phase 2: the id. Phase 6: restaurants.slug. */
+  slug: string;
+  /** Phase 2: DETAIL_PAGE_IDS below. Phase 6: restaurants.has_detail_page. */
+  hasDetailPage: boolean;
   name: string;
   type: string;
+  /** Cuisine slugs (the second column of CUISINES), never labels. */
   cuisines: string[];
   dest: DestKey;
   meals: Meal[];
@@ -15,8 +20,14 @@ export type Restaurant = {
 /* The restaurant catalogue lives in Neon (see db/migrations/002_seed_restaurants.sql)
    and is loaded by db/queries.ts#listRestaurants. */
 
+/** Restaurants with their own page. Phase 6 replaces this with restaurants.has_detail_page. */
+export const DETAIL_PAGE_IDS: ReadonlySet<string> = new Set(['taya-house']);
 
-/** [label, asset slug] — order drives the cuisine rail and the search suggestions. */
+/** The restaurant the booking bar starts on. Phase 6: site_settings.default_restaurant_id. */
+export const DEFAULT_RESTAURANT_ID = 'taya-house';
+
+
+/** [label, slug] — order drives the cuisine rail and the search suggestions. The slug is the filter key and the image name. */
 export const CUISINES: [string, string][] = [
   ['Vietnamese', 'vietnamese'],
   ['Italian', 'italian'],
@@ -27,6 +38,25 @@ export const CUISINES: [string, string][] = [
   ['International', 'international'],
   ['Café & Lounge', 'cafe-lounge'],
 ];
+
+const SLUG_BY_LABEL = new Map(CUISINES.map(([label, slug]) => [label, slug]));
+const LABEL_BY_SLUG = new Map(CUISINES.map(([label, slug]) => [slug, label]));
+
+/**
+ * restaurants.cuisines still holds English labels (until phase 6 adds
+ * restaurant_cuisines). The read layer turns them into slugs here, and an
+ * unknown label fails loudly instead of silently dropping out of every filter.
+ */
+export function cuisineSlug(label: string): string {
+  const slug = SLUG_BY_LABEL.get(label);
+  if (!slug) throw new Error(`Unknown cuisine label in restaurants.cuisines: ${label}`);
+  return slug;
+}
+
+/** The display label for a cuisine slug (the slug itself if it is unknown). */
+export function cuisineLabel(slug: string): string {
+  return LABEL_BY_SLUG.get(slug) ?? slug;
+}
 
 export const DESTS: Record<DestKey, string> = {
   resort: 'Furama Resort Danang',
@@ -44,6 +74,14 @@ export const SLOTS: Record<Meal, string[]> = {
 };
 
 export const MEALS: Meal[] = ['Breakfast', 'Lunch', 'Dinner', 'Drinks'];
+
+/** Display text per meal. The Meal value itself is the key (spec §5.2 service_periods.meal); phase 7 moves the text to the registry. */
+export const MEAL_LABELS: Record<Meal, string> = {
+  Breakfast: 'Breakfast',
+  Lunch: 'Lunch',
+  Dinner: 'Dinner',
+  Drinks: 'Drinks',
+};
 
 export type DestinationCard = {
   key: DestKey | 'future';
@@ -160,6 +198,16 @@ export const CONTACT = {
   tariffPdf: 'https://furamavietnam.com/wp-content/uploads/2026/03/Taya-CC-Tariff-A4-1-25.pdf',
   story: 'https://furamavietnam.com/the-resort/',
 };
+
+/**
+ * CALL and MAP for a restaurant, by its destination (spec §6.4: a missing one
+ * hides its button). Phase 6 reads the restaurant's own values first.
+ */
+export function contactFor(dest: DestKey | undefined): { tel: string | null; map: string | null } {
+  if (dest === 'resort') return { tel: CONTACT.resortPhone, map: CONTACT.map };
+  if (dest === 'dining-house') return { tel: CONTACT.diningHousePhone, map: null };
+  return { tel: null, map: null };
+}
 
 export const SOCIALS = [
   { label: 'FACEBOOK', href: 'https://www.facebook.com/furamaresort' },

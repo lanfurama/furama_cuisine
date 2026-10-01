@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Be_Vietnam_Pro, Crimson_Pro } from 'next/font/google';
 import { listRestaurants } from '@/db/queries';
+import { DEFAULT_RESTAURANT_ID } from '@/lib/data';
 import { SiteProvider } from '@/components/site/SiteProvider';
 import { MotionProvider } from '@/lib/motion';
 import { Chrome } from '@/components/site/Chrome';
@@ -64,7 +65,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <MotionProvider>
-          <SiteProvider restaurants={restaurants}>
+          <SiteProvider restaurants={restaurants} defaultRestaurantId={DEFAULT_RESTAURANT_ID}>
             <Chrome>{children}</Chrome>
           </SiteProvider>
         </MotionProvider>

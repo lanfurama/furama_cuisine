@@ -1,6 +1,6 @@
 import 'server-only';
 import { getPool, query } from './client';
-import type { DestKey, Meal, Restaurant } from '@/lib/data';
+import { DETAIL_PAGE_IDS, cuisineSlug, type DestKey, type Meal, type Restaurant } from '@/lib/data';
 import { newReference } from '@/lib/server/reference';
 
 type RestaurantRow = {
@@ -22,10 +22,12 @@ export async function listRestaurants(): Promise<Restaurant[]> {
   );
   return rows.map((r) => ({
     id: r.id,
+    slug: r.id,
+    hasDetailPage: DETAIL_PAGE_IDS.has(r.id),
     name: r.name,
     type: r.type,
     dest: r.destination as DestKey,
-    cuisines: r.cuisines,
+    cuisines: r.cuisines.map(cuisineSlug),
     meals: r.meals as Meal[],
     slotCapacity: r.slot_capacity,
   }));

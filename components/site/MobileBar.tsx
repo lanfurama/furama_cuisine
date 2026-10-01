@@ -1,18 +1,33 @@
 'use client';
 
-import { CONTACT } from '@/lib/data';
+import { CONTACT, contactFor } from '@/lib/data';
 import { useSite } from '@/components/site/SiteProvider';
 
-export function MobileBar() {
-  const { view, tab, openReserve, scrollToId, setBooking, close } = useSite();
+/**
+ * The phone tab bar. Each page renders its own, so the right variant is in the
+ * server HTML: the home page passes nothing, a restaurant page passes its slug.
+ */
+export function MobileBar({ slug }: { slug?: string }) {
+  const { restaurants, tab, openReserve, scrollToId, setBooking, close } = useSite();
 
-  if (view === 'detail') {
+  if (slug) {
+    const restaurant = restaurants.find((r) => r.slug === slug);
+    const id = restaurant?.id ?? slug;
+    const contact = contactFor(restaurant?.dest);
+    // One column per button shown (spec §6.4): MENU and RESERVE always, CALL and MAP when known.
+    const columns = 2 + (contact.tel ? 1 : 0) + (contact.map ? 1 : 0);
     return (
-      <nav className="tabbar tabbar-detail" aria-label="Restaurant actions">
-        <a href={`tel:${CONTACT.resortPhone}`}>CALL</a>
-        <a href={CONTACT.map} target="_blank" rel="noopener">
-          MAP
-        </a>
+      <nav
+        className="tabbar tabbar-detail"
+        aria-label="Restaurant actions"
+        style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+      >
+        {contact.tel && <a href={`tel:${contact.tel}`}>CALL</a>}
+        {contact.map && (
+          <a href={contact.map} target="_blank" rel="noopener">
+            MAP
+          </a>
+        )}
         <button type="button" onClick={() => openMenuPdf(() => scrollToId('dishes'))}>
           MENU
         </button>
@@ -20,8 +35,8 @@ export function MobileBar() {
           type="button"
           className="tabbar-primary"
           onClick={() => {
-            setBooking({ restaurant: 'taya-house' });
-            openReserve({ restaurant: 'taya-house' });
+            setBooking({ restaurant: id });
+            openReserve({ restaurant: id });
           }}
         >
           RESERVE

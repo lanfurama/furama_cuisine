@@ -1,6 +1,6 @@
 'use client';
 
-import { DESTS, DEST_KEYS } from '@/lib/data';
+import { DESTS, DEST_KEYS, MEAL_LABELS } from '@/lib/data';
 import {
   MAX_GUESTS,
   findRestaurant,
@@ -188,7 +188,7 @@ export function ReserveDrawer() {
               <div className="drawer-label">TIME</div>
               {groups.map((g) => (
                 <div key={g.meal} className="slotgroup">
-                  <div className="slotgroup-meal">{g.meal}</div>
+                  <div className="slotgroup-meal">{MEAL_LABELS[g.meal]}</div>
                   <div className="slotgrid">
                     {g.times.map((t) => {
                       const taken = unavailable(booking.date, t, booking.guests, availability, at);

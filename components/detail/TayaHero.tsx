@@ -1,6 +1,6 @@
 'use client';
 
-import { CONTACT } from '@/lib/data';
+import { contactFor } from '@/lib/data';
 import { useSite } from '@/components/site/SiteProvider';
 import { openMenuPdf } from '@/components/site/MobileBar';
 import { useReveal } from '@/lib/motion';
@@ -10,9 +10,11 @@ import { useReveal } from '@/lib/motion';
  * brand story beside a tall portrait, while a phone collapses to a full-bleed
  * image with an overlaid back button and the story beneath it.
  */
-export function TayaHero() {
-  const { goBackToRestaurants, openReserve, scrollToId } = useSite();
+export function TayaHero({ slug }: { slug: string }) {
+  const { restaurants, goBackToRestaurants, openReserve, scrollToId } = useSite();
   const story = useReveal<HTMLParagraphElement>('up');
+  const restaurant = restaurants.find((r) => r.slug === slug);
+  const contact = contactFor(restaurant?.dest);
 
   return (
     <>
@@ -48,16 +50,20 @@ export function TayaHero() {
               <button
                 type="button"
                 className="btn-slab taya-reserve"
-                onClick={() => openReserve({ restaurant: 'taya-house' })}
+                onClick={() => openReserve({ restaurant: restaurant?.id ?? slug })}
               >
                 RESERVE A TABLE<span className="arrow">→</span>
               </button>
-              <a href={`tel:${CONTACT.resortPhone}`} className="taya-link">
-                CALL
-              </a>
-              <a href={CONTACT.map} target="_blank" rel="noopener" className="taya-link">
-                MAP
-              </a>
+              {contact.tel && (
+                <a href={`tel:${contact.tel}`} className="taya-link">
+                  CALL
+                </a>
+              )}
+              {contact.map && (
+                <a href={contact.map} target="_blank" rel="noopener" className="taya-link">
+                  MAP
+                </a>
+              )}
               <button
                 type="button"
                 className="taya-link"

@@ -8,6 +8,7 @@ import { Heritage } from '@/components/home/Heritage';
 import { Stories } from '@/components/home/Stories';
 import { Offers } from '@/components/home/Offers';
 import { IntroTrigger } from '@/components/site/IntroTrigger';
+import { MobileBar } from '@/components/site/MobileBar';
 
 export default function HomePage() {
   return (
@@ -22,6 +23,7 @@ export default function HomePage() {
       <Heritage />
       <Stories />
       <Offers />
+      <MobileBar />
     </main>
   );
 }

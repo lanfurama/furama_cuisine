@@ -1,6 +1,6 @@
 'use client';
 
-import { DESTS, DEST_KEYS } from '@/lib/data';
+import { DESTS, DEST_KEYS, MEAL_LABELS } from '@/lib/data';
 import { MAX_GUESTS, fmtDay, guestLabel, seatsLeft, slotsFor, unavailable } from '@/lib/booking';
 import { useSite } from '@/components/site/SiteProvider';
 import { Dropdown, type Option } from '@/components/ui/Dropdown';
@@ -37,7 +37,7 @@ export function BookingBar() {
       return {
         value: t,
         label: t,
-        note: taken ? 'Full' : left !== null && left <= 6 ? `${left} left` : g.meal,
+        note: taken ? 'Full' : left !== null && left <= 6 ? `${left} left` : MEAL_LABELS[g.meal],
         disabled: taken,
       };
     }),

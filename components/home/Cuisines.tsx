@@ -37,8 +37,8 @@ export function Cuisines() {
               key={slug}
               label={label}
               slug={slug}
-              selected={filter.cuisine === label}
-              onPick={() => pickCuisine(label)}
+              selected={filter.cuisine === slug}
+              onPick={() => pickCuisine(slug)}
             />
           ))}
         </div>

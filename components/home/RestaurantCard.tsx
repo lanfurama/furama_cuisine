@@ -12,7 +12,7 @@ import { useReveal } from '@/lib/motion';
 export function RestaurantCard({ restaurant, hidden }: { restaurant: Restaurant; hidden?: boolean }) {
   const { openRestaurant } = useSite();
   const ref = useReveal<HTMLButtonElement>('card');
-  const isDetailLink = restaurant.id === 'taya-house';
+  const isDetailLink = restaurant.hasDetailPage;
 
   return (
     <button

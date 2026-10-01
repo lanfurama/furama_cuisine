@@ -1,22 +1,26 @@
 'use client';
 
+import { DESTS } from '@/lib/data';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 import { RestaurantCard } from '@/components/home/RestaurantCard';
 
-export function MoreRestaurants() {
+/** The other restaurants at the same destination; hidden when there are none (spec §6.4). */
+export function MoreRestaurants({ slug }: { slug: string }) {
   const { restaurants, clearFilters, scrollToId } = useSite();
   const title = useReveal<HTMLHeadingElement>('title');
   const link = useReveal<HTMLButtonElement>('fade');
 
-  const others = restaurants.filter((r) => r.dest === 'resort' && r.id !== 'taya-house');
+  const current = restaurants.find((r) => r.slug === slug);
+  const others = current ? restaurants.filter((r) => r.dest === current.dest && r.id !== current.id) : [];
+  if (!current || others.length === 0) return null;
 
   return (
     <section className="more">
       <div className="shell">
         <div className="section-head">
           <h2 ref={title} data-reveal="title" className="section-title more-title">
-            More at Furama Resort Danang
+            More at {DESTS[current.dest]}
           </h2>
           <button
             ref={link}

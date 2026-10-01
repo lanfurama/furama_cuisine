@@ -3,6 +3,10 @@ import { TayaHero } from '@/components/detail/TayaHero';
 import { TayaExperiences } from '@/components/detail/TayaExperiences';
 import { MoreRestaurants } from '@/components/detail/MoreRestaurants';
 import { IntroTrigger } from '@/components/site/IntroTrigger';
+import { MobileBar } from '@/components/site/MobileBar';
+
+/* This route becomes /[lang]/restaurants/[slug] in the route move; until then its slug is fixed. */
+const SLUG = 'taya-house';
 
 export const metadata: Metadata = {
   title: 'Tàya House — Furama Cuisine',
@@ -14,9 +18,10 @@ export default function TayaHousePage() {
   return (
     <main>
       <IntroTrigger />
-      <TayaHero />
+      <TayaHero slug={SLUG} />
       <TayaExperiences />
-      <MoreRestaurants />
+      <MoreRestaurants slug={SLUG} />
+      <MobileBar slug={SLUG} />
     </main>
   );
 }

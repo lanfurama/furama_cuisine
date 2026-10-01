@@ -126,9 +126,12 @@ export function useSite(): SiteState {
 
 export function SiteProvider({
   restaurants,
+  defaultRestaurantId,
   children,
 }: {
   restaurants: Restaurant[];
+  /** The restaurant the booking bar starts on (DEFAULT_RESTAURANT_ID until phase 6). */
+  defaultRestaurantId: string;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -149,12 +152,9 @@ export function SiteProvider({
     occasion: 'all',
     destination: 'all',
   });
-  const [booking, setBookingState] = useState<Booking>({
-    destination: 'resort',
-    restaurant: 'taya-house',
-    date: '',
-    time: '19:00',
-    guests: 2,
+  const [booking, setBookingState] = useState<Booking>(() => {
+    const first = restaurants.find((r) => r.id === defaultRestaurantId) ?? restaurants[0];
+    return { destination: first?.dest ?? 'resort', restaurant: first?.id ?? '', date: '', time: '19:00', guests: 2 };
   });
   const [availability, setAvailability] = useState<Availability>(NO_AVAILABILITY);
   const [form, setForm] = useState<BookingForm>(EMPTY_FORM);
@@ -360,8 +360,8 @@ export function SiteProvider({
 
   const openRestaurant = useCallback(
     (r: Restaurant) => {
-      if (r.id === 'taya-house') {
-        setBooking({ restaurant: 'taya-house' });
+      if (r.hasDetailPage) {
+        setBooking({ restaurant: r.id });
         setOverlay(null);
         navigate('detail');
       } else {
