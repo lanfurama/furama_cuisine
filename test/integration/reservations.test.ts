@@ -35,6 +35,13 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('createReservation (database)', 
 
   it('lets only one of two simultaneous requests take the last seats', async () => {
     // Tàya House seats 16 per slot, so 10 + 10 cannot both fit.
+    // Warm two pool connections (open, and past their first-query cost) so both calls start
+    // together; otherwise one finishes before the other begins and the race never happens.
+    const warm = await Promise.all([getPool().connect(), getPool().connect()]);
+    await Promise.all(
+      warm.map((c) => c.query('SELECT (SELECT count(*) FROM restaurants), (SELECT count(*) FROM reservations)')),
+    );
+    warm.forEach((c) => c.release());
     const [a, b] = await Promise.all([
       createReservation(booking({ guests: 10, phone: '0905 000 001', phoneE164: '+84905000001' })),
       createReservation(booking({ guests: 10, phone: '0905 000 002', phoneE164: '+84905000002' })),
