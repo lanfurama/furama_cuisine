@@ -37,8 +37,8 @@ Apply migrations to the dev branch with `npm run db:migrate`.
 | `npm run lint` | oxlint (typescript-eslint does not support TypeScript 7) |
 
 CI (`.github/workflows/ci.yml`) runs typecheck, lint, unit, integration,
-build, the prerender check (`scripts/check-prerender.mjs`) and end-to-end
-tests against a Postgres 18 service container.
+build, the prerender and font check (`scripts/check-prerender.mjs`) and
+end-to-end tests against a Postgres 18 service container.
 
 To run the production build locally against a throwaway database, keep
 `.env.local` out of it: process variables win over that file, and the blank

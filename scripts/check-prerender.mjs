@@ -1,12 +1,22 @@
 #!/usr/bin/env node
 /**
- * Run after `next build`. The guest pages must be fully prerendered with
- * cacheLife('max') and carry every cache tag their data readers declare, or a
- * write that refreshes one of those tags (spec §6.2) would never reach them.
- * Exits 1 and lists the problems otherwise.
+ * Run after `next build`. Exits 1 and lists the problems if either check fails.
+ *
+ * 1. The guest pages must be fully prerendered with cacheLife('max') and carry
+ *    every cache tag their data readers declare, or a write that refreshes one
+ *    of those tags (spec §6.2) would never reach them.
+ * 2. The web fonts must reach the pages as one family each. lib/fonts/index.ts
+ *    loads every subset with its own localFont call and joins the calls into
+ *    one family through `declarations`, which relies on the bundler naming a
+ *    local family after the call's const (Turbopack in Next 16.3). If a bundler
+ *    or Next change names them apart, latin-ext and Vietnamese text silently
+ *    falls back to Times New Roman/Arial and nothing else fails, so the built
+ *    CSS is checked here: every expected @font-face, under the one family the
+ *    CSS variable names, with Google's unicode-range per subset, in Google's
+ *    order, its file present, and its stylesheet linked from the pages.
  */
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { dirname, join, relative, sep } from 'node:path';
 
 /** Route -> its file under .next/server/app (without the extension). */
 const PAGES = {
@@ -17,10 +27,33 @@ const TAGS = ['restaurants', 'i18n:en', 'locales', 'content:ui'];
 const REVALIDATE = 2_592_000; // cacheLife('max'): 30 days
 const EXPIRE = 31_536_000; // 1 year
 
+/** The families lib/fonts/index.ts defines, by the CSS variable that carries each. */
+const FONTS = [
+  { variable: '--font-crimson', fallback: 'Crimson Pro Fallback', styles: ['italic', 'normal'] },
+  { variable: '--font-be-vietnam', fallback: 'Be Vietnam Pro Fallback', styles: ['normal'] },
+];
+const WEIGHTS = ['300', '400', '500', '600'];
+/**
+ * Google's unicode-range for each subset, in the order the faces must be
+ * declared: where ranges overlap, the face declared last wins.
+ */
+const SUBSETS = {
+  vietnamese:
+    'U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB',
+  'latin-ext':
+    'U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF',
+  latin:
+    'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD',
+};
+const SUBSET_ORDER = Object.keys(SUBSETS);
+/** Pages whose HTML must link the stylesheet with the faces (_not-found is app/global-not-found.tsx). */
+const FONT_PAGES = ['en', 'en/restaurants/taya-house', '_not-found'];
+
 const dir = join(process.cwd(), '.next');
-const manifest = JSON.parse(readFileSync(join(dir, 'prerender-manifest.json'), 'utf8'));
 const problems = [];
 
+/* 1. Prerendering */
+const manifest = JSON.parse(readFileSync(join(dir, 'prerender-manifest.json'), 'utf8'));
 for (const [route, file] of Object.entries(PAGES)) {
   const entry = manifest.routes[route];
   if (!entry) {
@@ -41,8 +74,155 @@ for (const [route, file] of Object.entries(PAGES)) {
   }
 }
 
+/* 2. Fonts */
+const fontSummary = checkFonts();
+
 if (problems.length) {
-  console.error(`Prerender check failed:\n- ${problems.join('\n- ')}`);
+  console.error(`Prerender and font check failed:\n- ${problems.join('\n- ')}`);
   process.exit(1);
 }
 console.log(`Prerender check passed: ${Object.keys(PAGES).join(', ')} (tags: ${TAGS.join(', ')}).`);
+console.log(`Font check passed: ${fontSummary}.`);
+
+function checkFonts() {
+  const sheets = listFiles(join(dir, 'static'))
+    .filter((f) => f.endsWith('.css'))
+    .map((file) => ({ file, css: readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '') }));
+  const faces = sheets.flatMap(({ file, css }) =>
+    [...css.matchAll(/@font-face\s*\{([^}]*)\}/g)].map((m) => {
+      const d = parseDeclarations(m[1]);
+      const weight = { normal: '400', bold: '700' }[d['font-weight']] ?? d['font-weight'] ?? '400';
+      return { ...d, file, family: d['font-family'], style: d['font-style'] ?? 'normal', weight };
+    }),
+  );
+  const expectedTotal = FONTS.reduce((n, f) => n + f.styles.length * WEIGHTS.length * SUBSET_ORDER.length + 1, 0);
+  if (faces.length !== expectedTotal) {
+    problems.push(`the built CSS has ${faces.length} @font-face rules, expected ${expectedTotal}`);
+  }
+  const ranges = Object.fromEntries(SUBSET_ORDER.map((s) => [canonicalRange(SUBSETS[s]), s]));
+  const known = new Set();
+  const summary = [`${faces.length} @font-face rules`];
+
+  for (const font of FONTS) {
+    const values = new Set(
+      sheets.flatMap(({ css }) =>
+        [...css.matchAll(new RegExp(`${font.variable}\\s*:\\s*([^;}]+)`, 'g'))].map((m) => m[1].trim()),
+      ),
+    );
+    if (values.size !== 1) {
+      problems.push(`${font.variable} is defined ${values.size} different ways in the built CSS, expected 1`);
+      continue;
+    }
+    const stack = [...values][0].split(',').map(unquote);
+    const family = stack[0];
+    known.add(family).add(font.fallback);
+    if (!stack.includes(font.fallback)) problems.push(`${font.variable} does not list ${font.fallback}`);
+
+    const own = faces.filter((f) => f.family === family);
+    const expected = font.styles.length * WEIGHTS.length * SUBSET_ORDER.length;
+    if (own.length !== expected) {
+      problems.push(`${font.variable} names the family "${family}", which has ${own.length} @font-face rules, expected ${expected}`);
+    }
+    for (const style of own.length ? font.styles : []) {
+      for (const weight of WEIGHTS) {
+        const group = own.filter((f) => f.style === style && f.weight === weight);
+        const order = group.map((f) => ranges[canonicalRange(f['unicode-range'] ?? '')] ?? 'an unknown unicode-range');
+        const files = [...new Set(group.map((f) => relative(process.cwd(), f.file)))];
+        if (order.join() !== SUBSET_ORDER.join() || files.length > 1) {
+          problems.push(
+            `"${family}" ${style} ${weight} has faces for [${order.join(', ')}]${files.length > 1 ? ` across ${files.join(', ')}` : ''}, expected [${SUBSET_ORDER.join(', ')}] in that order in one stylesheet`,
+          );
+        }
+      }
+    }
+    for (const face of own) {
+      if (face['font-display'] !== 'swap') problems.push(`a "${family}" face has font-display ${face['font-display']}, expected swap`);
+      const url = /url\(\s*['"]?([^'")?#]+)/.exec(face.src ?? '')?.[1];
+      const path = url && (url.startsWith('/_next/') ? join(dir, url.slice('/_next/'.length)) : join(dirname(face.file), url));
+      if (!path || !existsSync(path)) problems.push(`a "${family}" face points at ${url ?? 'no file'}, which is not in the build`);
+    }
+    const fallbacks = faces.filter((f) => f.family === font.fallback);
+    if (fallbacks.length !== 1 || !/^local\(/.test(fallbacks[0].src ?? '')) {
+      problems.push(`expected one local() @font-face for "${font.fallback}", found ${fallbacks.length}`);
+    }
+    summary.push(`"${family}" ${own.length} faces (${SUBSET_ORDER.join(', ')} x ${font.styles.join('/')} x ${WEIGHTS.join('/')})`);
+  }
+
+  // A subset that drifted into a family of its own: its glyphs would never be used.
+  const stray = Object.entries(Object.groupBy(faces.filter((f) => !known.has(f.family)), (f) => f.family));
+  for (const [family, list] of stray) {
+    problems.push(`${list.length} @font-face rules use the family "${family}", which no font variable names (a subset split off from its family?)`);
+  }
+
+  const fontSheets = new Set(faces.map((f) => `/_next/${relative(dir, f.file).split(sep).join('/')}`));
+  for (const page of FONT_PAGES) {
+    const htmlFile = join(dir, 'server', 'app', `${page}.html`);
+    const html = existsSync(htmlFile) ? readFileSync(htmlFile, 'utf8') : '';
+    for (const href of fontSheets) {
+      // No closing quote: a deployment id may follow as ?dpl=...
+      if (!html.includes(`href="${href}`)) problems.push(`/${page} does not link the font stylesheet ${href}`);
+    }
+  }
+  summary.push(`linked from ${FONT_PAGES.map((p) => `/${p}`).join(', ')}`);
+  return summary.join('; ');
+}
+
+/** All files below `root`. */
+function listFiles(root) {
+  return readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((d) => d.isFile())
+    .map((d) => join(d.parentPath, d.name));
+}
+
+/** The descriptors of one @font-face body; `;` inside quotes or parentheses does not split. */
+function parseDeclarations(body) {
+  const out = {};
+  let depth = 0;
+  let quote = '';
+  let start = 0;
+  for (let i = 0; i <= body.length; i++) {
+    const c = body[i];
+    if (quote) {
+      if (c === quote) quote = '';
+    } else if (c === '"' || c === "'") quote = c;
+    else if (c === '(') depth++;
+    else if (c === ')') depth--;
+    else if ((c === ';' || c === undefined) && depth === 0) {
+      const decl = body.slice(start, i);
+      const colon = decl.indexOf(':');
+      if (colon > 0) {
+        const prop = decl.slice(0, colon).trim().toLowerCase();
+        const value = decl.slice(colon + 1).trim();
+        out[prop] = prop === 'font-family' ? unquote(value) : value;
+      }
+      start = i + 1;
+    }
+  }
+  return out;
+}
+
+function unquote(value) {
+  return value.trim().replace(/^(['"])(.*)\1$/, '$2');
+}
+
+/** A unicode-range as merged code point intervals, so U+0000-00FF, U+0-FF and U+?? compare equal. */
+function canonicalRange(value) {
+  const spans = value
+    .split(',')
+    .map((t) => t.trim().toUpperCase().replace(/^U\+/, ''))
+    .filter(Boolean)
+    .map((t) => {
+      if (t.includes('?')) return [t.replaceAll('?', '0'), t.replaceAll('?', 'F')];
+      const [a, b = a] = t.split('-');
+      return [a, b];
+    })
+    .map(([a, b]) => [parseInt(a, 16), parseInt(b, 16)])
+    .sort((x, y) => x[0] - y[0]);
+  const merged = [];
+  for (const [a, b] of spans) {
+    const last = merged.at(-1);
+    if (last && a <= last[1] + 1) last[1] = Math.max(last[1], b);
+    else merged.push([a, b]);
+  }
+  return merged.map(([a, b]) => (a === b ? a.toString(16) : `${a.toString(16)}-${b.toString(16)}`)).join(',');
+}

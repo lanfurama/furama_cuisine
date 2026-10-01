@@ -45,7 +45,7 @@ jobs:
         run: npm run build
         env:
           DATABASE_URL: ${{ env.APP_DATABASE_URL }}
-      - name: Check the prerendered pages
+      - name: Check the prerendered pages and the fonts
         run: node scripts/check-prerender.mjs
       - run: npx playwright install --with-deps chromium
       - name: End-to-end

@@ -23,6 +23,11 @@ import './fallbacks.css';
  * next/font/google generated, with its metrics. Preloads match the old
  * `subsets`: every file except Crimson Pro's vietnamese ones.
  *
+ * If a Next.js change ever names the calls apart, the latin-ext and Vietnamese
+ * faces would quietly stop applying, so scripts/check-prerender.mjs (run in CI
+ * after the build) checks the built @font-face rules against this file. Keep
+ * its FONTS, WEIGHTS and SUBSETS in step with any change here.
+ *
  * Turbopack reads these options back from a query string that it splits on
  * `&` and `=` and percent-decodes (the same parsing that broke
  * next/font/google), so no option value may contain `&`, `=` or `%`.
