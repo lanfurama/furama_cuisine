@@ -1,21 +1,28 @@
 'use client';
 
 import { useActionState } from 'react';
-import { actionErrorMessage } from '@/lib/admin/auth-errors';
+import { actionErrorMessage, inviteEmailFailedMessage } from '@/lib/admin/auth-errors';
 import type { ActionResult } from '@/lib/server/action-result';
+import type { InviteDelivery } from '@/lib/server/auth/staff';
 import { inviteStaff } from './actions';
 
 export function InviteForm() {
-  const [state, action, pending] = useActionState<ActionResult<{ emailSent: boolean }> | null, FormData>(inviteStaff, null);
+  const [state, action, pending] = useActionState<ActionResult<InviteDelivery> | null, FormData>(inviteStaff, null);
   const failed = state && !state.ok ? state : null;
   const errors = failed?.fieldErrors ?? {};
 
   return (
     <form className="a-inline-form" action={action} noValidate aria-labelledby="invite-title">
       <h2 id="invite-title">Mời nhân viên</h2>
-      {state?.ok ? (
+      {state?.ok && state.data.emailSent ? (
         <p className="a-notice" role="status">
-          {state.data.emailSent ? 'Đã gửi lời mời.' : 'Đã tạo lời mời. Chưa gửi được email, bấm Gửi lại.'}
+          Đã gửi lời mời.
+        </p>
+      ) : null}
+      {/* Created but not emailed: a warning, saying why, never the green "sent" notice. */}
+      {state?.ok && !state.data.emailSent ? (
+        <p className="a-alert" role="alert">
+          {`Đã tạo lời mời. ${inviteEmailFailedMessage(state.data.emailError)}`}
         </p>
       ) : null}
       {failed && !failed.fieldErrors ? (

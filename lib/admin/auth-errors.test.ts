@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actionErrorMessage, authErrorMessage } from './auth-errors';
+import { actionErrorMessage, authErrorMessage, inviteEmailFailedMessage } from './auth-errors';
 
 describe('authErrorMessage', () => {
   it.each([
@@ -38,4 +38,17 @@ describe('actionErrorMessage', () => {
     ['self', 'Bạn không thể tự khóa hoặc tự xóa tài khoản của mình.'],
     ['invalid_token', 'Lời mời không hợp lệ, đã hết hạn hoặc đã bị thu hồi.'],
   ] as const)('%s', (code, message) => expect(actionErrorMessage(code)).toBe(message));
+});
+
+describe('inviteEmailFailedMessage', () => {
+  const setup = 'Chưa gửi được email: chưa cấu hình gửi email trên môi trường này. Báo bộ phận kỹ thuật, rồi bấm Gửi lại.';
+  it.each([
+    ['not_delivered', setup],
+    ['missing_api_key', setup],
+    ['invalid_delivery_mode', setup],
+    ['provider_error', 'Chưa gửi được email, bấm Gửi lại.'],
+    ['unknown', 'Chưa gửi được email, bấm Gửi lại.'],
+    ['toString', 'Chưa gửi được email, bấm Gửi lại.'],
+    [null, 'Chưa gửi được email, bấm Gửi lại.'],
+  ])('%s', (code, message) => expect(inviteEmailFailedMessage(code)).toBe(message));
 });

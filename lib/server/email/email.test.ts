@@ -8,7 +8,7 @@ import { invitationUrl, passwordResetUrl, sendPasswordReset, sendStaffInvitation
 import { consoleLogSink, createEmailSender, renderEmail, sendEmail } from './send';
 import { PasswordResetEmail } from './templates/password-reset';
 import { StaffInvitationEmail } from './templates/staff-invitation';
-import { EmailSendError, describeEmailError, type DeliveredEmail, type ResendLike } from './types';
+import { EmailSendError, describeEmailError, emailErrorCode, type DeliveredEmail, type ResendLike } from './types';
 
 const URL_INVITE = 'https://admin.example.vn/admin/accept-invite?token=abc_DEF-123';
 const sha16 = (s: string) => createHash('sha256').update(s).digest('hex').slice(0, 16);
@@ -77,6 +77,37 @@ describe('delivery modes', () => {
     expect(sink[0].html).toContain('Quản trị viên');
     expect(sink[0].idempotencyKey).toBe(`invite:i1:${sha16('tok')}`);
     expect(sink[0].idempotencyKey).not.toContain('tok:');
+  });
+
+  it('log mode on a Production or Preview deployment fails with not_delivered after logging only the redacted line', async () => {
+    for (const vercelEnv of ['production', 'preview']) {
+      // The default sender: process.env and the real console sink, as on Vercel with EMAIL_DELIVERY unset.
+      const dir = mkdtempSync(join(tmpdir(), 'email-log-'));
+      vi.stubEnv('VERCEL_ENV', vercelEnv);
+      vi.stubEnv('EMAIL_DELIVERY', '');
+      vi.stubEnv('EMAIL_LOG_FILE', join(dir, 'emails.ndjson'));
+      const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+      const err = await sendEmail({ to: 'lan@furama.test', subject: 'S', html: '<p>x</p>', text: 'token=SECRET', idempotencyKey: 'invite:1:abcd' }).catch(
+        (e: unknown) => e,
+      );
+      expect(err).toBeInstanceOf(EmailSendError);
+      expect(err).toMatchObject({ code: 'not_delivered' });
+      expect(describeEmailError(err)).toMatch(new RegExp(`^not_delivered: EMAIL_DELIVERY is log \\(or unset\\) on a Vercel ${vercelEnv} deployment`));
+      expect(describeEmailError(err)).not.toContain('SECRET');
+      expect(info.mock.calls).toEqual([['[email:log] to=*@furama.test key=invite:1:abcd']]);
+      expect(() => readFileSync(join(dir, 'emails.ndjson'))).toThrow(/ENOENT/);
+      info.mockRestore();
+    }
+  });
+
+  it('log mode reads VERCEL_ENV from its env: an injected sink still receives the email first', async () => {
+    const sink: DeliveredEmail[] = [];
+    const send = createEmailSender({ env: { EMAIL_DELIVERY: 'log', VERCEL_ENV: 'preview' }, logSink: (e) => void sink.push(e) });
+    await expect(send({ to: 'a@b.vn', subject: 'S', ...content })).rejects.toMatchObject({ code: 'not_delivered' });
+    expect(sink).toHaveLength(1);
+    // `vercel dev` (VERCEL_ENV=development) still counts as delivered: the full text is in the terminal.
+    const dev = createEmailSender({ env: { VERCEL_ENV: 'development' }, logSink: () => {} });
+    await expect(dev({ to: 'a@b.vn', subject: 'S', ...content })).resolves.toEqual({ mode: 'log' });
   });
 
   it('rejects unknown modes instead of falling through to live', async () => {
@@ -204,5 +235,11 @@ describe('describeEmailError', () => {
     );
     expect(describeEmailError(new Error('socket hang up'))).toBe('unknown: socket hang up');
     expect(describeEmailError('x'.repeat(400))).toHaveLength(300);
+  });
+
+  it('emailErrorCode reads the code back from a stored email_error', () => {
+    expect(emailErrorCode(describeEmailError(new EmailSendError('not_delivered', 'EMAIL_DELIVERY is log: x')))).toBe('not_delivered');
+    expect(emailErrorCode('unknown: socket hang up')).toBe('unknown');
+    expect(emailErrorCode(null)).toBeNull();
   });
 });

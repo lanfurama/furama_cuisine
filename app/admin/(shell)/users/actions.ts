@@ -25,29 +25,33 @@ const InviteInput = z.object({
   role: z.enum(STAFF_ROLES, { error: 'Chọn vai trò.' }),
 });
 
+/** Only the delivery outcome reaches the browser (the failure's code, never its message). */
+const delivery = (result: staff.InviteDelivery): staff.InviteDelivery =>
+  result.emailSent ? { emailSent: true } : { emailSent: false, emailError: result.emailError };
+
 export async function inviteStaff(
-  _prev: ActionResult<{ emailSent: boolean }> | null,
+  _prev: ActionResult<staff.InviteDelivery> | null,
   formData: FormData,
-): Promise<ActionResult<{ emailSent: boolean }>> {
+): Promise<ActionResult<staff.InviteDelivery>> {
   try {
     const actor = await requirePermission({ user: ['create'] });
     const input = InviteInput.parse({ email: formData.get('email'), role: formData.get('role') });
     const result = await staff.createInvitation(staffDeps(), auditActor(actor), input);
     if (!result.ok) return result;
     refresh();
-    return { ok: true, data: { emailSent: result.emailSent } };
+    return { ok: true, data: delivery(result) };
   } catch (err) {
     return actionError(err);
   }
 }
 
-export async function resendInvite(id: string): Promise<ActionResult<{ emailSent: boolean }>> {
+export async function resendInvite(id: string): Promise<ActionResult<staff.InviteDelivery>> {
   try {
     const actor = await requirePermission({ user: ['create'] });
     const result = await staff.resendInvitation(staffDeps(), auditActor(actor), InvitationId.parse(id));
     if (!result.ok) return result;
     refresh();
-    return { ok: true, data: { emailSent: result.emailSent } };
+    return { ok: true, data: delivery(result) };
   } catch (err) {
     return actionError(err);
   }

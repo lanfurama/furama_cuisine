@@ -1,11 +1,15 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { actionErrorMessage } from '@/lib/admin/auth-errors';
+import { actionErrorMessage, inviteEmailFailedMessage } from '@/lib/admin/auth-errors';
 import { resendInvite, revokeInvite } from './actions';
 
-/* Labels arrive formatted from the server, so no permission code ships to the browser. */
-export type InvitationItem = { id: string; email: string; roleLabel: string; expiresLabel: string; expired: boolean; emailFailed: boolean };
+/*
+ * Labels arrive formatted from the server, so no permission code ships to the
+ * browser. emailError is only the code of the last failed send (never its
+ * message), or null once one went out.
+ */
+export type InvitationItem = { id: string; email: string; roleLabel: string; expiresLabel: string; expired: boolean; emailError: string | null };
 
 export function InvitationList({ invitations }: { invitations: InvitationItem[] }) {
   if (invitations.length === 0) return <p className="a-lede">Không có lời mời nào đang chờ.</p>;
@@ -26,7 +30,8 @@ function Invitation({ invitation }: { invitation: InvitationItem }) {
     startTransition(async () => {
       const result = await resendInvite(invitation.id);
       if (!result.ok) setMessage({ text: actionErrorMessage(result.code), error: true });
-      else setMessage({ text: result.data.emailSent ? 'Đã gửi lại.' : 'Chưa gửi được email, bấm Gửi lại.', error: !result.data.emailSent });
+      else if (result.data.emailSent) setMessage({ text: 'Đã gửi lại.', error: false });
+      else setMessage({ text: inviteEmailFailedMessage(result.data.emailError), error: true });
     });
   const revoke = () =>
     startTransition(async () => {
@@ -40,9 +45,9 @@ function Invitation({ invitation }: { invitation: InvitationItem }) {
       <div>
         <strong>{invitation.email}</strong> · {invitation.roleLabel} ·{' '}
         {invitation.expired ? 'đã hết hạn' : `hết hạn ${invitation.expiresLabel}`}
-        {invitation.emailFailed && !message ? (
+        {invitation.emailError && !message ? (
           <p className="a-field-error" role="alert">
-            Chưa gửi được email, bấm Gửi lại.
+            {inviteEmailFailedMessage(invitation.emailError)}
           </p>
         ) : null}
         {message ? (

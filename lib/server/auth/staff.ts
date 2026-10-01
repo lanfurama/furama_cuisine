@@ -3,7 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { isAPIError } from 'better-auth/api';
 import type { Pool, PoolClient } from 'pg';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
-import { describeEmailError } from '@/lib/server/email/types';
+import { describeEmailError, emailErrorCode } from '@/lib/server/email/types';
 import { INVITATION_REQUIRED, type Auth } from './config';
 import type { StaffRole } from './permissions';
 import { normalizeEmail } from './signup-gate';
@@ -25,6 +25,12 @@ export type InviteEmail = { to: string; token: string; invitationId: string; rol
 export type SendInvite = (email: InviteEmail) => Promise<unknown>;
 export type StaffDeps = { pool: Pool; auth: Auth; sendInvite: SendInvite };
 type Fail<C extends string> = { ok: false; code: C };
+/**
+ * How the invitation email went. On failure, `emailError` is the code stored at
+ * the front of email_error (an EmailErrorCode or "unknown"), so the screen can
+ * say why: "press Gửi lại" does not help while email delivery is not set up.
+ */
+export type InviteDelivery = { emailSent: true } | { emailSent: false; emailError: string };
 
 export const INVITE_TTL = '7 days';
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
@@ -45,7 +51,7 @@ async function deliverInvite(
   invitation: { id: string; email: string; role: StaffRole },
   token: string,
   actor: AuditActor,
-): Promise<boolean> {
+): Promise<InviteDelivery> {
   try {
     await deps.sendInvite({
       to: invitation.email,
@@ -55,12 +61,13 @@ async function deliverInvite(
       inviterName: actor.name ?? actor.email,
     });
     await deps.pool.query('UPDATE staff_invitation SET email_error = NULL WHERE id = $1', [invitation.id]);
-    return true;
+    return { emailSent: true };
   } catch (err) {
-    const emailError = describeEmailError(err);
-    console.error('[staff] invite email failed', { id: invitation.id, code: emailError.split(':')[0] });
-    await deps.pool.query('UPDATE staff_invitation SET email_error = $2 WHERE id = $1', [invitation.id, emailError]);
-    return false;
+    const stored = describeEmailError(err);
+    const code = emailErrorCode(stored) ?? 'unknown';
+    console.error('[staff] invite email failed', { id: invitation.id, code });
+    await deps.pool.query('UPDATE staff_invitation SET email_error = $2 WHERE id = $1', [invitation.id, stored]);
+    return { emailSent: false, emailError: code };
   }
 }
 
@@ -68,7 +75,7 @@ export async function createInvitation(
   deps: StaffDeps,
   actor: AuditActor,
   input: { email: string; role: StaffRole },
-): Promise<{ ok: true; id: string; emailSent: boolean } | Fail<'already_staff' | 'already_invited'>> {
+): Promise<({ ok: true; id: string } & InviteDelivery) | Fail<'already_staff' | 'already_invited'>> {
   const email = normalizeEmail(input.email);
   const { token, hash } = newInviteToken();
 
@@ -100,8 +107,8 @@ export async function createInvitation(
   });
   if (!created.ok) return created;
 
-  const emailSent = await deliverInvite(deps, { id: created.id, email, role: input.role }, token, actor);
-  return { ok: true, id: created.id, emailSent };
+  const delivery = await deliverInvite(deps, { id: created.id, email, role: input.role }, token, actor);
+  return { ok: true, id: created.id, ...delivery };
 }
 
 /** "Gửi lại": a new token and a fresh 7 days; the old link stops working. Revives an expired invitation. */
@@ -109,7 +116,7 @@ export async function resendInvitation(
   deps: StaffDeps,
   actor: AuditActor,
   id: string,
-): Promise<{ ok: true; emailSent: boolean } | Fail<'not_found'>> {
+): Promise<({ ok: true } & InviteDelivery) | Fail<'not_found'>> {
   const { token, hash } = newInviteToken();
   const updated = await withTransaction(deps.pool, async (c) => {
     const { rows } = await c.query<{ email: string; role: StaffRole; expires_at: Date }>(
@@ -130,7 +137,7 @@ export async function resendInvitation(
     return row;
   });
   if (!updated) return { ok: false, code: 'not_found' };
-  return { ok: true, emailSent: await deliverInvite(deps, { id, email: updated.email, role: updated.role }, token, actor) };
+  return { ok: true, ...(await deliverInvite(deps, { id, email: updated.email, role: updated.role }, token, actor)) };
 }
 
 export async function revokeInvitation(

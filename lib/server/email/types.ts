@@ -33,6 +33,8 @@ export type EmailErrorCode =
   | 'missing_api_key'
   | 'missing_from'
   | 'missing_redirect_to'
+  /** Log mode on a Vercel Production or Preview deployment: logged without its link, so it reached no one. */
+  | 'not_delivered'
   | 'provider_error';
 
 /** Thrown by sendEmail. The invite flow stores describeEmailError(err) in staff_invitation.email_error. */
@@ -64,4 +66,9 @@ export function describeEmailError(error: unknown): string {
       ? `${error.code}: ${error.message}`
       : `unknown: ${error instanceof Error ? error.message : String(error)}`;
   return text.slice(0, 300);
+}
+
+/** The code at the front of a stored email_error (an EmailErrorCode or "unknown"), or null when there is none. */
+export function emailErrorCode(stored: string | null): string | null {
+  return stored === null ? null : stored.split(':')[0];
 }

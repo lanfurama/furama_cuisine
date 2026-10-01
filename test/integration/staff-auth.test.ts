@@ -15,6 +15,8 @@ import {
   type SendInvite,
   type StaffDeps,
 } from '@/lib/server/auth/staff';
+import { sendStaffInvitation } from '@/lib/server/email/auth-emails';
+import { createEmailSender } from '@/lib/server/email/send';
 import { EmailSendError } from '@/lib/server/email/types';
 import { TEST_DATABASE_URL } from '../helpers/db';
 import { PASSWORD, STAFF_TABLES, createBootstrapAdmin, createTestAuth, errorCode, signInCookie } from '../helpers/auth';
@@ -115,7 +117,7 @@ describe.skipIf(!TEST_DATABASE_URL)('staff management on migration 005', () => {
       const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
       failNext = new EmailSendError('provider_error', 'Resend rejected the email: rate limited');
       const invited = await createInvitation(deps(), admin, { email: 'ed@furama.test', role: 'editor' });
-      expect(invited).toMatchObject({ ok: true, emailSent: false });
+      expect(invited).toMatchObject({ ok: true, emailSent: false, emailError: 'provider_error' });
       expect(await rows('SELECT email_error FROM staff_invitation')).toEqual([
         { email_error: 'provider_error: Resend rejected the email: rate limited' },
       ]);
@@ -125,6 +127,21 @@ describe.skipIf(!TEST_DATABASE_URL)('staff management on migration 005', () => {
       if (!invited.ok) throw new Error('unreachable');
       expect(await resendInvitation(deps(), admin, invited.id)).toEqual({ ok: true, emailSent: true });
       expect(await rows('SELECT email_error FROM staff_invitation')).toEqual([{ email_error: null }]);
+    });
+
+    it('log mode on a Vercel deployment is not a sent invitation: email_error records not_delivered', async () => {
+      const admin = await owner();
+      const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+      // The real sender, as on a Preview whose EMAIL_DELIVERY is unset.
+      const send = createEmailSender({ env: { VERCEL_ENV: 'preview' }, logSink: () => {} });
+      const sendInvite: SendInvite = (email) => sendStaffInvitation(email, send);
+      const invited = await createInvitation({ ...deps(), sendInvite }, admin, { email: 'ed@furama.test', role: 'editor' });
+      expect(invited).toMatchObject({ ok: true, emailSent: false, emailError: 'not_delivered' });
+      const [stored] = await rows<{ email_error: string }>('SELECT email_error FROM staff_invitation');
+      expect(stored.email_error).toMatch(/^not_delivered: EMAIL_DELIVERY is log \(or unset\) on a Vercel preview deployment/);
+      if (!invited.ok) throw new Error('unreachable');
+      expect(await resendInvitation({ ...deps(), sendInvite }, admin, invited.id)).toEqual({ ok: true, emailSent: false, emailError: 'not_delivered' });
+      errors.mockRestore();
     });
 
     it('refuses a second open invitation and an email that already has an account', async () => {

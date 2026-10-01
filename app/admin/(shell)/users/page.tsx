@@ -4,6 +4,7 @@ import { formatDateTimeVi } from '@/lib/admin/format';
 import { ROLE_LABELS } from '@/lib/admin/nav';
 import { listOpenInvitations, listStaff } from '@/lib/server/auth/staff-queries';
 import { requirePagePermission } from '@/lib/server/dal/session';
+import { emailErrorCode } from '@/lib/server/email/types';
 import { InvitationList, type InvitationItem } from './InvitationList';
 import { InviteForm } from './InviteForm';
 import { StaffTable, type StaffItem } from './StaffTable';
@@ -35,7 +36,7 @@ export default async function UsersPage() {
     roleLabel: ROLE_LABELS[i.role],
     expiresLabel: formatDateTimeVi(i.expires_at),
     expired: i.expired,
-    emailFailed: i.email_error !== null,
+    emailError: emailErrorCode(i.email_error),
   }));
 
   return (

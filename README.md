@@ -152,7 +152,9 @@ against an empty local database, and write the difference as a new migration.
 `EMAIL_DELIVERY` is read when an email is sent, never at build time; an
 unknown value throws instead of sending. On a Vercel deployment
 (`VERCEL_ENV=production` or `preview`) the log mode prints neither addresses
-nor links and writes no `EMAIL_LOG_FILE`.
+nor links and writes no `EMAIL_LOG_FILE`, so the email reached no one: the
+send fails with `not_delivered`, and the staff screen says email is not set
+up on that environment instead of "Đã gửi lời mời.".
 
 ### Resend
 
@@ -160,10 +162,12 @@ Invitation and reset emails go straight to Resend (spec §10.4), from a
 subdomain of furamavietnam.com verified in Resend: IT adds the MX, SPF, DKIM
 and DMARC records Resend lists for `mail.furamavietnam.com` (check first
 whether the root domain already has a DMARC record), then `EMAIL_FROM` uses
-that subdomain. Until it is verified, keep `EMAIL_DELIVERY=redirect` or `log`.
+that subdomain. Until it is verified, keep `EMAIL_DELIVERY=redirect` (on a
+deployment, `log` sends nothing and every invitation is marked unsent).
 A failed invitation email leaves the invitation in place and the staff
-screen says "Chưa gửi được email, bấm Gửi lại"; a failed reset email is only
-logged.
+screen says "Chưa gửi được email, bấm Gửi lại" (or, for a setup problem such
+as `not_delivered` or a missing key, that email is not set up on this
+environment); a failed reset email is only logged.
 
 ### First Admin
 

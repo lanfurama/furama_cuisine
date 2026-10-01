@@ -59,15 +59,23 @@ test('an Admin invites; resend replaces the link; revoke closes it', async ({ pa
 
 test('an invitation whose email failed says so, on the staff screen and the overview', async ({ page }) => {
   const email = `failed-${unique()}@furama.test`;
-  await one(
-    `INSERT INTO staff_invitation (email, role, token_hash, expires_at, email_error)
-     VALUES ($1, 'editor', encode(sha256(convert_to($1, 'UTF8')), 'hex'), now() + interval '7 days', 'provider_error: Resend rejected the email: rate limited')`,
-    [email],
-  );
+  const unsent = `unsent-${unique()}@furama.test`;
+  const insert = (address: string, emailError: string) =>
+    one(
+      `INSERT INTO staff_invitation (email, role, token_hash, expires_at, email_error)
+       VALUES ($1, 'editor', encode(sha256(convert_to($1, 'UTF8')), 'hex'), now() + interval '7 days', $2)`,
+      [address, emailError],
+    );
+  await insert(email, 'provider_error: Resend rejected the email: rate limited');
+  // Log mode on a Vercel deployment: nothing was sent, and Gửi lại alone will not change that.
+  await insert(unsent, 'not_delivered: EMAIL_DELIVERY is log (or unset) on a Vercel preview deployment');
   await signInAs(page, STAFF.admin);
   await expect(page.getByRole('region', { name: 'Lời mời chưa gửi được email' }).getByText(email)).toBeVisible();
   await page.getByRole('link', { name: 'Mở trang Nhân viên để gửi lại' }).click();
   await expect(invitationItem(page, email).getByRole('alert')).toHaveText('Chưa gửi được email, bấm Gửi lại.');
+  await expect(invitationItem(page, unsent).getByRole('alert')).toHaveText(
+    'Chưa gửi được email: chưa cấu hình gửi email trên môi trường này. Báo bộ phận kỹ thuật, rồi bấm Gửi lại.',
+  );
 });
 
 test('the last Admin cannot demote themselves', async ({ page }) => {

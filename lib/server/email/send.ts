@@ -25,7 +25,8 @@ const DEPLOYED = new Set(['production', 'preview']);
 /**
  * Default log sink. Invite and reset links are bearer tokens, so on a Vercel deployment
  * (VERCEL_ENV production or preview, e.g. a Preview missing EMAIL_DELIVERY) the log line carries
- * only the recipient domain and the idempotency key. Off Vercel (dev, CI, `next start` in E2E)
+ * only the recipient domain and the idempotency key (and the sender then fails the send with
+ * not_delivered, since nobody can act on it). Off Vercel (dev, CI, `next start` in E2E)
  * and under `vercel dev` (VERCEL_ENV=development, which `vercel env pull` also writes into
  * .env.local) it prints the full text so a developer can click the link, and EMAIL_LOG_FILE
  * appends the full message as NDJSON, which is how Playwright reads the invite link out of a
@@ -107,6 +108,17 @@ export function createEmailSender(overrides: Partial<EmailDeps> = {}) {
 
     if (mode === 'log') {
       await deps.logSink(delivered);
+      // On a Production or Preview deployment the sink keeps only the recipient's domain and the
+      // key, so the link is gone and nobody received anything. Report that as a failure: the
+      // invitation then records email_error and the Admin is told it was not sent, instead of
+      // "Đã gửi lời mời." for a link nobody can recover.
+      const vercelEnv = deps.env.VERCEL_ENV ?? '';
+      if (DEPLOYED.has(vercelEnv)) {
+        throw new EmailSendError(
+          'not_delivered',
+          `EMAIL_DELIVERY is log (or unset) on a Vercel ${vercelEnv} deployment: the email was only logged, without its link, and reached no one. Set EMAIL_DELIVERY to live or redirect.`,
+        );
+      }
       return { mode };
     }
 

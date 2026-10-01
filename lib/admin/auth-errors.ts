@@ -1,4 +1,5 @@
 import type { ActionCode } from '@/lib/server/action-result';
+import type { EmailErrorCode } from '@/lib/server/email/types';
 
 /*
  * What staff read when something is refused (spec §7.3), never English.
@@ -7,6 +8,7 @@ import type { ActionCode } from '@/lib/server/action-result';
  * 1.7.7). A 429 from the rate limiter carries no code, only the status and an
  * X-Retry-After header in seconds.
  * actionErrorMessage: the codes our admin Server Actions return (spec §7.4).
+ * inviteEmailFailedMessage: why an invitation email did not go out.
  * Client components import this file, so it imports types only.
  */
 const AUTH_MESSAGES: Record<string, string> = {
@@ -54,4 +56,27 @@ const ACTION_MESSAGES: Record<ActionCode, string> = {
 
 export function actionErrorMessage(code: ActionCode): string {
   return ACTION_MESSAGES[code];
+}
+
+/*
+ * true: this environment cannot send email at all until someone fixes its
+ * setup, so "Gửi lại" alone will not help. not_delivered is log mode on a
+ * Vercel deployment, which logs the email without its link. A Record, so a new
+ * EmailErrorCode has to be sorted here.
+ */
+const EMAIL_SETUP_ERRORS: Record<EmailErrorCode, boolean> = {
+  invalid_delivery_mode: true,
+  missing_api_key: true,
+  missing_from: true,
+  missing_redirect_to: true,
+  not_delivered: true,
+  provider_error: false,
+};
+
+/** `code` is the one in front of staff_invitation.email_error (an EmailErrorCode, or "unknown"). */
+export function inviteEmailFailedMessage(code: string | null | undefined): string {
+  // `=== true`: an inherited key such as "toString" must not read as a setup error.
+  return code && EMAIL_SETUP_ERRORS[code as EmailErrorCode] === true
+    ? 'Chưa gửi được email: chưa cấu hình gửi email trên môi trường này. Báo bộ phận kỹ thuật, rồi bấm Gửi lại.'
+    : 'Chưa gửi được email, bấm Gửi lại.';
 }
