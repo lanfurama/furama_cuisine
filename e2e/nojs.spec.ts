@@ -1,8 +1,12 @@
 import { expect, test } from '@playwright/test';
+import { serveImagesFromPublic } from './images';
 import { DETAIL_PATH, HOME_PATH } from './paths';
 
 /* What a visitor or a crawler without JavaScript gets: the server HTML alone. */
 test.use({ javaScriptEnabled: false });
+
+// Without JavaScript every image loads eagerly, and goto() waits for all of them.
+test.beforeEach(({ page }) => serveImagesFromPublic(page));
 
 test('the home page lists every restaurant', async ({ page }) => {
   await page.goto(HOME_PATH);

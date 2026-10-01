@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 3100;
+// E2E_PORT: run beside another server that already holds 3100.
+const PORT = Number(process.env.E2E_PORT) || 3100;
 /**
  * A server you started yourself (for example `next dev` against a local _test
  * database, to look for dev-only hydration errors). Skips the webServer below.

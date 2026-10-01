@@ -32,7 +32,7 @@ Apply migrations to the dev branch with `npm run db:migrate`.
 | --- | --- |
 | `npm test` | Unit tests (Vitest, process timezone pinned to UTC) |
 | `TEST_DATABASE_URL=postgres://localhost:5432/furama_cuisine_test npm test` | Unit and integration tests. The database is dropped and recreated on every run, and its name must end in `_test`. |
-| `npm run test:e2e` | Playwright against `next start` on port 3100. Set `CI` and a local `_test` `DATABASE_URL` (variables below), or `E2E_BASE_URL` for a server you started; without either it refuses to run, because `next dev` reads `.env.local`. Run `npx playwright install chromium` once first. |
+| `npm run test:e2e` | Playwright against `next start` on port 3100 (or `E2E_PORT`). Set `CI` and a local `_test` `DATABASE_URL` (variables below), or `E2E_BASE_URL` for a server you started; without either it refuses to run, because `next dev` reads `.env.local`. Run `npx playwright install chromium` once first. |
 | `npm run test:visual` | Pixel-exact screenshots of the home and Tàya House pages, with and without JavaScript, against `e2e/__visual__/` (macOS baselines from before phase 2; CI skips them). Needs a running `next start`, see below. |
 | `npm run lint` | oxlint (typescript-eslint does not support TypeScript 7) |
 

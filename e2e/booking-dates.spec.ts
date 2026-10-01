@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { serveImagesFromPublic } from './images';
 import { DETAIL_PATH, HOME_PATH } from './paths';
 
 test.beforeEach(async ({ page }) => {
@@ -10,6 +11,9 @@ test.describe('hydration', () => {
   // time, so any date rendered during SSR would differ from the client's first
   // render and surface as a hydration error. UTC in both places would hide it.
   test.use({ timezoneId: 'Pacific/Kiritimati' });
+
+  // networkidle also waits for the lazy images.
+  test.beforeEach(({ page }) => serveImagesFromPublic(page));
 
   for (const [name, path] of [
     ['home', HOME_PATH],
