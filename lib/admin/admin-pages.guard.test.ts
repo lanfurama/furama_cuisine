@@ -40,6 +40,20 @@ describe('admin pages', () => {
     expect(call!.index).toBeLessThan(html!.index);
   });
 
+  it('has its own error boundary above the shell and auth layouts, as client components (not pages: no instant export needed)', () => {
+    // app/admin/error.tsx catches what (shell)/layout.tsx and the (auth) pages throw; without
+    // it they reach app/global-error.tsx, the guest's English page with an inline style.
+    const boundaries = all.filter((f) => /(^|\/)error\.tsx$/.test(f));
+    expect(boundaries).toContain(join(ADMIN, 'error.tsx'));
+    for (const f of boundaries) {
+      const src = readFileSync(f, 'utf8');
+      expect(src.startsWith("'use client';\n"), `${f} must start with 'use client'`).toBe(true);
+      expect(src, `${f} must default-export the boundary and take Next 16.3's retry prop`).toMatch(
+        /^export default function \w+\(\{ error, retry \}/m,
+      );
+    }
+  });
+
   it('no inline style attributes', () => {
     expect(all.filter((f) => /\bstyle=\{/.test(readFileSync(f, 'utf8')))).toEqual([]);
   });
