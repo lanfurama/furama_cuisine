@@ -14,6 +14,9 @@ const PUBLIC_ACTIONS = new Map([
   ['app/actions.ts#submitReservation', 'zod, the slot and window checks, the per-table unique index (spec §7.1)'],
   ['app/admin/(auth)/sign-in/actions.ts#signIn', 'Better Auth checks the password, rate-limited per IP in auth_rate_limit'],
   ['app/admin/(shell)/actions.ts#signOut', 'ends only the session of the cookie it is sent with'],
+  ['app/admin/(auth)/accept-invite/actions.ts#acceptInvitation', 'the 256-bit, single-use, 7-day invitation token is the credential'],
+  ['app/admin/(auth)/reset-password/actions.ts#requestPasswordReset', 'same answer for every email; rate-limited per IP'],
+  ['app/admin/(auth)/reset-password/actions.ts#resetPassword', 'Better Auth checks the 1-hour reset token; rate-limited per IP'],
 ]);
 
 const ROOT = join(__dirname, '..', '..');

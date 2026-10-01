@@ -104,6 +104,15 @@ test.describe('hydration under the CSP', () => {
     expect(violations).toEqual([]);
   });
 
+  test('the public reset and accept-invite pages hydrate with no violation', async ({ page }) => {
+    const violations = await watchCsp(page);
+    for (const path of ['/admin/reset-password', '/admin/reset-password?token=x', '/admin/accept-invite?token=x']) {
+      await page.goto(path);
+      await expectHydrated(page);
+    }
+    expect(violations).toEqual([]);
+  });
+
   test('signing in moves into the shell without a document request or a violation', async ({ page }) => {
     const violations = await watchCsp(page);
     await page.goto('/admin/sign-in');

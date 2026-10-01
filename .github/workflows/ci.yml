@@ -56,6 +56,7 @@ jobs:
           DATABASE_URL: ${{ env.APP_DATABASE_URL }}
           BETTER_AUTH_URL: http://localhost:3100
           EMAIL_DELIVERY: log
+          EMAIL_LOG_FILE: ${{ runner.temp }}/emails.ndjson
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

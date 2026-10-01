@@ -25,13 +25,19 @@ const AUTH_MESSAGES: Record<string, string> = {
 
 const AUTH_FALLBACK = 'Không đăng nhập được. Vui lòng thử lại sau ít phút.';
 
-export function authErrorMessage(status: number, code?: string | null, retryAfterSeconds?: number | null): string {
+/** `fallback` is for a code we do not know; sign-in's own is the default. */
+export function authErrorMessage(
+  status: number,
+  code?: string | null,
+  retryAfterSeconds?: number | null,
+  fallback = AUTH_FALLBACK,
+): string {
   if (status === 429) {
     return retryAfterSeconds && retryAfterSeconds > 0
       ? `Bạn đã thử quá nhiều lần. Vui lòng thử lại sau ${retryAfterSeconds} giây.`
       : 'Bạn đã thử quá nhiều lần. Vui lòng đợi một lát rồi thử lại.';
   }
-  return (code && AUTH_MESSAGES[code]) || AUTH_FALLBACK;
+  return (code && AUTH_MESSAGES[code]) || fallback;
 }
 
 const ACTION_MESSAGES: Record<ActionCode, string> = {

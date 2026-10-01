@@ -1,8 +1,9 @@
 import 'server-only';
 import { after } from 'next/server';
 import { getPool } from '@/db/client';
-import { sendPasswordReset } from '@/lib/server/email/auth-emails';
+import { sendPasswordReset, sendStaffInvitation } from '@/lib/server/email/auth-emails';
 import { createAuth, type Auth } from './config';
+import type { StaffDeps } from './staff';
 
 /*
  * The app's Better Auth instance. Built on first use, never at import time:
@@ -27,4 +28,9 @@ export function getAuth(): Auth {
     backgroundTask: (task) => after(task),
   });
   return instance;
+}
+
+/** What lib/server/auth/staff.ts needs at run time: the pool, Better Auth and the invitation email. */
+export function staffDeps(): StaffDeps {
+  return { pool: getPool(), auth: getAuth(), sendInvite: (email) => sendStaffInvitation(email) };
 }

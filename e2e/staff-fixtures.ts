@@ -138,8 +138,10 @@ export const formAlert = (page: Page) => page.locator('form').getByRole('alert')
  * the form, which would wipe a password typed in the meantime.
  */
 export async function signIn(page: Page, email: string, password: string): Promise<void> {
+  // Cache Components keeps pages you left mounted but hidden (<Activity>): role
+  // queries skip them, and `exact` keeps "Mật khẩu" from matching "Đặt lại mật khẩu".
   await page.getByRole('textbox', { name: 'Email' }).fill(email);
-  await page.getByLabel('Mật khẩu').fill(password);
+  await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
   const answered = page.waitForResponse(
     (r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/admin/sign-in',
   );
