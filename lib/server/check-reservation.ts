@@ -43,6 +43,8 @@ export function checkReservation(
   restaurants: Restaurant[],
   now: Date = new Date(),
 ): CheckResult {
+  if (!input || typeof input !== 'object') return { ok: false, code: 'unknown' };
+
   const restaurant = restaurants.find((r) => r.id === input.restaurant);
   if (!restaurant) return { ok: false, code: 'restaurant_unavailable' };
 

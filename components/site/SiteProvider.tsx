@@ -16,6 +16,7 @@ import {
   bookingDates,
   defaultDate,
   findRestaurant,
+  isSittingClosed,
   reconcile,
   slotBookable,
   validate,
@@ -379,8 +380,16 @@ export function SiteProvider({
   const submit = useCallback(() => {
     setServerError(null);
     const date = booking.date;
-    if (!(date && valid.name && valid.phone && valid.email && slotBookable(restaurants, booking, availability, now()))) {
+    const fieldsValid = valid.name && valid.phone && valid.email;
+    if (!(date && fieldsValid && slotBookable(restaurants, booking, availability, now()))) {
       setTried(true);
+      if (date && fieldsValid) {
+        // The form is fine, so the slot is the problem (it closed or filled
+        // while the drawer sat open): say so and slide to the nearest open one.
+        const at = now();
+        setServerError(bookingErrorMessage(isSittingClosed(date, booking.time, at) ? 'past' : 'full'));
+        setBookingState((b) => reconcile(restaurants, b, {}, availability, at));
+      }
       return;
     }
 

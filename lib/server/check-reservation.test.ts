@@ -90,4 +90,19 @@ describe('checkReservation: tampered or invalid input', () => {
     const result = checkReservation(input({ name: '  An  ', email: '  ', note: '  ' }), [taya], at1am);
     expect(result).toMatchObject({ ok: true, value: { name: 'An', email: undefined, note: undefined } });
   });
+
+  it('rejects input that is not an object', () => {
+    expect(checkReservation(null as unknown as ReservationInput, [taya], at1am)).toEqual({ ok: false, code: 'unknown' });
+    expect(checkReservation('x' as unknown as ReservationInput, [taya], at1am)).toEqual({ ok: false, code: 'unknown' });
+  });
+
+  it('treats missing name and phone fields as invalid', () => {
+    const missing = (field: keyof ReservationInput) => {
+      const { [field]: _omitted, ...rest } = input();
+      const result = checkReservation(rest as unknown as ReservationInput, [taya], at1am);
+      return result.ok ? 'ok' : result.code;
+    };
+    expect(missing('name')).toBe('invalid_name');
+    expect(missing('phone')).toBe('invalid_phone');
+  });
 });
