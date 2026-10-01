@@ -16,10 +16,27 @@ with reservations persisted in Neon Postgres.
 
 ```bash
 npm install
-vercel env pull .env.local --yes   # Neon credentials
-npm run db:migrate                 # apply db/migrations/*.sql
 npm run dev
 ```
+
+`.env.local` must point at the Neon **`dev`** branch: `DATABASE_URL` holds the
+pooled string and `DATABASE_URL_UNPOOLED` the direct one. Do not run
+`vercel env pull .env.local`. The shared Vercel variables point at production
+data and would overwrite those lines.
+
+Apply migrations to the dev branch with `npm run db:migrate`.
+
+## Testing
+
+| Command | What it runs |
+| --- | --- |
+| `npm test` | Unit tests (Vitest, server clock pinned to UTC) |
+| `TEST_DATABASE_URL=postgres://localhost:5432/furama_cuisine_test npm test` | Unit and integration tests. The database is dropped and recreated on every run, and its name must end in `_test`. |
+| `npm run test:e2e` | Playwright against `next dev` on port 3100 |
+| `npm run lint` | oxlint (typescript-eslint does not support TypeScript 7) |
+
+CI (`.github/workflows/ci.yml`) runs typecheck, lint, unit, integration,
+build and end-to-end tests against a Postgres 18 service container.
 
 ## Routes
 
@@ -95,5 +112,8 @@ reference so future design revisions can be diffed against what was built.
 | `npm run dev`        | Dev server                     |
 | `npm run build`      | Production build               |
 | `npm run typecheck`  | `tsc --noEmit`                 |
+| `npm run lint`       | oxlint                         |
+| `npm test`           | Vitest (unit, integration)     |
+| `npm run test:e2e`   | Playwright                     |
 | `npm run db:migrate` | Apply pending SQL migrations   |
 | `npm run db:psql`    | psql shell against Neon        |
