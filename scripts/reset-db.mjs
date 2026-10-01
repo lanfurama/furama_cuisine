@@ -28,6 +28,12 @@ if (!/^[a-z0-9_]+_(test|ci)$/.test(name)) {
   process.exit(1);
 }
 
+if (url.search !== '') {
+  // node-postgres lets `?host=` override the host in the URL.
+  console.error('Refusing to reset: the URL must not carry query parameters.');
+  process.exit(1);
+}
+
 const admin = new URL(url);
 admin.pathname = '/postgres';
 const client = new pg.Client({ connectionString: admin.toString() });

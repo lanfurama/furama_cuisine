@@ -44,8 +44,6 @@ export const SLOTS: Record<Meal, string[]> = {
 };
 
 export const MEALS: Meal[] = ['Breakfast', 'Lunch', 'Dinner', 'Drinks'];
-export const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-export const MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export type DestinationCard = {
   key: DestKey | 'future';

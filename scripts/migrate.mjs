@@ -16,7 +16,9 @@ const connectionString =
   process.env.DATABASE_URL_UNPOOLED ?? process.env.POSTGRES_URL_NON_POOLING ?? process.env.DATABASE_URL;
 
 if (!connectionString) {
-  console.error('DATABASE_URL is not set. Run: vercel env pull .env.local --yes');
+  console.error(
+    'DATABASE_URL_UNPOOLED is not set. Point it at the Neon dev branch (see README → Getting started).',
+  );
   process.exit(1);
 }
 
@@ -35,6 +37,7 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 const url = new URL(connectionString);
 if (!LOCAL_HOSTS.has(url.hostname)) url.searchParams.set('sslmode', 'verify-full');
 
+console.log(`Migrating ${url.hostname}${url.pathname}`);
 const client = new pg.Client({ connectionString: url.toString() });
 await client.connect();
 

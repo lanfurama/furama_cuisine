@@ -30,13 +30,35 @@ Apply migrations to the dev branch with `npm run db:migrate`.
 
 | Command | What it runs |
 | --- | --- |
-| `npm test` | Unit tests (Vitest, server clock pinned to UTC) |
+| `npm test` | Unit tests (Vitest, process timezone pinned to UTC) |
 | `TEST_DATABASE_URL=postgres://localhost:5432/furama_cuisine_test npm test` | Unit and integration tests. The database is dropped and recreated on every run, and its name must end in `_test`. |
-| `npm run test:e2e` | Playwright against `next dev` on port 3100 |
+| `npm run test:e2e` | Playwright against `next dev` locally, `next start` in CI (port 3100). Run `npx playwright install chromium` once first. |
 | `npm run lint` | oxlint (typescript-eslint does not support TypeScript 7) |
 
 CI (`.github/workflows/ci.yml`) runs typecheck, lint, unit, integration,
 build and end-to-end tests against a Postgres 18 service container.
+
+## Deploying
+
+Migrations are applied by hand with `scripts/migrate.mjs` against the target
+environment's direct (unpooled) connection string. Nothing applies them
+automatically.
+
+Migration 003 (`phone_e164 NOT NULL` plus `reservations_dedupe_v2_idx`) and the
+code that writes `phone_e164` must ship together: apply 003 to an environment
+immediately before (or together with) its first deploy of this branch. Before
+003 the new code fails on the missing column; after 003 the old code fails on
+`NOT NULL`. The site has never been deployed, so there is no live traffic to
+break today.
+
+Neon preview branches fork from production, so a preview deployment needs
+`node scripts/migrate.mjs` run against its preview branch (with
+`DATABASE_URL_UNPOOLED` set to that branch) before bookings work there.
+
+Production: never run `npm run db:migrate` (it reads `.env.local`, which must
+point at dev). Run
+`DATABASE_URL_UNPOOLED=<production direct URL> node scripts/migrate.mjs`
+deliberately, after the dev branch has been migrated and verified.
 
 ## Routes
 
@@ -74,7 +96,8 @@ restaurant, the booking window and the lead time server-side — the client's
 checks are only there for immediate feedback.
 
 Migrations use the unpooled connection (DDL needs a direct session); the app
-uses the pooled one. Both pin `sslmode=verify-full`.
+uses the pooled one. Both pin `sslmode=verify-full`; local throwaway databases
+(`localhost`) skip it.
 
 ## Motion
 

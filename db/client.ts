@@ -31,7 +31,7 @@ export function getPool(): Pool {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error(
-      'DATABASE_URL is not set. Run `vercel env pull .env.local --yes` to fetch the Neon credentials.',
+      'DATABASE_URL is not set. Point .env.local at the Neon dev branch (see README → Getting started).',
     );
   }
 
