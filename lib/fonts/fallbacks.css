@@ -1,0 +1,23 @@
+/*
+ * The fallback faces at the end of --font-crimson and --font-be-vietnam (see
+ * index.ts): the ones next/font/google generated for these fonts, with the same
+ * metric overrides, so text set while the web fonts load, and characters they
+ * do not cover, render as before. next/font/local would derive other values.
+ */
+@font-face {
+  font-family: 'Crimson Pro Fallback';
+  src: local('Times New Roman');
+  ascent-override: 90.96%;
+  descent-override: 21.8%;
+  line-gap-override: 0%;
+  size-adjust: 98.56%;
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro Fallback';
+  src: local('Arial');
+  ascent-override: 90.61%;
+  descent-override: 24.01%;
+  line-gap-override: 0%;
+  size-adjust: 110.36%;
+}
