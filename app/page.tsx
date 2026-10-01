@@ -7,10 +7,12 @@ import { Experiences } from '@/components/home/Experiences';
 import { Heritage } from '@/components/home/Heritage';
 import { Stories } from '@/components/home/Stories';
 import { Offers } from '@/components/home/Offers';
+import { IntroTrigger } from '@/components/site/IntroTrigger';
 
 export default function HomePage() {
   return (
     <main>
+      <IntroTrigger />
       <Hero />
       <Finder />
       <Cuisines />

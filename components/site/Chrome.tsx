@@ -12,7 +12,7 @@ import { MenuOverlay } from '@/components/overlays/MenuOverlay';
 import { FilmModal } from '@/components/overlays/FilmModal';
 import { FinderSheet } from '@/components/overlays/FinderSheet';
 import { BookingBar } from '@/components/booking/BookingBar';
-import { useIntro, useScrollMotion } from '@/lib/motion';
+import { useScrollMotion } from '@/lib/motion';
 
 /**
  * Everything that wraps a view: the headers, the reservation bar, the footer and
@@ -23,7 +23,6 @@ export function Chrome({ children }: { children: React.ReactNode }) {
   const { overlay, view } = useSite();
 
   useScrollMotion(overlay !== null);
-  useIntro(true, 0);
 
   return (
     <>

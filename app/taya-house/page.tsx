@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { TayaHero } from '@/components/detail/TayaHero';
 import { TayaExperiences } from '@/components/detail/TayaExperiences';
 import { MoreRestaurants } from '@/components/detail/MoreRestaurants';
+import { IntroTrigger } from '@/components/site/IntroTrigger';
 
 export const metadata: Metadata = {
   title: 'Tàya House — Furama Cuisine',
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
 export default function TayaHousePage() {
   return (
     <main>
+      <IntroTrigger />
       <TayaHero />
       <TayaExperiences />
       <MoreRestaurants />
