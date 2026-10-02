@@ -37,6 +37,8 @@ test('the Admin saves booking settings; the same POST from an Editor is refused 
   await expectHydrated(page);
   const form = page.getByRole('form', { name: 'Cài đặt đặt bàn' });
   await expect(form.getByLabel('Số khách tối đa', { exact: true })).toHaveValue('12');
+  // Stored now, used from phase 10 on: the label says so, as the email checkbox's "(từ đợt 5)" does.
+  await expect(form.getByLabel('Giữ dữ liệu khách (tháng, từ đợt 10)', { exact: true })).toHaveValue('24');
   // Save the values as they are: other specs run on these defaults.
   const before = await settingsAudits();
   const saving = page.waitForRequest((r) => r.method() === 'POST' && !!r.headers()['next-action']);

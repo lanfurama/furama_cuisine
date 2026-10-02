@@ -80,8 +80,8 @@ its own restaurant and dates, and puts back the rules it changes:
 | Spec | Restaurant | Dates or rules |
 | --- | --- | --- |
 | `booking-v2` | Tàya House, Don Cipriani’s, Steakhouse The Fan | the last open day; a closure at +9; `max_party` 8 |
-| `admin-reservations` | Tàya House, V-Senses Cafe, ChaoShan Hotpot | +3, +4, +6, yesterday; +8; +7 |
-| `admin-booking-config` | Thai Siam Kitchen, Hura Izakaya | dinner hours and covers (+2, +3); `max_party` 8 |
+| `admin-reservations` | Tàya House, V-Senses Cafe, ChaoShan Hotpot, Café Indochine | +3, +4, +6 (one booking at 23:30, outside the hours), yesterday; +8; +7; +6 (picked from The Fan at +5, where nothing is written) |
+| `admin-booking-config` | Thai Siam Kitchen, Hura Izakaya | dinner hours and covers (+2, +3), `max_party` and `window_days` overrides (back to NULL); `max_party` 8 |
 | `admin-booking-settings` | Danaksara | `auto_confirm`; the last open day |
 | `admin-closures` | Phố Cuốn; the MM Supercenter (Yum Food Village, ChaoShan Hotpot) | +5; a destination closure at +11 |
 | `booking-acceptance` | Yum Food Village | +3, +4, +12, +13, yesterday; dinner hours, covers and `max_party` |

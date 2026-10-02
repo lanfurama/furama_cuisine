@@ -9,6 +9,7 @@ import { requirePagePermission } from '@/lib/server/dal/session';
 import { isValidIsoDate } from '@/lib/venue-time';
 import { SectionNav } from '../_ui/SectionNav';
 import { NewReservationForm, type SlotOption } from './NewReservationForm';
+import { TargetPicker } from './TargetPicker';
 
 // Request-time like the whole admin (app/admin/layout.tsx); also opts navigations between admin pages out of dev instant validation (instant-navigation.md:568).
 export const instant = false;
@@ -19,10 +20,12 @@ type Search = { nha_hang?: string | string[]; ngay?: string | string[] };
 const one = (v: string | string[] | undefined) => (typeof v === 'string' ? v : undefined);
 
 /*
- * Two steps on one page: a GET form picks the restaurant and the date, so the
+ * Two steps on one page: the picker chooses the restaurant and the date (it
+ * navigates on change; as a GET form it also works before hydration), so the
  * slot list is the server's planDay for that day (closures included) with the
  * covers held now; the booking form then posts the rest to createReservation,
- * which checks again under the booking-day lock.
+ * which checks again under the booking-day lock. The form names its target,
+ * and refuses to post while the picker shows another one (TargetPicker).
  */
 export default async function NewReservationPage({ searchParams }: { searchParams: Promise<Search> }) {
   await requirePagePermission({ reservations: ['create'] });
@@ -52,44 +55,29 @@ export default async function NewReservationPage({ searchParams }: { searchParam
       <SectionNav current="/admin/reservations/new" />
       <h1>Tạo đặt bàn</h1>
       <p className="a-lede">Đặt qua điện thoại (đã xác nhận) hoặc khách vãng lai (đã đến, chỉ trong hôm nay).</p>
-      <form className="a-filter" action="/admin/reservations/new">
-        <div className="a-field">
-          <label htmlFor="res-new-pick-restaurant">Nhà hàng</label>
-          <select id="res-new-pick-restaurant" name="nha_hang" defaultValue={restaurantId}>
-            {restaurants.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="a-field">
-          <label htmlFor="res-new-pick-date">Ngày</label>
-          <input id="res-new-pick-date" name="ngay" type="date" defaultValue={date} min={today} />
-        </div>
-        <button className="a-btn a-btn--ghost" type="submit">
-          Xem giờ trống
-        </button>
-      </form>
-      {loaded ? (
-        <>
-          <h2>{`${loaded.rules.restaurantName} · ${formatIsoDayVi(date)}`}</h2>
-          {closedMeals.length ? <p className="a-warn">{`Đóng cửa ngày này: ${closedMeals.join(', ')}.`}</p> : null}
-          {slots.length === 0 ? (
-            <p className="a-lede">Ngày này nhà hàng không có ca nào mở.</p>
-          ) : (
-            <NewReservationForm
-              key={`${restaurantId}|${date}`}
-              restaurantId={loaded.rules.restaurantId}
-              date={date}
-              walkInAllowed={date === today}
-              slots={slots}
-              locales={locales.map((l) => ({ code: l.code, name: l.name }))}
-              defaultLocale={defaultLocale}
-            />
-          )}
-        </>
-      ) : null}
+      <TargetPicker restaurants={restaurants} loaded={{ restaurant: restaurantId ?? '', date }} today={today}>
+        {loaded ? (
+          <>
+            <h2>{`${loaded.rules.restaurantName} · ${formatIsoDayVi(date)}`}</h2>
+            {closedMeals.length ? <p className="a-warn">{`Đóng cửa ngày này: ${closedMeals.join(', ')}.`}</p> : null}
+            {slots.length === 0 ? (
+              <p className="a-lede">Ngày này nhà hàng không có ca nào mở.</p>
+            ) : (
+              <NewReservationForm
+                key={`${restaurantId}|${date}`}
+                restaurantId={loaded.rules.restaurantId}
+                restaurantName={loaded.rules.restaurantName}
+                date={date}
+                dateLabel={formatIsoDayVi(date)}
+                walkInAllowed={date === today}
+                slots={slots}
+                locales={locales.map((l) => ({ code: l.code, name: l.name }))}
+                defaultLocale={defaultLocale}
+              />
+            )}
+          </>
+        ) : null}
+      </TargetPicker>
     </>
   );
 }

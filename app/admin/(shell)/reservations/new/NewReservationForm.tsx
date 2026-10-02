@@ -1,28 +1,57 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState, type FormEvent } from 'react';
 import { submitKeepingValues } from '@/lib/admin/form';
 import type { ActionResult } from '@/lib/server/action-result';
+import { isValidIsoDate } from '@/lib/venue-time';
 import { FieldError, FormMessage } from '../../_ui/FormMessage';
 import { createReservation } from '../actions';
+import { usePickedTarget } from './TargetPicker';
 
 export type SlotOption = { time: string; label: string };
 
+/*
+ * Posts to the target the page was rendered for (the hidden restaurant and
+ * date), which the line at the top names. The page keys this form on that
+ * target, so a new pick remounts it with the new times.
+ */
 export function NewReservationForm(props: {
   restaurantId: string;
+  restaurantName: string;
   date: string;
+  dateLabel: string;
   walkInAllowed: boolean;
   slots: SlotOption[];
   locales: { code: string; name: string }[];
   defaultLocale: string;
 }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(createReservation, null);
+  const picked = usePickedTarget();
+  const [refused, setRefused] = useState(false);
   const err = (name: string) => `res-new-${name}-error`;
+  // The picker no longer shows this form's target: its times are the old target's, so posting would book there.
+  const stale = !!picked && (picked.restaurant !== props.restaurantId || picked.date !== props.date);
+  const submit = submitKeepingValues(action);
+  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (stale) {
+      event.preventDefault();
+      setRefused(true);
+      return;
+    }
+    setRefused(false);
+    submit(event);
+  };
   return (
-    <form className="a-grid-form" method="post" onSubmit={submitKeepingValues(action)} noValidate aria-label="Đặt bàn mới">
+    <form className="a-grid-form" method="post" onSubmit={onSubmit} noValidate aria-label="Đặt bàn mới">
       <input type="hidden" name="restaurant" value={props.restaurantId} />
       <input type="hidden" name="date" value={props.date} />
       <FormMessage state={state} />
+      {/* Where this booking goes, said where staff act; a refused date (past, or walk-in not today) is reported here. */}
+      <div className="a-field a-field--wide">
+        <p className="a-target">{`Đặt tại: ${props.restaurantName} · ${props.dateLabel}`}</p>
+        <FieldError state={state} name="restaurant" id={err('restaurant')} />
+        <FieldError state={state} name="date" id={err('date')} />
+      </div>
       <fieldset className="a-field a-field--wide">
         <legend>Nguồn</legend>
         <label className="a-check">
@@ -33,7 +62,6 @@ export function NewReservationForm(props: {
           <input type="radio" name="source" value="walk_in" disabled={!props.walkInAllowed} />
           Khách vãng lai (đã đến)
         </label>
-        <FieldError state={state} name="date" id={err('date')} />
       </fieldset>
       <div className="a-field">
         <label htmlFor="res-new-time">Giờ</label>
@@ -87,6 +115,13 @@ export function NewReservationForm(props: {
         <input id="res-new-over" name="overCapacityReason" maxLength={500} aria-describedby={err('overCapacityReason')} />
         <FieldError state={state} name="overCapacityReason" id={err('overCapacityReason')} />
       </div>
+      {refused && stale ? (
+        <p className="a-alert" role="alert">
+          {picked && !isValidIsoDate(picked.date)
+            ? 'Chọn ngày ở ô Ngày phía trên, rồi bấm lại.'
+            : 'Đang tải giờ trống của nhà hàng và ngày vừa chọn; bấm lại khi danh sách giờ hiện ra.'}
+        </p>
+      ) : null}
       <button className="a-btn" type="submit" disabled={pending}>
         {pending ? 'Đang tạo…' : 'Tạo đặt bàn'}
       </button>

@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getPool } from '@/db/client';
 import { formatLongDateVi } from '@/lib/admin/format';
+import { HOLDING_STATUSES } from '@/lib/booking/rules';
 import { serviceDay } from '@/lib/reservations/lifecycle';
-import { daySheet, listNotes, listRestaurantOptions } from '@/lib/server/booking/queries';
+import { daySheet, listNotes, listRestaurantOptions, type SheetRow } from '@/lib/server/booking/queries';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { addDays, isValidIsoDate } from '@/lib/venue-time';
 import { SectionNav } from '../_ui/SectionNav';
@@ -70,64 +71,76 @@ export default async function DaySheetPage({ searchParams }: { searchParams: Pro
       {sheet.length === 0 ? <p className="a-lede">Không có đặt bàn nào trong ngày.</p> : null}
       {sheet.map((r) => (
         <section className="a-sheet" key={r.id} aria-label={r.name}>
-          <h2>{`${r.name} · ${r.periods.flatMap((p) => p.slots).reduce((n, s) => n + s.booked, 0)} khách`}</h2>
+          {/* Every booking that holds covers counts, its time still a slot or not: the host seats them all. */}
+          <h2>{`${r.name} · ${r.reservations.filter(holds).reduce((n, x) => n + x.guests, 0)} khách`}</h2>
           {r.periods.map((period) => {
-            const bookings = r.reservations.filter((x) => period.slots.some((s) => s.time === x.time));
+            const bookings = period.slots.flatMap((slot) =>
+              r.reservations
+                .filter((x) => x.time === slot.time)
+                // The slot's load once, on its first booking.
+                .map((x, i) => ({ booking: x, load: i === 0 ? `${slot.booked}/${slot.capacity}` : '' })),
+            );
             return (
               <div key={period.periodId} className="a-sheet-service">
                 <h3>{`${period.meal}${period.closed ? ' · đóng cửa' : ''}`}</h3>
-                {bookings.length === 0 ? (
-                  <p className="a-muted">Chưa có đặt bàn.</p>
-                ) : (
-                  <table className="a-table a-table--compact">
-                    <thead>
-                      <tr>
-                        <th scope="col">Giờ</th>
-                        <th scope="col">Chỗ</th>
-                        <th scope="col">Mã</th>
-                        <th scope="col">Khách</th>
-                        <th scope="col">Số khách</th>
-                        <th scope="col">Trạng thái</th>
-                        <th scope="col">Ghi chú</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {period.slots.flatMap((slot) =>
-                        bookings
-                          .filter((x) => x.time === slot.time)
-                          .map((x, i) => (
-                            <tr key={x.id}>
-                              {/* The time on every row (a printed sheet is read line by line); the slot's load once. */}
-                              <td>{slot.time}</td>
-                              <td>{i === 0 ? `${slot.booked}/${slot.capacity}` : ''}</td>
-                              <td>
-                                <Link href={`/admin/reservations/${x.id}`}>{x.reference}</Link>
-                              </td>
-                              <td>{`${x.name} · ${x.phone}`}</td>
-                              <td>{x.guests}</td>
-                              <td>
-                                <StatusBadge status={x.status} />
-                              </td>
-                              <td>
-                                {x.note ? <span>{`Khách: ${x.note}`}</span> : null}
-                                {(notes.get(x.id) ?? []).map((n) => (
-                                  <span className="a-sub" key={n.id}>{`Nội bộ: ${n.body}`}</span>
-                                ))}
-                              </td>
-                            </tr>
-                          )),
-                      )}
-                    </tbody>
-                  </table>
-                )}
+                {bookings.length === 0 ? <p className="a-muted">Chưa có đặt bàn.</p> : <SheetTable rows={bookings} notes={notes} />}
               </div>
             );
           })}
           {r.outside.length ? (
-            <p className="a-warn">{`Ngoài giờ phục vụ hiện tại: ${r.outside.map((x) => `${x.time} ${x.reference} (${x.guests})`).join(', ')}`}</p>
+            // Booked before the hours changed: no slot (so no load), but the host still greets, calls and seats them.
+            <div className="a-sheet-service">
+              <h3>Ngoài giờ phục vụ hiện tại</h3>
+              <p className="a-warn">Giờ của các đặt bàn này không còn trong ca phục vụ hiện tại.</p>
+              <SheetTable rows={r.outside.map((x) => ({ booking: x, load: '' }))} notes={notes} />
+            </div>
           ) : null}
         </section>
       ))}
     </>
+  );
+}
+
+const holds = (x: SheetRow) => (HOLDING_STATUSES as readonly string[]).includes(x.status);
+
+/** A service's bookings, or those outside the current hours, with the columns the host reads. */
+function SheetTable({ rows, notes }: { rows: { booking: SheetRow; load: string }[]; notes: Awaited<ReturnType<typeof listNotes>> }) {
+  return (
+    <table className="a-table a-table--compact">
+      <thead>
+        <tr>
+          <th scope="col">Giờ</th>
+          <th scope="col">Chỗ</th>
+          <th scope="col">Mã</th>
+          <th scope="col">Khách</th>
+          <th scope="col">Số khách</th>
+          <th scope="col">Trạng thái</th>
+          <th scope="col">Ghi chú</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map(({ booking: x, load }) => (
+          <tr key={x.id}>
+            {/* The time on every row: a printed sheet is read line by line. */}
+            <td>{x.time}</td>
+            <td>{load}</td>
+            <td>
+              <Link href={`/admin/reservations/${x.id}`}>{x.reference}</Link>
+            </td>
+            <td>{`${x.name} · ${x.phone}`}</td>
+            <td>{x.guests}</td>
+            <td>
+              <StatusBadge status={x.status} />
+            </td>
+            <td>
+              {x.note ? <span>{`Khách: ${x.note}`}</span> : null}
+              {(notes.get(x.id) ?? []).map((n) => (
+                <span className="a-sub" key={n.id}>{`Nội bộ: ${n.body}`}</span>
+              ))}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

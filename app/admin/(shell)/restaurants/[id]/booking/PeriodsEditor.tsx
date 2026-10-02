@@ -35,11 +35,15 @@ const WEEKDAYS: [number, string][] = [
  */
 export function PeriodsEditor({ restaurantId, token, meals, periods }: { restaurantId: string; token: string; meals: string[]; periods: PeriodRow[] }) {
   const [rows, setRows] = useState<PeriodRow[]>(periods);
-  const [shownToken, setShownToken] = useState(token);
-  // A save re-renders the page with a new token: take the saved rows (new ids included) during
-  // render, not in an effect, and keep the action's "Đã lưu" state (a key would remount and lose it).
-  if (token !== shownToken) {
-    setShownToken(token);
+  // Resync on this editor's own data, not on the token: every save on the page (the rules form's too)
+  // moves the shared token (R16), and resetting on it threw away unsaved edits here whenever the rules
+  // were saved. When the stored periods do change (a save here, new ids included, or someone else's),
+  // take them during render, not in an effect, and keep the action's "Đã lưu" state (a key would
+  // remount and lose it). The hidden token input still reads the current token.
+  const stored = JSON.stringify(periods);
+  const [shownPeriods, setShownPeriods] = useState(stored);
+  if (stored !== shownPeriods) {
+    setShownPeriods(stored);
     setRows(periods);
   }
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(savePeriods, null);

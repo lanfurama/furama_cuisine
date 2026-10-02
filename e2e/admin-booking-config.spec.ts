@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { expectHydrated, watchCsp } from './csp';
 import { HOME_PATH } from './paths';
 import { reservationRow, seedReservation, venueDay } from './reservation-fixtures';
@@ -9,8 +9,9 @@ import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures'
  * hours and capacity, the preview shows them in the same response and a guest
  * sees the new slots at once; a max_party override stops the guest's stepper;
  * the bookings new hours leave out are listed, and cancelled only when
- * ticked. Thai Siam Kitchen's periods and Hura Izakaya's rules: no other spec
- * reads them. Each test puts back what it changed.
+ * ticked; a save in one form keeps what was typed in the other. Thai Siam
+ * Kitchen's periods and overrides (max_party, window_days) and Hura Izakaya's
+ * rules: no other spec reads them. Each test puts back what it changed.
  */
 
 test.beforeAll(() => seedStaff());
@@ -170,6 +171,55 @@ test('the periods editor keeps showing what it will post, after a refused save a
   } finally {
     await one(SEED_PERIODS);
     await one(SEED_DINNER);
+    await one(CLEAR_AUDIT);
+  }
+});
+
+test('a save in one form keeps what was typed, unsaved, in the other', async ({ page }) => {
+  // The online-booking switch stays as it is (R14: only *.serial specs may toggle it); the overrides and covers do the work.
+  try {
+    await signInAs(page, STAFF.editor);
+    await page.goto('/admin/restaurants/thai-siam-kitchen/booking');
+    await expectHydrated(page);
+    const rules = page.getByRole('form', { name: 'Quy tắc đặt bàn' });
+    const periods = page.getByRole('form', { name: 'Ca phục vụ' });
+    const maxParty = rules.getByLabel('Số khách tối đa', { exact: true });
+    const windowDays = rules.getByLabel('Số ngày đặt trước', { exact: true });
+    const dinnerCovers = periods.getByLabel('Sức chứa của ca Dinner', { exact: true });
+    // Both forms carry the restaurant's one token (R16): once it moves, the page has re-rendered after the save.
+    const token = periods.locator('input[name="token"]');
+    const saveAndWait = async (form: Locator, button: string) => {
+      const before = await token.inputValue();
+      await form.getByRole('button', { name: button }).click();
+      await expect(token).not.toHaveValue(before);
+    };
+
+    // (1) The rules typed and not saved survive a periods save.
+    await maxParty.fill('9');
+    await windowDays.fill('20');
+    await dinnerCovers.fill('18');
+    await saveAndWait(periods, 'Lưu ca phục vụ');
+    await expect(periods.getByRole('status')).toHaveText('Đã lưu ca phục vụ.');
+    await expect(maxParty).toHaveValue('9');
+    await expect(windowDays).toHaveValue('20');
+    await saveAndWait(rules, 'Lưu quy tắc');
+    await expect(rules.getByRole('status')).toHaveText('Đã lưu.');
+    expect(await one(`SELECT max_party, window_days FROM restaurants WHERE id = 'thai-siam-kitchen'`)).toEqual({ max_party: 9, window_days: 20 });
+
+    // (2) And the other way round: covers typed and not saved survive a rules save.
+    await dinnerCovers.fill('12');
+    await maxParty.fill('10');
+    await saveAndWait(rules, 'Lưu quy tắc');
+    await expect(maxParty).toHaveValue('10');
+    await expect(dinnerCovers).toHaveValue('12');
+    await saveAndWait(periods, 'Lưu ca phục vụ');
+    await expect(periods.getByRole('status')).toHaveText('Đã lưu ca phục vụ.');
+    expect(await one(`SELECT covers_per_slot FROM service_periods WHERE restaurant_id = 'thai-siam-kitchen' AND meal = 'Dinner'`)).toEqual({ covers_per_slot: 12 });
+    expect(await one(`SELECT max_party, window_days FROM restaurants WHERE id = 'thai-siam-kitchen'`)).toEqual({ max_party: 10, window_days: 20 });
+  } finally {
+    await one(SEED_PERIODS);
+    await one(SEED_DINNER);
+    await one(`UPDATE restaurants SET max_party = NULL, window_days = NULL WHERE id = 'thai-siam-kitchen'`);
     await one(CLEAR_AUDIT);
   }
 });

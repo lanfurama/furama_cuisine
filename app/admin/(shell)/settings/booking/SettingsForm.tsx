@@ -35,7 +35,8 @@ export function SettingsForm({ settings: s }: { settings: BookingSettings }) {
         <FieldError state={state} name="maxParty" id={err('maxParty')} />
       </div>
       <div className="a-field">
-        <label htmlFor="settings-booking-pii">Giữ dữ liệu khách (tháng)</label>
+        {/* Stored now, applied by phase 10's anonymiser: the label says so, like the email checkbox's "(từ đợt 5)". */}
+        <label htmlFor="settings-booking-pii">Giữ dữ liệu khách (tháng, từ đợt 10)</label>
         <input
           id="settings-booking-pii"
           name="piiRetentionMonths"

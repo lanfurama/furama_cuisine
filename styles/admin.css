@@ -398,6 +398,12 @@ body.admin {
   font-size: 14px;
 }
 
+/* "Đặt tại: …" at the top of the new-booking form: where the booking goes, read before anything is typed. */
+.a-target {
+  margin: 0;
+  font-weight: 600;
+}
+
 .a-subnav,
 .a-tabs {
   display: flex;

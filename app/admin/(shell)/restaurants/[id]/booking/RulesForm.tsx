@@ -14,8 +14,18 @@ export function RulesForm({ restaurant: r, defaults }: { restaurant: Rules; defa
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(saveRules, null);
   const err = (name: string) => `booking-rules-${name}-error`;
   return (
-    // key: a save (here or in the periods editor) moves the token; the inputs take the saved values, the hook state stays.
-    <form className="a-grid-form" method="post" onSubmit={submitKeepingValues(action)} key={r.token} noValidate aria-label="Quy tắc đặt bàn">
+    // key: this form's own values, not the token. Every save on the page (the periods editor's too) moves the
+    // shared token (R16), and a token key reset unsaved input here to the old values, which a later save then
+    // wrote back with "Đã lưu". Keyed on its data, the form still takes new values saved here or elsewhere;
+    // the hook state above stays. The hidden token input below reads the new token either way.
+    <form
+      className="a-grid-form"
+      method="post"
+      onSubmit={submitKeepingValues(action)}
+      key={`${r.bookingEnabled}|${r.windowDays}|${r.leadMinutes}|${r.maxParty}`}
+      noValidate
+      aria-label="Quy tắc đặt bàn"
+    >
       <input type="hidden" name="restaurant" value={r.id} />
       <input type="hidden" name="token" value={r.token} />
       <FormMessage state={state} success="Đã lưu." />
