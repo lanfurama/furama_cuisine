@@ -39,6 +39,8 @@ export type ActionCode =
   /** Same restaurant, date, time and phone as an active booking (reservations_dedupe_v2_idx). */
   | 'duplicate'
   // Email (spec §10.4).
+  /** "Gửi lại" on an email that was sent, skipped, or is being sent right now. */
+  | 'not_resendable'
   /** "Gửi email thử" did not go out; params.error is describeEmailError's "<code>: <message>" (no address). */
   | 'email_failed';
 

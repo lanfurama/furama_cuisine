@@ -77,7 +77,11 @@ const BOOKING_ACTIONS: Record<string, Record<string, { permission: object; edito
   'app/admin/(shell)/settings/booking/actions.ts': {
     saveSettings: { permission: { settings: ['update'] }, editor: false },
   },
-  // Phase 5: "Cài đặt … thông báo" is Admin only (spec §7.1); "Gửi email thử" sends to any address typed.
+  // Phase 5: "Gửi lại" is a booking action for both roles; "Cài đặt … thông báo" is Admin only (spec §7.1),
+  // and "Gửi email thử" sends to any address typed.
+  'app/admin/(shell)/reservations/emails/actions.ts': {
+    resendEmail: { permission: { reservations: ['update'] }, editor: true },
+  },
   'app/admin/(shell)/settings/notifications/actions.ts': {
     addRecipient: { permission: { settings: ['update'] }, editor: false },
     editRecipient: { permission: { settings: ['update'] }, editor: false },

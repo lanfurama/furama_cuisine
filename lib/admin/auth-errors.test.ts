@@ -85,6 +85,7 @@ describe('"Gửi email thử" failures (R9)', () => {
       `Không gửi được email thử. Máy chủ SMTP từ chối tài khoản đăng nhập: kiểm tra SMTP_USER và SMTP_PASSWORD. (${stored})`,
     );
     expect(actionErrorMessage('email_failed')).toBe('Không gửi được email thử.');
+    expect(actionErrorMessage('not_resendable')).toBe('Email này đã gửi, đã bỏ qua hoặc đang được gửi, nên không gửi lại được. Hãy tải lại trang.');
   });
 });
 

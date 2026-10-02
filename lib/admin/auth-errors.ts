@@ -60,6 +60,7 @@ const ACTION_MESSAGES: Record<ActionCode, string> = {
   closed: 'Nhà hàng đóng cửa vào bữa này trong ngày đã chọn.',
   slot_unavailable: 'Giờ này không nằm trong ca phục vụ của ngày đã chọn.',
   duplicate: 'Số điện thoại này đã có một đặt bàn đang hoạt động cùng nhà hàng, ngày và giờ.',
+  not_resendable: 'Email này đã gửi, đã bỏ qua hoặc đang được gửi, nên không gửi lại được. Hãy tải lại trang.',
   email_failed: 'Không gửi được email thử.',
 };
 

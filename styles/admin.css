@@ -784,3 +784,29 @@ fieldset.a-field legend {
   display: inline-block;
   margin: 8px 0;
 }
+
+/* Email statuses (email_outbox.status; "sending" = claimed by a sender right now). */
+.a-status--email-queued,
+.a-status--email-sending { background: #fff4d6; color: #7a5300; }
+.a-status--email-sent { background: #e3f1e6; color: #1d5a2c; }
+.a-status--email-failed { background: #fbe3e1; color: #8a1f17; }
+.a-status--email-skipped { background: #ecebe7; color: #56605b; }
+
+/* A stored SMTP error: long and technical. Wide enough to read, broken only between words when it can. */
+.a-error-text {
+  display: block;
+  min-width: 20ch;
+  max-width: 40ch;
+  overflow-wrap: break-word;
+  font-size: 13px;
+  color: var(--a-ink-soft);
+}
+
+/* A wide table scrolls inside its own box on a phone instead of widening the page. */
+.a-table-scroll {
+  overflow-x: auto;
+}
+
+.a-resend .a-btn {
+  white-space: nowrap;
+}

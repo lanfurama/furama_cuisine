@@ -42,3 +42,6 @@ export const TestEmailForm = z.object({
   event: z.enum(EMAIL_EVENTS, { error: 'Chọn loại email.' }),
   locale: LocaleCode,
 });
+
+/** "Gửi lại": the email_outbox row. */
+export const RequeueForm = z.object({ id: Id });

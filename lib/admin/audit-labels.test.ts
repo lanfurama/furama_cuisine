@@ -53,11 +53,11 @@ describe('audit labels', () => {
     ]);
   });
 
-  it('names every entity the email settings write to audit_log', () => {
-    const source = readFileSync('lib/server/email/recipients.ts', 'utf8');
+  it('names every entity the email screens write to audit_log', () => {
+    const source = ['lib/server/email/recipients.ts', 'lib/server/email/outbox-log.ts'].map((f) => readFileSync(f, 'utf8')).join('\n');
     const entities = [...new Set([...source.matchAll(/entityType: '([a-z_]+)'/g)].map((m) => m[1]))].sort();
-    expect(entities).toEqual(['notification_recipient', 'site_settings']);
-    expect(entities.map(auditEntityLabel)).toEqual(['Người nhận thông báo', 'Cài đặt chung']);
+    expect(entities).toEqual(['email_outbox', 'notification_recipient', 'site_settings']);
+    expect(entities.map(auditEntityLabel)).toEqual(['Email', 'Người nhận thông báo', 'Cài đặt chung']);
   });
 
   it('names every configuration entity the booking screens write to audit_log', () => {

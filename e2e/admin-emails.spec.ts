@@ -2,15 +2,18 @@ import { randomBytes } from 'node:crypto';
 import type { Page } from '@playwright/test';
 import { expectHydrated, watchCsp } from './csp';
 import { emailsTo } from './email-log';
+import { seedReservation, venueDay } from './reservation-fixtures';
 import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures';
 
 /*
- * Phase 5 email screens (spec §7.2): the Admin's "Thông báo email"
- * (recipients, the restaurants left to the shared inbox, "Gửi email thử").
- * The server runs EMAIL_DELIVERY=log, so a "sent" email is a line in
- * EMAIL_LOG_FILE. Data: recipients on Hura Izakaya under a fresh address,
- * removed afterwards. No spec running beside this one may add an 'all' or a
- * 'destination' recipient: booking-email expects the general inbox.
+ * Phase 5 email screens (spec §7.2): the email log with "Gửi lại", the
+ * booking's own emails, the overview's counts, and the Admin's "Thông báo
+ * email" (recipients, the restaurants left to the shared inbox, "Gửi email
+ * thử"). The server runs EMAIL_DELIVERY=log, so a "sent" email is a line in
+ * EMAIL_LOG_FILE. Data: Hải Vân Lounge +40 (no other spec books that far),
+ * recipients on Hura Izakaya under a fresh address, removed afterwards. No
+ * spec running beside this one may add an 'all' or a 'destination'
+ * recipient: booking-email expects the general inbox.
  */
 
 test.beforeAll(() => seedStaff());
@@ -19,6 +22,82 @@ test.use({ reducedMotion: 'reduce' });
 const main = (page: Page) => page.getByRole('main');
 const nav = (page: Page) => page.getByRole('navigation', { name: 'Điều hướng quản trị' });
 const unique = () => randomBytes(3).toString('hex');
+
+/** A guest.confirmed email for a fresh confirmed booking, as the sender left it: failed after 7 sends. */
+async function failedEmail(to: string): Promise<{ reservationId: string; reference: string; outboxId: string }> {
+  const r = await seedReservation({ restaurant: 'hai-van-lounge', date: venueDay(40), status: 'confirmed', meal: 'Dinner' });
+  await one(`UPDATE reservations SET email = $2 WHERE id = $1`, [r.id, to]);
+  const row = await one<{ id: string }>(
+    `INSERT INTO email_outbox (env, event, audience, reservation_id, to_email, locale, status, attempts, last_error)
+     VALUES ('development', 'guest.confirmed', 'guest', $1, $2, 'en', 'failed', 7, 'provider_error: SMTP ETIMEDOUT at CONN: Greeting never received')
+     RETURNING id::text`,
+    [r.id, to],
+  );
+  return { reservationId: r.id, reference: r.reference, outboxId: row!.id };
+}
+
+test('an Editor finds a failed email on the overview and the log, masked, and sends it again', async ({ page }) => {
+  const guest = `khach.${unique()}@guest.test`;
+  const { reservationId, reference, outboxId } = await failedEmail(guest);
+  const violations = await watchCsp(page);
+  await signInAs(page, STAFF.editor);
+  await expect(main(page).getByTestId('failed-emails')).toContainText('email lỗi');
+  // Not the Admin's: no "chưa có người nhận" section.
+  await expect(main(page).getByTestId('uncovered-restaurants')).toHaveCount(0);
+
+  await page.goto('/admin/reservations/emails?tab=failed');
+  await expectHydrated(page);
+  await expect(main(page).getByTestId('delivery-mode')).toContainText('chỉ ghi log');
+  await expect(main(page).getByText('sau 1 phút, 5 phút, 15 phút, 1 giờ, 6 giờ, 12 giờ')).toBeVisible();
+  const row = main(page).getByRole('row').filter({ hasText: reference });
+  await expect(row).toContainText('Khách: đã xác nhận');
+  await expect(row).toContainText(`k•••@guest.test`);
+  await expect(row).not.toContainText(guest);
+  await expect(row).toContainText('7 lần gửi');
+  await expect(row).toContainText('SMTP ETIMEDOUT');
+
+  await row.getByRole('button', { name: `Gửi lại Khách: đã xác nhận ${reference}` }).click();
+  await expect(row.getByRole('status')).toContainText('Đã đưa vào hàng gửi');
+  // The send runs in after(): the row turns sent once the response is out.
+  await expect.poll(async () => (await one<{ status: string }>(`SELECT status FROM email_outbox WHERE id = $1`, [outboxId]))?.status, { timeout: 10_000 }).toBe('sent');
+  const [email] = emailsTo(guest);
+  expect(email.subject).toBe(`Your table is confirmed (${reference})`);
+  expect(email.text).toContain('Your table at Hải Vân Lounge is confirmed.');
+  expect(await one(`SELECT actor_id, before, after FROM audit_log WHERE entity_type = 'email_outbox' AND entity_id = $1`, [outboxId])).toEqual({
+    actor_id: STAFF.editor.id,
+    before: { status: 'failed', attempts: 7 },
+    after: { status: 'queued' },
+  });
+
+  // The booking shows its email, in full, sent on the first fresh attempt.
+  await page.goto(`/admin/reservations/${reservationId}`);
+  const emails = main(page).getByRole('table', { name: 'Email của đặt bàn' });
+  await expect(emails.getByRole('row').filter({ hasText: guest })).toContainText('Đã gửi');
+  await expect(emails.getByRole('row').filter({ hasText: guest })).toContainText('1 lần gửi');
+  expect(violations).toEqual([]);
+});
+
+test('"Gửi lại" is refused for an email that was sent meanwhile', async ({ page }) => {
+  const guest = `khach.${unique()}@guest.test`;
+  const { reference, outboxId } = await failedEmail(guest);
+  await signInAs(page, STAFF.editor);
+  await page.goto('/admin/reservations/emails?tab=failed');
+  await expectHydrated(page);
+  const row = main(page).getByRole('row').filter({ hasText: reference });
+  // Meanwhile the cron sent it.
+  await one(`UPDATE email_outbox SET status = 'sent', sent_at = now() WHERE id = $1`, [outboxId]);
+  await row.getByRole('button', { name: /^Gửi lại/ }).click();
+  await expect(row.getByRole('alert')).toContainText('không gửi lại được');
+});
+
+test('the Admin’s overview names the restaurants whose new-booking email goes to the shared inbox', async ({ page }) => {
+  await signInAs(page, STAFF.admin);
+  const uncovered = main(page).getByTestId('uncovered-restaurants');
+  await expect(uncovered).toContainText('Café Indochine');
+  await expect(uncovered).toContainText('hộp thư chung');
+  await main(page).getByRole('link', { name: 'Mở Thông báo email để thêm người nhận' }).click();
+  await expect(page.getByRole('heading', { name: 'Thông báo email', level: 1 })).toBeVisible();
+});
 
 test('an Editor has no notification settings: no menu item, and the 403 view', async ({ page }) => {
   await signInAs(page, STAFF.editor);

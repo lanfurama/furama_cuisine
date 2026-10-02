@@ -3,7 +3,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import type { EmailEvent } from '@/lib/email/events';
 import { loadBookingEmailData } from '@/lib/server/email/booking/load';
 import { renderOutboxEmail } from '@/lib/server/email/booking/render';
+import { MAX_ATTEMPTS } from '@/lib/server/email/drain';
 import { queueStaffNew } from '@/lib/server/email/outbox';
+import { EMAIL_LOG_PAGE_SIZE, emailOverview, listEmailLog, listReservationEmails, requeueEmail } from '@/lib/server/email/outbox-log';
 import {
   createRecipient,
   deleteRecipient,
@@ -76,6 +78,40 @@ async function seedReservation(over: { status?: string; email?: string | null; l
   );
   return rows[0].id;
 }
+
+/** An outbox row about booking `reservationId`, as a sender would have left it. */
+async function queue(
+  reservationId: string,
+  over: { event?: string; to?: string; env?: string; status?: string; attempts?: number; locale?: string; lockedFor?: string; createdAt?: string } = {},
+) {
+  const event = over.event ?? 'guest.confirmed';
+  const { rows } = await pool.query<{ id: string }>(
+    `INSERT INTO email_outbox (env, event, audience, reservation_id, to_email, locale, status, attempts, locked_until, sent_at, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + $9::interval, CASE WHEN $7 = 'sent' THEN now() END, coalesce($10::timestamptz, now()))
+     RETURNING id::text`,
+    [
+      over.env ?? 'development',
+      event,
+      event.startsWith('staff.') ? 'staff' : 'guest',
+      reservationId,
+      over.to ?? 'anh.nguyen@guest.vn',
+      over.locale ?? 'en',
+      over.status ?? 'queued',
+      over.attempts ?? 0,
+      over.lockedFor ?? null,
+      over.createdAt ?? null,
+    ],
+  );
+  return rows[0].id;
+}
+
+const outbox = async (id: string) =>
+  (
+    await pool.query<{ status: string; attempts: number; locked_until: Date | null; next_in_minutes: number }>(
+      `SELECT status, attempts, locked_until, round(extract(epoch FROM next_attempt_at - now()) / 60)::int AS next_in_minutes FROM email_outbox WHERE id = $1`,
+      [id],
+    )
+  ).rows[0];
 
 /** What the drain renders for an outbox row of `event` in `locale` about booking `id`. */
 async function render(event: EmailEvent, id: string, locale: string) {
@@ -291,6 +327,96 @@ describe.skipIf(!TEST_DATABASE_URL)('email screens and templates (database)', ()
       expect(JSON.stringify(failed)).not.toContain('@');
       expect(errors.mock.calls).toEqual([['[email] test send failed', { code: 'provider_error' }]]);
       errors.mockRestore();
+    });
+  });
+
+  describe('the email log', () => {
+    it('lists this env only, newest first, by status, 50 a page with a keyset cursor', async () => {
+      const id = await seedReservation();
+      const mine: string[] = [];
+      for (let i = 0; i < EMAIL_LOG_PAGE_SIZE + 2; i += 1) {
+        mine.push(await queue(id, { createdAt: `2026-10-01T00:${String(i).padStart(2, '0')}:00Z`, status: i % 2 ? 'failed' : 'sent' }));
+      }
+      await queue(id, { env: 'production', status: 'failed' });
+      const held = await queue(id, { status: 'sending', lockedFor: '1 minute' });
+      const first = await listEmailLog(pool, { env: 'development', tab: 'all' });
+      expect(first.rows).toHaveLength(EMAIL_LOG_PAGE_SIZE);
+      expect(first.rows[0].id).toBe(held);
+      const second = await listEmailLog(pool, { env: 'development', tab: 'all', after: first.next });
+      expect(second.rows.map((r) => r.id)).toEqual([mine[2], mine[1], mine[0]]);
+      expect(second.next).toBeNull();
+      expect((await listEmailLog(pool, { env: 'development', tab: 'failed' })).rows.every((r) => r.status === 'failed')).toBe(true);
+      // "Đang chờ" shows the rows a sender holds too.
+      expect((await listEmailLog(pool, { env: 'development', tab: 'queued' })).rows.map((r) => [r.id, r.status])).toEqual([[held, 'sending']]);
+      // A cursor that is not one is ignored, not an error.
+      expect((await listEmailLog(pool, { env: 'development', tab: 'all', after: "1'; DROP TABLE x" })).rows).toHaveLength(EMAIL_LOG_PAGE_SIZE);
+      expect((await listReservationEmails(pool, id, 'production')).map((r) => r.status)).toEqual(['failed']);
+      expect(first.rows[1]).toMatchObject({ reservationId: id, restaurantName: 'Tàya House', event: 'guest.confirmed', audience: 'guest', toEmail: 'anh.nguyen@guest.vn' });
+    });
+
+    it('the overview counts this env’s failed emails and names the restaurants that fall back to the shared inbox (R21)', async () => {
+      const id = await seedReservation();
+      await queue(id, { status: 'failed' });
+      await queue(id, { status: 'failed', env: 'production' });
+      await queue(id, { status: 'sent' });
+      const overview = await emailOverview(pool, 'development');
+      expect(overview.failed).toBe(1);
+      expect(overview.unrouted).toEqual(await restaurantsWithoutRecipient(pool));
+      expect(overview.unrouted.map((r) => r.id)).toContain('taya-house');
+      expect((await emailOverview(pool, 'production')).failed).toBe(1);
+      await createRecipient(pool, ADMIN, recipient({ scope: 'all', email: 'gm@furama.test' }));
+      expect(await emailOverview(pool, 'development')).toEqual({ failed: 1, unrouted: [] });
+    });
+  });
+
+  describe('"Gửi lại" (C9, R2)', () => {
+    it('puts a failed email back in the queue with fresh attempts, due now; a waiting one is just due now; each writes one audit row', async () => {
+      const id = await seedReservation({ status: 'confirmed' });
+      const failed = await queue(id, { status: 'failed', attempts: MAX_ATTEMPTS });
+      expect(await requeueEmail(pool, ADMIN, { id: failed, env: 'development' })).toEqual({ ok: true, data: { id: failed, reservationId: id } });
+      expect(await outbox(failed)).toMatchObject({ status: 'queued', attempts: 0, locked_until: null, next_in_minutes: 0 });
+      const waiting = await queue(id, { attempts: 2 });
+      await pool.query(`UPDATE email_outbox SET next_attempt_at = now() + interval '15 minutes' WHERE id = $1`, [waiting]);
+      expect((await requeueEmail(pool, ADMIN, { id: waiting, env: 'development' })).ok).toBe(true);
+      expect(await outbox(waiting)).toMatchObject({ status: 'queued', attempts: 2, next_in_minutes: 0 });
+      // The booking's timeline is untouched (R2); audit_log has the who and the what, no address.
+      expect((await pool.query('SELECT count(*)::int AS n FROM reservation_events')).rows[0].n).toBe(0);
+      const audit = (await pool.query(`SELECT actor_id, action, entity_type, entity_id, before, after FROM audit_log ORDER BY id`)).rows;
+      expect(audit).toEqual([
+        { actor_id: 'admin-1', action: 'update', entity_type: 'email_outbox', entity_id: failed, before: { status: 'failed', attempts: 7 }, after: { status: 'queued' } },
+        { actor_id: 'admin-1', action: 'update', entity_type: 'email_outbox', entity_id: waiting, before: { status: 'queued', attempts: 2 }, after: { status: 'queued' } },
+      ]);
+      expect(JSON.stringify(audit)).not.toContain('@guest.vn');
+    });
+
+    it('refuses a sent or skipped email, one a sender holds, and another env’s row', async () => {
+      const id = await seedReservation({ status: 'confirmed' });
+      const sent = await queue(id, { status: 'sent' });
+      const skipped = await queue(id, { status: 'skipped' });
+      const held = await queue(id, { status: 'sending', lockedFor: '1 minute' });
+      const prod = await queue(id, { status: 'failed', env: 'production' });
+      for (const target of [sent, skipped, held]) expect(await requeueEmail(pool, ADMIN, { id: target, env: 'development' })).toEqual({ ok: false, code: 'not_allowed' });
+      expect(await requeueEmail(pool, ADMIN, { id: prod, env: 'development' })).toEqual({ ok: false, code: 'not_found' });
+      expect(await outbox(held)).toMatchObject({ status: 'sending', locked_until: expect.any(Date) });
+      expect((await pool.query('SELECT count(*)::int AS n FROM audit_log')).rows[0].n).toBe(0);
+    });
+
+    it('decides on the row as it is once locked: a claim that lands first wins, and the requeue is refused', async () => {
+      const id = await seedReservation({ status: 'confirmed' });
+      const row = await queue(id, { status: 'failed', attempts: MAX_ATTEMPTS });
+      const sender = await pool.connect();
+      try {
+        // A sender's claim, not yet committed, holds the row.
+        await sender.query('BEGIN');
+        await sender.query(`UPDATE email_outbox SET status = 'sending', attempts = 1, locked_until = now() + interval '2 minutes' WHERE id = $1`, [row]);
+        const requeue = requeueEmail(pool, ADMIN, { id: row, env: 'development' });
+        await new Promise((done) => setTimeout(done, 200));
+        await sender.query('COMMIT');
+        expect(await requeue).toEqual({ ok: false, code: 'not_allowed' });
+      } finally {
+        sender.release();
+      }
+      expect(await outbox(row)).toMatchObject({ status: 'sending', attempts: 1 });
     });
   });
 });

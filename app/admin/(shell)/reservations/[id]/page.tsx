@@ -6,10 +6,17 @@ import { formatDateTimeVi, formatIsoDayVi } from '@/lib/admin/format';
 import { seatings } from '@/lib/booking/resolve-day';
 import { HOLDING_STATUSES } from '@/lib/booking/rules';
 import { fromMinutes } from '@/lib/venue-time';
+import { EMAIL_EVENT_LABELS } from '@/lib/email/events';
 import { SOURCE_LABELS, STATUS_LABELS, availableTransitions, opensAtMinutes } from '@/lib/reservations/lifecycle';
+import { roleCan } from '@/lib/server/auth/permissions';
 import { getReservation, listEvents, listNotes } from '@/lib/server/booking/queries';
 import { loadRestaurantRules } from '@/lib/server/booking/rules';
 import { requirePagePermission } from '@/lib/server/dal/session';
+import { outboxEnv } from '@/lib/server/email/env';
+import { listReservationEmails, resendable } from '@/lib/server/email/outbox-log';
+import { redactEmails } from '@/lib/server/email/types';
+import { EmailStatusBadge } from '../_ui/EmailStatusBadge';
+import { ResendEmail } from '../_ui/ResendEmail';
 import { SectionNav } from '../_ui/SectionNav';
 import { StatusBadge } from '../_ui/StatusBadge';
 import { EditReservationForm } from './EditReservationForm';
@@ -53,16 +60,18 @@ function describeChanges(changes: Record<string, unknown> | null): string | null
 }
 
 export default async function ReservationPage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePagePermission({ reservations: ['read'] });
+  const staff = await requirePagePermission({ reservations: ['read'] });
   const { id } = await params;
   const pool = getPool();
   const reservation = await getReservation(pool, id);
   if (!reservation) notFound();
-  const [events, notes, loaded] = await Promise.all([
+  const [events, notes, loaded, emails] = await Promise.all([
     listEvents(pool, id),
     listNotes(pool, [id]),
     loadRestaurantRules(pool, reservation.restaurantId, 'vi', reservation.date),
+    listReservationEmails(pool, id, outboxEnv()),
   ]);
+  const canResend = roleCan(staff.role, { reservations: ['update'] });
 
   // The page renders at request time (after the session read), so the windows are this request's.
   const options: TransitionOption[] = availableTransitions(reservation.status, reservation.date, reservation.time).map(({ transition: t, window }) => {
@@ -161,6 +170,49 @@ export default async function ReservationPage({ params }: { params: Promise<{ id
           </ul>
         ) : null}
         <NoteForm id={reservation.id} />
+      </section>
+
+      {/* The booking's emails (R2): history lives in email_outbox, beside the timeline; the full address shows here (R12). */}
+      <section aria-labelledby="res-emails-title">
+        <h2 id="res-emails-title">Email</h2>
+        {emails.length === 0 ? (
+          <p className="a-muted">Chưa có email nào cho đặt bàn này.</p>
+        ) : (
+          <div className="a-table-scroll">
+            <table className="a-table a-table--compact" aria-label="Email của đặt bàn">
+              <thead>
+                <tr>
+                  <th scope="col">Loại</th>
+                  <th scope="col">Người nhận</th>
+                  <th scope="col">Trạng thái</th>
+                  <th scope="col">Lỗi gần nhất</th>
+                  <th scope="col">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {emails.map((m) => (
+                  <tr key={m.id}>
+                    <td>
+                      {EMAIL_EVENT_LABELS[m.event]}
+                      <small className="a-sub">{formatDateTimeVi(m.createdAt)}</small>
+                    </td>
+                    <td>
+                      {m.toEmail}
+                      <small className="a-sub">{m.locale}</small>
+                    </td>
+                    <td>
+                      <EmailStatusBadge status={m.status} />
+                      {m.sentAt ? <small className="a-sub">{formatDateTimeVi(m.sentAt)}</small> : null}
+                      <small className="a-sub">{`${m.attempts} lần gửi`}</small>
+                    </td>
+                    <td>{m.lastError ? <span className="a-error-text">{redactEmails(m.lastError)}</span> : '—'}</td>
+                    <td>{canResend && resendable(m.status) ? <ResendEmail id={m.id} label={EMAIL_EVENT_LABELS[m.event]} /> : null}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section aria-labelledby="res-timeline-title">

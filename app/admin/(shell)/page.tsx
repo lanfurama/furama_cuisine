@@ -6,6 +6,8 @@ import { roleCan } from '@/lib/server/auth/permissions';
 import { listOpenInvitations } from '@/lib/server/auth/staff-queries';
 import { overviewCounts } from '@/lib/server/booking/queries';
 import { verifySession } from '@/lib/server/dal/session';
+import { outboxEnv } from '@/lib/server/email/env';
+import { emailOverview } from '@/lib/server/email/outbox-log';
 import { venueNow } from '@/lib/venue-time';
 
 // Request-time like the whole admin (app/admin/layout.tsx); also opts navigations between admin pages out of dev instant validation (instant-navigation.md:568).
@@ -15,9 +17,11 @@ export const metadata: Metadata = { title: 'Tổng quan' };
 
 /*
  * The greeting; bookings waiting for staff and today's bookings (spec §7.2
- * "đặt bàn chờ xử lý"), for roles that read bookings; to Admins, invitations
- * whose email failed ("email lỗi"). Translation and notification widgets
- * arrive with phases 5 and 8.
+ * "đặt bàn chờ xử lý"), with the booking emails of this environment that used
+ * up their attempts ("email lỗi", §10.4, §12), for roles that read bookings;
+ * to Admins, invitations whose email failed, and the restaurants whose "đặt
+ * bàn mới" goes to the shared inbox ("nhà hàng chưa có người nhận thông báo",
+ * R21). Translation widgets arrive with phase 8.
  */
 export default async function OverviewPage() {
   const staff = await verifySession();
@@ -25,6 +29,8 @@ export default async function OverviewPage() {
   const failed = roleCan(staff.role, { user: ['list'] }) ? (await listOpenInvitations(pool)).filter((i) => i.email_error !== null) : [];
   // Today is Da Nang's date, whatever the server's timezone.
   const bookings = roleCan(staff.role, { reservations: ['read'] }) ? await overviewCounts(pool, venueNow().date) : null;
+  const emails = bookings ? await emailOverview(pool, outboxEnv()) : null;
+  const unrouted = emails && roleCan(staff.role, { settings: ['read'] }) ? emails.unrouted : [];
 
   return (
     <>
@@ -46,7 +52,23 @@ export default async function OverviewPage() {
                 <strong>{bookings.today}</strong> đặt bàn hôm nay · {bookings.todayCovers} khách
               </Link>
             </li>
+            <li>
+              <Link href="/admin/reservations/emails?tab=failed" data-testid="failed-emails">
+                <strong>{emails?.failed ?? 0}</strong> email lỗi
+              </Link>
+            </li>
           </ul>
+        </section>
+      ) : null}
+      {unrouted.length > 0 ? (
+        <section aria-labelledby="overview-unrouted">
+          <h2 id="overview-unrouted">Nhà hàng chưa có người nhận thông báo</h2>
+          <p className="a-warn" data-testid="uncovered-restaurants">
+            {`${unrouted.length} nhà hàng: ${unrouted.map((r) => r.name).join(', ')}. Email đặt bàn mới của các nhà hàng này đang về hộp thư chung.`}
+          </p>
+          <p>
+            <Link href="/admin/settings/notifications">Mở Thông báo email để thêm người nhận</Link>
+          </p>
         </section>
       ) : null}
       {failed.length > 0 ? (
