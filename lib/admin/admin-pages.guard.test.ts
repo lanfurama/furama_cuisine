@@ -108,6 +108,16 @@ describe('admin pages', () => {
     ]);
   });
 
+  it('the status panel’s first submit button is always disabled, so Enter in “Lý do” submits nothing', () => {
+    // Implicit submission (Enter in a text field) clicks the form's first submit button, and does nothing
+    // when that button is disabled. Without the disabled one first, Enter ran "Xác nhận" on a request, and
+    // "Hủy" (emailing the guest the internal note) on a confirmed booking.
+    const file = join(ADMIN, '(shell)/reservations/[id]/TransitionPanel.tsx');
+    const buttons = submitButtons(file, readFileSync(file, 'utf8'));
+    expect(buttons.length).toBeGreaterThan(0);
+    expect(buttons[0]).toMatchObject({ alwaysDisabled: true });
+  });
+
   it('every page awaits the session check before anything else', () => {
     // (auth) pages serve people without a session (sign-in, reset, invitation: they read a token from the
     // URL first), and [...missing] calls notFound() and reads nothing. Every other admin page, including any
@@ -172,6 +182,28 @@ function checkForms(file: string, src: string): { line: number; lacksPost: boole
     forms.push({ line: lineOf(src, n), lacksPost: needsPost && !posts });
   });
   return forms;
+}
+
+/**
+ * Every <button type="submit"> of a file in source order, and whether it is disabled whatever the state:
+ * a bare `disabled` or `disabled={true}`, not `disabled={pending}`.
+ */
+function submitButtons(file: string, src: string): { line: number; alwaysDisabled: boolean }[] {
+  const found: { start: number; line: number; alwaysDisabled: boolean }[] = [];
+  walk(parseSync(file, src).program, (n) => {
+    const name = n.name as JsxNode | undefined;
+    if (n.type !== 'JSXOpeningElement' || name?.type !== 'JSXIdentifier' || name.name !== 'button') return;
+    const attrs = new Map(
+      (n.attributes as JsxNode[]).filter((a) => a.type === 'JSXAttribute').map((a) => [(a.name as JsxNode).name as string, a.value as JsxNode | null]),
+    );
+    const type = attrs.get('type');
+    if (type?.type !== 'Literal' || type.value !== 'submit') return;
+    const disabled = attrs.get('disabled');
+    const expression = disabled?.type === 'JSXExpressionContainer' ? (disabled.expression as JsxNode) : null;
+    const alwaysDisabled = disabled === null || (expression?.type === 'Literal' && expression.value === true);
+    found.push({ start: n.start as number, line: lineOf(src, n), alwaysDisabled });
+  });
+  return found.sort((a, b) => a.start - b.start).map(({ line, alwaysDisabled }) => ({ line, alwaysDisabled }));
 }
 
 const SESSION_CHECKS = ['verifySession', 'requirePagePermission'];

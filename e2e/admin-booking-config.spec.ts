@@ -118,7 +118,9 @@ test('shorter dinner hours list the bookings they leave out, and only the ticked
     await list.getByRole('checkbox', { name: `Chọn ${late.reference}` }).check();
     await list.getByLabel('Lý do hủy', { exact: true }).fill('Nhà hàng đóng bếp sớm');
     await list.getByRole('button', { name: 'Hủy các đặt bàn đã chọn' }).click();
-    await expect(section.getByRole('status')).toHaveText('Đã hủy 1 đặt bàn.');
+    // The guest left no email: the outcome names them, to phone.
+    await expect(section.getByRole('status').getByText('Đã hủy 1 đặt bàn.', { exact: true })).toBeVisible();
+    await expect(section.getByRole('status').getByRole('listitem')).toContainText(late.reference);
     await expect(section.getByRole('row').filter({ hasText: late.reference })).toHaveCount(0);
     expect(await reservationRow(late.id)).toMatchObject({ status: 'cancelled', status_reason: 'Nhà hàng đóng bếp sớm' });
     expect((await reservationRow(early.id)).status).toBe('confirmed');
@@ -250,7 +252,8 @@ test('a refused batch cancel keeps the ticks and the reason; the cancel then goe
 
   await tick.check();
   await cancel.click();
-  await expect(section.getByRole('status')).toHaveText('Đã hủy 1 đặt bàn.');
+  await expect(section.getByRole('status').getByText('Đã hủy 1 đặt bàn.', { exact: true })).toBeVisible();
+  await expect(section.getByRole('status').getByRole('listitem')).toContainText(off.reference);
   await expect(section.getByRole('row').filter({ hasText: off.reference })).toHaveCount(0);
   expect(await reservationRow(off.id)).toMatchObject({ status: 'cancelled', status_reason: 'Bếp đóng sớm' });
 });

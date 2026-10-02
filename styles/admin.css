@@ -355,6 +355,16 @@ body.admin {
   font-size: 14px;
 }
 
+/* An outcome with more to say (a bulk cancel's guests to phone): its paragraphs and list sit tight. */
+.a-notice p {
+  margin: 0;
+}
+
+.a-notice ul {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+
 .a-inline-form {
   max-width: 420px;
   margin-top: 32px;
@@ -651,6 +661,11 @@ fieldset.a-field legend {
   gap: 6px;
   margin: 0 16px 8px 0;
   font-weight: 400;
+}
+
+/* display above would beat the hidden attribute's own display: none (a box kept mounted, hidden for a walk-in). */
+.a-check[hidden] {
+  display: none;
 }
 
 /* Text inputs are 44px tall; a checkbox or a radio is not a text input. */

@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { formatDay } from '../lib/venue-time';
 import { expectHydrated, watchCsp } from './csp';
+import { emailsTo } from './email-log';
 import { HOME_PATH } from './paths';
 import { reservationRow, seedReservation, venueDay } from './reservation-fixtures';
 import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures';
@@ -9,7 +10,8 @@ import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures'
  * Closures (spec §10.1, §14.1 phase 4): a closure made in the admin lists the
  * bookings it takes out and cancels only what staff tick, skipping one that
  * changed since the page was drawn, and emails the guests only while "Báo
- * khách qua email" is ticked; the guest sees the day greyed out with the
+ * khách qua email" is ticked, naming those it could not email, with their
+ * number to call; the guest sees the day greyed out with the
  * public reason. Phố Cuốn at +5 and the MM Supercenter (Yum Food Village,
  * ChaoShan Hotpot) at +11: dates no other spec books there; Phố Cuốn at
  * +60 to +62, past every booking window. Each test deletes its closure.
@@ -63,8 +65,12 @@ test('a dinner closure lists the dinner bookings, not lunch, and cancels only th
     await one(`UPDATE reservations SET note = 'Đổi ý' WHERE id = $1`, [changed.id]);
     await affected.getByLabel('Lý do hủy', { exact: true }).fill('Nhà hàng đóng cửa ca tối');
     await affected.getByRole('button', { name: 'Hủy các đặt bàn đã chọn' }).click();
-    // The page re-renders: the cancelled booking leaves the list, the outcome stays on screen.
-    await expect(card.getByRole('status')).toHaveText('Đã hủy 1 đặt bàn; 1 đặt bàn vừa thay đổi nên chưa hủy, hãy xem lại.');
+    // The page re-renders: the cancelled booking leaves the list, the outcome stays on screen. Its guest
+    // gave no email, so the outcome names them, with the number to call (F2).
+    const outcome = card.getByRole('status');
+    await expect(outcome.getByText('Đã hủy 1 đặt bàn; 1 đặt bàn vừa thay đổi nên chưa hủy, hãy xem lại.', { exact: true })).toBeVisible();
+    await expect(outcome.getByRole('listitem')).toHaveCount(1);
+    await expect(outcome.getByRole('listitem')).toContainText(dinner.reference);
     await expect(card.getByRole('row').filter({ hasText: dinner.reference })).toHaveCount(0);
     expect(await reservationRow(dinner.id)).toMatchObject({ status: 'cancelled', status_reason: 'Nhà hàng đóng cửa ca tối' });
     expect((await reservationRow(changed.id)).status).toBe('confirmed');
@@ -79,7 +85,7 @@ test('a dinner closure lists the dinner bookings, not lunch, and cancels only th
   }
 });
 
-test('a cancel from the list emails each guest the reason only while “Báo khách qua email” is ticked (R8)', async ({ page }) => {
+test('a cancel from the list emails each guest the reason only while “Báo khách qua email” is ticked (R8), and names the guests to phone', async ({ page }) => {
   // Phố Cuốn two months out, past every booking window like the tests below: the closure greys out no day another spec books.
   const date = venueDay(62);
   const note = `E2E notify ${Date.now().toString(36)}`;
@@ -92,11 +98,19 @@ test('a cancel from the list emails each guest the reason only while “Báo kh�
     await signInAs(page, STAFF.editor);
     await page.goto('/admin/reservations/closures');
     await expectHydrated(page);
-    const affected = page.getByRole('region').filter({ hasText: note }).getByRole('form', { name: /^Đặt bàn bị ảnh hưởng/ });
+    const card = page.getByRole('region').filter({ hasText: note });
+    const affected = card.getByRole('form', { name: /^Đặt bàn bị ảnh hưởng/ });
+    const row = (reference: string) => affected.getByRole('row').filter({ hasText: reference });
     const pick = (reference: string) => affected.getByRole('checkbox', { name: `Chọn ${reference}` });
-    const notify = affected.getByRole('checkbox', { name: 'Báo khách qua email', exact: true });
+    const notify = affected.getByRole('checkbox', { name: 'Báo khách qua email (khách có email)', exact: true });
     const hint = affected.getByText('Lý do này sẽ được gửi cho khách.', { exact: true });
     const cancel = affected.getByRole('button', { name: 'Hủy các đặt bàn đã chọn' });
+
+    // Each row carries the number to call, and marks the guest who left no email (F2).
+    await expect(row(noEmail.reference).getByRole('link', { name: noEmail.phone, exact: true })).toHaveAttribute('href', `tel:${noEmail.phone}`);
+    await expect(row(noEmail.reference)).toContainText('không có email');
+    await expect(row(told.reference).getByRole('link', { name: told.phone, exact: true })).toHaveAttribute('href', `tel:${told.phone}`);
+    await expect(row(told.reference)).not.toContainText('không có email');
 
     // The hint shows only while the email will quote the reason: the box on, and a ticked guest who gave an address.
     await expect(notify).toBeChecked();
@@ -109,28 +123,41 @@ test('a cancel from the list emails each guest the reason only while “Báo kh�
     await expect(hint).toBeHidden();
     await notify.check();
     await expect(hint).toBeVisible();
-    await pick(noEmail.reference).uncheck();
 
-    // Ticked: the guest gets guest.cancelled.
+    // Ticked: the guest with an address gets guest.cancelled; the one without is named, with the number to
+    // call, in the outcome, which stays once the cancelled rows leave the list (F2).
     await affected.getByLabel('Lý do hủy', { exact: true }).fill('Bếp sửa chữa');
     await cancel.click();
-    await expect(affected.getByRole('status')).toHaveText('Đã hủy 1 đặt bàn.');
+    const outcome = affected.getByRole('status');
+    await expect(outcome.getByText('Đã hủy 2 đặt bàn.', { exact: true })).toBeVisible();
+    await expect(outcome).toContainText('1 khách chưa được báo qua email, hãy gọi điện:');
+    await expect(outcome.getByRole('listitem')).toHaveCount(1);
+    await expect(outcome.getByRole('listitem')).toContainText(noEmail.reference);
+    await expect(outcome.getByRole('link', { name: noEmail.phone, exact: true })).toHaveAttribute('href', `tel:${noEmail.phone}`);
     await expect(pick(told.reference)).toHaveCount(0);
-    expect(await one(`SELECT event, to_email FROM email_outbox WHERE reservation_id = $1`, [told.id])).toEqual({
-      event: 'guest.cancelled',
-      to_email: `bulk-${told.id}@example.com`,
-    });
+    await expect(pick(noEmail.reference)).toHaveCount(0);
+    expect((await reservationRow(noEmail.id)).status).toBe('cancelled');
+    expect(
+      await one(`SELECT array_agg(reservation_id::text) AS ids, array_agg(event) AS events, array_agg(to_email) AS emails FROM email_outbox WHERE reservation_id = ANY ($1::bigint[])`, [
+        [told.id, noEmail.id],
+      ]),
+    ).toEqual({ ids: [told.id], events: ['guest.cancelled'], emails: [`bulk-${told.id}@example.com`] });
+    // No cron runs in the E2E: only this action's own after() (drainAfterCommit) can send it (T4.4).
+    await expect.poll(() => emailsTo(`bulk-${told.id}@example.com`).map((e) => e.subject)).toContain(`Your reservation has been cancelled (${told.reference})`);
 
-    // Unticked: the next cancel emails no one.
+    // Unticked: the next cancel emails no one, so that guest is named as well; nothing is left to list.
     await notify.uncheck();
     await pick(untold.reference).check();
     await expect(hint).toBeHidden();
     await affected.getByLabel('Lý do hủy', { exact: true }).fill('Bếp sửa chữa');
     await cancel.click();
+    const last = card.getByRole('status');
+    await expect(last.getByText('Đã hủy 1 đặt bàn.', { exact: true })).toBeVisible();
+    await expect(last.getByRole('listitem')).toHaveCount(1);
+    await expect(last.getByRole('listitem')).toContainText(untold.reference);
     await expect(pick(untold.reference)).toHaveCount(0);
     expect(await reservationRow(untold.id)).toMatchObject({ status: 'cancelled', status_reason: 'Bếp sửa chữa' });
     expect(await one(`SELECT count(*)::int AS n FROM email_outbox WHERE reservation_id = $1`, [untold.id])).toEqual({ n: 0 });
-    expect((await reservationRow(noEmail.id)).status).toBe('requested');
   } finally {
     await one(`DELETE FROM closures WHERE internal_note = $1`, [note]);
   }

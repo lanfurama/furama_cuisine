@@ -16,6 +16,8 @@ export type AffectedItem = {
   time: string;
   guests: number;
   name: string;
+  /** As the guest gave it: the row's link to call them. */
+  phone: string;
   /** The guest gave an email: with "Báo khách qua email" ticked, the cancel sends them the reason. */
   hasEmail: boolean;
   statusLabel: string;
@@ -23,13 +25,19 @@ export type AffectedItem = {
   why: string;
 };
 
+/** A number as typed, as a tel: link (digits and a leading +). */
+const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`;
+
 /*
  * Bookings that new hours, a new capacity or a closure leave out (spec §10.1).
  * Nothing is ticked at first, and nothing is cancelled unless staff tick it,
  * write a reason and press the button: never automatic. "Báo khách qua email"
  * is on by default, as for a single cancel (R8): each guest who gave an
  * address gets guest.cancelled with the reason, and the reason field says so
- * while a ticked booking has one.
+ * while a ticked booking has one. Email is optional, so each row has the
+ * number to call and marks a guest without an address, and the outcome names
+ * every cancelled guest who was not emailed (B4): a guest told nothing would
+ * come to a closed restaurant.
  */
 export function AffectedList({ items, title }: { items: AffectedItem[]; title: string }) {
   const [state, action, pending] = useActionState<ActionResult<CancelManyResult> | null, FormData>(cancelReservations, null);
@@ -41,10 +49,24 @@ export function AffectedList({ items, title }: { items: AffectedItem[]; title: s
   const [hintAt, setHintAt] = useState({ formKey, on: false });
   const hint = hintAt.formKey === formKey && hintAt.on;
   const done = state?.ok ? state.data : null;
+  // The guests to phone live in the outcome, not the list: refresh() has already taken their rows away.
   const notice = done ? (
-    <p className="a-notice" role="status">
-      {`Đã hủy ${done.cancelled} đặt bàn${done.skipped ? `; ${done.skipped} đặt bàn vừa thay đổi nên chưa hủy, hãy xem lại` : ''}.`}
-    </p>
+    <div className="a-notice" role="status">
+      <p>{`Đã hủy ${done.cancelled} đặt bàn${done.skipped ? `; ${done.skipped} đặt bàn vừa thay đổi nên chưa hủy, hãy xem lại` : ''}.`}</p>
+      {done.notTold.length > 0 ? (
+        <>
+          <p>{`${done.notTold.length} khách chưa được báo qua email, hãy gọi điện:`}</p>
+          <ul>
+            {done.notTold.map((guest) => (
+              <li key={guest.reference}>
+                {`${guest.reference} ${guest.name} · `}
+                <a href={telHref(guest.phone)}>{guest.phone}</a>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </div>
   ) : null;
   // The cancel re-renders the page (refresh()): once nothing is left the list goes, and the outcome stays.
   if (items.length === 0) {
@@ -80,6 +102,7 @@ export function AffectedList({ items, title }: { items: AffectedItem[]; title: s
             <th scope="col">Nhà hàng</th>
             <th scope="col">Ngày giờ</th>
             <th scope="col">Khách</th>
+            <th scope="col">Liên hệ</th>
             <th scope="col">Trạng thái</th>
             <th scope="col">Lý do</th>
           </tr>
@@ -96,6 +119,10 @@ export function AffectedList({ items, title }: { items: AffectedItem[]; title: s
               <td>{item.restaurantName}</td>
               <td>{`${item.dayLabel} ${item.time}`}</td>
               <td>{`${item.name} · ${item.guests}`}</td>
+              <td>
+                <a href={telHref(item.phone)}>{item.phone}</a>
+                {item.hasEmail ? null : <span className="a-tag">không có email</span>}
+              </td>
               <td>{item.statusLabel}</td>
               <td>{item.why}</td>
             </tr>
@@ -118,7 +145,7 @@ export function AffectedList({ items, title }: { items: AffectedItem[]; title: s
         <FieldError state={state} name="reason" id={`${uid}-reason-error`} />
         <label className="a-check">
           <input type="checkbox" name="notifyGuest" defaultChecked />
-          Báo khách qua email
+          Báo khách qua email (khách có email)
         </label>
         <FieldError state={state} name="items" id={`${uid}-items-error`} />
       </div>

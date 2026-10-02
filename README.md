@@ -84,7 +84,7 @@ its own restaurant and dates, and puts back the rules it changes:
 | --- | --- | --- |
 | `booking-v2` | Tàya House, Don Cipriani’s, Steakhouse The Fan | the last open day; a closure at +9; `max_party` 8. The availability-error, retry and focus tests added since mock the availability API and write nothing |
 | `admin-audit` | Tàya House | 2025-12-31 (a past, confirmed booking), plus `audit_log` rows dated 2001, which it deletes afterwards |
-| `admin-reservations` | Tàya House, V-Senses Cafe, ChaoShan Hotpot, Café Indochine | +3, +4, +6 (one booking at 23:30, outside the hours), yesterday; +8; +7; +6 (picked from The Fan at +5, where nothing is written) |
+| `admin-reservations` | Tàya House, V-Senses Cafe, ChaoShan Hotpot, Café Indochine | +3, +4, +6 (one booking at 23:30, outside the hours), yesterday (confirmed bookings: one marked no-show, one with an email that Enter in “Lý do” must leave alone); +8; +7; +6 (picked from The Fan at +5, where nothing is written; a phone booking with an email, confirmed to the guest) |
 | `admin-booking-config` | Thai Siam Kitchen, Hura Izakaya | dinner hours and covers (+2, +3), `max_party` and `window_days` overrides (back to NULL); `max_party` 8 |
 | `admin-booking-settings` | Danaksara | `auto_confirm`; the last open day |
 | `admin-closures` | Phố Cuốn; the MM Supercenter (Yum Food Village, ChaoShan Hotpot) | +5; a destination closure at +11; closure edits at +60 and +61; Phố Cuốn +62 (the bulk cancel that emails guests: three bookings, two with an email, and a closure it deletes afterwards) |

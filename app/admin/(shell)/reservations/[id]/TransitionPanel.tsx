@@ -3,9 +3,10 @@
 import { useActionState, useState } from 'react';
 import { submitKeepingValues } from '@/lib/admin/form';
 import type { ReservationStatus } from '@/lib/booking/rules';
+import { STATUS_LABELS } from '@/lib/reservations/lifecycle';
 import type { ActionResult } from '@/lib/server/action-result';
 import { FieldError, FormMessage } from '../../_ui/FormMessage';
-import { changeStatus } from '../actions';
+import { changeStatus, type StatusChange } from '../actions';
 
 export type TransitionOption = { to: ReservationStatus; label: string; reasonRequired: boolean; enabled: boolean; hint: string | null };
 
@@ -20,16 +21,31 @@ export type TransitionOption = { to: ReservationStatus; label: string; reasonReq
  * ticked (on by default). Only the decline and cancel emails quote the reason,
  * so the hint under the one reason field names them, and only when the guest
  * gave an address: staff often type it in Vietnamese for an English email.
+ * A guest without an address gets no box at all, but a line saying to phone:
+ * a ticked box there would promise an email nobody sends.
+ *
+ * The notice after a change names the new status and whether an email is on
+ * its way, so a change staff did not mean to make cannot pass as "updated".
  */
 export function TransitionPanel({ id, version, options, hasEmail }: { id: string; version: number; options: TransitionOption[]; hasEmail: boolean }) {
-  const [state, action, pending] = useActionState<ActionResult<{ status: ReservationStatus }> | null, FormData>(changeStatus, null);
+  const [state, action, pending] = useActionState<ActionResult<StatusChange> | null, FormData>(changeStatus, null);
   // The reason and "Báo khách" keep what staff typed and chose through every refusal (no reason; a conflict,
   // then "Tải lại"), so an unticked box never comes back ticked behind their back. Only a change made here
   // starts them over: taken during render when its result arrives, not in an effect, and not with a key,
   // which would remount the hook's state above with them.
   const [draft, setDraft] = useState({ state, reason: '', notify: true });
   if (draft.state !== state) setDraft(state?.ok ? { state, reason: '', notify: true } : { ...draft, state });
-  if (options.length === 0) return <p className="a-muted">Đặt bàn đã kết thúc; không còn thao tác nào.</p>;
+  const done = state?.ok ? state.data : null;
+  const success = done ? `Đã chuyển sang “${STATUS_LABELS[done.status]}”.${done.emailed ? ' Email báo khách đang được gửi.' : ''}` : undefined;
+  if (options.length === 0) {
+    // A change that ended the booking (a cancel) still says what it did, and whether the guest is being emailed.
+    return (
+      <>
+        <FormMessage state={done ? state : null} success={success} />
+        <p className="a-muted">Đặt bàn đã kết thúc; không còn thao tác nào.</p>
+      </>
+    );
+  }
   const needsReason = options.some((o) => o.reasonRequired);
   const canCancel = options.some((o) => o.to === 'cancelled');
   const canDecline = options.some((o) => o.to === 'declined');
@@ -41,9 +57,15 @@ export function TransitionPanel({ id, version, options, hasEmail }: { id: string
     // ticked "Báo khách" again after a refused cancel, so the next cancel emailed a guest staff chose not to.
     // method="post": a submit before hydration must not GET the reason into the URL.
     <form className="a-transitions" method="post" onSubmit={submitKeepingValues(action)}>
+      {/* Enter in "Lý do" (implicit submission) clicks the form's first submit button: "Xác nhận" on a request,
+          "Hủy" with "Báo khách" ticked on a confirmed booking, which then emails the guest a note meant for
+          staff. A disabled first submit button makes Enter submit nothing (HTML: implicit submission does
+          nothing when the default button is disabled). Not an onKeyDown handler: a Vietnamese Telex IME
+          composes with Enter. lib/admin/admin-pages.guard.test.ts keeps this button first and disabled. */}
+      <button type="submit" disabled hidden aria-hidden="true" tabIndex={-1} />
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="version" value={version} />
-      <FormMessage state={state} success="Đã cập nhật trạng thái." />
+      <FormMessage state={state} success={success} />
       <div className="a-field">
         <label htmlFor="res-transition-reason">{needsReason ? 'Lý do (bắt buộc khi hủy hoặc từ chối)' : 'Lý do (không bắt buộc)'}</label>
         <input
@@ -64,7 +86,7 @@ export function TransitionPanel({ id, version, options, hasEmail }: { id: string
         ) : null}
         <FieldError state={state} name="reason" id="res-transition-reason-error" />
       </div>
-      {canCancel ? (
+      {canCancel && hasEmail ? (
         <label className="a-check">
           <input
             type="checkbox"
@@ -78,6 +100,7 @@ export function TransitionPanel({ id, version, options, hasEmail }: { id: string
           Báo khách qua email khi hủy
         </label>
       ) : null}
+      {canCancel && !hasEmail ? <p className="a-muted">Khách không để lại email: thay đổi ở đây không gửi email nào, hãy gọi điện báo khách.</p> : null}
       <div className="a-actions">
         {options.map((o) => (
           <span className="a-action" key={o.to}>

@@ -89,7 +89,7 @@ test('A2. confirming in the admin emails the guest', async ({ page }) => {
   await signInAs(page, STAFF.editor);
   await page.goto(`/admin/reservations/${r.id}`);
   await page.getByRole('main').getByRole('button', { name: 'Xác nhận', exact: true }).click();
-  await expect(page.getByRole('main').getByRole('status')).toHaveText('Đã cập nhật trạng thái.');
+  await expect(page.getByRole('main').getByRole('status')).toHaveText('Đã chuyển sang “Đã xác nhận”. Email báo khách đang được gửi.');
   await expect.poll(() => about(r.reference)).toEqual([[guest, `Your table is confirmed (${r.reference})`]]);
   expect(await one(`SELECT status, attempts FROM email_outbox WHERE reservation_id = $1`, [r.id])).toEqual({ status: 'sent', attempts: 1 });
 });

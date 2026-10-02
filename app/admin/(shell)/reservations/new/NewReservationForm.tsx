@@ -16,7 +16,10 @@ export type SlotOption = { time: string; label: string };
  * target, so a new pick remounts it with the new times.
  *
  * "Gửi email xác nhận" (spec §10.3, R8) is on by default for a phone booking
- * and hidden for a walk-in, who is already at the table.
+ * and hidden for a walk-in, who is already at the table. Hidden, not
+ * unmounted: remounted, it would come back ticked after staff had unticked it
+ * for a guest who wants no email and slipped onto "Khách vãng lai" and back.
+ * A walk-in still posts it; the server sends a walk-in nothing (outboxEffects).
  */
 export function NewReservationForm(props: {
   restaurantId: string;
@@ -97,12 +100,10 @@ export function NewReservationForm(props: {
         <label htmlFor="res-new-email">Email (không bắt buộc)</label>
         <input id="res-new-email" name="email" type="email" aria-describedby={err('email')} />
         <FieldError state={state} name="email" id={err('email')} />
-        {walkIn ? null : (
-          <label className="a-check">
-            <input type="checkbox" name="notifyGuest" defaultChecked />
-            Gửi email xác nhận cho khách (khi có email)
-          </label>
-        )}
+        <label className="a-check" hidden={walkIn}>
+          <input type="checkbox" name="notifyGuest" defaultChecked />
+          Gửi email xác nhận cho khách (khi có email)
+        </label>
       </div>
       <div className="a-field">
         <label htmlFor="res-new-locale">Ngôn ngữ của khách</label>

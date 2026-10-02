@@ -8,7 +8,7 @@ import type { ReservationStatus } from '@/lib/booking/rules';
 import { toE164 } from '@/lib/phone';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
 import { saveInboxSearch, searchText } from '@/lib/server/booking/inbox-search';
-import { listLocales } from '@/lib/server/booking/queries';
+import { listGuestContacts, listLocales, type GuestContact } from '@/lib/server/booking/queries';
 import { drainAfterCommit } from '@/lib/server/email/after-commit';
 import { outboxEffects } from '@/lib/server/email/outbox';
 import {
@@ -32,10 +32,10 @@ import { requirePermission } from '@/lib/server/dal/session';
 
 const field = (formData: FormData, name: string) => formData.get(name) ?? undefined;
 
-export async function changeStatus(
-  _prev: ActionResult<{ status: ReservationStatus }> | null,
-  formData: FormData,
-): Promise<ActionResult<{ status: ReservationStatus }>> {
+/** The status a change reached, and whether it queued a guest email: the panel's notice says both. */
+export type StatusChange = { status: ReservationStatus; emailed: boolean };
+
+export async function changeStatus(_prev: ActionResult<StatusChange> | null, formData: FormData): Promise<ActionResult<StatusChange>> {
   try {
     const staff = await requirePermission({ reservations: ['update'] });
     const input = TransitionForm.parse({
@@ -50,7 +50,7 @@ export async function changeStatus(
     if (!result.ok) return result;
     drainAfterCommit(effects.queued);
     refresh();
-    return { ok: true, data: { status: result.data.status } };
+    return { ok: true, data: { status: result.data.status, emailed: effects.queued.length > 0 } };
   } catch (err) {
     return actionError(err);
   }
@@ -123,13 +123,16 @@ export async function createReservation(_prev: ActionResult | null, formData: Fo
   }
 }
 
-export type CancelManyResult = { cancelled: number; skipped: number };
+/** `notTold`: the cancelled guests no email went to (none on file, an unusable one, or the box unticked): staff phone them. */
+export type CancelManyResult = { cancelled: number; skipped: number; notTold: GuestContact[] };
 
 /**
  * "Hủy các đặt bàn đã chọn" under an affected list (spec §10.1): only what
  * staff ticked, never automatic. Each booking is its own transition (its own
  * transaction and event); one that changed since the list was drawn (its
- * version) is skipped and counted, never forced.
+ * version) is skipped and counted, never forced. The answer names the guests
+ * who were not emailed, with their numbers: refresh() takes the cancelled rows
+ * off the list, so the notice is the only place left to find them.
  */
 export async function cancelReservations(_prev: ActionResult<CancelManyResult> | null, formData: FormData): Promise<ActionResult<CancelManyResult>> {
   try {
@@ -139,23 +142,30 @@ export async function cancelReservations(_prev: ActionResult<CancelManyResult> |
     const actor = staffActor(staff);
     const effects = outboxEffects();
     let cancelled = 0;
+    const untold: string[] = [];
     try {
       for (const item of input.items) {
         const [id, version] = item.split(':');
+        const queuedBefore = effects.queued.length;
         const result = await transitionReservation(
           pool,
           actor,
           { id, version: Number(version), to: 'cancelled', reason: input.reason, notifyGuest: input.notifyGuest },
           { effects },
         );
-        if (result.ok) cancelled += 1;
+        if (!result.ok) continue;
+        cancelled += 1;
+        // What was queued, not whether an email is on file: the outbox also drops an address it cannot use,
+        // and an unticked box queues nothing for anyone.
+        if (effects.queued.length === queuedBefore) untold.push(id);
       }
     } finally {
       // Each cancel commits on its own: a throw halfway still sends the emails of those that did (R20).
       if (effects.queued.length > 0) drainAfterCommit(effects.queued);
     }
+    const notTold = await listGuestContacts(pool, untold);
     refresh();
-    return { ok: true, data: { cancelled, skipped: input.items.length - cancelled } };
+    return { ok: true, data: { cancelled, skipped: input.items.length - cancelled, notTold } };
   } catch (err) {
     return actionError(err);
   }

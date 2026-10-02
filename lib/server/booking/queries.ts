@@ -174,6 +174,18 @@ export async function listRestaurantOptions(pool: Pool): Promise<{ id: string; n
   return rows;
 }
 
+export type GuestContact = { reference: string; name: string; phone: string };
+
+/** Whom to phone, and on which number, for these bookings, in the order of `ids` (a bulk cancel's unemailed guests). */
+export async function listGuestContacts(pool: Pool, ids: readonly string[]): Promise<GuestContact[]> {
+  if (ids.length === 0) return [];
+  const { rows } = await pool.query<GuestContact>(
+    `SELECT reference, guest_name AS name, phone FROM reservations WHERE id = ANY ($1::bigint[]) ORDER BY array_position($1::bigint[], id)`,
+    [[...ids]],
+  );
+  return rows;
+}
+
 /** The languages a guest may speak, enabled on the site or not: staff record the guest's, the email follows it from phase 5. */
 export async function listLocales(pool: Pool): Promise<{ code: string; name: string; isDefault: boolean }[]> {
   const { rows } = await pool.query<{ code: string; name: string; isDefault: boolean }>(
