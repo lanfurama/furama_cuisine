@@ -143,7 +143,8 @@ test('A2. a day closed in the admin is greyed out for guests, with its public re
     // A tap says why, and selects nothing.
     await day.click({ force: true });
     await expect(day).toHaveAttribute('aria-pressed', 'false');
-    await expect(drawer.getByRole('status')).toHaveText(`${formatDay(date).label}: Closed for a private banquet`);
+    // The drawer keeps its status regions mounted while empty: the one that says something.
+    await expect(drawer.getByRole('status').filter({ hasText: /\S/ })).toHaveText(`${formatDay(date).label}: Closed for a private banquet`);
     await guest.context().close();
   } finally {
     await one(`DELETE FROM closures WHERE internal_note = $1`, [note]);

@@ -17,8 +17,10 @@ import {
   bookableRestaurants,
   bookingOpen,
   calendarFor,
+  dateMove,
   reconcileBooking,
   type BookingContext,
+  type DateMove,
 } from '@/lib/booking/client';
 import type { CalendarResponse, DayInfo, DayResponse } from '@/lib/booking/api';
 import { clockBlock } from '@/lib/booking/resolve-day';
@@ -51,6 +53,22 @@ async function getJson<T>(url: string): Promise<Fetched<T>> {
 }
 
 const NO_DAYS: DayInfo[] = [];
+
+/** What was booked, as sent: later answers for the open form must not change the done screen. */
+export type Booked = { status: 'requested' | 'confirmed'; time: string; guests: number; restaurantName: string };
+
+/**
+ * Availability that did not arrive (an HTTP error, or no network), and what it
+ * was for: the calendar's restaurant, the board's restaurant and date.
+ */
+type Failed = { calendar: string | null; board: { restaurant: string; date: IsoDate } | null; count: number };
+
+/**
+ * A footer message about an answer still to come, from a REQUEST BOOKING
+ * pressed before it: 'loading' while it is on its way, 'network' when it
+ * failed. `date` is '' for the calendar, else the board's date.
+ */
+type WaitNote = { kind: 'loading' | 'network'; restaurant: string; date: IsoDate | '' };
 
 /* The two forms of GET /api/availability (lib/booking/api.ts). */
 const calendarUrl = (restaurant: string, locale: string) =>
@@ -105,19 +123,30 @@ type SiteState = {
   loadFailed: { at: 'dates' | 'times'; count: number } | null;
   /** Asks again for the chosen restaurant's calendar and day (the drawer's Try again). */
   retryAvailability: () => void;
+  /**
+   * The chosen date a calendar's answer replaced (another restaurant does not
+   * take it, or fresh availability greyed it), so the drawer can say so; null
+   * once the guest picks a date or closes the drawer.
+   */
+  dateMoved: DateMove | null;
   /** The server's clock, as last reported by /api/availability. */
   now: () => Date;
   /** The reservation form's copy and error messages for this language. */
   strings: ClientStrings;
   /** The date the server stored for the last confirmed request. */
   confirmedDate: IsoDate | '';
+  /** The last booking made, as sent, with the status the server gave it; null until done. */
+  booked: Booked | null;
   form: BookingForm;
   setFormField: (key: keyof BookingForm, value: string) => void;
   tried: boolean;
   done: boolean;
   pending: boolean;
   reference: string;
+  /** The footer's alert: why REQUEST BOOKING did not book. */
   serverError: string | null;
+  /** REQUEST BOOKING is waiting for the dates, which are on their way (the footer's status says so). */
+  footLoading: boolean;
   errors: { name: boolean; phone: boolean; email: boolean };
   submit: () => void;
 
@@ -207,9 +236,25 @@ export function SiteProvider({
   const [pending, setPending] = useState(false);
   const [reference, setReference] = useState('');
   const [serverError, setServerError] = useState<string | null>(null);
+  /* Cleared when the answer it is about arrives (answered); shown only while
+     the choice is still the one it is about (footNote below), so it neither
+     outlives the answer nor shows during a switch to another restaurant. */
+  const [waitNote, setWaitNote] = useState<WaitNote | null>(null);
   const [clockOffset, setClockOffset] = useState(0);
   const [confirmedDate, setConfirmedDate] = useState<IsoDate | ''>('');
+  const [booked, setBooked] = useState<Booked | null>(null);
+  const [dateMoved, setDateMoved] = useState<DateMove | null>(null);
   const [overlay, setOverlay] = useState<Overlay | null>(null);
+  /* A move note belongs to the drawer visit it was shown in. Many paths close
+     the overlay (×, Escape, a link), so the drop happens here, on the change,
+     adjusting state during render; a move made from the booking bar while the
+     drawer is shut still shows when it opens. */
+  const drawerOpen = overlay === 'drawer';
+  const [drawerWasOpen, setDrawerWasOpen] = useState(drawerOpen);
+  if (drawerWasOpen !== drawerOpen) {
+    setDrawerWasOpen(drawerOpen);
+    if (!drawerOpen) setDateMoved(null);
+  }
   const [query, setQuery] = useState('');
   const [lang, setLang] = useState<'EN' | 'VI'>('EN');
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -221,13 +266,28 @@ export function SiteProvider({
      previous restaurant or date must not overwrite the current one. */
   const calendarSeq = useRef(0);
   const boardSeq = useRef(0);
-  /* Which kind of answer did not arrive (an HTTP error, or no network). Only
-     the newest request of a kind sets or clears its flag, and the flag stays
-     until a later request of that kind answers, so a Try again that fails
-     again leaves the message (and the focus on its button) where it was. */
-  const [failed, setFailed] = useState({ calendar: false, board: false, count: 0 });
-  const settle = useCallback((kind: 'calendar' | 'board', ok: boolean) => {
-    setFailed((f) => (ok ? (f[kind] ? { ...f, [kind]: false } : f) : { ...f, [kind]: true, count: f.count + 1 }));
+  /* Which answers did not arrive, and for what. Only the newest request of a
+     kind sets or clears its flag, and the flag stays until a later request of
+     that kind answers, so a Try again that fails again leaves the message (and
+     the focus on its button) where it was. A flag counts only while it matches
+     the current choice (loadFailed): one restaurant's or day's failure says
+     nothing about another, even while the other's answer is on its way. */
+  const [failed, setFailed] = useState<Failed>({ calendar: null, board: null, count: 0 });
+  const settleCalendar = useCallback((restaurant: string, ok: boolean) => {
+    setFailed((f) =>
+      ok ? (f.calendar === null ? f : { ...f, calendar: null }) : { ...f, calendar: restaurant, count: f.count + 1 },
+    );
+  }, []);
+  const settleBoard = useCallback((restaurant: string, date: IsoDate, ok: boolean) => {
+    setFailed((f) =>
+      ok ? (f.board === null ? f : { ...f, board: null }) : { ...f, board: { restaurant, date }, count: f.count + 1 },
+    );
+  }, []);
+  /* An answer arrived: the footer message about it goes. A 'network' one stays
+     when the answer failed again; a 'loading' one goes either way (a failure
+     shows where the dates or times would be, with its Try again). */
+  const answered = useCallback((restaurant: string, date: IsoDate | '', ok: boolean) => {
+    setWaitNote((n) => (n && n.restaurant === restaurant && n.date === date && (ok || n.kind === 'loading') ? null : n));
   }, []);
 
   const now = useCallback(() => new Date(Date.now() + clockOffset), [clockOffset]);
@@ -245,6 +305,8 @@ export function SiteProvider({
 
   const setBooking = useCallback(
     (patch: Partial<Booking>) => {
+      // The guest picked a date: an earlier move is no longer news.
+      if (patch.date !== undefined) setDateMoved(null);
       setBookingState((b) => reconcileBooking(b, patch, context(now())));
     },
     [context, now],
@@ -253,26 +315,36 @@ export function SiteProvider({
   /* The calendar: which days of the window take bookings, the party limit,
      and the server's today and clock. Nothing date-related renders before it
      answers, so the server render carries no date at all (hydration #418).
-     Its answer picks the first open day when the chosen one is not. */
+     When it refuses the chosen date, its answer moves to the nearest open day
+     and records the move, so the drawer can say so. */
   const loadCalendar = useCallback(
     (restaurant: string) => {
       const seq = ++calendarSeq.current;
       getJson<CalendarResponse>(calendarUrl(restaurant, locale))
         .then((res) => {
           if (seq !== calendarSeq.current) return;
-          settle('calendar', res.ok);
+          settleCalendar(restaurant, res.ok);
+          answered(restaurant, '', res.ok);
           if (!res.ok) return;
           const data = res.data;
           const serverNow = new Date(data.now);
+          const ctx = context(serverNow, { calendar: data });
+          // Outside the updater below, which React may run twice: what this answer does to the date on screen.
+          const shown = latest.current.booking;
+          const move = dateMove(shown, reconcileBooking(shown, {}, ctx), data);
+          // A fresh answer for the same restaurant keeps an earlier move (openReserve asks again); another's drops it.
+          setDateMoved((m) => move ?? (m?.restaurant === data.restaurant ? m : null));
           setClockOffset(serverNow.getTime() - Date.now());
           setCalendar(data);
-          setBookingState((b) => reconcileBooking(b, {}, context(serverNow, { calendar: data })));
+          setBookingState((b) => reconcileBooking(b, {}, ctx));
         })
         .catch(() => {
-          if (seq === calendarSeq.current) settle('calendar', false);
+          if (seq !== calendarSeq.current) return;
+          settleCalendar(restaurant, false);
+          answered(restaurant, '', false);
         });
     },
-    [context, locale, settle],
+    [answered, context, locale, settleCalendar],
   );
 
   /* The slots of one day, with the covers left. A slot that filled or closed
@@ -284,7 +356,7 @@ export function SiteProvider({
       getJson<DayResponse>(dayUrl(restaurant, date, locale))
         .then((res) => {
           if (seq !== boardSeq.current) return;
-          settle('board', res.ok);
+          settleBoard(restaurant, date, res.ok);
           if (!res.ok) return;
           const data = res.data;
           // The date left the window (a tab open past midnight): the calendar's answer moves it.
@@ -292,16 +364,17 @@ export function SiteProvider({
             loadCalendar(restaurant);
             return;
           }
+          answered(restaurant, date, true);
           const serverNow = new Date(data.now);
           setClockOffset(serverNow.getTime() - Date.now());
           setBoard(data);
           setBookingState((b) => reconcileBooking(b, {}, context(serverNow, { board: data })));
         })
         .catch(() => {
-          if (seq === boardSeq.current) settle('board', false);
+          if (seq === boardSeq.current) settleBoard(restaurant, date, false);
         });
     },
-    [context, loadCalendar, locale, settle],
+    [answered, context, loadCalendar, locale, settleBoard],
   );
 
   useEffect(() => {
@@ -409,8 +482,10 @@ export function SiteProvider({
       setOverlay('drawer');
       setOpenDropdown(null);
       setDone(false);
+      setBooked(null);
       setTried(false);
       setServerError(null);
+      setWaitNote(null);
       if (note) setForm((f) => (f.note ? f : { ...f, note }));
       // A restaurant that does not book online is ignored here (reconcileBooking keeps the current one).
       const next = reconcileBooking(latest.current.booking, { ...preset }, context(now()));
@@ -426,6 +501,7 @@ export function SiteProvider({
     setOverlay(null);
     if (done) {
       setDone(false);
+      setBooked(null);
       setTried(false);
       setServerError(null);
       setForm(EMPTY_FORM);
@@ -456,29 +532,59 @@ export function SiteProvider({
 
   const submit = useCallback(() => {
     setServerError(null);
-    const date = booking.date;
-    const fieldsValid = valid.name && valid.phone && valid.email;
+    setWaitNote(null);
+    const { restaurant, date } = booking;
     const at = now();
-    // null: no board for this restaurant and date yet, so the server alone decides.
-    if (!(date && fieldsValid && bookingOpen(context(at), booking) !== false)) {
+    const ctx = context(at);
+    if (!(valid.name && valid.phone && valid.email)) {
       setTried(true);
-      if (date && fieldsValid) {
+      return;
+    }
+    if (restaurant && !calendarFor(ctx.calendar, restaurant)) {
+      // No dates for this restaurant yet, so nothing to book: they failed (say
+      // so, and ask again), or they are on their way (say so and wait; asking
+      // again would only restart the request every click). Its answer clears it.
+      setTried(true);
+      setWaitNote({ kind: failed.calendar === restaurant ? 'network' : 'loading', restaurant, date: '' });
+      if (failed.calendar === restaurant) loadCalendar(restaurant);
+      return;
+    }
+    if (!date) {
+      setTried(true); // no open day: the note under the strip says whom to call
+      return;
+    }
+    const day = boardFor(ctx.board, restaurant, date);
+    if (!day && failed.board?.restaurant === restaurant && failed.board.date === date) {
+      // The guest never saw this day's times: sending would book the default time unseen.
+      setTried(true);
+      setWaitNote({ kind: 'network', restaurant, date });
+      return;
+    }
+    // Without the day's board (still on its way) the server alone decides.
+    if (day && !bookingOpen(ctx, booking)) {
+      setTried(true);
+      if (day.state === 'closed') {
+        // A closure came after the calendar: say so, and fetch the calendar
+        // again, which greys the day and moves the date off it.
+        setServerError(bookingErrorMessage('closed', {}, strings));
+        loadCalendar(restaurant);
+      } else {
         // The form is fine, so the slot is the problem (it closed or filled
         // while the drawer sat open): say so and slide to the nearest open one.
-        const day = boardFor(latest.current.board, booking.restaurant, date);
-        const past = day ? clockBlock(date, booking.time, at, day) !== null : false;
+        const past = clockBlock(date, booking.time, at, day) !== null;
         setServerError(bookingErrorMessage(past ? 'past' : 'full', {}, strings));
         setBookingState((b) => reconcileBooking(b, {}, context(at)));
-      } else if (fieldsValid && booking.restaurant && !calendarFor(latest.current.calendar, booking.restaurant)) {
-        // No date because this restaurant's calendar never came (it failed, or
-        // is still on its way): say so rather than nothing, and ask again.
-        setServerError(bookingErrorMessage('network', {}, strings));
-        loadCalendar(booking.restaurant);
       }
       return;
     }
 
     setPending(true);
+    // As sent: a board answering after this must not change what the done screen says was booked.
+    const sent = {
+      time: booking.time,
+      guests: booking.guests,
+      restaurantName: findRestaurant(restaurants, restaurant)?.name ?? '',
+    };
     submitReservation({
       restaurant: booking.restaurant,
       date,
@@ -494,6 +600,7 @@ export function SiteProvider({
         if (result.ok) {
           setReference(result.data.reference);
           setConfirmedDate(result.data.date);
+          setBooked({ status: result.data.status, ...sent });
           setDone(true);
           return;
         }
@@ -506,7 +613,7 @@ export function SiteProvider({
       })
       .catch(() => setServerError(bookingErrorMessage('network', {}, strings)))
       .finally(() => setPending(false));
-  }, [booking, context, form, loadBoard, loadCalendar, locale, now, strings, valid]);
+  }, [booking, context, failed, form, loadBoard, loadCalendar, locale, now, restaurants, strings, valid]);
 
   const setFormField = useCallback((key: keyof BookingForm, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -603,14 +710,24 @@ export function SiteProvider({
   /* The last calendar answered, even for the previous restaurant, so the strip does not blink on a switch. */
   const days = calendar?.days ?? NO_DAYS;
   const today = calendar?.today ?? null;
-  /* A failure shows only where it leaves the form with nothing true to show:
-     the dates (no calendar for this restaurant), else the chosen day's times. */
+  /* A failure shows only where it leaves the form with nothing true to show,
+     and only for what is chosen now: the dates (no calendar for this
+     restaurant), else the chosen day's times. */
   const loadFailed = useMemo<SiteState['loadFailed']>(() => {
-    if (!failed.calendar && !failed.board) return null;
-    if (failed.calendar && !chosenCalendar) return { at: 'dates', count: failed.count };
-    if (booking.date && !chosenBoard) return { at: 'times', count: failed.count };
+    if (failed.calendar === booking.restaurant && !chosenCalendar) return { at: 'dates', count: failed.count };
+    const day = failed.board;
+    if (day && day.restaurant === booking.restaurant && day.date === booking.date && !chosenBoard) {
+      return { at: 'times', count: failed.count };
+    }
     return null;
-  }, [booking.date, chosenBoard, chosenCalendar, failed]);
+  }, [booking.date, booking.restaurant, chosenBoard, chosenCalendar, failed]);
+  /* The footer's note, while the choice is still the one it is about. */
+  const footNote =
+    waitNote && waitNote.restaurant === booking.restaurant && (!waitNote.date || waitNote.date === booking.date)
+      ? waitNote
+      : null;
+  const footError = serverError ?? (footNote?.kind === 'network' ? strings['error.network'] : null);
+  const footLoading = footNote?.kind === 'loading';
 
   const value = useMemo<SiteState>(
     () => ({
@@ -641,16 +758,19 @@ export function SiteProvider({
       board: chosenBoard,
       loadFailed,
       retryAvailability,
+      dateMoved,
       now,
       strings,
       confirmedDate,
+      booked,
       form,
       setFormField,
       tried,
       done,
       pending,
       reference,
-      serverError,
+      serverError: footError,
+      footLoading,
       errors,
       submit,
       overlay,
@@ -671,12 +791,12 @@ export function SiteProvider({
       openRestaurant,
     }),
     [
-      applyFinder, booking, bookable, chosenBoard, clearFilters, close, closeDrawer, closeDropdown,
-      confirmedDate, days, done, errors, filter, finder, form, goBackToRestaurants, goHomeTop, groupPhone,
-      lang, loadFailed, locale, matches, maxParty, now, open, openDropdown, openReserve, openRestaurant, overlay,
-      pageRoot, pending, pickCuisine, pickDestination, query, reference, restaurants, retryAvailability, scrollToId, scrolled,
-      serverError, setBooking, setFilter, setFinder, setFormField, showPage, shownCount, strings, submit,
-      tab, today, toggleDropdown, tried, view,
+      applyFinder, booked, booking, bookable, chosenBoard, clearFilters, close, closeDrawer, closeDropdown,
+      confirmedDate, dateMoved, days, done, errors, filter, finder, footError, footLoading, form, goBackToRestaurants,
+      goHomeTop, groupPhone, lang, loadFailed, locale, matches, maxParty, now, open, openDropdown, openReserve,
+      openRestaurant, overlay, pageRoot, pending, pickCuisine, pickDestination, query, reference, restaurants,
+      retryAvailability, scrollToId, scrolled, setBooking, setFilter, setFinder, setFormField, showPage, shownCount,
+      strings, submit, tab, today, toggleDropdown, tried, view,
     ],
   );
 

@@ -26,17 +26,25 @@ test.afterEach(() => {
 
 type CurtainWindow = Window & { __curtain?: string[] };
 
-/** Records every change of the page curtain's data-active from now on. */
+/**
+ * Records every change of the page curtain's data-active from now on. A write
+ * of the value it already holds is no change: under load, the curtain's mount
+ * effect can run after this observer is in place (waiting for hydration does
+ * not prevent it), and must not read as a curtain that went down.
+ */
 async function recordCurtain(page: Page) {
   await page.evaluate(() => {
     const el = document.querySelector('.page-curtain');
     if (!el) throw new Error('no .page-curtain');
     const w = window as CurtainWindow;
     w.__curtain = [];
-    new MutationObserver(() => w.__curtain?.push(el.getAttribute('data-active') ?? '')).observe(el, {
-      attributes: true,
-      attributeFilter: ['data-active'],
-    });
+    new MutationObserver((records) => {
+      // One callback can carry several writes: each one's new value is the next one's old value.
+      records.forEach((m, i) => {
+        const value = i + 1 < records.length ? records[i + 1].oldValue : el.getAttribute('data-active');
+        if (m.oldValue !== value) w.__curtain?.push(value ?? '');
+      });
+    }).observe(el, { attributes: true, attributeFilter: ['data-active'], attributeOldValue: true });
   });
 }
 

@@ -239,7 +239,8 @@
   color: var(--ink);
 }
 
-.guests-steppers button:disabled {
+/* '+' at the party limit is aria-disabled (it keeps the focus), '−' at one guest is disabled. */
+.guests-steppers button:is(:disabled, [aria-disabled='true']) {
   color: var(--disabled-step);
   cursor: default;
 }
@@ -416,6 +417,14 @@
   font-size: 13px;
   line-height: 1.4;
   color: var(--ink);
+}
+
+/* Always mounted (a live region), so it takes room only while it says something. */
+.drawer-foot-status:not(:empty) {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-soft);
 }
 
 .drawer-submit {

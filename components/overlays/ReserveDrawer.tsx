@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { DESTS, DEST_KEYS, MEAL_LABELS } from '@/lib/data';
 import { FIELD_MAX, findRestaurant, fmtDay, guestLabel } from '@/lib/booking';
-import { dayReason, slotOpen } from '@/lib/booking/client';
+import { dayReason, movedReason, slotOpen, type DateMove } from '@/lib/booking/client';
 import type { DayInfo } from '@/lib/booking/api';
 import type { GroupPhone } from '@/lib/booking/rules';
 import { formatMessage, type MessageParams } from '@/lib/i18n/format';
@@ -43,8 +43,11 @@ function LoadFailed({ count, strings, onRetry }: { count: number; strings: Clien
 /**
  * The booking window as the server sent it. A day that takes no bookings is
  * greyed out and cannot be chosen; tapping it shows why, until another
- * calendar arrives (another restaurant's, or a fresh answer). Mounted only
- * while the drawer shows, so the note starts empty on every open.
+ * calendar arrives (another restaurant's, or a fresh answer). Under the strip,
+ * one live region says, in order: why a tapped day is greyed, why the chosen
+ * date moved (`moved`), or, before any calendar has answered, that the dates
+ * are loading. Mounted only while the drawer shows, so the note starts empty
+ * on every open.
  */
 function DayStrip({
   days,
@@ -52,57 +55,86 @@ function DayStrip({
   onPick,
   strings,
   groupPhone,
+  moved,
 }: {
   days: DayInfo[];
   selected: IsoDate | '';
   onPick: (date: IsoDate) => void;
   strings: ClientStrings;
   groupPhone: GroupPhone | null;
+  moved: DateMove | null;
 }) {
   /* The unavailable day a guest last tapped, and the calendar it was tapped on. */
   const [tapped, setTapped] = useState<{ days: DayInfo[]; day: DayInfo } | null>(null);
   const note = tapped?.days === days ? tapped.day : null;
   const noDates = days.length > 0 && !days.some((d) => d.state === 'open');
+  const loading = days.length === 0;
+  const message = note
+    ? formatMessage(strings['booking.day_note'], { date: fmtDay(note.date), reason: dayReason(note, strings) })
+    : moved
+      ? formatMessage(strings['booking.date_moved'], {
+          date: fmtDay(moved.from),
+          reason: movedReason(moved, days, strings),
+          to: fmtDay(moved.to),
+        })
+      : loading
+        ? strings['booking.loading']
+        : '';
+
+  /* The chosen day stays in view: on open (a restaurant closed for its first
+     days chooses a day off-screen) and when an answer moves the date. Only the
+     strip scrolls; scrollIntoView could also scroll the drawer or the page. */
+  const strip = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = strip.current;
+    const chip = el?.children[days.findIndex((d) => d.state === 'open' && d.date === selected)];
+    if (!el || !(chip instanceof HTMLElement)) return;
+    const box = el.getBoundingClientRect();
+    const at = chip.getBoundingClientRect();
+    // The strip's side padding is where it meets the drawer's edge: keep the chip clear of it.
+    const pad = parseFloat(getComputedStyle(el).paddingLeft) || 0;
+    if (at.left < box.left + pad) el.scrollLeft -= box.left + pad - at.left;
+    else if (at.right > box.right - pad) el.scrollLeft += at.right - (box.right - pad);
+  }, [selected, days]);
 
   return (
     <>
-      <div className="daystrip">
-        {days.map((d, i) => {
-          const day = formatDay(d.date);
-          const open = d.state === 'open';
-          const isSelected = open && d.date === selected;
-          return (
-            <button
-              type="button"
-              key={d.date}
-              className="day"
-              data-selected={isSelected}
-              data-state={d.state}
-              aria-pressed={isSelected}
-              // Still focusable, so the reason in its name is read out; a tap shows it below.
-              aria-disabled={open ? undefined : true}
-              aria-label={
-                open
-                  ? undefined
-                  : formatMessage(strings['booking.day_note'], { date: day.label, reason: dayReason(d, strings) })
-              }
-              onClick={() => {
-                setTapped(open ? null : { days, day: d });
-                if (open) onPick(d.date);
-              }}
-            >
-              <span className="day-wd">{i === 0 ? 'Today' : day.weekday}</span>
-              <span className="day-num">{day.day}</span>
-              <span className="day-mo">{day.month}</span>
-            </button>
-          );
-        })}
-      </div>
-      {note && (
-        <p className="day-note" role="status">
-          {formatMessage(strings['booking.day_note'], { date: fmtDay(note.date), reason: dayReason(note, strings) })}
-        </p>
+      {!loading && (
+        <div ref={strip} className="daystrip">
+          {days.map((d, i) => {
+            const day = formatDay(d.date);
+            const open = d.state === 'open';
+            const isSelected = open && d.date === selected;
+            return (
+              <button
+                type="button"
+                key={d.date}
+                className="day"
+                data-selected={isSelected}
+                data-state={d.state}
+                aria-pressed={isSelected}
+                // Still focusable, so the reason in its name is read out; a tap shows it below.
+                aria-disabled={open ? undefined : true}
+                aria-label={
+                  open
+                    ? undefined
+                    : formatMessage(strings['booking.day_note'], { date: day.label, reason: dayReason(d, strings) })
+                }
+                onClick={() => {
+                  setTapped(open ? null : { days, day: d });
+                  if (open) onPick(d.date);
+                }}
+              >
+                <span className="day-wd">{i === 0 ? 'Today' : day.weekday}</span>
+                <span className="day-num">{day.day}</span>
+                <span className="day-mo">{day.month}</span>
+              </button>
+            );
+          })}
+        </div>
       )}
+      {/* Always mounted, empty when there is nothing to say, so a screen reader hears its first message. */}
+      <div role="status">{message && <p className={loading ? 'slot-loading' : 'day-note'}>{message}</p>}</div>
       {noDates && groupPhone && (
         <p className="day-note">
           <WithPhone template={strings['booking.no_dates']} params={{}} phone={groupPhone} />
@@ -126,13 +158,16 @@ export function ReserveDrawer() {
     board,
     loadFailed,
     retryAvailability,
+    dateMoved,
     now,
     strings,
     confirmedDate,
+    booked,
     form,
     setFormField,
     errors,
     serverError,
+    footLoading,
     pending,
     done,
     reference,
@@ -140,6 +175,7 @@ export function ReserveDrawer() {
   } = useSite();
 
   const open = overlay === 'drawer';
+  const hintId = useId();
 
   useOpenAnimation(open, (animate) => {
     animate('[data-anim="drawer"]', [{ transform: 'translateX(100%)' }, { transform: 'none' }], 800);
@@ -153,6 +189,9 @@ export function ReserveDrawer() {
   const anyAvailable =
     board?.periods.some((p) => p.slots.some((s) => slotOpen(board, p, s, booking.guests, at))) ?? true;
   const atLimit = maxParty !== null && booking.guests >= maxParty;
+  // The limit comes from the server (booking rules); until it answers, no growing.
+  const noMore = maxParty === null || atLimit;
+  const hint = atLimit && groupPhone;
 
   // Only places and restaurants that take bookings online (booking_enabled).
   const destinationOptions: Option<string>[] = DEST_KEYS.filter((k) => bookable.some((r) => r.dest === k)).map(
@@ -196,9 +235,12 @@ export function ReserveDrawer() {
               ✓
             </div>
             <div className="drawer-thanks">Thank you, {form.name.trim() || 'you'}.</div>
+            {/* What was booked, as sent, in the words for its status: an auto-confirmed
+                booking never waits in the pending tab, so nobody would call to confirm it. */}
             <p className="drawer-done-lede">
-              Your table request at {restaurant?.name} has been received. Our team will contact you
-              shortly to confirm.
+              {formatMessage(strings[booked?.status === 'confirmed' ? 'booking.done_confirmed' : 'booking.done_requested'], {
+                restaurant: booked?.restaurantName ?? '',
+              })}
             </p>
             <div className="drawer-summary">
               <div className="drawer-summary-row">
@@ -207,11 +249,11 @@ export function ReserveDrawer() {
               </div>
               <div className="drawer-summary-row">
                 <span>Time</span>
-                <span>{booking.time}</span>
+                <span>{booked?.time}</span>
               </div>
               <div className="drawer-summary-row">
                 <span>Guests</span>
-                <span>{guestLabel(booking.guests)}</span>
+                <span>{booked ? guestLabel(booked.guests) : ''}</span>
               </div>
               <div className="drawer-summary-row">
                 <span>Reference</span>
@@ -254,6 +296,7 @@ export function ReserveDrawer() {
                   onPick={(date) => setBooking({ date })}
                   strings={strings}
                   groupPhone={groupPhone}
+                  moved={dateMoved?.restaurant === booking.restaurant ? dateMoved : null}
                 />
               )}
 
@@ -271,26 +314,34 @@ export function ReserveDrawer() {
                   >
                     −
                   </button>
+                  {/* aria-disabled, not disabled: a button that turns disabled loses the
+                      focus to <body>, which drops a keyboard user out of the stepper at
+                      the limit, just as the hint below tells them whom to call. */}
                   <button
                     type="button"
                     aria-label="More guests"
-                    // The limit comes from the server (booking rules); until it answers, no growing.
-                    disabled={maxParty === null || atLimit}
-                    onClick={() => setBooking({ guests: booking.guests + 1 })}
+                    aria-disabled={noMore || undefined}
+                    aria-describedby={hint ? hintId : undefined}
+                    onClick={() => {
+                      if (!noMore) setBooking({ guests: booking.guests + 1 });
+                    }}
                   >
                     +
                   </button>
                 </div>
               </div>
-              {atLimit && groupPhone && (
-                <p className="guests-hint">
-                  <WithPhone
-                    template={strings['error.party_too_large']}
-                    params={{ max: maxParty }}
-                    phone={groupPhone}
-                  />
-                </p>
-              )}
+              {/* Always mounted, empty below the limit, so the hint is read out when it appears. */}
+              <div id={hintId} role="status">
+                {hint && (
+                  <p className="guests-hint">
+                    <WithPhone
+                      template={strings['error.party_too_large']}
+                      params={{ max: maxParty }}
+                      phone={groupPhone}
+                    />
+                  </p>
+                )}
+              </div>
 
               <div className="drawer-label">TIME</div>
               {loadFailed
@@ -410,6 +461,10 @@ export function ReserveDrawer() {
                     {serverError}
                   </div>
                 )}
+                {/* REQUEST BOOKING waiting for the dates: news, not an error. Always mounted, so it is read out. */}
+                <div className="drawer-foot-status" role="status">
+                  {footLoading ? strings['booking.loading'] : null}
+                </div>
               </div>
               <button
                 type="button"

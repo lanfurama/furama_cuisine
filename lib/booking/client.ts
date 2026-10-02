@@ -40,6 +40,18 @@ export const boardFor = (board: DayResponse | null, restaurant: string, date: Is
 
 export const firstOpenDay = (days: DayInfo[]): IsoDate | '' => days.find((d) => d.state === 'open')?.date ?? '';
 
+/**
+ * The open day nearest a date the calendar refuses: the first open day on or
+ * after it, else the last one before it (a date beyond a shorter window).
+ * A date before the calendar's first day is a stale one (a tab open past
+ * midnight), and moves to the first open day.
+ */
+function openDayNear(days: DayInfo[], date: IsoDate | ''): IsoDate | '' {
+  if (!date || !days.length || date < days[0].date) return firstOpenDay(days);
+  const open = days.filter((d) => d.state === 'open');
+  return (open.find((d) => d.date >= date) ?? open.at(-1))?.date ?? '';
+}
+
 /** A slot the party can take now: open by the server, still open by the clock (the server's own rules), and with room. */
 export function slotOpen(
   board: DayResponse,
@@ -75,7 +87,9 @@ export function nearestOpenTime(board: DayResponse, time: string, guests: number
  * - a restaurant that does not book online is never chosen;
  * - with this restaurant's calendar: the party is clamped to maxParty, and a
  *   date that is not open (a closure, full, past, or outside the window) is
- *   refused, falling back to the first open day;
+ *   refused, keeping the current date when it is open, else moving to the open
+ *   day nearest the refused one (a switch to a restaurant closed that day must
+ *   not land the guest on today; dateMove tells them);
  * - with this day's board: the time slides to the nearest open slot.
  * Without the matching calendar or board those fields are left for the
  * server's answer to settle.
@@ -100,12 +114,39 @@ export function reconcileBooking(current: Booking, patch: Partial<Booking>, ctx:
   if (calendar) {
     next.guests = Math.max(1, Math.min(next.guests, calendar.maxParty));
     const isOpen = (d: IsoDate | '') => calendar.days.some((x) => x.date === d && x.state === 'open');
-    if (!isOpen(next.date)) next.date = isOpen(current.date) ? current.date : firstOpenDay(calendar.days);
+    if (!isOpen(next.date)) next.date = isOpen(current.date) ? current.date : openDayNear(calendar.days, next.date);
   }
 
   const board = boardFor(ctx.board, next.restaurant, next.date);
   if (board) next.time = nearestOpenTime(board, next.time, next.guests, ctx.now);
   return next;
+}
+
+/** A chosen date that a calendar's answer replaced; `day` is that date in the calendar, null beyond it. */
+export type DateMove = { restaurant: string; from: IsoDate; to: IsoDate; day: DayInfo | null };
+
+/**
+ * What a calendar's answer did to the chosen date: the move when it replaced
+ * one the guest had (so the form can say why), null when the date stayed, or
+ * when there was none yet (the first date is not news), or none is left (the
+ * no-dates note speaks then).
+ */
+export function dateMove(before: Booking, after: Booking, calendar: CalendarResponse): DateMove | null {
+  if (!before.date || !after.date || before.date === after.date) return null;
+  return {
+    restaurant: calendar.restaurant,
+    from: before.date,
+    to: after.date,
+    day: calendar.days.find((d) => d.date === before.date) ?? null,
+  };
+}
+
+type MoveWords = DayWords & Record<'booking.day_outside', string>;
+
+/** Why the date moved: the day's own reason, else it lies beyond the window, or (a stale date) has passed. */
+export function movedReason(move: DateMove, days: DayInfo[], words: MoveWords): string {
+  if (move.day) return dayReason(move.day, words);
+  return days.length && move.from < days[0].date ? words['booking.day_past'] : words['booking.day_outside'];
 }
 
 /** The client gate before submitting: only with a board for this exact restaurant and date. */

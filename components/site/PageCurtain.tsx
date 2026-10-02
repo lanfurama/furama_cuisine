@@ -78,7 +78,9 @@ export function PageCurtain() {
     if (curtain) {
       curtain.getAnimations?.().forEach((a) => a.cancel());
       curtain.style.opacity = '';
-      curtain.dataset.active = 'false';
+      // Only when it differs: the markup already says 'false', and a write of
+      // the same value is still an attribute mutation that observers record.
+      if (curtain.dataset.active !== 'false') curtain.dataset.active = 'false';
     }
     return () => {
       curtain = null;

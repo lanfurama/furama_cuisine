@@ -16,6 +16,13 @@ export type MockOptions = {
   windowDays?: number;
   /** Days that take no bookings, by date. */
   days?: Record<string, MockDay>;
+  /** Days that take no bookings at one restaurant only: restaurant id → date → day. Wins over `days`. */
+  daysByRestaurant?: Record<string, Record<string, MockDay>>;
+  /**
+   * The day form's answer only, by date: the calendar still shows the date as
+   * `days` say (a closure added after the calendar was fetched). Wins over both.
+   */
+  dayAnswers?: Record<string, MockDay>;
   /** Meals closed on a date: date → meal → public reason (null for none). */
   mealClosures?: Record<string, Record<string, string | null>>;
 };
@@ -39,6 +46,7 @@ export async function mockAvailability(page: Page, options: MockOptions) {
     const maxParty = options.maxParty ?? 12;
     const windowDays = options.windowDays ?? 14;
     const dates = Array.from({ length: windowDays }, (_, i) => addDays(today, i));
+    const closed: Partial<Record<string, MockDay>> = { ...options.days, ...options.daysByRestaurant?.[restaurant] };
 
     if (date === null) {
       return route.fulfill({
@@ -48,14 +56,14 @@ export async function mockAvailability(page: Page, options: MockOptions) {
           now,
           maxParty,
           groupPhone: GROUP_PHONE,
-          days: dates.map((d) => ({ date: d, state: 'open', ...options.days?.[d] })),
+          days: dates.map((d) => ({ date: d, state: 'open', ...closed[d] })),
         },
       });
     }
     const clock = { restaurant, today, now, date, maxParty, leadMinutes: 30, sameDayCutoff: null };
     if (!dates.includes(date)) return route.fulfill({ json: { ...clock, state: 'outside', periods: [] } });
 
-    const closedDay = options.days?.[date];
+    const closedDay = options.dayAnswers?.[date] ?? closed[date];
     const closedMeals = options.mealClosures?.[date] ?? {};
     return route.fulfill({
       json: {

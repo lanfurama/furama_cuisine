@@ -1,4 +1,4 @@
-import type { Page, Route } from '@playwright/test';
+import type { Locator, Page, Request, Route } from '@playwright/test';
 import { addDays, formatDay, venueNow } from '../lib/venue-time';
 import { GROUP_PHONE, mockAvailability, type MockDay, type MockOptions } from './availability-mock';
 import { HOME_PATH } from './paths';
@@ -20,15 +20,27 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem('fc-intro-seen', '1'));
 });
 
+/** The header's RESERVE (the full header's on a desktop, the compact one's on a phone). */
+const reserveButton = (page: Page) => page.getByRole('button', { name: 'RESERVE', exact: true }).filter({ visible: true }).first();
+
 async function openDrawer(page: Page, options: Partial<MockOptions> = {}) {
   await page.clock.setFixedTime(NOW);
   await mockAvailability(page, { ...clock, ...options });
   await page.goto(HOME_PATH);
-  await page.getByRole('button', { name: 'RESERVE', exact: true }).first().click();
+  await reserveButton(page).click();
   const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
   await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
   return drawer;
 }
+
+/**
+ * The live messages inside `scope` that say something. The drawer keeps its
+ * role="status" regions mounted while they are empty (so a screen reader
+ * hears their first message), so an empty one is not a message.
+ */
+const said = (scope: Locator) => scope.getByRole('status').filter({ hasText: /\S/ });
+
+const foot = (drawer: Locator) => drawer.locator('.drawer-foot');
 
 /** The booking bar's dropdowns, in order: destination, restaurant, date, time, guests. */
 const barField = (page: Page, i: number) => page.locator('#reserve .dd').nth(i);
@@ -51,7 +63,7 @@ test('a closed day is greyed out, cannot be chosen, and says why', async ({ page
   await closed.click({ force: true });
   await expect(closed).toHaveAttribute('aria-pressed', 'false');
   await expect(drawer.locator('.day[aria-pressed="true"] .day-num')).toHaveText('2');
-  await expect(drawer.getByRole('status')).toHaveText('Sun, 4 Oct: Closed for a private event');
+  await expect(said(drawer)).toHaveText('Sun, 4 Oct: Closed for a private event');
 
   // Without a public reason, and when full, the generic words from the registry.
   await expect(drawer.getByRole('button', { name: 'Mon, 5 Oct: Closed' })).toHaveAttribute('aria-disabled', 'true');
@@ -60,7 +72,7 @@ test('a closed day is greyed out, cannot be chosen, and says why', async ({ page
   // An open day still selects.
   await drawer.locator('.day[data-state="open"]', { hasText: '7' }).click();
   await expect(drawer.locator('.day[aria-pressed="true"] .day-num')).toHaveText('7');
-  await expect(drawer.getByRole('status')).toHaveCount(0);
+  await expect(said(drawer)).toHaveCount(0);
 
   // The booking bar's date list greys the same days and shows the reason on hover.
   await page.keyboard.press('Escape');
@@ -109,14 +121,58 @@ test('the reason under the strip belongs to that calendar: another restaurant’
   const days: Record<string, MockDay> = { '2026-10-04': { state: 'closed', reason: 'Closed for a private event' } };
   const drawer = await openDrawer(page, { days });
   await drawer.getByRole('button', { name: 'Sun, 4 Oct: Closed for a private event' }).click({ force: true });
-  await expect(drawer.getByRole('status')).toHaveText('Sun, 4 Oct: Closed for a private event');
+  await expect(said(drawer)).toHaveText('Sun, 4 Oct: Closed for a private event');
 
   // The next restaurant takes bookings that day (the mock reads `days` per request).
   delete days['2026-10-04'];
   await drawer.getByRole('button', { name: /^restaurant/i }).click();
   await page.getByRole('listbox', { name: 'Restaurant' }).getByRole('option', { name: 'Don Cipriani’s' }).click();
   await expect(drawer.locator('.daystrip .day[data-state="closed"]')).toHaveCount(0);
-  await expect(drawer.getByRole('status')).toHaveCount(0);
+  await expect(said(drawer)).toHaveCount(0);
+});
+
+/** The chosen day's chip lies inside the strip's box: scrolled into view, not off either edge. */
+async function expectChosenDayInView(drawer: Locator) {
+  const strip = drawer.locator('.daystrip');
+  const chosen = drawer.locator('.daystrip .day[aria-pressed="true"]');
+  await expect
+    .poll(async () => {
+      const [s, c] = await Promise.all([strip.boundingBox(), chosen.boundingBox()]);
+      return !!s && !!c && c.x >= s.x && c.x + c.width <= s.x + s.width && c.y >= s.y && c.y + c.height <= s.y + s.height;
+    })
+    .toBe(true);
+}
+
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('a switch to a restaurant that does not take the chosen day moves to the next open day, says why, and shows it', async ({ page }) => {
+    // Mon 12 Oct (today + 10) is open at Tàya House and closed at Don Cipriani’s.
+    const drawer = await openDrawer(page, {
+      daysByRestaurant: { 'don-ciprianis': { '2026-10-12': { state: 'closed', reason: 'Closed on Mondays' } } },
+    });
+    await drawer.locator('.daystrip .day').nth(10).click();
+    await expect(drawer.locator('.drawer-foot-summary')).toContainText('Mon, 12 Oct');
+
+    await drawer.getByRole('button', { name: /^restaurant/i }).click();
+    await page.getByRole('listbox', { name: 'Restaurant' }).getByRole('option', { name: 'Don Cipriani’s' }).click();
+    await expect(drawer.locator('.drawer-name')).toHaveText('Don Cipriani’s');
+
+    // The next open day after it, not today.
+    await expect(drawer.locator('.drawer-foot-summary')).toContainText('Tue, 13 Oct');
+    await expect(said(drawer)).toContainText('Closed on Mondays');
+    await expect(said(drawer)).toContainText('Tue, 13 Oct');
+    await expectChosenDayInView(drawer);
+  });
+
+  test('a restaurant closed for its first days opens on its first open day, in view', async ({ page }) => {
+    const firstWeek = Object.fromEntries(
+      ['02', '03', '04', '05', '06', '07', '08'].map((d) => [`2026-10-${d}`, { state: 'closed' as const }]),
+    );
+    const drawer = await openDrawer(page, { daysByRestaurant: { 'taya-house': firstWeek } });
+    await expect(drawer.locator('.daystrip .day[aria-pressed="true"] .day-num')).toHaveText('9');
+    await expectChosenDayInView(drawer);
+  });
 });
 
 test('the details stop at the lengths the server accepts', async ({ page }) => {
@@ -137,13 +193,48 @@ async function failAvailability(page: Page, failing: (url: URL) => boolean, answ
   );
 }
 
+const isCalendar = (url: URL) => url.pathname === '/api/availability' && !url.searchParams.has('date');
+const isServerAction = (r: Request) => r.method() === 'POST' && !!r.headers()['next-action'];
+
+/** Counts the page's requests that match, from now on. */
+function countRequests(page: Page, matches: (r: Request) => boolean) {
+  const seen = { count: 0 };
+  page.on('request', (r) => {
+    if (matches(r)) seen.count += 1;
+  });
+  return seen;
+}
+
+/** Holds the matching availability requests until the returned function is called; registered last, it runs first. */
+async function holdAvailability(page: Page, held: (url: URL) => boolean) {
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/api/availability**', async (route) => {
+    if (held(new URL(route.request().url()))) await gate;
+    await route.fallback().catch(() => {}); // the page may have closed meanwhile
+  });
+  return release;
+}
+
+/** Aborts every Server Action POST, so nothing is written whichever way the test goes, and counts them. */
+async function abortServerActions(page: Page) {
+  const posts = countRequests(page, isServerAction);
+  await page.route('**/*', (route) => (isServerAction(route.request()) ? route.abort() : route.fallback()));
+  return posts;
+}
+
+async function fillDetails(drawer: Locator) {
+  await drawer.getByLabel('Full name *', { exact: true }).fill('Nguyễn Minh Anh');
+  await drawer.getByLabel('Phone *', { exact: true }).fill('0905 000 000');
+}
+
 test('when the dates cannot load, the guest is told, REQUEST BOOKING says so, and Try again recovers', async ({ page }) => {
   let failing = true;
   await page.clock.setFixedTime(NOW);
   await mockAvailability(page, clock);
   await failAvailability(page, () => failing, (route) => route.fulfill({ status: 503, json: { error: 'unavailable' } }));
   await page.goto(HOME_PATH);
-  await page.getByRole('button', { name: 'RESERVE', exact: true }).first().click();
+  await reserveButton(page).click();
   const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
 
   // In place of an empty strip.
@@ -154,7 +245,7 @@ test('when the dates cannot load, the guest is told, REQUEST BOOKING says so, an
   await drawer.getByLabel('Full name *', { exact: true }).fill('Nguyễn Minh Anh');
   await drawer.getByLabel('Phone *', { exact: true }).fill('0905 000 000');
   await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
-  await expect(drawer.locator('.drawer-foot').getByRole('alert')).toHaveText(NETWORK);
+  await expect(foot(drawer).getByRole('alert')).toHaveText(NETWORK);
 
   failing = false;
   await drawer.getByRole('button', { name: 'Try again' }).click();
@@ -162,6 +253,8 @@ test('when the dates cannot load, the guest is told, REQUEST BOOKING says so, an
   await expect(drawer.locator('.day[aria-pressed="true"] .day-num')).toHaveText('2');
   await expect(drawer.locator('.slot:not([disabled])')).toHaveCount(12);
   await expect(drawer.getByRole('button', { name: 'Try again' })).toHaveCount(0);
+  // The footer's message was about those dates: it goes once they arrive.
+  await expect(foot(drawer).getByRole('alert')).toHaveCount(0);
 });
 
 test('when the times cannot load, the guest is told instead of waiting forever, and Try again recovers', async ({ page }) => {
@@ -171,7 +264,7 @@ test('when the times cannot load, the guest is told instead of waiting forever, 
   // The calendar answers; the day's request finds no network.
   await failAvailability(page, (url) => failing && url.searchParams.has('date'), (route) => route.abort('internetdisconnected'));
   await page.goto(HOME_PATH);
-  await page.getByRole('button', { name: 'RESERVE', exact: true }).first().click();
+  await reserveButton(page).click();
   const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
 
   await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
@@ -184,9 +277,95 @@ test('when the times cannot load, the guest is told instead of waiting forever, 
   await expect(drawer.getByRole('alert')).toHaveCount(0);
 });
 
+test('while the dates are on their way the drawer says so, and REQUEST BOOKING waits for them instead of failing', async ({ page }) => {
+  await page.clock.setFixedTime(NOW);
+  await mockAvailability(page, clock);
+  const release = await holdAvailability(page, isCalendar);
+  const calendars = countRequests(page, (r) => isCalendar(new URL(r.url())));
+  const posts = await abortServerActions(page);
+  await page.goto(HOME_PATH);
+  await reserveButton(page).click();
+  const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
+
+  // Under DATE, in place of an empty strip.
+  await expect(said(drawer)).toHaveText('Checking tables…');
+  await fillDetails(drawer);
+  const asked = calendars.count;
+  await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
+  await expect(said(foot(drawer))).toHaveText('Checking tables…');
+  await expect(drawer.getByRole('alert')).toHaveCount(0);
+
+  release();
+  await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
+  await expect(said(foot(drawer))).toHaveCount(0);
+  await expect(drawer.getByRole('alert')).toHaveCount(0);
+  // The click asked for nothing: the answer already on its way is the one that counts.
+  expect(calendars.count).toBe(asked);
+  expect(posts.count).toBe(0);
+});
+
+test('when the chosen day’s times did not load, REQUEST BOOKING says so and sends nothing', async ({ page }) => {
+  await page.clock.setFixedTime(NOW);
+  await mockAvailability(page, clock);
+  await failAvailability(page, (url) => url.searchParams.has('date'), (route) => route.fulfill({ status: 500, json: { error: 'unavailable' } }));
+  const posts = await abortServerActions(page);
+  await page.goto(HOME_PATH);
+  await reserveButton(page).click();
+  const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
+  await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
+
+  await drawer.locator('.daystrip .day').nth(3).click();
+  await expect(drawer.getByRole('button', { name: 'Try again' })).toBeVisible();
+  await fillDetails(drawer);
+  await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
+  await expect(foot(drawer).getByRole('alert')).toHaveText(NETWORK);
+  // No time the guest never saw (the default 19:00) goes to the server.
+  expect(posts.count).toBe(0);
+});
+
+test('when the chosen day turns out closed, REQUEST BOOKING says so and asks for the dates again', async ({ page }) => {
+  const calendars = countRequests(page, (r) => isCalendar(new URL(r.url())));
+  const posts = await abortServerActions(page);
+  // The calendar still offers today; the day's own answer says a closure took it since.
+  const drawer = await openDrawer(page, { dayAnswers: { '2026-10-02': { state: 'closed' } } });
+  await expect(drawer.locator('.day[aria-pressed="true"] .day-num')).toHaveText('2');
+  await expect(drawer.getByText('The restaurant is closed at that time — please choose another time or day.')).toBeVisible();
+  await fillDetails(drawer);
+
+  const asked = calendars.count;
+  await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
+  await expect(foot(drawer).getByRole('alert')).toHaveText('The restaurant is closed at that time — please choose another time or day.');
+  await expect.poll(() => calendars.count).toBeGreaterThan(asked);
+  expect(posts.count).toBe(0);
+});
+
+test('a failed calendar for one restaurant does not show while the next one’s is on its way', async ({ page }) => {
+  await page.clock.setFixedTime(NOW);
+  await mockAvailability(page, clock);
+  const forRestaurant = (url: URL, id: string) => isCalendar(url) && url.searchParams.get('restaurant') === id;
+  const release = await holdAvailability(page, (url) => forRestaurant(url, 'don-ciprianis'));
+  await failAvailability(page, (url) => forRestaurant(url, 'taya-house'), (route) => route.fulfill({ status: 503, json: { error: 'unavailable' } }));
+  await page.goto(HOME_PATH);
+  await reserveButton(page).click();
+  const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
+  await expect(drawer.getByRole('button', { name: 'Try again' })).toBeVisible();
+
+  await drawer.getByRole('button', { name: /^restaurant/i }).click();
+  await page.getByRole('listbox', { name: 'Restaurant' }).getByRole('option', { name: 'Don Cipriani’s' }).click();
+  await expect(drawer.locator('.drawer-name')).toHaveText('Don Cipriani’s');
+  // Tàya House's failure is not Don Cipriani’s: its dates are on their way.
+  await expect(drawer.getByRole('button', { name: 'Try again' })).toHaveCount(0);
+  await expect(drawer.getByRole('alert')).toHaveCount(0);
+  await expect(said(drawer)).toHaveText('Checking tables…');
+
+  release();
+  await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
+  await expect(said(drawer)).toHaveCount(0);
+});
+
 test('books a table against the real availability API', async ({ page }) => {
   await page.goto(HOME_PATH);
-  await page.getByRole('button', { name: 'RESERVE', exact: true }).first().click();
+  await reserveButton(page).click();
   const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
   await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
   await expect(drawer.locator('.daystrip .day').first().locator('.day-wd')).toHaveText('Today');
@@ -200,6 +379,10 @@ test('books a table against the real availability API', async ({ page }) => {
   await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
 
   await expect(drawer.locator('.drawer-ref')).toHaveText(/^FC-[0-9A-HJKMNP-TV-Z]{8}$/);
+  // Auto-confirm is off: a request, which staff confirm.
+  const lede = drawer.locator('.drawer-done-lede');
+  await expect(lede).toContainText('has been received');
+  await expect(lede).toContainText('contact you shortly to confirm');
 });
 
 /** Opens the drawer from a home-page card (a restaurant without its own page only reserves). */
@@ -236,10 +419,22 @@ test('a max_party of 8 in the database stops the stepper at 8 and names the dest
   try {
     const drawer = await openFromCard(page, 'Steakhouse The Fan');
     const more = drawer.getByRole('button', { name: 'More guests' });
-    for (let i = 2; i < 8; i++) await more.click();
+    const hint = 'For more than 8 guests, please call us on 0859 555 759.';
+    // From the keyboard: at the limit the button keeps the focus, and the hint is read out.
+    // The strip can still show the previous calendar's days: the stepper waits for The Fan's own.
+    await expect(more).toBeEnabled();
+    await more.focus();
+    for (let i = 2; i < 8; i++) await page.keyboard.press('Enter');
     await expect(drawer.locator('.guests-value')).toHaveText('8 guests');
     await expect(more).toBeDisabled();
-    await expect(drawer.locator('.guests-hint')).toHaveText('For more than 8 guests, please call us on 0859 555 759.');
+    // Chrome moves the focus off a button that turned `disabled` at its next rendering update, not at once.
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(null)))));
+    await expect(more).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(drawer.locator('.guests-value')).toHaveText('8 guests');
+    await expect(said(drawer)).toHaveText(hint);
+    await expect(more).toHaveAccessibleDescription(hint);
+    await expect(drawer.locator('.guests-hint')).toHaveText(hint);
     await expect(drawer.locator('.guests-hint a')).toHaveAttribute('href', 'tel:+84859555759');
   } finally {
     await one(`UPDATE restaurants SET max_party = NULL WHERE id = 'the-fan'`);

@@ -45,6 +45,15 @@ test('switching online booking off hides every RESERVE of that restaurant; on ag
   const card = home.locator('.rcard', { hasText: 'Hải Vân Lounge' }).first();
   await expect(card.locator('.rcard-tag')).toHaveCount(0);
   await expect(card).toHaveAttribute('aria-disabled', 'true');
+  // Nor does it look as if it did (GX-6): under the pointer, no hand and no push-in of its picture.
+  const shown = home.locator('.rcard:visible', { hasText: 'Hải Vân Lounge' }).first();
+  await shown.hover();
+  const look = await shown.evaluate(async (el) => {
+    const zoom = el.querySelector('.rcard-zoom')!;
+    await Promise.all(zoom.getAnimations().map((a) => a.finished)); // the push-in is a 0.9 s transition
+    return { cursor: getComputedStyle(el).cursor, zoom: getComputedStyle(zoom).transform };
+  });
+  expect(look).toEqual({ cursor: 'default', zoom: 'matrix(1, 0, 0, 1, 0, 0)' });
   // Search names no action for it; V-Senses Cafe still reserves (phase-2 ledger: the View/Reserve label).
   await home.locator('.hdr-full .hdr-link', { hasText: 'SEARCH' }).click();
   await home.locator('.search-chip', { hasText: 'Café & Lounge' }).click();

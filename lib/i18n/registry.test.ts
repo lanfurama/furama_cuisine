@@ -19,6 +19,10 @@ describe('registry', () => {
       expect(usesIcuSyntax(text)).toBe(false); // phase 2 has no ICU parser
     }
   });
+
+  it('error.outside_window names no fixed span: each restaurant sets its own window, 1–90 days', () => {
+    expect(REGISTRY['error.outside_window'].en).not.toMatch(/week|fortnight|\d+ days/i);
+  });
 });
 
 describe('formatMessage', () => {

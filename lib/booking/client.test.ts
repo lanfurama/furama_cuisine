@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { Booking } from '@/lib/booking';
 import type { Restaurant } from '@/lib/data';
-import { bookableRestaurants, bookingOpen, dayReason, reconcileBooking, type BookingContext } from './client';
+import {
+  bookableRestaurants,
+  bookingOpen,
+  dateMove,
+  dayReason,
+  movedReason,
+  reconcileBooking,
+  type BookingContext,
+} from './client';
 import type { CalendarResponse, DayResponse } from './api';
 
 const restaurant = (id: string, dest: Restaurant['dest'], bookingEnabled = true): Restaurant => ({
@@ -108,6 +116,72 @@ describe('reconcileBooking and stale answers', () => {
   it('leaves the time alone when a meal is closed and nothing else is open', () => {
     const closedDinner: DayResponse = { ...board, periods: [{ meal: 'Dinner', closed: true, reason: 'Wedding', slots: [] }] };
     expect(reconcileBooking(booking, {}, ctx({ board: closedDinner })).time).toBe('19:00');
+  });
+});
+
+describe('reconcileBooking on another restaurant’s calendar (a switch, GX-2)', () => {
+  // Phở Cuốn: closed on the 4th, full on the 6th, and a shorter window (five days).
+  const pho: CalendarResponse = {
+    ...calendar,
+    restaurant: 'pho-cuon',
+    days: [
+      { date: '2026-10-02', state: 'open' },
+      { date: '2026-10-03', state: 'open' },
+      { date: '2026-10-04', state: 'closed', reason: 'Closed on Sundays' },
+      { date: '2026-10-05', state: 'open' },
+      { date: '2026-10-06', state: 'full' },
+    ],
+  };
+  const atPho: Booking = { ...booking, destination: 'dining-house', restaurant: 'pho-cuon' };
+  const answer = (b: Booking) => reconcileBooking(b, {}, ctx({ calendar: pho, board: null }));
+
+  it('moves a chosen future date the new calendar closes to the next open day after it, not back to today', () => {
+    expect(answer({ ...atPho, date: '2026-10-04' }).date).toBe('2026-10-05');
+  });
+
+  it('moves a date beyond the new, shorter window to its last open day', () => {
+    expect(answer({ ...atPho, date: '2026-10-12' }).date).toBe('2026-10-05');
+  });
+
+  it('still moves a stale past date to the first open day', () => {
+    expect(answer({ ...atPho, date: '2026-10-01' }).date).toBe('2026-10-02');
+  });
+
+  describe('dateMove', () => {
+    it('names the refused date, its day in the new calendar, and where the booking now is', () => {
+      const before = { ...atPho, date: '2026-10-04' };
+      expect(dateMove(before, answer(before), pho)).toEqual({
+        restaurant: 'pho-cuon',
+        from: '2026-10-04',
+        to: '2026-10-05',
+        day: { date: '2026-10-04', state: 'closed', reason: 'Closed on Sundays' },
+      });
+    });
+
+    it('has no day for a date the calendar does not reach', () => {
+      const before = { ...atPho, date: '2026-10-12' };
+      expect(dateMove(before, answer(before), pho)).toEqual({ restaurant: 'pho-cuon', from: '2026-10-12', to: '2026-10-05', day: null });
+    });
+
+    it('is null when the date stays, and when the first date is set (no date before)', () => {
+      expect(dateMove({ ...atPho, date: '2026-10-05' }, answer({ ...atPho, date: '2026-10-05' }), pho)).toBeNull();
+      expect(dateMove({ ...atPho, date: '' }, answer({ ...atPho, date: '' }), pho)).toBeNull();
+    });
+  });
+
+  describe('movedReason', () => {
+    const words = {
+      'booking.day_closed': 'Closed',
+      'booking.day_full': 'Fully booked',
+      'booking.day_past': 'No more tables today',
+      'booking.day_outside': 'Not open for booking yet',
+    };
+    it('gives the day’s own reason, else says the date is beyond the window, or has passed', () => {
+      const move = { restaurant: 'pho-cuon', from: '2026-10-04', to: '2026-10-05' } as const;
+      expect(movedReason({ ...move, day: pho.days[2] }, pho.days, words)).toBe('Closed on Sundays');
+      expect(movedReason({ ...move, from: '2026-10-12', day: null }, pho.days, words)).toBe('Not open for booking yet');
+      expect(movedReason({ ...move, from: '2026-10-01', to: '2026-10-02', day: null }, pho.days, words)).toBe('No more tables today');
+    });
   });
 });
 

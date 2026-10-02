@@ -60,4 +60,18 @@ describe('parseReservationInput', () => {
     expect(parseReservationInput(null)).toEqual({ ok: false, code: 'unknown' });
     expect(parseReservationInput('taya-house')).toEqual({ ok: false, code: 'unknown' });
   });
+
+  // The public action reads up to Next's 1 MB body: a pattern that runs on an
+  // oversized field would block the event loop for minutes (SEC-1).
+  it.each([
+    ['100k “@”', { email: '@'.repeat(100_000) }, 'invalid_email'],
+    ['a run of dots between two “@”', { email: 'a@' + '.'.repeat(100_000) + '@' }, 'invalid_email'],
+    ['100k digits', { phone: '1'.repeat(100_000) }, 'invalid_phone'],
+  ])('refuses an oversized field at once: %s', (_label, over, code) => {
+    const started = performance.now();
+    const result = parseReservationInput({ ...valid, ...over });
+    const ms = performance.now() - started;
+    expect(result).toEqual({ ok: false, code });
+    expect(ms).toBeLessThan(250);
+  });
 });

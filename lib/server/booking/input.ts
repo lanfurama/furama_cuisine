@@ -21,16 +21,25 @@ const schema = z.object({
   // No upper bound here: max_party decides, and answers party_too_large.
   guests: z.number().int().min(1),
   name: z.string().trim().min(2).max(120),
+  /*
+   * A pattern must never see unbounded input: this action is public and reads
+   * up to Next's 1 MB body, and zod 4 runs a string's later checks after one
+   * fails unless that check aborts. The email pattern is quadratic on a run of
+   * '@' or '.' (40k characters take a second, 1 MB about ten minutes of a
+   * blocked event loop), and any pattern of that shape is; only the length
+   * bound fixes it, so the max aborts and the refine checks the length again.
+   */
   phone: z
     .string()
     .trim()
-    .max(40)
-    .refine((p) => p.replace(/\D/g, '').length >= 8),
+    .max(40, { abort: true })
+    .refine((p) => p.length <= 40 && p.replace(/\D/g, '').length >= 8),
+  // The guest form's own check (lib/booking.ts validate), so the two agree.
   email: z
     .string()
     .trim()
-    .max(254)
-    .refine((e) => e === '' || /^\S+@\S+\.\S+$/.test(e)),
+    .max(254, { abort: true })
+    .refine((e) => e === '' || (e.length <= 254 && /^\S+@\S+\.\S+$/.test(e))),
   note: z.string().trim().max(1000),
   /** The URL locale the guest booked in; unknown or disabled codes fall back to the default. */
   locale: z.string().max(35).optional(),

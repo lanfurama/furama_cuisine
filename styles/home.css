@@ -513,8 +513,14 @@
   transition: transform 0.9s var(--ease-soft);
 }
 
-.rcard:hover .rcard-zoom,
-.rcard:focus-visible .rcard-zoom {
+/* A card with no action (a reserve-only restaurant with online booking off,
+   R14) is aria-disabled: it must not look clickable. */
+.rcard[aria-disabled='true'] {
+  cursor: default;
+}
+
+.rcard:not([aria-disabled='true']):hover .rcard-zoom,
+.rcard:not([aria-disabled='true']):focus-visible .rcard-zoom {
   transform: scale(1.05);
 }
 

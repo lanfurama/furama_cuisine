@@ -49,9 +49,10 @@ export const REGISTRY = {
     screen: 'ui-text',
   },
   'error.outside_window': {
-    en: 'Please choose a date within the next two weeks.',
+    en: 'That date can’t be booked online — please choose one of the dates shown.',
     maxLength: 140,
-    context: 'The date is beyond the booking window.',
+    context:
+      'The date is outside this restaurant’s booking window (staff set it per restaurant, from 1 to 90 days), or is not a real date. Do not name a span of days or weeks: it differs per restaurant.',
     screen: 'ui-text',
   },
   'error.slot_unavailable': {
@@ -157,10 +158,42 @@ export const REGISTRY = {
     context: 'Reservation form, when no date in the booking window takes bookings. {phone} is the restaurant’s number; keep it.',
     screen: 'booking',
   },
+  'booking.day_outside': {
+    en: 'Not open for booking yet',
+    maxLength: 40,
+    context:
+      'Reservation form: why a date cannot be booked when it lies beyond this restaurant’s booking window (staff set it per restaurant). Used as {reason} in booking.date_moved. Short.',
+    screen: 'booking',
+  },
+  'booking.date_moved': {
+    en: '{date} can’t be booked ({reason}). Your table is now set for {to}.',
+    maxLength: 160,
+    vars: ['date', 'reason', 'to'],
+    context:
+      'Line under the date strip when the form had to move the chosen date: another restaurant was chosen (or fresh availability arrived) and it does not take that date, so the nearest open day was chosen instead. {date} is the date given up, {reason} the public closure reason or one of booking.day_* (booking.day_outside beyond the window), {to} the new date; keep all three.',
+    screen: 'booking',
+  },
   'booking.loading': {
     en: 'Checking tables…',
     maxLength: 40,
-    context: 'Reservation form, in place of the time slots while they load.',
+    context:
+      'Reservation form, while availability loads: under DATE before the first dates arrive, in place of the time slots, and beside REQUEST BOOKING when it is pressed before the dates have arrived.',
+    screen: 'booking',
+  },
+  'booking.done_requested': {
+    en: 'Your table request at {restaurant} has been received. Our team will contact you shortly to confirm.',
+    maxLength: 200,
+    vars: ['restaurant'],
+    context:
+      'Thank-you screen of the reservation form when the booking waits for staff to confirm it (status requested). {restaurant} is the restaurant name; keep it. Must say the same as the guest.ack email (phase 5).',
+    screen: 'booking',
+  },
+  'booking.done_confirmed': {
+    en: 'Your table at {restaurant} is confirmed. We look forward to welcoming you.',
+    maxLength: 200,
+    vars: ['restaurant'],
+    context:
+      'Thank-you screen of the reservation form when the restaurant confirms online bookings at once (auto-confirm; status confirmed): nobody will call to confirm. {restaurant} is the restaurant name; keep it. Must say the same as the guest.confirmed email (phase 5).',
     screen: 'booking',
   },
   'booking.retry': {

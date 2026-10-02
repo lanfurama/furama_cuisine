@@ -107,6 +107,10 @@ test('the Admin turns auto-confirm on for one restaurant: a guest’s booking th
     const reference = (await drawer.locator('.drawer-ref').textContent()) ?? '';
     expect(reference).toMatch(/^FC-[0-9A-HJKMNP-TV-Z]{8}$/);
     expect(await one(`SELECT status, source FROM reservations WHERE reference = $1`, [reference])).toEqual({ status: 'confirmed', source: 'web' });
+    // The guest is told it is confirmed: nobody will call to confirm a booking that never shows as pending.
+    const lede = drawer.locator('.drawer-done-lede');
+    await expect(lede).toContainText('is confirmed');
+    await expect(lede).not.toContainText('contact you');
   } finally {
     await one(`UPDATE restaurants SET auto_confirm = NULL WHERE id = 'danaksara'`);
   }
