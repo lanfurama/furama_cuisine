@@ -37,11 +37,11 @@ const v2 = (over: Record<string, unknown> = {}) => {
   );
 };
 
-/** Latin-1, Latin Extended-A, ơ/ư and the Vietnamese block: the letters fold_search translates. */
-const BLOCKS: [number, number][] = [[0xc0, 0x17f], [0x1a0, 0x1b0], [0x1ea0, 0x1ef9]];
+/** Latin-1, Latin Extended-A, Ơơ/Ưư and the Vietnamese block: checked against fold() letter by letter. */
+const BLOCKS: [number, number][] = [[0xc0, 0x17f], [0x1a0, 0x1a1], [0x1af, 0x1b0], [0x1ea0, 0x1ef9]];
 
-/** Names a guest might type: Vietnamese, upper case, and other Latin accents. */
-const NAMES = ['Nguyễn Thị Ánh ĐỨC', 'Trần Văn Ơn', 'Lê Đức Ưng', 'PHẠM THỊ HỒNG NHUNG', 'José Muñoz', 'Zoë Brontë', 'Łukasz Dvořák', 'plain ascii 42'];
+/** Names a guest might type: Vietnamese, upper case, other Latin accents, and letters NFD leaves whole. */
+const NAMES = ['Nguyễn Thị Ánh ĐỨC', 'Trần Văn Ơn', 'Lê Đức Ưng', 'PHẠM THỊ HỒNG NHUNG', 'José Muñoz', 'Zoë Brontë', 'Łukasz Dvořák', 'ØRSTED ÆSIR', 'plain ascii 42'];
 
 describe.skipIf(!TEST_DATABASE_URL)('migration 006: booking v2 (database)', () => {
   describe('on a database that already has phase-1 bookings', () => {
@@ -193,18 +193,48 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 006: booking v2 (database)', () =
       expect(await text()).toBeNull();
     });
 
-    it('folds in SQL exactly as fold() does in the browser, whatever the collation', async () => {
-      const { rows } = await sql(`SELECT fold_search(n) AS f FROM unnest($1::text[]) AS n`, [NAMES]);
-      expect(rows.map((r) => r.f)).toEqual(NAMES.map(fold));
+    it('folds names and every Latin-1, Latin Extended-A, ơ/ư and Vietnamese character as fold() does, composed or decomposed, under the database collation and under C', async () => {
       expect(fold('Nguyễn Thị Ánh ĐỨC')).toBe('nguyen thi anh duc');
-      // Every letter the browser folds to a plain a–z folds the same in SQL, even under
-      // the C collation, where lower() leaves non-ASCII letters alone.
-      const letters = BLOCKS.flatMap(([from, to]) => Array.from({ length: to - from + 1 }, (_, i) => String.fromCodePoint(from + i))).filter(
-        (ch) => fold(ch) !== ch && /^[a-z]$/.test(fold(ch)),
+      // Every character of the blocks, not only the ones that fold to a–z: under the C
+      // collation lower() leaves non-ASCII letters alone, so Ø, Æ, Ł… need a pair too.
+      const chars = BLOCKS.flatMap(([from, to]) => Array.from({ length: to - from + 1 }, (_, i) => String.fromCodePoint(from + i)));
+      expect(chars).toHaveLength(286);
+      // Each also in NFD, as Unikey's "Unicode tổ hợp" and some pasted text send it.
+      const inputs = [...new Set([...NAMES, ...chars].flatMap((x) => [x.normalize('NFC'), x.normalize('NFD')]))];
+      expect(inputs.filter((x) => x !== x.normalize('NFC'))).toHaveLength(262);
+      const { rows } = await sql(
+        `SELECT fold_search(x) AS db, fold_search(x COLLATE "C") AS c FROM unnest($1::text[]) WITH ORDINALITY AS t(x, i) ORDER BY i`,
+        [inputs],
       );
-      expect(letters).toHaveLength(257);
-      const sqlFold = (await one(`SELECT fold_search($1 COLLATE "C") AS f`, [letters.join('')])).f;
-      expect(sqlFold).toBe(letters.map(fold).join(''));
+      expect(rows).toHaveLength(inputs.length);
+      const mismatches = (collation: 'db' | 'c') =>
+        inputs.flatMap((input, i) =>
+          rows[i][collation] === fold(input) ? [] : [{ input, form: input === input.normalize('NFC') ? 'NFC' : 'NFD', sql: rows[i][collation], fold: fold(input) }],
+        );
+      expect(mismatches('db')).toEqual([]);
+      expect(mismatches('c')).toEqual([]);
+      // A search typed decomposed finds a booking stored precomposed.
+      expect(
+        await one(`SELECT fold_search($1) AS f, fold_search($2) LIKE '%' || fold_search($1) || '%' AS hit`, [
+          'Nguyễn Thị'.normalize('NFD'),
+          'Nguyễn Thị Ánh'.normalize('NFC'),
+        ]),
+      ).toEqual({ f: 'nguyen thi', hit: true });
+    });
+
+    it('beyond those blocks, strips the marks of whatever NFD decomposes, as fold() does', async () => {
+      // Pinyin (Latin Extended-B, composed and decomposed), Latin Extended Additional, Cyrillic, Greek.
+      const inputs = ['ǎ', 'a\u030c', 'Ǎ', 'Lǚ Xùn', 'Ḃ', 'й', 'Й', 'ё', 'Ё', 'ά', 'Ά'];
+      const { rows } = await sql(
+        `SELECT fold_search(x) AS db, fold_search(x COLLATE "C") AS c FROM unnest($1::text[]) WITH ORDINALITY AS t(x, i) ORDER BY i`,
+        [inputs],
+      );
+      expect(rows.map((r) => r.db)).toEqual(inputs.map(fold));
+      expect(fold('Й')).toBe('и');
+      // Under C, lower() only knows A–Z: the marks still go, but a non-Latin capital keeps
+      // its case (accepted risk 20), so Й folds to И, not и.
+      const capitals = new Set(['Й', 'Ё', 'Ά']);
+      expect(rows.map((r) => r.c)).toEqual(inputs.map((x) => (capitals.has(x) ? fold(x).toUpperCase() : fold(x))));
     });
 
     it('still rejects a second active request for the same table and number', async () => {

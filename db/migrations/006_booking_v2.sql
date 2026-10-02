@@ -137,22 +137,20 @@ CREATE TABLE IF NOT EXISTS closure_i18n (
 );
 
 -- ── search folding ────────────────────────────────────────────────────────
--- Lower case without accents, the SQL twin of fold() in lib/booking.ts
--- (test/integration/migration-006.test.ts pins the two together). Upper-case
--- letters are in the list too: lower() leaves non-ASCII letters alone under a
--- C collation, and the database's collation is not ours to choose.
+-- Lower case without accents, the SQL twin of fold() in lib/booking.ts, step
+-- for step: lower, NFD, strip U+0300–U+036F, then translate the letters NFD
+-- leaves whole (test/integration/migration-006.test.ts pins the two together),
+-- so decomposed input (Unikey's "Unicode tổ hợp", pasted text) folds like
+-- precomposed. The lists are generated from fold(). Beyond đ/Đ they lower what
+-- lower() leaves under a C collation (the database's collation is not ours to
+-- choose): it skips non-ASCII capitals, so Ấ only becomes A after NFD, and Æ,
+-- Ø, Ł, Œ… never decompose. Under C, other scripts' capitals keep their case.
 CREATE OR REPLACE FUNCTION fold_search(value text) RETURNS text
   LANGUAGE sql IMMUTABLE PARALLEL SAFE RETURNS NULL ON NULL INPUT
 AS $$
-  SELECT translate(lower(value),
-    'ÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝàáâãäåçèéêëìíîïñòóôõöùúûüýÿ'
-    || 'ĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĨĩĪīĬĭĮįİĴĵĶķĹĺĻļĽľŃńŅņŇňŌōŎŏŐőŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽž'
-    || 'ƠơƯư'
-    || 'ẠạẢảẤấẦầẨẩẪẫẬậẮắẰằẲẳẴẵẶặẸẹẺẻẼẽẾếỀềỂểỄễỆệỈỉỊịỌọỎỏỐốỒồỔổỖỗỘộỚớỜờỞởỠỡỢợỤụỦủỨứỪừỬửỮữỰựỲỳỴỵỶỷỸỹ',
-    'aaaaaaceeeeiiiinooooouuuuyaaaaaaceeeeiiiinooooouuuuyy'
-    || 'aaaaaaccccccccddddeeeeeeeeeegggggggghhiiiiiiiiijjkkllllllnnnnnnoooooorrrrrrssssssssttttuuuuuuuuuuuuwwyyyzzzzzz'
-    || 'oouu'
-    || 'aaaaaaaaaaaaaaaaaaaaaaaaeeeeeeeeeeeeeeeeiiiioooooooooooooooooooooooouuuuuuuuuuuuuuyyyyyyyy')
+  SELECT translate(regexp_replace(normalize(lower(value), NFD), '[\u0300-\u036f]', '', 'g'),
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ' || 'ÆÐØÞĐđĦĲĿŁŊŒŦ',
+    'abcdefghijklmnopqrstuvwxyz' || 'æðøþddħĳŀłŋœŧ')
 $$;
 
 -- What the inbox search matches (spec §5.2 search_text): the folded name,
