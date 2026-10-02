@@ -761,3 +761,20 @@ fieldset.a-field legend {
 .a-affected .a-table {
   margin-bottom: 12px;
 }
+
+.a-card-row {
+  margin: 0 0 24px;
+  padding: 16px 20px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--a-radius);
+  background: var(--a-surface);
+}
+
+.a-card-row h2 {
+  margin-top: 0;
+}
+
+.a-inline {
+  display: inline-block;
+  margin: 8px 0;
+}

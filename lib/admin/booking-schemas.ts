@@ -149,3 +149,21 @@ export const SettingsForm = z.object({
   guestAckEmail: z.preprocess((v) => v === 'on', z.boolean()),
   piiRetentionMonths: bounded(1, 120, 'Từ 1 đến 120 tháng.'),
 });
+
+/** A closure (spec §10.1): no meal ticked closes the whole day; the guest-facing reasons go to closure_i18n. */
+export const ClosureForm = z
+  .object({
+    scope: z.enum(['all', 'destination', 'restaurant'], { error: 'Chọn phạm vi.' }),
+    destinationId: z.preprocess(blankToNull, z.string().regex(/^[a-z][a-z0-9-]{0,63}$/).nullable()),
+    restaurantId: z.preprocess(blankToNull, RestaurantId.nullable()),
+    startsOn: IsoDay,
+    endsOn: IsoDay,
+    meals: z.array(Meal).max(4),
+    showReason: z.preprocess((v) => v === 'on', z.boolean()),
+    reasonEn: z.preprocess(blankToNull, z.string().trim().max(160, { error: 'Tối đa 160 ký tự.' }).nullable()),
+    reasonVi: z.preprocess(blankToNull, z.string().trim().max(160, { error: 'Tối đa 160 ký tự.' }).nullable()),
+    internalNote: z.preprocess(blankToNull, z.string().trim().max(2000, { error: 'Tối đa 2000 ký tự.' }).nullable()),
+  })
+  .refine((c) => c.endsOn >= c.startsOn, { error: 'Ngày kết thúc phải từ ngày bắt đầu trở đi.', path: ['endsOn'] })
+  .refine((c) => c.scope !== 'restaurant' || c.restaurantId, { error: 'Chọn nhà hàng.', path: ['restaurantId'] })
+  .refine((c) => c.scope !== 'destination' || c.destinationId, { error: 'Chọn điểm đến.', path: ['destinationId'] });

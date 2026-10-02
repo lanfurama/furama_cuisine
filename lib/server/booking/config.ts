@@ -3,6 +3,8 @@ import type { Pool, PoolClient } from 'pg';
 import { formatDateTimeVi } from '@/lib/admin/format';
 import { seatings } from '@/lib/booking/resolve-day';
 import type { PeriodRule } from '@/lib/booking/rules';
+import type { Meal } from '@/lib/data';
+import type { IsoDate } from '@/lib/venue-time';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
 import type { Db } from './rules';
 
@@ -265,4 +267,128 @@ export async function saveBookingSettings(pool: Pool, actor: AuditActor, input: 
     await insertAudit(client, actor, { action: 'settings', entityType: 'booking_settings', entityId: null, before, after });
     return { ok: true, data: null } as const;
   });
+}
+
+// ── closures (schedule:update) ──────────────────────────────────────────────
+
+export type ClosureScope = { scope: 'all' | 'destination' | 'restaurant'; destinationId: string | null; restaurantId: string | null };
+
+export type ClosureInput = ClosureScope & {
+  startsOn: IsoDate;
+  endsOn: IsoDate;
+  /** null: the whole day. */
+  meals: Meal[] | null;
+  showReason: boolean;
+  /** locale → the guest-facing reason (closure_i18n.public_reason); a blank one is left out. */
+  publicReason: Record<string, string>;
+  internalNote: string | null;
+};
+
+export type ClosureView = ClosureInput & { id: string; token: string };
+
+const CLOSURE_COLUMNS = `c.id::text, c.scope, c.destination_id AS "destinationId", c.restaurant_id AS "restaurantId",
+  to_char(c.starts_on, 'YYYY-MM-DD') AS "startsOn", to_char(c.ends_on, 'YYYY-MM-DD') AS "endsOn", c.meals,
+  c.show_reason AS "showReason", c.internal_note AS "internalNote",
+  coalesce((SELECT jsonb_object_agg(i.locale, i.public_reason) FROM closure_i18n i WHERE i.closure_id = c.id), '{}'::jsonb) AS "publicReason",
+  ${US('c.updated_at')} AS token`;
+
+/** The closures that have not ended before `from`, soonest first. */
+export async function listClosures(db: Db, from: IsoDate): Promise<ClosureView[]> {
+  const { rows } = await db.query<ClosureView>(`SELECT ${CLOSURE_COLUMNS} FROM closures c WHERE c.ends_on >= $1::date ORDER BY c.starts_on, c.id`, [from]);
+  return rows;
+}
+
+type LockedClosure = ClosureView & { updatedBy: string | null; updatedAt: Date };
+
+async function lockClosure(client: PoolClient, id: string): Promise<LockedClosure | null> {
+  const { rows } = await client.query<LockedClosure>(
+    `SELECT ${CLOSURE_COLUMNS}, c.updated_by AS "updatedBy", c.updated_at AS "updatedAt" FROM closures c WHERE c.id = $1 FOR UPDATE`,
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
+/** The closure as audit_log keeps it: the same keys before and after. */
+async function closureSnapshot(client: PoolClient, id: string): Promise<ClosureInput | null> {
+  const { rows } = await client.query<ClosureView>(`SELECT ${CLOSURE_COLUMNS} FROM closures c WHERE c.id = $1`, [id]);
+  if (!rows[0]) return null;
+  const { id: _id, token: _token, ...snapshot } = rows[0];
+  return snapshot;
+}
+
+async function writeReasons(client: PoolClient, actorId: string, closureId: string, reasons: Record<string, string>) {
+  await client.query('DELETE FROM closure_i18n WHERE closure_id = $1', [closureId]);
+  for (const [locale, reason] of Object.entries(reasons)) {
+    if (!reason) continue;
+    // Typed in an admin form: reviewed, by a human (spec §5.1.4).
+    await client.query(
+      `INSERT INTO closure_i18n (closure_id, locale, public_reason, status, origin, reviewed_by, reviewed_at, updated_by)
+       VALUES ($1, $2, $3, 'reviewed', 'human', $4, now(), $4)`,
+      [closureId, locale, reason, actorId],
+    );
+  }
+}
+
+export async function createClosure(pool: Pool, actor: AuditActor, input: ClosureInput): Promise<{ ok: true; data: { id: string } }> {
+  return withTransaction(pool, async (client) => {
+    const { rows } = await client.query<{ id: string }>(
+      `INSERT INTO closures (scope, destination_id, restaurant_id, starts_on, ends_on, meals, show_reason, internal_note, created_by, updated_by)
+       VALUES ($1, $2, $3, $4::date, $5::date, $6::text[], $7, $8, $9, $9)
+       RETURNING id::text`,
+      [input.scope, input.destinationId, input.restaurantId, input.startsOn, input.endsOn, input.meals, input.showReason, input.internalNote, actor.id],
+    );
+    const id = rows[0].id;
+    await writeReasons(client, actor.id, id, input.publicReason);
+    await insertAudit(client, actor, { action: 'create', entityType: 'closure', entityId: id, after: await closureSnapshot(client, id) });
+    return { ok: true, data: { id } } as const;
+  });
+}
+
+export async function updateClosure(
+  pool: Pool,
+  actor: AuditActor,
+  input: ClosureInput & { id: string; token: string },
+): Promise<{ ok: true; data: null } | NotFound | Conflict> {
+  return withTransaction(pool, async (client) => {
+    const locked = await lockClosure(client, input.id);
+    if (!locked) return { ok: false, code: 'not_found' } as const;
+    if (locked.token !== input.token) return conflictBy(client, locked.updatedBy, locked.updatedAt);
+    const before = await closureSnapshot(client, input.id);
+    await client.query(
+      `UPDATE closures SET scope = $2, destination_id = $3, restaurant_id = $4, starts_on = $5::date, ends_on = $6::date,
+              meals = $7::text[], show_reason = $8, internal_note = $9, updated_at = now(), updated_by = $10
+        WHERE id = $1`,
+      [input.id, input.scope, input.destinationId, input.restaurantId, input.startsOn, input.endsOn, input.meals, input.showReason, input.internalNote, actor.id],
+    );
+    await writeReasons(client, actor.id, input.id, input.publicReason);
+    await insertAudit(client, actor, { action: 'update', entityType: 'closure', entityId: input.id, before, after: await closureSnapshot(client, input.id) });
+    return { ok: true, data: null } as const;
+  });
+}
+
+export async function deleteClosure(
+  pool: Pool,
+  actor: AuditActor,
+  input: { id: string; token: string },
+): Promise<{ ok: true; data: null } | NotFound | Conflict> {
+  return withTransaction(pool, async (client) => {
+    const locked = await lockClosure(client, input.id);
+    if (!locked) return { ok: false, code: 'not_found' } as const;
+    if (locked.token !== input.token) return conflictBy(client, locked.updatedBy, locked.updatedAt);
+    const before = await closureSnapshot(client, input.id);
+    await client.query('DELETE FROM closures WHERE id = $1', [input.id]);
+    await insertAudit(client, actor, { action: 'delete', entityType: 'closure', entityId: input.id, before });
+    return { ok: true, data: null } as const;
+  });
+}
+
+/** The restaurants a closure's scope reaches, for their booking-rules:<id> tags. */
+export async function restaurantsInScope(db: Db, scope: ClosureScope): Promise<string[]> {
+  const { rows } = await db.query<{ id: string }>(
+    `SELECT id FROM restaurants
+      WHERE $1 = 'all' OR ($1 = 'destination' AND destination = $2) OR ($1 = 'restaurant' AND id = $3)
+      ORDER BY sort_order, id`,
+    [scope.scope, scope.destinationId, scope.restaurantId],
+  );
+  return rows.map((r) => r.id);
 }

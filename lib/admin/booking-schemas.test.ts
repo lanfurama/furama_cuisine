@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { AutoConfirmForm, CancelManyForm, EditForm, NewReservationForm, NoteForm, PeriodsForm, RulesForm, SettingsForm, TransitionForm } from './booking-schemas';
+import {
+  AutoConfirmForm,
+  CancelManyForm,
+  ClosureForm,
+  EditForm,
+  NewReservationForm,
+  NoteForm,
+  PeriodsForm,
+  RulesForm,
+  SettingsForm,
+  TransitionForm,
+} from './booking-schemas';
 
 /* The booking screens' action inputs (spec §7.3): FormData strings in, typed values or Vietnamese field errors out. */
 describe('booking form schemas', () => {
@@ -120,5 +131,34 @@ describe('booking form schemas', () => {
     const base = { restaurant: 'danaksara', token: '1' };
     expect(['inherit', 'on', 'off'].map((autoConfirm) => AutoConfirmForm.parse({ ...base, autoConfirm }).autoConfirm)).toEqual([null, true, false]);
     expect(AutoConfirmForm.safeParse({ ...base, autoConfirm: 'yes' }).success).toBe(false);
+  });
+
+  it('a closure: the target its scope needs, no meal ticked for the whole day, reasons within the database’s limits', () => {
+    // Found by the spike's E2E: the destination select is not rendered for scope 'restaurant', so it arrives undefined.
+    expect(
+      ClosureForm.parse({ scope: 'restaurant', restaurantId: 'pho-cuon', startsOn: '2026-10-07', endsOn: '2026-10-07', meals: [], reasonEn: '', reasonVi: '', internalNote: '' }),
+    ).toEqual({
+      scope: 'restaurant',
+      destinationId: null,
+      restaurantId: 'pho-cuon',
+      startsOn: '2026-10-07',
+      endsOn: '2026-10-07',
+      meals: [],
+      showReason: false,
+      reasonEn: null,
+      reasonVi: null,
+      internalNote: null,
+    });
+    expect(
+      ClosureForm.safeParse({ scope: 'destination', startsOn: '2026-10-07', endsOn: '2026-10-06', meals: ['Brunch'], reasonEn: 'x'.repeat(161) }).error?.flatten()
+        .fieldErrors,
+    ).toEqual({
+      meals: [expect.any(String)],
+      reasonEn: ['Tối đa 160 ký tự.'],
+    });
+    expect(ClosureForm.safeParse({ scope: 'destination', startsOn: '2026-10-07', endsOn: '2026-10-06', meals: [] }).error?.flatten().fieldErrors).toEqual({
+      endsOn: ['Ngày kết thúc phải từ ngày bắt đầu trở đi.'],
+      destinationId: ['Chọn điểm đến.'],
+    });
   });
 });

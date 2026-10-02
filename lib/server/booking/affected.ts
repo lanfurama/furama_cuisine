@@ -1,7 +1,8 @@
 import 'server-only';
 import type { Pool } from 'pg';
 import { closureApplies, findPlannedSlot, planDay, type PlannedPeriod } from '@/lib/booking/resolve-day';
-import type { BookingRules, ReservationStatus } from '@/lib/booking/rules';
+import type { BookingRules, ClosureRule, ReservationStatus } from '@/lib/booking/rules';
+import type { Meal } from '@/lib/data';
 import { UPCOMING_STATUSES } from '@/lib/reservations/lifecycle';
 import { minutesUntil, venueNow, type IsoDate } from '@/lib/venue-time';
 import { loadBookedCovers, loadBookingRules } from './rules';
@@ -34,7 +35,7 @@ export type AffectedReservation = {
   closureId: string | null;
 };
 
-type Row = Omit<AffectedReservation, 'kind' | 'closureId'>;
+type Row = Omit<AffectedReservation, 'kind' | 'closureId'> & { meal: Meal };
 
 /** Staff screens never show a closure's public reason, so any language reads the same rules. */
 const STAFF_LOCALE = 'vi';
@@ -44,7 +45,7 @@ async function upcoming(pool: Pool, options: { restaurantIds?: readonly string[]
   const { rows } = await pool.query<Row>(
     `SELECT r.id::text, r.reference, r.restaurant_id AS "restaurantId", t.name AS "restaurantName",
             to_char(r.reserved_on, 'YYYY-MM-DD') AS date, r.reserved_at AS time, r.guests, r.guest_name AS name, r.phone,
-            r.status, r.version
+            r.status, r.version, r.meal
        FROM reservations r JOIN restaurants t ON t.id = r.restaurant_id
       WHERE r.status = ANY ($1::text[]) AND r.reserved_on >= $2::date
         AND ($3::date IS NULL OR r.reserved_on <= $3::date)
@@ -71,12 +72,19 @@ function planner(rules: Map<string, { rules: BookingRules }>) {
   };
 }
 
-/** Every upcoming booking (of these restaurants, from..to) the current rules leave out. */
+const affected = ({ meal: _meal, ...row }: Row, kind: AffectedKind, closureId: string | null): AffectedReservation => ({ ...row, kind, closureId });
+
+/**
+ * Rules mode: every upcoming booking (of these restaurants, from..to) the
+ * current rules leave out. Closure mode (`closureId`): every upcoming booking
+ * that one closure takes out, even one another closure also covers.
+ */
 export async function findAffected(
   pool: Pool,
-  options: { restaurantIds?: readonly string[]; from?: IsoDate; to?: IsoDate; now?: Date } = {},
+  options: { restaurantIds?: readonly string[]; from?: IsoDate; to?: IsoDate; closureId?: string; now?: Date } = {},
 ): Promise<AffectedReservation[]> {
   const now = options.now ?? new Date();
+  if (options.closureId) return closureAffected(pool, options.closureId, now);
   const from = options.from ?? venueNow(now).date;
   const rows = await upcoming(pool, { ...options, from, now });
   if (rows.length === 0) return [];
@@ -93,14 +101,39 @@ export async function findAffected(
   return rows.flatMap((row): AffectedReservation[] => {
     const loaded = rules.get(row.restaurantId);
     const hit = findPlannedSlot(planOf(row.restaurantId, row.date), row.time);
-    if (!loaded || !hit) return [{ ...row, kind: 'outside_hours', closureId: null }];
+    if (!loaded || !hit) return [affected(row, 'outside_hours', null)];
     if (hit.period.closed) {
       // The closure planDay applied: a whole-day one first, else one of this meal.
       const reaching = loaded.rules.closures.filter((c) => closureApplies(c, loaded.rules, row.date));
       const closure = reaching.find((c) => c.meals === null) ?? reaching.find((c) => c.meals?.includes(hit.period.meal));
-      return [{ ...row, kind: 'closed', closureId: closure?.id ?? null }];
+      return [affected(row, 'closed', closure?.id ?? null)];
     }
     const booked = held.get(row.restaurantId)?.[row.date]?.[row.time] ?? 0;
-    return booked > hit.capacity ? [{ ...row, kind: 'over_capacity', closureId: null }] : [];
+    return booked > hit.capacity ? [affected(row, 'over_capacity', null)] : [];
+  });
+}
+
+/** One closure's list: its scope (closureApplies, the engine's own rule), its dates, and the meal of each booking's slot. */
+async function closureAffected(pool: Pool, closureId: string, now: Date): Promise<AffectedReservation[]> {
+  const { rows: found } = await pool.query<ClosureRule>(
+    `SELECT id::text, scope, destination_id AS "destinationId", restaurant_id AS "restaurantId",
+            to_char(starts_on, 'YYYY-MM-DD') AS "startsOn", to_char(ends_on, 'YYYY-MM-DD') AS "endsOn", meals, NULL AS "publicReason"
+       FROM closures WHERE id = $1`,
+    [closureId],
+  );
+  const closure = found[0];
+  if (!closure) return [];
+  const today = venueNow(now).date;
+  const from = closure.startsOn > today ? closure.startsOn : today;
+  const rows = await upcoming(pool, { from, to: closure.endsOn, now });
+  if (rows.length === 0) return [];
+  const rules = await loadBookingRules(pool, [...new Set(rows.map((r) => r.restaurantId))], STAFF_LOCALE, from);
+  const planOf = planner(rules);
+  return rows.flatMap((row) => {
+    const loaded = rules.get(row.restaurantId);
+    if (!loaded || !closureApplies(closure, loaded.rules, row.date)) return [];
+    // The meal of the slot as the day is planned now; the booking's own meal for a time the hours no longer have.
+    const meal = findPlannedSlot(planOf(row.restaurantId, row.date), row.time)?.period.meal ?? row.meal;
+    return closure.meals === null || closure.meals.includes(meal) ? [affected(row, 'closed', closure.id)] : [];
   });
 }

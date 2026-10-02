@@ -4,14 +4,20 @@ import { planDay } from '@/lib/booking/resolve-day';
 import type { AuditActor } from '@/lib/server/audit';
 import { findAffected } from '@/lib/server/booking/affected';
 import {
+  createClosure,
+  deleteClosure,
   getBookingSettings,
   getRestaurantBooking,
+  listClosures,
   loadPeriods,
   overlappingPeriods,
+  restaurantsInScope,
   saveAutoConfirm,
   saveBookingSettings,
   saveRestaurantRules,
   saveServicePeriods,
+  updateClosure,
+  type ClosureInput,
   type PeriodInput,
 } from '@/lib/server/booking/config';
 import { createWebReservation } from '@/lib/server/booking/create';
@@ -229,6 +235,103 @@ describe.skipIf(!TEST_DATABASE_URL)('booking configuration (database)', () => {
       expect((await audit()).map((a) => [a.entity_type, a.entity_id, a.before, a.after])).toEqual([
         ['restaurant_booking', 'danaksara', { auto_confirm: null }, { auto_confirm: true }],
       ]);
+    });
+  });
+
+  describe('closures', () => {
+    const closure = (over: Partial<ClosureInput> = {}): ClosureInput => ({
+      scope: 'restaurant',
+      destinationId: null,
+      restaurantId: 'taya-house',
+      startsOn: '2026-10-05',
+      endsOn: '2026-10-06',
+      meals: null,
+      showReason: true,
+      publicReason: { en: 'Private event', vi: 'Sự kiện riêng' },
+      internalNote: 'Tiệc cưới',
+      ...over,
+    });
+    const idOf = (result: unknown) => (result as { data: { id: string } }).data.id;
+
+    it('creates, reads back with its reasons, updates and deletes, each with an audit row', async () => {
+      const id = idOf(await createClosure(pool, ACTOR, closure()));
+      let [view] = await listClosures(pool, '2026-10-02');
+      expect(view).toMatchObject({
+        id,
+        scope: 'restaurant',
+        restaurantId: 'taya-house',
+        startsOn: '2026-10-05',
+        endsOn: '2026-10-06',
+        meals: null,
+        showReason: true,
+        publicReason: { en: 'Private event', vi: 'Sự kiện riêng' },
+        internalNote: 'Tiệc cưới',
+      });
+      // A typed reason is reviewed, by a human (spec §5.1.4); the guest reads it in their language.
+      expect((await pool.query(`SELECT locale, status, origin, reviewed_by FROM closure_i18n WHERE closure_id = $1 ORDER BY locale`, [id])).rows).toEqual([
+        { locale: 'en', status: 'reviewed', origin: 'human', reviewed_by: ACTOR.id },
+        { locale: 'vi', status: 'reviewed', origin: 'human', reviewed_by: ACTOR.id },
+      ]);
+      expect(await updateClosure(pool, ACTOR, { ...closure({ meals: ['Dinner'], publicReason: { en: 'Closed for dinner' } }), id, token: view.token })).toEqual({
+        ok: true,
+        data: null,
+      });
+      [view] = await listClosures(pool, '2026-10-02');
+      expect(view).toMatchObject({ meals: ['Dinner'], publicReason: { en: 'Closed for dinner' } });
+      expect(await updateClosure(pool, ACTOR, { ...closure(), id, token: 'stale' })).toMatchObject({ ok: false, code: 'conflict' });
+      expect(await deleteClosure(pool, ACTOR, { id, token: 'stale' })).toMatchObject({ ok: false, code: 'conflict' });
+      expect(await deleteClosure(pool, ACTOR, { id, token: view.token })).toEqual({ ok: true, data: null });
+      expect(await deleteClosure(pool, ACTOR, { id, token: view.token })).toEqual({ ok: false, code: 'not_found' });
+      expect(await listClosures(pool, '2026-10-02')).toEqual([]);
+      expect((await audit()).map((a) => `${a.action}:${a.entity_type}:${a.entity_id === id}`)).toEqual([
+        'create:closure:true',
+        'update:closure:true',
+        'delete:closure:true',
+      ]);
+      // A closure that ended before `from` is not listed.
+      await createClosure(pool, ACTOR, closure({ startsOn: '2026-09-20', endsOn: '2026-09-21' }));
+      expect(await listClosures(pool, '2026-10-02')).toEqual([]);
+    });
+
+    it('lists exactly the bookings a closure covers: its scope, both end dates, its meals', async () => {
+      const dinner5 = await seed({ date: '2026-10-05', time: '19:00' });
+      const lunch5 = await seed({ date: '2026-10-05', time: '12:00' });
+      const dinner7 = await seed({ date: '2026-10-07', time: '19:00' });
+      const elsewhere = await seed({ date: '2026-10-05', time: '19:00', restaurant: 'pho-cuon' });
+      const dinner8 = await seed({ date: '2026-10-08', time: '19:00' });
+
+      const meal = idOf(await createClosure(pool, ACTOR, closure({ meals: ['Dinner'] })));
+      expect((await findAffected(pool, { closureId: meal, now: NOW })).map((a) => a.id)).toEqual([dinner5]);
+
+      // The resort: Tàya House is there, Phố Cuốn (the Dining House) is not; the 7th is the last day.
+      const resort = idOf(await createClosure(pool, ACTOR, closure({ scope: 'destination', destinationId: 'resort', restaurantId: null, endsOn: '2026-10-07' })));
+      const covered = await findAffected(pool, { closureId: resort, now: NOW });
+      expect(covered.map((a) => a.id)).toEqual([lunch5, dinner5, dinner7]);
+      expect(covered.every((a) => a.kind === 'closed' && a.closureId === resort)).toBe(true);
+      expect(covered.map((a) => a.id)).not.toContain(elsewhere);
+      expect(covered.map((a) => a.id)).not.toContain(dinner8);
+      // Dinner on the 5th is under both closures, so both lists show it.
+      expect((await findAffected(pool, { closureId: meal, now: NOW })).map((a) => a.id)).toEqual([dinner5]);
+
+      const all = idOf(await createClosure(pool, ACTOR, closure({ scope: 'all', restaurantId: null, startsOn: '2026-10-05', endsOn: '2026-10-05' })));
+      expect((await findAffected(pool, { closureId: all, now: NOW })).map((a) => a.id).sort()).toEqual([dinner5, lunch5, elsewhere].sort());
+
+      expect(await restaurantsInScope(pool, { scope: 'destination', destinationId: 'resort', restaurantId: null })).toEqual(
+        expect.arrayContaining(['taya-house', 'cafe-indochine', 'hai-van-lounge']),
+      );
+      expect(await restaurantsInScope(pool, { scope: 'restaurant', destinationId: null, restaurantId: 'pho-cuon' })).toEqual(['pho-cuon']);
+      expect(await restaurantsInScope(pool, { scope: 'all', destinationId: null, restaurantId: null })).toHaveLength(12);
+      // Listed, never cancelled.
+      const { rows } = await pool.query(`SELECT count(*)::int AS n FROM reservations WHERE status = 'confirmed'`);
+      expect(rows[0].n).toBe(5);
+    });
+
+    it('never lists cancelled, declined, seated or no-show bookings, nor a sitting that has started', async () => {
+      const requested = await seed({ date: '2026-10-02', time: '19:00', status: 'requested' });
+      for (const status of ['cancelled', 'declined', 'seated', 'no_show']) await seed({ date: '2026-10-02', time: '19:00', status });
+      await seed({ date: '2026-10-02', time: '12:00' }); // 12:00 has started at 13:00
+      const id = idOf(await createClosure(pool, ACTOR, closure({ startsOn: '2026-10-02', endsOn: '2026-10-02' })));
+      expect((await findAffected(pool, { closureId: id, now: new Date('2026-10-02T13:00:00+07:00') })).map((a) => a.id)).toEqual([requested]);
     });
   });
 });
