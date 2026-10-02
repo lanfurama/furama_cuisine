@@ -246,7 +246,12 @@ describe.skipIf(!TEST_DATABASE_URL)('email outbox (database + local SMTP sink)',
         expect(row.provider_id).toMatch(/^250 Ok: queued as SINK\d$/);
       }
       expect(s.received.map((m) => [m.to[0], m.messageId])).toEqual(rows.rows.map((r, i) => [['gm@furama.test', 'guest@example.com'][i], r.message_id]));
-      expect(s.received.map((m) => m.subject)).toEqual([`staff.new ${booking.reference}`, `guest.ack ${booking.reference}`]);
+      expect(s.received.map((m) => m.subject)).toEqual([
+        `Đặt bàn mới ${booking.reference}: Tàya House, Th 2, 5 thg 10, 2026 19:00, 2 khách`,
+        `We have received your table request (${booking.reference})`,
+      ]);
+      // Staff reply to the guest; the guest replies to the shared inbox (R11).
+      expect(s.received.map((m) => m.replyTo)).toEqual(['guest@example.com', 'fb@furamavietnam.com']);
       // Nothing left: a second drain claims nothing.
       expect(await drainTo(s)).toMatchObject({ claimed: 0 });
       expect(s.received).toHaveLength(2);
@@ -325,7 +330,7 @@ describe.skipIf(!TEST_DATABASE_URL)('email outbox (database + local SMTP sink)',
         { event: 'guest.confirmed', status: 'skipped', last_error: 'skipped: the booking is now cancelled' },
         { event: 'guest.cancelled', status: 'sent', last_error: null },
       ]);
-      expect(s.received.map((m) => m.subject)).toEqual([`guest.cancelled ${a.reference}`]);
+      expect(s.received.map((m) => m.subject)).toEqual([`Your reservation has been cancelled (${a.reference})`]);
     });
 
     it('skips a guest email whose address changed since it was queued, and one whose booking was anonymised', async () => {

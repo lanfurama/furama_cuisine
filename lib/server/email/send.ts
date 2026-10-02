@@ -109,10 +109,17 @@ export function messageIdFor(key: string, domain: string): string {
 export async function renderEmail(element: ReactElement): Promise<{ html: string; text: string }> {
   const [html, text] = await Promise.all([
     render(element),
-    // html-to-text upper-cases headings by default; keep Vietnamese headings as written.
     render(element, {
       plainText: true,
-      htmlToTextOptions: { selectors: [{ selector: 'h1', options: { uppercase: false } }, ...plainTextSelectors] },
+      htmlToTextOptions: {
+        selectors: [
+          // html-to-text upper-cases headings by default; keep Vietnamese headings as written.
+          { selector: 'h1', options: { uppercase: false } },
+          ...plainTextSelectors,
+          // A phone number is its own link text: "call us on +84 236 651 9999", not "… tel:+842366519999".
+          { selector: 'a[href^="tel:"]', format: 'anchor', options: { ignoreHref: true } },
+        ],
+      },
     }),
   ]);
   return { html, text };

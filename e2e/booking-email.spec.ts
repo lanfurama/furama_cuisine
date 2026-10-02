@@ -57,9 +57,11 @@ test('a guest booking emails the staff (the general inbox: nobody is listed) and
   const guest = `guest-${Date.now()}@example.com`;
   const reference = await bookCafeIndochine(page, guest);
   await expect.poll(() => about(reference)).toEqual([
-    ['fb@furamavietnam.com', `staff.new ${reference}`],
-    [guest, `guest.ack ${reference}`],
+    ['fb@furamavietnam.com', expect.stringMatching(new RegExp(`^Đặt bàn mới ${reference}: Café Indochine, .+ \\d{2}:\\d{2}, 2 khách$`))],
+    [guest, `We have received your table request (${reference})`],
   ]);
+  const ack = logged().find((e) => e.to === guest && e.subject.includes(reference));
+  expect(ack?.text).toContain('Your table request at Café Indochine has been received. Our team will contact you shortly to confirm.');
   const rows = await one<{ statuses: string[]; events: string[]; fallback: boolean[] }>(
     `SELECT array_agg(o.status ORDER BY o.id) AS statuses, array_agg(o.event ORDER BY o.id) AS events, array_agg(o.fallback ORDER BY o.id) AS fallback
        FROM email_outbox o JOIN reservations r ON r.id = o.reservation_id WHERE r.reference = $1`,
@@ -77,7 +79,7 @@ test('confirming in the admin emails the guest', async ({ page }) => {
   await page.goto(`/admin/reservations/${r.id}`);
   await page.getByRole('main').getByRole('button', { name: 'Xác nhận', exact: true }).click();
   await expect(page.getByRole('main').getByRole('status')).toHaveText('Đã cập nhật trạng thái.');
-  await expect.poll(() => about(r.reference)).toEqual([[guest, `guest.confirmed ${r.reference}`]]);
+  await expect.poll(() => about(r.reference)).toEqual([[guest, `Your table is confirmed (${r.reference})`]]);
   expect(await one(`SELECT status, attempts FROM email_outbox WHERE reservation_id = $1`, [r.id])).toEqual({ status: 'sent', attempts: 1 });
 });
 
