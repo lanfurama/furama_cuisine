@@ -80,12 +80,19 @@ its own restaurant and dates, and puts back the rules it changes:
 | Spec | Restaurant | Dates or rules |
 | --- | --- | --- |
 | `booking-v2` | Tàya House, Don Cipriani’s, Steakhouse The Fan | the last open day; a closure at +9; `max_party` 8 |
+| `admin-audit` | Tàya House | 2025-12-31 (a past, confirmed booking), plus `audit_log` rows dated 2001, which it deletes afterwards |
 | `admin-reservations` | Tàya House, V-Senses Cafe, ChaoShan Hotpot, Café Indochine | +3, +4, +6 (one booking at 23:30, outside the hours), yesterday; +8; +7; +6 (picked from The Fan at +5, where nothing is written) |
 | `admin-booking-config` | Thai Siam Kitchen, Hura Izakaya | dinner hours and covers (+2, +3), `max_party` and `window_days` overrides (back to NULL); `max_party` 8 |
 | `admin-booking-settings` | Danaksara | `auto_confirm`; the last open day |
-| `admin-closures` | Phố Cuốn; the MM Supercenter (Yum Food Village, ChaoShan Hotpot) | +5; a destination closure at +11 |
+| `admin-closures` | Phố Cuốn; the MM Supercenter (Yum Food Village, ChaoShan Hotpot) | +5; a destination closure at +11; closure edits at +60 and +61 |
 | `booking-acceptance` | Yum Food Village | +3, +4, +12, +13, yesterday; dinner hours, covers and `max_party` |
 | `booking-switch.serial` | Tàya House, Hải Vân Lounge | online booking off, then on again |
+
+The other specs write no booking, closure or rule (the guest specs that
+submit mock the availability API and abort the Server Action POST).
+Before the tests that count covers, `admin-reservations.spec.ts` empties the
+days it owns (Tàya House +4 and +6, ChaoShan Hotpot +7), so it passes again
+on a database it has already run on; never book those days from another spec.
 
 `booking-acceptance.spec.ts` checks every phase-4 acceptance criterion of the
 spec (§14.1 row 4) through the screens. Its tests share Yum Food Village's
@@ -126,9 +133,13 @@ phase 2 keeps working on a migrated database. Check
 `SELECT DISTINCT destination FROM restaurants` on the target branch first:
 every value must exist in `destinations`, or the constraint fails.
 
-Neon preview branches fork from production, so a preview deployment needs
-`node scripts/migrate.mjs` run against its preview branch (with
-`DATABASE_URL_UNPOOLED` set to that branch) before bookings work there.
+Neon preview branches fork from production, so a branch forked before a
+migration reached production lacks it. Run `node scripts/migrate.mjs`
+against that preview branch (with `DATABASE_URL_UNPOOLED` set to it) before
+the preview builds: `next build` reads what 004 and 006 add (004's `locales`
+table, 006's `restaurants.booking_enabled` and `service_periods`) and fails
+without it. If the branch only appears with the deployment, such a build
+fails (safely, as above); migrate the branch, then redeploy.
 
 Production: never run `npm run db:migrate` (it reads `.env.local`, which must
 point at dev). Run
@@ -149,11 +160,23 @@ switch and overrides, `service_periods` (seeded to behave exactly as before:
 the old slots of each restaurant's meals, `slot_capacity` covers each),
 `closures` and `closure_i18n`, the v2 columns of `reservations`,
 `reservation_events`, `reservation_notes` and the `pg_trgm` search index, and
-it redefines `audit_feed` to show booking events. It only adds, but the
-phase-4 code needs it and the older code cannot write a booking on it
-(`reservations.meal` is NOT NULL and `source` has no default): apply 006 to an
-environment immediately before, or together with, its first phase-4 deploy,
-as with 003. The site has never been deployed, so no live traffic breaks.
+it redefines `audit_feed` to show booking events. It only adds, but code on
+either side of it breaks on the wrong database:
+
+- 006 must be on an environment's Neon branch **before that environment
+  builds** the phase-4 code. `next build` prerenders `/en`, whose layout reads
+  the catalogue (`db/queries.ts#listRestaurants`: `restaurants.booking_enabled`
+  and the active `service_periods`), so a build against a 005 database stops
+  at `/en` with `column r.booking_enabled does not exist`.
+- The phase-3 code cannot write a booking on a 006 database: its INSERT names
+  neither `meal` (now NOT NULL) nor `source` (no default).
+
+So apply 006 to each environment right before its first phase-4 build (for
+production, right before the production deploy), and apply it to any preview
+branch forked before 006 before that preview builds (see above). Until the
+phase-4 deployment is live, the phase-3 one cannot take bookings, so keep
+that gap short. The site has never been deployed, so no live traffic breaks
+today.
 
 006 must run after 005 (it replaces 005's `audit_feed` view and reads
 `audit_log`, `locales` and `destinations`). `scripts/migrate.mjs` applies the
@@ -169,8 +192,12 @@ URL instead):
 ```sql
 -- 1. Exactly 001–005 applied, 006 not yet.
 SELECT name FROM _migrations ORDER BY name;
--- 2. pg_trgm is available (an empty result means 006 would roll back).
+-- 2. pg_trgm is installable: a row means the server has it (an empty result means 006 would roll back).
 SELECT name, default_version, installed_version FROM pg_available_extensions WHERE name = 'pg_trgm';
+--    If installed_version is empty, 006's CREATE EXTENSION also needs CREATE on the database for the
+--    role that migrates (pg_trgm is a trusted extension, so no superuser). Run this as the role of the
+--    direct URL you migrate with: it must return t.
+SELECT has_database_privilege(current_database(), 'CREATE');
 -- 3. Every reserved_at is HH:MM (006 stops with a message otherwise; correct the rows first).
 SELECT id, reserved_at FROM reservations WHERE reserved_at !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$';
 -- 4. How many bookings become source 'legacy', is_test (they keep holding covers until purged).
@@ -186,7 +213,8 @@ scripts/migrate.mjs`, and check:
 
 ```sql
 SELECT count(*) FROM service_periods;                        -- one per (restaurant, meal): 25 on the seed data
-SELECT * FROM booking_settings;                              -- one row: 14, 30, NULL, 12, false, true, 24
+SELECT window_days, lead_minutes, same_day_cutoff, max_party, auto_confirm, guest_ack_email, pii_retention_months
+  FROM booking_settings;                                     -- one row: 14, 30, NULL, 12, false, true, 24 (psql: 14 | 30 |  | 12 | f | t | 24)
 SELECT count(*) FROM reservations WHERE meal IS NULL OR (search_text IS NULL AND anonymized_at IS NULL);  -- 0
 SELECT source, is_test, count(*) FROM reservations GROUP BY 1, 2;
 ```
@@ -219,6 +247,8 @@ On the first preview after phase 4, check that a save under "Giờ và sức
 chứa" reaches the guest pages: switch a restaurant's online booking off, then
 open the home page a few times; every response should drop its RESERVE (the
 catalogue is cached per instance and `updateTag('restaurants')` expires it).
+Then switch it back on and check the same way that its RESERVE returns on
+every response, so the check leaves no restaurant off.
 
 **Never run `npx auth migrate`** (or `generate`) without
 `--config scripts/auth-cli.config.ts`: the Better Auth CLI loads `.env` and
@@ -300,7 +330,7 @@ bootstrapping production is what you mean to do.
 | `/en` | Static, `cacheLife('max')` | Home: hero, finder, cuisines, restaurants, destinations, experiences, heritage, stories, offers |
 | `/en/restaurants/[slug]` | Static for `taya-house`. Any other slug is a 404: the first visit is a soft 404 (status 200 with `noindex`), later visits get the cached 404, and without JavaScript the body is empty | Restaurant detail (Tàya House only until phase 6) |
 | `/taya-house` | Redirect | 308 to `/en/restaurants/taya-house` (`next.config.ts`) |
-| `/api/availability` | Dynamic, `no-store` | `?restaurant=&lang=[&from=&to=]`: each day's state (open, full, past, closed, too_large, outside) and public closure reason, with the clock, the party limit and the number to call; `?restaurant=&date=&lang=[&guests=]`: one day's services and slots with the covers left. 404 for an unknown restaurant or one with online booking off. `scripts/check-prerender.mjs` fails if it is ever prerendered |
+| `/api/availability` | Dynamic, `no-store` | `?restaurant=&lang=[&from=&to=]`: each day's state (open, full, past, closed, too_large, outside) and public closure reason, with the clock, the party limit and the number to call; `?restaurant=&date=&lang=[&guests=]`: one day's services and slots with the covers left. 404 for an unknown restaurant or one with online booking off. `scripts/check-prerender.mjs` fails if it is ever prerendered, or missing from the build |
 | `/admin/sign-in`, `/admin/accept-invite`, `/admin/reset-password` | Request time, nonce CSP | The only admin pages open without a session cookie |
 | `/admin`, `/admin/users`, `/admin/audit` | Request time, nonce CSP | Overview (with pending and today's bookings); staff and invitations (Admin); audit log of `audit_log` and booking events, paged with `?truoc=`/`?sau=` (Admin). Without a session cookie the proxy sends them to sign-in (307, `?next=` kept) |
 | `/admin/reservations`, `/admin/reservations/[id]`, `/admin/reservations/day` | Request time, nonce CSP | Inbox (Cần xử lý · Hôm nay · Sắp tới · Tất cả, search by reference, phone, name or email); a booking (status changes, edit, internal notes, timeline); the printable day sheet. `reservations:read` |
@@ -364,7 +394,13 @@ meals or the whole day, a public reason per language in `closure_i18n`) and
 `lib/booking/resolve-day.ts` turns them into a day: `planDay` (the services
 and slots) for staff screens, and `resolveDay` (plus the window, the lead
 time, the same-day cut-off, the party limit and the covers held) for guests.
-Nothing that reads them is cached.
+Nothing that reads them for booking is cached: the availability API, the
+guest's submit and the staff screens read the database on every request.
+The guest catalogue does derive each restaurant's `meals` (from its active
+service periods) and `bookingEnabled` from them under `'use cache'`
+(`lib/server/content/restaurants.ts`), and every save of the periods or of
+the booking switch (`savePeriods`, `saveRules`) expires it with
+`updateTag('restaurants')`.
 
 Guarantees:
 
@@ -374,8 +410,9 @@ Guarantees:
   covers, in the same transaction: concurrent requests for the last seats
   cannot both win
 - covers are held by `requested`, `confirmed` and `seated` bookings only
-- a partial unique index rejects a second active booking of the same table,
-  time and phone
+- a partial unique index (`reservations_dedupe_v2_idx`) rejects a second
+  `requested` or `confirmed` booking at the same restaurant, date, time and
+  phone (`phone_e164`)
 - `version` (bumped by the `reservations_before_write` trigger on every
   update) makes a stale admin page a conflict that names who changed it
 - every booking change is a `reservation_events` row (the timeline), never

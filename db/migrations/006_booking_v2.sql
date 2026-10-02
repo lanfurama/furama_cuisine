@@ -124,7 +124,10 @@ CREATE INDEX IF NOT EXISTS closures_dates_idx ON closures (ends_on, starts_on);
 CREATE TABLE IF NOT EXISTS closure_i18n (
   closure_id    bigint      NOT NULL REFERENCES closures (id) ON DELETE CASCADE,
   locale        text        NOT NULL REFERENCES locales (code) ON UPDATE CASCADE ON DELETE CASCADE,
-  public_reason text        NOT NULL CHECK (public_reason <> '' AND length(public_reason) <= 160),
+  -- Blank counts as empty, as for reservation_notes.body: a reason of spaces
+  -- would reach the guest in place of the default "Closed" (and hide the
+  -- default language's reason), so only real text may make a row.
+  public_reason text        NOT NULL CHECK (btrim(public_reason) <> '' AND length(public_reason) <= 160),
   status        text        NOT NULL DEFAULT 'reviewed' CHECK (status IN ('machine', 'reviewed')),
   origin        text        NOT NULL DEFAULT 'human'    CHECK (origin IN ('human', 'ai', 'seed')),
   ai_model      text,
@@ -206,6 +209,8 @@ ALTER TABLE reservations
   ADD COLUMN IF NOT EXISTS offer_id      bigint,
   -- Staff may book past capacity with a reason, which goes on the event (spec §10.3).
   ADD COLUMN IF NOT EXISTS over_capacity boolean     NOT NULL DEFAULT false,
+  -- Why staff declined or cancelled: free text staff type about a guest, so
+  -- phase 10's anonymiser sets it to NULL.
   ADD COLUMN IF NOT EXISTS status_reason text        CHECK (length(status_reason) <= 500),
   ADD COLUMN IF NOT EXISTS confirmed_at  timestamptz,
   ADD COLUMN IF NOT EXISTS cancelled_at  timestamptz,
@@ -304,7 +309,16 @@ CREATE TABLE IF NOT EXISTS reservation_events (
   type           text        NOT NULL CHECK (type IN ('created', 'status_changed', 'edited', 'note_added')),
   from_status    text        CHECK (from_status IN ('requested', 'confirmed', 'seated', 'no_show', 'cancelled', 'declined')),
   to_status      text        CHECK (to_status IN ('requested', 'confirmed', 'seated', 'no_show', 'cancelled', 'declined')),
-  changes        jsonb,      -- {"guests": [2, 4]}; phase 10 strips personal keys when anonymising
+  -- What changed. An edit records each changed field as [before, after]:
+  -- date, time, guests, name, phone, phone_e164, email and note (the guest's
+  -- own words, often allergies or health details), and over_capacity. A staff
+  -- booking records source (and over_capacity), a note only its note_id.
+  -- Phase 10 anonymises by an allowlist, not a blocklist: it keeps date, time,
+  -- guests, over_capacity, source and note_id and drops every other key, so a
+  -- key added later is treated as personal unless it joins that list.
+  changes        jsonb,
+  -- Free text staff type about a guest (a status change's reason, or why a
+  -- booking may go over capacity): phase 10's anonymiser sets it to NULL.
   reason         text        CHECK (length(reason) <= 500),
   CONSTRAINT reservation_events_staff_actor CHECK (actor_kind <> 'staff' OR actor_id IS NOT NULL),
   CONSTRAINT reservation_events_created_status CHECK (type <> 'created' OR to_status IS NOT NULL),

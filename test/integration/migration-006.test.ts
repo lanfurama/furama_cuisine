@@ -280,6 +280,8 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 006: booking v2 (database)', () =
       const reason = (locale: string, text: string) =>
         sql(`INSERT INTO closure_i18n (closure_id, locale, public_reason) VALUES ($1, $2, $3)`, [rows[0].id, locale, text]);
       await expect(reason('en', '')).rejects.toThrow(/closure_i18n_public_reason_check/);
+      // Blank is empty to a guest: the same rule as reservation_notes.body.
+      await expect(reason('en', '   ')).rejects.toMatchObject({ code: '23514', constraint: 'closure_i18n_public_reason_check' });
       await expect(reason('en', 'x'.repeat(161))).rejects.toThrow(/closure_i18n_public_reason_check/);
       await reason('en', 'Christmas');
       await expect(reason('xx', 'Noël')).rejects.toThrow(/closure_i18n_locale_fkey/);
