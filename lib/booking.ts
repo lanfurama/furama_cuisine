@@ -9,6 +9,13 @@ import { formatDay, type IsoDate } from './venue-time';
 
 export type BookingForm = { name: string; phone: string; email: string; note: string };
 
+/**
+ * The longest value each field may hold. lib/server/booking/input.ts refuses
+ * anything longer (a note answers 'unknown', which no retry can fix), so the
+ * drawer stops typing there; lib/booking.test.ts pins the two together.
+ */
+export const FIELD_MAX: Record<keyof BookingForm, number> = { name: 120, phone: 40, email: 254, note: 1000 };
+
 export type Booking = {
   destination: string;
   restaurant: string;

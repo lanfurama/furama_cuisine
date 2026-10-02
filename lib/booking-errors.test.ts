@@ -25,8 +25,8 @@ describe('bookingErrorMessage', () => {
     expect(bookingErrorMessage('party_too_large')).toBe('For more than 12 guests, please call us on +84 236 651 9999.');
   });
 
-  it('says the restaurant is closed, and that a sitting can no longer be booked for either clock rule', () => {
-    expect(bookingErrorMessage('closed')).toBe('The restaurant is closed on that date — please choose another day.');
+  it('says the restaurant is closed at that time (a whole day, or one meal), and that a sitting can no longer be booked for either clock rule', () => {
+    expect(bookingErrorMessage('closed')).toBe('The restaurant is closed at that time — please choose another time or day.');
     expect(bookingErrorMessage('past')).toBe('That time can no longer be booked online — please choose a later time or another day.');
   });
 });

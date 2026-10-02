@@ -1,6 +1,6 @@
-import type { Page } from '@playwright/test';
+import type { Page, Route } from '@playwright/test';
 import { addDays, formatDay, venueNow } from '../lib/venue-time';
-import { GROUP_PHONE, mockAvailability, type MockOptions } from './availability-mock';
+import { GROUP_PHONE, mockAvailability, type MockDay, type MockOptions } from './availability-mock';
 import { HOME_PATH } from './paths';
 import { expect, one, test } from './staff-fixtures';
 
@@ -105,6 +105,85 @@ test('the party limit comes from the server: max_party 8 blocks a ninth guest an
   await expect(options.last()).toHaveText(/8 guests/);
 });
 
+test('the reason under the strip belongs to that calendar: another restaurant’s answer clears it', async ({ page }) => {
+  const days: Record<string, MockDay> = { '2026-10-04': { state: 'closed', reason: 'Closed for a private event' } };
+  const drawer = await openDrawer(page, { days });
+  await drawer.getByRole('button', { name: 'Sun, 4 Oct: Closed for a private event' }).click({ force: true });
+  await expect(drawer.getByRole('status')).toHaveText('Sun, 4 Oct: Closed for a private event');
+
+  // The next restaurant takes bookings that day (the mock reads `days` per request).
+  delete days['2026-10-04'];
+  await drawer.getByRole('button', { name: /^restaurant/i }).click();
+  await page.getByRole('listbox', { name: 'Restaurant' }).getByRole('option', { name: 'Don Cipriani’s' }).click();
+  await expect(drawer.locator('.daystrip .day[data-state="closed"]')).toHaveCount(0);
+  await expect(drawer.getByRole('status')).toHaveCount(0);
+});
+
+test('the details stop at the lengths the server accepts', async ({ page }) => {
+  const drawer = await openDrawer(page);
+  // lib/server/booking/input.ts refuses anything longer, with a message retrying cannot fix.
+  await expect(drawer.getByLabel('Full name *', { exact: true })).toHaveAttribute('maxlength', '120');
+  await expect(drawer.getByLabel('Phone *', { exact: true })).toHaveAttribute('maxlength', '40');
+  await expect(drawer.getByLabel('Email', { exact: true })).toHaveAttribute('maxlength', '254');
+  await expect(drawer.getByLabel('Special requests', { exact: true })).toHaveAttribute('maxlength', '1000');
+});
+
+const NETWORK = 'We could not reach the reservations desk. Please try again.';
+
+/** Puts a failing answer in front of the mock while `failing()` says so; registered last, it runs first. */
+async function failAvailability(page: Page, failing: (url: URL) => boolean, answer: (route: Route) => Promise<void>) {
+  await page.route('**/api/availability**', (route) =>
+    failing(new URL(route.request().url())) ? answer(route) : route.fallback(),
+  );
+}
+
+test('when the dates cannot load, the guest is told, REQUEST BOOKING says so, and Try again recovers', async ({ page }) => {
+  let failing = true;
+  await page.clock.setFixedTime(NOW);
+  await mockAvailability(page, clock);
+  await failAvailability(page, () => failing, (route) => route.fulfill({ status: 503, json: { error: 'unavailable' } }));
+  await page.goto(HOME_PATH);
+  await page.getByRole('button', { name: 'RESERVE', exact: true }).first().click();
+  const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
+
+  // In place of an empty strip.
+  await expect(drawer.getByRole('alert')).toHaveText(NETWORK);
+  await expect(drawer.locator('.daystrip')).toHaveCount(0);
+
+  // Valid details and no date to book: the button answers rather than doing nothing.
+  await drawer.getByLabel('Full name *', { exact: true }).fill('Nguyễn Minh Anh');
+  await drawer.getByLabel('Phone *', { exact: true }).fill('0905 000 000');
+  await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
+  await expect(drawer.locator('.drawer-foot').getByRole('alert')).toHaveText(NETWORK);
+
+  failing = false;
+  await drawer.getByRole('button', { name: 'Try again' }).click();
+  await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
+  await expect(drawer.locator('.day[aria-pressed="true"] .day-num')).toHaveText('2');
+  await expect(drawer.locator('.slot:not([disabled])')).toHaveCount(12);
+  await expect(drawer.getByRole('button', { name: 'Try again' })).toHaveCount(0);
+});
+
+test('when the times cannot load, the guest is told instead of waiting forever, and Try again recovers', async ({ page }) => {
+  let failing = true;
+  await page.clock.setFixedTime(NOW);
+  await mockAvailability(page, clock);
+  // The calendar answers; the day's request finds no network.
+  await failAvailability(page, (url) => failing && url.searchParams.has('date'), (route) => route.abort('internetdisconnected'));
+  await page.goto(HOME_PATH);
+  await page.getByRole('button', { name: 'RESERVE', exact: true }).first().click();
+  const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
+
+  await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
+  await expect(drawer.getByRole('alert')).toHaveText(NETWORK);
+  await expect(drawer.getByText('Checking tables…')).toHaveCount(0);
+
+  failing = false;
+  await drawer.getByRole('button', { name: 'Try again' }).click();
+  await expect(drawer.locator('.slot:not([disabled])')).toHaveCount(12);
+  await expect(drawer.getByRole('alert')).toHaveCount(0);
+});
+
 test('books a table against the real availability API', async ({ page }) => {
   await page.goto(HOME_PATH);
   await page.getByRole('button', { name: 'RESERVE', exact: true }).first().click();
@@ -141,10 +220,12 @@ test('a closure written to the database greys the day on the next calendar fetch
   try {
     await one(`INSERT INTO closure_i18n (closure_id, locale, public_reason) VALUES ($1, 'en', 'Closed for a wine dinner')`, [closure!.id]);
     const drawer = await openFromCard(page, 'Don Cipriani');
-    const chip = drawer.locator('.daystrip .day[aria-disabled="true"]');
-    await expect(chip).toHaveCount(1);
+    // That date's chip by its spoken name. Today is greyed too ('past') once its
+    // last sitting is inside the lead time, so only closed chips are counted.
+    const chip = drawer.getByRole('button', { name: `${formatDay(date).label}: Closed for a wine dinner`, exact: true });
+    await expect(chip).toHaveAttribute('aria-disabled', 'true');
     await expect(chip).toHaveAttribute('data-state', 'closed');
-    await expect(chip).toHaveAttribute('aria-label', `${formatDay(date).label}: Closed for a wine dinner`);
+    await expect(drawer.locator('.daystrip .day[data-state="closed"]')).toHaveCount(1);
   } finally {
     await one('DELETE FROM closures WHERE id = $1', [closure!.id]);
   }

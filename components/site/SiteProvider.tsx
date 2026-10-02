@@ -96,6 +96,15 @@ type SiteState = {
   groupPhone: GroupPhone | null;
   /** The slots for the chosen restaurant and date; null while they load. */
   board: DayResponse | null;
+  /**
+   * The availability the form needs did not arrive (an HTTP error, or no
+   * network): 'dates' when there is no calendar for this restaurant, else
+   * 'times' when there is no board for the chosen day; null otherwise.
+   * `count` changes on every failure, so a repeated one can be read out again.
+   */
+  loadFailed: { at: 'dates' | 'times'; count: number } | null;
+  /** Asks again for the chosen restaurant's calendar and day (the drawer's Try again). */
+  retryAvailability: () => void;
   /** The server's clock, as last reported by /api/availability. */
   now: () => Date;
   /** The reservation form's copy and error messages for this language. */
@@ -212,6 +221,14 @@ export function SiteProvider({
      previous restaurant or date must not overwrite the current one. */
   const calendarSeq = useRef(0);
   const boardSeq = useRef(0);
+  /* Which kind of answer did not arrive (an HTTP error, or no network). Only
+     the newest request of a kind sets or clears its flag, and the flag stays
+     until a later request of that kind answers, so a Try again that fails
+     again leaves the message (and the focus on its button) where it was. */
+  const [failed, setFailed] = useState({ calendar: false, board: false, count: 0 });
+  const settle = useCallback((kind: 'calendar' | 'board', ok: boolean) => {
+    setFailed((f) => (ok ? (f[kind] ? { ...f, [kind]: false } : f) : { ...f, [kind]: true, count: f.count + 1 }));
+  }, []);
 
   const now = useCallback(() => new Date(Date.now() + clockOffset), [clockOffset]);
 
@@ -242,16 +259,20 @@ export function SiteProvider({
       const seq = ++calendarSeq.current;
       getJson<CalendarResponse>(calendarUrl(restaurant, locale))
         .then((res) => {
-          if (seq !== calendarSeq.current || !res.ok) return;
+          if (seq !== calendarSeq.current) return;
+          settle('calendar', res.ok);
+          if (!res.ok) return;
           const data = res.data;
           const serverNow = new Date(data.now);
           setClockOffset(serverNow.getTime() - Date.now());
           setCalendar(data);
           setBookingState((b) => reconcileBooking(b, {}, context(serverNow, { calendar: data })));
         })
-        .catch(() => {});
+        .catch(() => {
+          if (seq === calendarSeq.current) settle('calendar', false);
+        });
     },
-    [context, locale],
+    [context, locale, settle],
   );
 
   /* The slots of one day, with the covers left. A slot that filled or closed
@@ -262,7 +283,9 @@ export function SiteProvider({
       const seq = ++boardSeq.current;
       getJson<DayResponse>(dayUrl(restaurant, date, locale))
         .then((res) => {
-          if (seq !== boardSeq.current || !res.ok) return;
+          if (seq !== boardSeq.current) return;
+          settle('board', res.ok);
+          if (!res.ok) return;
           const data = res.data;
           // The date left the window (a tab open past midnight): the calendar's answer moves it.
           if (data.state === 'outside') {
@@ -274,9 +297,11 @@ export function SiteProvider({
           setBoard(data);
           setBookingState((b) => reconcileBooking(b, {}, context(serverNow, { board: data })));
         })
-        .catch(() => {});
+        .catch(() => {
+          if (seq === boardSeq.current) settle('board', false);
+        });
     },
-    [context, loadCalendar, locale],
+    [context, loadCalendar, locale, settle],
   );
 
   useEffect(() => {
@@ -286,6 +311,12 @@ export function SiteProvider({
   useEffect(() => {
     if (booking.restaurant && booking.date) loadBoard(booking.restaurant, booking.date);
   }, [booking.restaurant, booking.date, loadBoard]);
+
+  const retryAvailability = useCallback(() => {
+    const { restaurant, date } = latest.current.booking;
+    if (restaurant) loadCalendar(restaurant);
+    if (restaurant && date) loadBoard(restaurant, date);
+  }, [loadBoard, loadCalendar]);
 
   const setFinder = useCallback((patch: Partial<Finder>) => {
     setFinderState((f) => ({ ...f, ...patch }));
@@ -437,6 +468,11 @@ export function SiteProvider({
         const past = day ? clockBlock(date, booking.time, at, day) !== null : false;
         setServerError(bookingErrorMessage(past ? 'past' : 'full', {}, strings));
         setBookingState((b) => reconcileBooking(b, {}, context(at)));
+      } else if (fieldsValid && booking.restaurant && !calendarFor(latest.current.calendar, booking.restaurant)) {
+        // No date because this restaurant's calendar never came (it failed, or
+        // is still on its way): say so rather than nothing, and ask again.
+        setServerError(bookingErrorMessage('network', {}, strings));
+        loadCalendar(booking.restaurant);
       }
       return;
     }
@@ -566,6 +602,14 @@ export function SiteProvider({
   /* The last calendar answered, even for the previous restaurant, so the strip does not blink on a switch. */
   const days = calendar?.days ?? NO_DAYS;
   const today = calendar?.today ?? null;
+  /* A failure shows only where it leaves the form with nothing true to show:
+     the dates (no calendar for this restaurant), else the chosen day's times. */
+  const loadFailed = useMemo<SiteState['loadFailed']>(() => {
+    if (!failed.calendar && !failed.board) return null;
+    if (failed.calendar && !chosenCalendar) return { at: 'dates', count: failed.count };
+    if (booking.date && !chosenBoard) return { at: 'times', count: failed.count };
+    return null;
+  }, [booking.date, chosenBoard, chosenCalendar, failed]);
 
   const value = useMemo<SiteState>(
     () => ({
@@ -594,6 +638,8 @@ export function SiteProvider({
       maxParty,
       groupPhone,
       board: chosenBoard,
+      loadFailed,
+      retryAvailability,
       now,
       strings,
       confirmedDate,
@@ -626,8 +672,8 @@ export function SiteProvider({
     [
       applyFinder, booking, bookable, chosenBoard, clearFilters, close, closeDrawer, closeDropdown,
       confirmedDate, days, done, errors, filter, finder, form, goBackToRestaurants, goHomeTop, groupPhone,
-      lang, locale, matches, maxParty, now, open, openDropdown, openReserve, openRestaurant, overlay,
-      pageRoot, pending, pickCuisine, pickDestination, query, reference, restaurants, scrollToId, scrolled,
+      lang, loadFailed, locale, matches, maxParty, now, open, openDropdown, openReserve, openRestaurant, overlay,
+      pageRoot, pending, pickCuisine, pickDestination, query, reference, restaurants, retryAvailability, scrollToId, scrolled,
       serverError, setBooking, setFilter, setFinder, setFormField, showPage, shownCount, strings, submit,
       tab, today, toggleDropdown, tried, view,
     ],

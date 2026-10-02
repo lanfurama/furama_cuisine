@@ -309,6 +309,24 @@
   color: var(--error);
 }
 
+/* Availability that did not arrive: under the message, a button to ask again
+   (the stepper's 44px box, so it is easy to hit on a phone). */
+.load-retry {
+  margin-top: 10px;
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--line-field);
+  background: var(--white);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  transition: border-color 0.2s;
+}
+
+.load-retry:hover {
+  border-color: var(--green);
+}
+
 .drawer-details {
   margin-top: 30px;
   padding-top: 24px;

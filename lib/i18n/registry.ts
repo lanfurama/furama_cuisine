@@ -99,9 +99,10 @@ export const REGISTRY = {
     screen: 'ui-text',
   },
   'error.closed': {
-    en: 'The restaurant is closed on that date — please choose another day.',
+    en: 'The restaurant is closed at that time — please choose another time or day.',
     maxLength: 140,
-    context: 'A closure, or a day without service, covers the chosen date or meal.',
+    context:
+      'A closure, or a day without service, covers the chosen date, or only the chosen meal while another meal that day still takes bookings. Must read right for both.',
     screen: 'ui-text',
   },
   'error.unknown': {
@@ -113,7 +114,8 @@ export const REGISTRY = {
   'error.network': {
     en: 'We could not reach the reservations desk. Please try again.',
     maxLength: 140,
-    context: 'The browser could not reach the server (client side only).',
+    context:
+      'The browser could not reach the server, or it could not answer (client side only): on sending the form, and in place of the dates or times when they could not be loaded, above booking.retry.',
     screen: 'ui-text',
   },
   'booking.day_closed': {
@@ -159,6 +161,13 @@ export const REGISTRY = {
     en: 'Checking tables…',
     maxLength: 40,
     context: 'Reservation form, in place of the time slots while they load.',
+    screen: 'booking',
+  },
+  'booking.retry': {
+    en: 'Try again',
+    maxLength: 30,
+    context:
+      'Reservation form, a button under error.network when the dates or the times could not be loaded (server error or no connection); it asks the server again.',
     screen: 'booking',
   },
 } as const satisfies Record<string, StringDef>;

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { DESTS, DEST_KEYS, MEAL_LABELS } from '@/lib/data';
-import { findRestaurant, fmtDay, guestLabel } from '@/lib/booking';
+import { FIELD_MAX, findRestaurant, fmtDay, guestLabel } from '@/lib/booking';
 import { dayReason, slotOpen } from '@/lib/booking/client';
 import type { DayInfo } from '@/lib/booking/api';
 import type { GroupPhone } from '@/lib/booking/rules';
@@ -25,10 +25,26 @@ function WithPhone({ template, params, phone }: { template: string; params: Mess
   );
 }
 
+/** Availability that did not arrive: the network message and a way to ask again. */
+function LoadFailed({ count, strings, onRetry }: { count: number; strings: ClientStrings; onRetry: () => void }) {
+  return (
+    <div className="load-failed">
+      {/* A new alert per failure, so a Try again that fails again is read out again. */}
+      <div key={count} className="drawer-error" role="alert">
+        {strings['error.network']}
+      </div>
+      <button type="button" className="load-retry" onClick={onRetry}>
+        {strings['booking.retry']}
+      </button>
+    </div>
+  );
+}
+
 /**
  * The booking window as the server sent it. A day that takes no bookings is
- * greyed out and cannot be chosen; tapping it shows why. Mounted only while
- * the drawer shows, so the note starts empty on every open.
+ * greyed out and cannot be chosen; tapping it shows why, until another
+ * calendar arrives (another restaurant's, or a fresh answer). Mounted only
+ * while the drawer shows, so the note starts empty on every open.
  */
 function DayStrip({
   days,
@@ -43,8 +59,9 @@ function DayStrip({
   strings: ClientStrings;
   groupPhone: GroupPhone | null;
 }) {
-  /* The unavailable day a guest last tapped. */
-  const [note, setNote] = useState<DayInfo | null>(null);
+  /* The unavailable day a guest last tapped, and the calendar it was tapped on. */
+  const [tapped, setTapped] = useState<{ days: DayInfo[]; day: DayInfo } | null>(null);
+  const note = tapped?.days === days ? tapped.day : null;
   const noDates = days.length > 0 && !days.some((d) => d.state === 'open');
 
   return (
@@ -70,7 +87,7 @@ function DayStrip({
                   : formatMessage(strings['booking.day_note'], { date: day.label, reason: dayReason(d, strings) })
               }
               onClick={() => {
-                setNote(open ? null : d);
+                setTapped(open ? null : { days, day: d });
                 if (open) onPick(d.date);
               }}
             >
@@ -107,6 +124,8 @@ export function ReserveDrawer() {
     maxParty,
     groupPhone,
     board,
+    loadFailed,
+    retryAvailability,
     now,
     strings,
     confirmedDate,
@@ -226,13 +245,17 @@ export function ReserveDrawer() {
               </div>
 
               <div className="drawer-label">DATE</div>
-              <DayStrip
-                days={days}
-                selected={booking.date}
-                onPick={(date) => setBooking({ date })}
-                strings={strings}
-                groupPhone={groupPhone}
-              />
+              {loadFailed?.at === 'dates' ? (
+                <LoadFailed count={loadFailed.count} strings={strings} onRetry={retryAvailability} />
+              ) : (
+                <DayStrip
+                  days={days}
+                  selected={booking.date}
+                  onPick={(date) => setBooking({ date })}
+                  strings={strings}
+                  groupPhone={groupPhone}
+                />
+              )}
 
               <div className="guests">
                 <div>
@@ -270,7 +293,11 @@ export function ReserveDrawer() {
               )}
 
               <div className="drawer-label">TIME</div>
-              {!board && booking.date && <div className="slot-loading">{strings['booking.loading']}</div>}
+              {loadFailed
+                ? loadFailed.at === 'times' && (
+                    <LoadFailed count={loadFailed.count} strings={strings} onRetry={retryAvailability} />
+                  )
+                : !board && booking.date && <div className="slot-loading">{strings['booking.loading']}</div>}
               {board?.state === 'closed' && <div className="drawer-error">{strings['error.closed']}</div>}
               {board?.periods.map((p) => (
                 <div key={p.meal} className="slotgroup" data-closed={p.closed || undefined}>
@@ -319,6 +346,7 @@ export function ReserveDrawer() {
                       onChange={(e) => setFormField('name', e.target.value)}
                       placeholder="Nguyễn Minh Anh"
                       autoComplete="name"
+                      maxLength={FIELD_MAX.name}
                       data-invalid={errors.name}
                       aria-invalid={errors.name}
                     />
@@ -333,6 +361,7 @@ export function ReserveDrawer() {
                       onChange={(e) => setFormField('phone', e.target.value)}
                       placeholder="+84 905 000 000"
                       autoComplete="tel"
+                      maxLength={FIELD_MAX.phone}
                       data-invalid={errors.phone}
                       aria-invalid={errors.phone}
                     />
@@ -349,6 +378,7 @@ export function ReserveDrawer() {
                       onChange={(e) => setFormField('email', e.target.value)}
                       placeholder="you@example.com"
                       autoComplete="email"
+                      maxLength={FIELD_MAX.email}
                       data-invalid={errors.email}
                       aria-invalid={errors.email}
                     />
@@ -364,6 +394,7 @@ export function ReserveDrawer() {
                       value={form.note}
                       onChange={(e) => setFormField('note', e.target.value)}
                       placeholder="Occasion, dietary needs, seating preference"
+                      maxLength={FIELD_MAX.note}
                     />
                   </label>
                 </div>
