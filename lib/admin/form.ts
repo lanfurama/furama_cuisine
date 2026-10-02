@@ -9,6 +9,7 @@ import { startTransition, type FormEvent } from 'react';
  * the clicked button's name and value), and no reset. Client components only.
  * Give the form method="post": submitted before hydration, a form with no
  * method is a GET that puts every field in the URL (and the server's logs).
+ * lib/admin/admin-pages.guard.test.ts fails on an admin form without it.
  */
 export function submitKeepingValues(dispatch: (formData: FormData) => void) {
   return (event: FormEvent<HTMLFormElement>) => {

@@ -15,7 +15,7 @@ export function EditReservationForm({ reservation: r, times }: { reservation: Ed
   return (
     // No reset on submit: a refused edit (full, conflict) keeps what was typed. A saved one re-renders with
     // the new version, and the key gives the inputs their saved values; the hook state above the form stays.
-    <form className="a-grid-form" onSubmit={submitKeepingValues(action)} key={r.version} noValidate aria-label="Sửa đặt bàn">
+    <form className="a-grid-form" method="post" onSubmit={submitKeepingValues(action)} key={r.version} noValidate aria-label="Sửa đặt bàn">
       <input type="hidden" name="id" value={r.id} />
       <input type="hidden" name="version" value={r.version} />
       <FormMessage state={state} success={state?.ok && !state.data.changed ? 'Không có gì thay đổi.' : 'Đã lưu.'} />

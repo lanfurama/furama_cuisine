@@ -19,7 +19,7 @@ export function NewReservationForm(props: {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(createReservation, null);
   const err = (name: string) => `res-new-${name}-error`;
   return (
-    <form className="a-grid-form" onSubmit={submitKeepingValues(action)} noValidate aria-label="Đặt bàn mới">
+    <form className="a-grid-form" method="post" onSubmit={submitKeepingValues(action)} noValidate aria-label="Đặt bàn mới">
       <input type="hidden" name="restaurant" value={props.restaurantId} />
       <input type="hidden" name="date" value={props.date} />
       <FormMessage state={state} />

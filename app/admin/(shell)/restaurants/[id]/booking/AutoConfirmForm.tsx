@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import { submitKeepingValues } from '@/lib/admin/form';
 import type { ActionResult } from '@/lib/server/action-result';
 import { FormMessage } from '../../../_ui/FormMessage';
 import { saveAutoConfirmSetting } from './auto-confirm-actions';
@@ -9,7 +10,9 @@ import { saveAutoConfirmSetting } from './auto-confirm-actions';
 export function AutoConfirmForm({ restaurantId, token, value, defaultValue }: { restaurantId: string; token: string; value: boolean | null; defaultValue: boolean }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(saveAutoConfirmSetting, null);
   return (
-    <form className="a-inline-form" action={action} key={token} aria-label="Tự động xác nhận">
+    // submitKeepingValues: a refused save (a conflict) keeps the Admin's pick, where action={action} would reset
+    // the select. key: a save moves the token and the select takes the saved value; the hook state above stays.
+    <form className="a-inline-form" method="post" onSubmit={submitKeepingValues(action)} key={token} aria-label="Tự động xác nhận">
       <input type="hidden" name="restaurant" value={restaurantId} />
       <input type="hidden" name="token" value={token} />
       <FormMessage state={state} success="Đã lưu." />

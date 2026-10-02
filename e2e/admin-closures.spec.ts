@@ -78,6 +78,84 @@ test('a dinner closure lists the dinner bookings, not lunch, and cancels only th
   }
 });
 
+test('after “Tải lại” the edit form shows another editor’s change, and saving it keeps that change', async ({ page }) => {
+  // Two months out: past every booking window, so the closure greys no day another spec books.
+  const date = venueDay(60);
+  const note = `E2E edit ${Date.now().toString(36)}`;
+  try {
+    const { id } = (await one<{ id: string }>(
+      `INSERT INTO closures (scope, restaurant_id, starts_on, ends_on, internal_note) VALUES ('restaurant', 'pho-cuon', $1, $1, $2) RETURNING id::text`,
+      [date, note],
+    ))!;
+    await signInAs(page, STAFF.editor);
+    await page.goto('/admin/reservations/closures');
+    await expectHydrated(page);
+    const card = page.getByRole('region').filter({ hasText: note });
+    await card.getByText('Sửa', { exact: true }).click();
+    const edit = card.getByRole('form', { name: 'Sửa ngày đóng cửa' });
+    await expect(edit.getByLabel('Nhà hàng', { exact: true })).toHaveValue('pho-cuon');
+
+    // Meanwhile the Admin moves the closure to the MM Supercenter: this save is refused.
+    await one(`UPDATE closures SET scope = 'destination', restaurant_id = NULL, destination_id = 'mm', updated_at = clock_timestamp(), updated_by = $2 WHERE id = $1`, [
+      id,
+      STAFF.admin.id,
+    ]);
+    await edit.getByRole('button', { name: 'Lưu', exact: true }).click();
+    await expect(edit.getByRole('alert')).toContainText(`Vừa được ${STAFF.admin.name} thay đổi`);
+    await edit.getByRole('button', { name: 'Tải lại', exact: true }).click();
+
+    // Reloaded, the form shows the closure as it now is, beside the new token: a save keeps the Admin's change.
+    await expect(edit.getByLabel('Phạm vi', { exact: true })).toHaveValue('destination');
+    await expect(edit.getByLabel('Điểm đến', { exact: true })).toHaveValue('mm');
+    await expect(edit.getByLabel('Nhà hàng', { exact: true })).toHaveCount(0);
+    await edit.getByRole('button', { name: 'Lưu', exact: true }).click();
+    await expect(edit.getByRole('status')).toHaveText('Đã lưu.');
+    expect(await one(`SELECT scope, destination_id, restaurant_id FROM closures WHERE id = $1`, [id])).toEqual({
+      scope: 'destination',
+      destination_id: 'mm',
+      restaurant_id: null,
+    });
+  } finally {
+    await one(`DELETE FROM closures WHERE internal_note = $1`, [note]);
+  }
+});
+
+test('the add form starts over after a closure for a destination, and the next add goes through', async ({ page }) => {
+  // Past every booking window, like the test above.
+  const date = venueDay(61);
+  const stamp = Date.now().toString(36);
+  const notes = [`E2E again A ${stamp}`, `E2E again B ${stamp}`];
+  try {
+    await signInAs(page, STAFF.editor);
+    await page.goto('/admin/reservations/closures');
+    await expectHydrated(page);
+    await addClosure(page, { scope: 'destination', target: 'mm', from: date, to: date, note: notes[0] });
+
+    // Blank again, its scope and its picker in agreement: one restaurant, the restaurant picker.
+    const add = page.getByRole('form', { name: 'Thêm ngày đóng cửa' });
+    await expect(add.getByLabel('Phạm vi', { exact: true })).toHaveValue('restaurant');
+    await expect(add.getByLabel('Điểm đến', { exact: true })).toHaveCount(0);
+    await expect(add.getByLabel('Nhà hàng', { exact: true })).toHaveValue('');
+    await expect(add.getByLabel('Ghi chú nội bộ (khách không thấy)', { exact: true })).toHaveValue('');
+
+    // The next closure, without touching "Phạm vi".
+    await add.getByLabel('Nhà hàng', { exact: true }).selectOption('pho-cuon');
+    await add.getByLabel('Từ ngày', { exact: true }).fill(date);
+    await add.getByLabel('Đến ngày', { exact: true }).fill(date);
+    await add.getByLabel('Ghi chú nội bộ (khách không thấy)', { exact: true }).fill(notes[1]);
+    await add.getByRole('button', { name: 'Thêm ngày đóng cửa' }).click();
+    await expect(page.getByRole('region').filter({ hasText: notes[1] })).toBeVisible();
+    await expect(add.getByRole('alert')).toHaveCount(0);
+    expect(await one(`SELECT scope, restaurant_id, destination_id FROM closures WHERE internal_note = $1`, [notes[1]])).toEqual({
+      scope: 'restaurant',
+      restaurant_id: 'pho-cuon',
+      destination_id: null,
+    });
+  } finally {
+    await one(`DELETE FROM closures WHERE internal_note = ANY($1)`, [notes]);
+  }
+});
+
 test('a closure of a destination greys the day out for its restaurants’ guests, with the public reason, until it is deleted', async ({ page }) => {
   const date = venueDay(11);
   const note = `E2E festival ${Date.now().toString(36)}`;

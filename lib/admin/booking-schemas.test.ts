@@ -127,6 +127,29 @@ describe('booking form schemas', () => {
     });
   });
 
+  it('booking settings: a blank number is a required field, never 0; a blank per-restaurant override still follows the defaults', () => {
+    const base = { token: '1', windowDays: '14', leadMinutes: '30', sameDayCutoff: '', maxParty: '12', piiRetentionMonths: '24' };
+    // Number('') is 0: a cleared lead time must not save as "no lead time" for every restaurant on the default.
+    expect(SettingsForm.safeParse({ ...base, windowDays: '', leadMinutes: '  ', maxParty: '', piiRetentionMonths: undefined }).error?.flatten().fieldErrors).toEqual({
+      windowDays: ['Nhập số ngày (từ 1 đến 90).'],
+      leadMinutes: ['Nhập số phút (0 nếu không cần đặt trước).'],
+      maxParty: ['Nhập số khách (từ 1 đến 50).'],
+      piiRetentionMonths: ['Nhập số tháng (từ 1 đến 120).'],
+    });
+    expect(SettingsForm.parse({ ...base, leadMinutes: '0' }).leadMinutes).toBe(0);
+    expect(SettingsForm.safeParse({ ...base, leadMinutes: 'abc', maxParty: '2.5' }).error?.flatten().fieldErrors).toEqual({
+      leadMinutes: ['Từ 0 đến 1440 phút.'],
+      maxParty: ['Từ 1 đến 50 khách.'],
+    });
+    // RulesForm's overrides are optional: blank (or not sent) is "theo mặc định chung" (NULL), and 0 stays a real 0.
+    expect(RulesForm.parse({ restaurant: 'taya-house', token: '1', windowDays: ' ', leadMinutes: '', maxParty: undefined })).toMatchObject({
+      windowDays: null,
+      leadMinutes: null,
+      maxParty: null,
+    });
+    expect(RulesForm.parse({ restaurant: 'taya-house', token: '1', leadMinutes: '0' }).leadMinutes).toBe(0);
+  });
+
   it('auto-confirm per restaurant: follow the default, on, or off', () => {
     const base = { restaurant: 'danaksara', token: '1' };
     expect(['inherit', 'on', 'off'].map((autoConfirm) => AutoConfirmForm.parse({ ...base, autoConfirm }).autoConfirm)).toEqual([null, true, false]);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useId, useRef, useState } from 'react';
+import { useActionState, useId, useState } from 'react';
 import { submitKeepingValues } from '@/lib/admin/form';
 import type { ActionResult } from '@/lib/server/action-result';
 import { FieldError, FormMessage } from '../../_ui/FormMessage';
@@ -36,22 +36,62 @@ function WasScope({ values }: { values: ClosureValues }) {
   );
 }
 
-/* Add (values = null) or edit one closure. Several render on the page, so their ids come from useId. */
+/*
+ * Add (values = null) or edit one closure. The action's state lives here and its fields below remount
+ * (code rule 9), so they never post a stale scope or target beside a newer token, and the message stays:
+ * - edit: keyed on the token. A save here, or another editor's change that a refresh() or "Tải lại"
+ *   brings in, redraws the fields, scope included, from the closure as it now is;
+ * - add: keyed on the adds that went through, so each one leaves a blank form, scope included (a
+ *   form.reset() puts the scope select back but leaves the `scope` state, and so the picker, behind).
+ * Several editors render on the page, so their ids come from useId.
+ */
 export function ClosureEditor({ options, values }: { options: Options; values: ClosureValues | null }) {
   const [state, action, pending] = useActionState<ActionResult<unknown> | null, FormData>(
     (prev, formData) => (values ? editClosure(prev as ActionResult | null, formData) : addClosure(prev as ActionResult<{ id: string }> | null, formData)),
     null,
   );
-  const [scope, setScope] = useState(values?.scope ?? 'restaurant');
+  const [added, setAdded] = useState(0);
+  const [seen, setSeen] = useState(state);
+  // A new result: counted during render, not in an effect, so the blank form arrives with its message.
+  if (state !== seen) {
+    setSeen(state);
+    if (state?.ok) setAdded((n) => n + 1);
+  }
   const uid = useId();
-  const form = useRef<HTMLFormElement>(null);
-  // The add form starts blank again once a closure is saved (it submits without React's reset).
-  useEffect(() => {
-    if (!values && state?.ok) form.current?.reset();
-  }, [state, values]);
+  return (
+    <ClosureFields
+      key={values ? `token-${values.token}` : `added-${added}`}
+      uid={uid}
+      options={options}
+      values={values}
+      state={state}
+      action={action}
+      pending={pending}
+    />
+  );
+}
+
+function ClosureFields({
+  uid,
+  options,
+  values,
+  state,
+  action,
+  pending,
+}: {
+  uid: string;
+  options: Options;
+  values: ClosureValues | null;
+  state: ActionResult<unknown> | null;
+  action: (formData: FormData) => void;
+  pending: boolean;
+}) {
+  const [scope, setScope] = useState(values?.scope ?? 'restaurant');
   const id = (name: string) => `${uid}-${name}`;
   return (
-    <form ref={form} className="a-grid-form" onSubmit={submitKeepingValues(action)} noValidate aria-label={values ? 'Sửa ngày đóng cửa' : 'Thêm ngày đóng cửa'}>
+    // Not action={action}: React would reset the fields after a refused save. method="post": a submit
+    // before hydration must not GET the reasons and the internal note into the URL.
+    <form method="post" className="a-grid-form" onSubmit={submitKeepingValues(action)} noValidate aria-label={values ? 'Sửa ngày đóng cửa' : 'Thêm ngày đóng cửa'}>
       {values ? <WasScope values={values} /> : <h2 className="a-field--wide">Thêm ngày đóng cửa</h2>}
       <FormMessage state={state} success={values ? 'Đã lưu.' : 'Đã thêm ngày đóng cửa.'} />
       <div className="a-field">

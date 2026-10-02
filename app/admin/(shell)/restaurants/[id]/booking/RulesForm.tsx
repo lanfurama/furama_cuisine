@@ -15,7 +15,7 @@ export function RulesForm({ restaurant: r, defaults }: { restaurant: Rules; defa
   const err = (name: string) => `booking-rules-${name}-error`;
   return (
     // key: a save (here or in the periods editor) moves the token; the inputs take the saved values, the hook state stays.
-    <form className="a-grid-form" onSubmit={submitKeepingValues(action)} key={r.token} noValidate aria-label="Quy tắc đặt bàn">
+    <form className="a-grid-form" method="post" onSubmit={submitKeepingValues(action)} key={r.token} noValidate aria-label="Quy tắc đặt bàn">
       <input type="hidden" name="restaurant" value={r.id} />
       <input type="hidden" name="token" value={r.token} />
       <FormMessage state={state} success="Đã lưu." />

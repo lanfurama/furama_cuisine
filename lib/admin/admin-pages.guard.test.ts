@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { parseSync } from 'oxc-parser';
 import { describe, expect, it } from 'vitest';
 
 /*
@@ -69,4 +70,43 @@ describe('admin pages', () => {
   it('no inline style attributes', () => {
     expect(all.filter((f) => /\bstyle=\{/.test(readFileSync(f, 'utf8')))).toEqual([]);
   });
+
+  it('a form that submits from onSubmit, or has no action, says method="post"', () => {
+    // submitKeepingValues (lib/admin/form.ts) submits from onSubmit. Before hydration the browser submits
+    // instead, and a form with no method is a GET that puts every field (guest names, phones, emails, notes,
+    // reasons) in the URL, the history and the server's logs. A function action={…} is exempt: React posts
+    // it itself (and warns if a method is given). A path action="/…" with no onSubmit is a search or filter.
+    const forms: string[] = [];
+    const missing: string[] = [];
+    for (const f of all.filter((path) => path.endsWith('.tsx'))) {
+      const src = readFileSync(f, 'utf8');
+      walk(parseSync(f, src).program, (n) => {
+        const name = n.name as JsxNode | undefined;
+        if (n.type !== 'JSXOpeningElement' || name?.type !== 'JSXIdentifier' || name.name !== 'form') return;
+        const where = `${relative('.', f)}:${src.slice(0, n.start as number).split('\n').length}`;
+        forms.push(where);
+        const attrs = new Map(
+          (n.attributes as JsxNode[]).filter((a) => a.type === 'JSXAttribute').map((a) => [(a.name as JsxNode).name as string, a.value as JsxNode | null]),
+        );
+        const action = attrs.get('action');
+        const expression = action?.type === 'JSXExpressionContainer' ? (action.expression as JsxNode) : null;
+        const functionAction = !!expression && expression.type !== 'Literal' && expression.type !== 'TemplateLiteral';
+        const method = attrs.get('method');
+        const posts = method?.type === 'Literal' && String(method.value).toLowerCase() === 'post';
+        if (!functionAction && (attrs.has('onSubmit') || !attrs.has('action')) && !posts) missing.push(where);
+      });
+    }
+    // The scan sees the admin's forms (sign-in, the booking screens, the search and filters).
+    expect(forms.length).toBeGreaterThan(15);
+    expect(missing).toEqual([]);
+  });
 });
+
+type JsxNode = { type: string; [key: string]: unknown };
+
+function walk(node: unknown, visit: (n: JsxNode) => void): void {
+  if (Array.isArray(node)) return node.forEach((n) => walk(n, visit));
+  if (typeof node !== 'object' || node === null || typeof (node as JsxNode).type !== 'string') return;
+  visit(node as JsxNode);
+  for (const [key, value] of Object.entries(node)) if (key !== 'parent') walk(value, visit);
+}

@@ -136,18 +136,30 @@ export const AutoConfirmForm = z.object({
   autoConfirm: z.enum(['inherit', 'on', 'off']).transform((v) => (v === 'inherit' ? null : v === 'on')),
 });
 
-const bounded = (min: number, max: number, message: string) => z.coerce.number({ error: message }).int({ error: message }).min(min, { error: message }).max(max, { error: message });
+/**
+ * A number the form requires. Blank (or not sent) is its own error, never 0: z.coerce.number reads '' as 0,
+ * and 0 is a valid lead time, so a cleared field would save "no lead time" for every restaurant on the default.
+ */
+const bounded = (min: number, max: number, message: string, required: string) =>
+  z.preprocess(
+    (v) => (blankToNull(v) === null ? undefined : Number(v)),
+    z
+      .number({ error: (issue) => (issue.input === undefined ? required : message) })
+      .int({ error: message })
+      .min(min, { error: message })
+      .max(max, { error: message }),
+  );
 
-/** "Cài đặt đặt bàn" (Admin): the defaults every restaurant inherits; the bounds are migration 006's. */
+/** "Cài đặt đặt bàn" (Admin): the defaults every restaurant inherits, so each one is required; the bounds are migration 006's. */
 export const SettingsForm = z.object({
   token: Token,
-  windowDays: bounded(1, 90, 'Từ 1 đến 90 ngày.'),
-  leadMinutes: bounded(0, 1440, 'Từ 0 đến 1440 phút.'),
+  windowDays: bounded(1, 90, 'Từ 1 đến 90 ngày.', 'Nhập số ngày (từ 1 đến 90).'),
+  leadMinutes: bounded(0, 1440, 'Từ 0 đến 1440 phút.', 'Nhập số phút (0 nếu không cần đặt trước).'),
   sameDayCutoff: z.preprocess(blankToNull, Time.nullable()),
-  maxParty: bounded(1, 50, 'Từ 1 đến 50 khách.'),
+  maxParty: bounded(1, 50, 'Từ 1 đến 50 khách.', 'Nhập số khách (từ 1 đến 50).'),
   autoConfirm: z.preprocess((v) => v === 'on', z.boolean()),
   guestAckEmail: z.preprocess((v) => v === 'on', z.boolean()),
-  piiRetentionMonths: bounded(1, 120, 'Từ 1 đến 120 tháng.'),
+  piiRetentionMonths: bounded(1, 120, 'Từ 1 đến 120 tháng.', 'Nhập số tháng (từ 1 đến 120).'),
 });
 
 /** A closure (spec §10.1): no meal ticked closes the whole day; the guest-facing reasons go to closure_i18n. */

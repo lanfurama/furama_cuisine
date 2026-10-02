@@ -11,7 +11,7 @@ export function SettingsForm({ settings: s }: { settings: BookingSettings }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(saveSettings, null);
   const err = (name: string) => `settings-booking-${name}-error`;
   return (
-    <form className="a-grid-form" onSubmit={submitKeepingValues(action)} key={s.token} noValidate aria-label="Cài đặt đặt bàn">
+    <form className="a-grid-form" method="post" onSubmit={submitKeepingValues(action)} key={s.token} noValidate aria-label="Cài đặt đặt bàn">
       <input type="hidden" name="token" value={s.token} />
       <FormMessage state={state} success="Đã lưu." />
       <div className="a-field">

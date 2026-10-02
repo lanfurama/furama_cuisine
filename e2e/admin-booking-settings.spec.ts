@@ -63,6 +63,26 @@ test('the Admin saves booking settings; the same POST from an Editor is refused 
   await editor.context().close();
 });
 
+test('a refused auto-confirm save keeps the Admin’s choice beside the conflict', async ({ page }) => {
+  try {
+    await signInAs(page, STAFF.admin);
+    await page.goto('/admin/restaurants/danaksara/booking');
+    await expectHydrated(page);
+    const form = page.getByRole('form', { name: 'Tự động xác nhận' });
+    const select = form.getByLabel('Tự động xác nhận đặt bàn online (chỉ Admin)', { exact: true });
+    await expect(select).toHaveValue('inherit');
+    // Meanwhile an Editor saves Danaksara's rules: the page's token is stale.
+    await one(`UPDATE restaurants SET updated_at = clock_timestamp(), updated_by = $1 WHERE id = 'danaksara'`, [STAFF.editor.id]);
+    await select.selectOption('on');
+    await form.getByRole('button', { name: 'Lưu', exact: true }).click();
+    await expect(form.getByRole('alert')).toContainText(`Vừa được ${STAFF.editor.name} thay đổi`);
+    await expect(select).toHaveValue('on');
+    expect(await one(`SELECT auto_confirm FROM restaurants WHERE id = 'danaksara'`)).toEqual({ auto_confirm: null });
+  } finally {
+    await one(`UPDATE restaurants SET auto_confirm = NULL WHERE id = 'danaksara'`);
+  }
+});
+
 test('the Admin turns auto-confirm on for one restaurant: a guest’s booking there is confirmed at once', async ({ page }) => {
   try {
     await signInAs(page, STAFF.admin);
