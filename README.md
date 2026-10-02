@@ -43,7 +43,7 @@ printed to the terminal). Create your Admin with `scripts/create-admin.mjs`
 | --- | --- |
 | `npm test` | Unit tests (Vitest, process timezone pinned to UTC) |
 | `TEST_DATABASE_URL=postgres://localhost:5432/furama_cuisine_test npm test` | Unit and integration tests. The database is dropped and recreated on every run, and its name must end in `_test`. |
-| `npm run test:e2e` | Playwright against `next start` on port 3100 (or `E2E_PORT`). Set `CI`, a local `_test` `DATABASE_URL`, `EMAIL_DELIVERY=log`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL=http://localhost:<port>`, `EMAIL_LOG_FILE` and `CRON_SECRET` (variables below), or `E2E_BASE_URL` for a server you started; otherwise it refuses to run, because `next dev` and `next start` read `.env.local`. Run `npx playwright install chromium` once first. |
+| `npm run test:e2e` | Playwright against `next start` on port 3100 (or `E2E_PORT`). Set `CI`, a local `_test` `DATABASE_URL`, `EMAIL_DELIVERY=log`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL=http://localhost:<port>`, `EMAIL_LOG_FILE` and `CRON_SECRET` (variables below), and blank the keys `.env.local` may carry, as the commands below do, or set `E2E_BASE_URL` for a server you started; otherwise it refuses to run, because `next dev` and `next start` read `.env.local`. Run `npx playwright install chromium` once first. |
 | `npm run test:visual` | Pixel-exact screenshots of the home and Tàya House pages, with and without JavaScript, against `e2e/__visual__/` (macOS baselines from before phase 2; CI skips them). Needs a running `next start`, see below. |
 | `npm run lint` | oxlint (typescript-eslint does not support TypeScript 7) |
 
@@ -55,17 +55,28 @@ and `CRON_SECRET` per run, `EMAIL_DELIVERY=log` and an `EMAIL_LOG_FILE` the
 specs read invitation and reset links and booking emails from.
 
 To run the production build locally against a throwaway database, keep
-`.env.local` out of it: process variables win over that file, and the blank
-`PG*` variables stop Next from handing its user and password to `pg`.
+`.env.local` out of it: process variables win over that file, even blank
+ones, and the blank `PG*` variables stop Next from handing its user and
+password to `pg`. The other blanks are there because `.env.local` may carry
+pulled Vercel values: a pulled `VERCEL_ENV=production` would make a local
+server treat log mode as a deployment (no `EMAIL_LOG_FILE`, invitations
+unsent, outbox rows stamped `production`) and, with `NEXT_PUBLIC_VERCEL_ENV`
+in the build, call the real BotID API.
 
 ```bash
 RESET_DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test node scripts/reset-db.mjs
-CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test npm run build
+CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
+  EMAIL_FROM= EMAIL_REDIRECT_TO= SMTP_HOST= SMTP_USER= SMTP_PASSWORD= BOTID_DEV_BYPASS= \
+  DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test npm run build
 node scripts/check-prerender.mjs
-CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
+CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
+  EMAIL_FROM= EMAIL_REDIRECT_TO= SMTP_HOST= SMTP_USER= SMTP_PASSWORD= BOTID_DEV_BYPASS= \
+  DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
   BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3100 \
   EMAIL_DELIVERY=log EMAIL_LOG_FILE=$TMPDIR/emails.ndjson CRON_SECRET=$(openssl rand -hex 16) npm run test:e2e
-PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
+PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
+  EMAIL_FROM= EMAIL_REDIRECT_TO= SMTP_HOST= SMTP_USER= SMTP_PASSWORD= BOTID_DEV_BYPASS= \
+  DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
   BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3201 EMAIL_DELIVERY=log npx next start -p 3201 &
 for i in $(seq 1 60); do curl -s -o /dev/null http://localhost:3201/ && break; sleep 1; done
 VISUAL_BASE_URL=http://localhost:3201 npm run test:visual
@@ -119,10 +130,12 @@ request, so it is skipped unless the server runs with `BOTID_DEV_BYPASS=BAD-BOT`
 booking on that server is refused, so it runs on its own, after the main run:
 
 ```bash
-CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
+CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
+  EMAIL_FROM= EMAIL_REDIRECT_TO= SMTP_HOST= SMTP_USER= SMTP_PASSWORD= BOTID_DEV_BYPASS=BAD-BOT \
+  DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
   BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3100 \
   EMAIL_DELIVERY=log EMAIL_LOG_FILE=$TMPDIR/emails.ndjson CRON_SECRET=$(openssl rand -hex 16) \
-  BOTID_DEV_BYPASS=BAD-BOT npx playwright test e2e/botid.spec.ts --project=desktop
+  npx playwright test e2e/botid.spec.ts --project=desktop
 ```
 
 CI does not run it; `lib/server/guard/bot.test.ts`, `lib/botid.test.ts` (the
@@ -305,9 +318,13 @@ against an empty local database, and write the difference as a new migration.
 on a 007 database, and `next build` reads none of it. The phase-5 code does
 not work without it: a guest's submit writes `consent_version` and queues
 `email_outbox` rows in its transaction, so every booking fails until 007 is
-on that environment's branch. Apply 007 first, then deploy phase 5
-(production: right before the production deploy; a preview branch forked
-before 007 reached production: before using that preview).
+on that environment's branch. Unlike 004 and 006, a build without 007
+succeeds, so nothing stops such a deployment going live with every booking
+failing. Apply 007 to production before the first phase-5 deploy of any
+kind. With Vercel's Git integration, pushing or merging `main` is the
+Production deploy, and a push of any other branch deploys a Preview whose
+Neon branch forks from production at that moment. A preview branch forked
+before 007 reached production must be migrated before that preview is used.
 
 `site_settings` is created early with one column (spec §5.2 lists it under
 phase 6): phase 6 must add its other columns with `ALTER TABLE site_settings
@@ -347,9 +364,9 @@ shared inbox, and the overview lists the restaurants that do so.
 | --- | --- | --- | --- |
 | `BETTER_AUTH_SECRET` | its own, 32+ random bytes | its own | a fresh `openssl rand -base64 32` |
 | `BETTER_AUTH_URL` | `https://<production domain>`, the origin of emailed links (required outside log mode) | the preview's own URL | `http://localhost:<port>` |
-| `EMAIL_DELIVERY` | `live` (Production only: the sender refuses it on a Preview and under `vercel dev`) | `redirect` | `log` (also the default when unset) |
-| `EMAIL_REDIRECT_TO` | — | the Admin's inbox, which receives every preview email | — |
-| `EMAIL_FROM` | `Furama Cuisine <no-reply@…>`, an address the SMTP login may send as | same | unset (log mode) |
+| `EMAIL_DELIVERY` | `redirect` until go-live, then `live` (Production only: the sender refuses `live` on a Preview and under `vercel dev`) | `redirect` | `log` (also the default when unset) |
+| `EMAIL_REDIRECT_TO` | the Admin's inbox, only while Production runs on redirect (before go-live) | the Admin's inbox, which receives every preview email | — |
+| `EMAIL_FROM` | `Furama Cuisine <no-reply@…>`, an address the SMTP login may send as, and a mailbox someone reads (bounces land there) | same | unset (log mode) |
 | `SMTP_HOST` | the provider's submission host | same | never set |
 | `SMTP_PORT` | `587` (STARTTLS, the default) or `465` (TLS) | same | never set |
 | `SMTP_SECURE` | only if the port rule does not fit: `true` (TLS from the first byte) or `false` (STARTTLS); unset means `true` on 465 only | same | never set |
@@ -360,10 +377,13 @@ shared inbox, and the overview lists the restaurants that do so.
 | `EMAIL_LOG_FILE` | never | never | a scratch file; log mode appends each email as one JSON line |
 | `BOOTSTRAP_ADMIN_EMAIL` | never (only in the shell that runs `scripts/create-admin.mjs`) | never | — |
 
-`EMAIL_DELIVERY` and the `SMTP_*` settings are read when an email is sent,
-never at build time; an unknown value throws instead of sending, and so does
-`live` where `VERCEL_ENV` is `preview` or `development`: a Preview runs on data
-forked from production, so only redirect may send there.
+`EMAIL_DELIVERY`, `EMAIL_FROM`, `EMAIL_REDIRECT_TO` and the `SMTP_*`
+settings are read at send time by the running deployment, and `CRON_SECRET`
+when the cron calls (`next build` needs none of them); Vercel applies a
+change only to a new deployment, so redeploy after every change. An unknown
+`EMAIL_DELIVERY` throws instead of sending, and so does `live` where
+`VERCEL_ENV` is `preview` or `development`: a Preview runs on data forked
+from production, so only redirect may send there.
 `RESEND_API_KEY` is no longer read: remove it from every environment.
 
 On a Vercel deployment (`VERCEL_ENV=production` or `preview`) the log mode
@@ -465,10 +485,13 @@ deployment (`VERCEL_ENV` production or preview): the browser half installs
 from `instrumentation-client.ts` on guest pages, the server half asks Vercel,
 and when Vercel cannot answer, or has not answered within 3 seconds, or its
 API answers with an error instead of a verdict, the booking goes ahead and the
-function log says `[botid] check failed … BotIdError`. The browser waits at
-most 15 seconds for BotID's challenge; then the guest sees the copy with the
-restaurant's number, and a new tap starts a fresh challenge. When the
-deployment was built without `NEXT_PUBLIC_VERCEL_ENV`, BotID is skipped
+function log says `[botid] check failed, request let through` with `name`
+`TimeoutError` (no verdict within 3 s), `BotIdError` (an error instead of a
+verdict), or the name of the error BotID threw (for example `Error` when
+OIDC is off, `TypeError` when its request to Vercel failed). The browser
+waits at most 15 seconds for BotID's challenge; then the guest sees the copy
+with the restaurant's number, and a new tap starts a fresh challenge. When
+the deployment was built without `NEXT_PUBLIC_VERCEL_ENV`, BotID is skipped
 altogether: bookings go through unchecked, with one `[botid] off …` warning
 per server instance (`next.config.ts` inlines the variable into both halves,
 empty when the build had none, so they always agree; `check-prerender.mjs`
@@ -478,26 +501,70 @@ build, the local one too: never request that prefix on a local `next start`.
 
 ### Before launch A: what the owner sets up
 
-Email, the cron and BotID need these steps once; until they are done, keep
-Production on `EMAIL_DELIVERY=redirect` and nothing reaches a guest.
+Email, the cron and BotID need these steps once, in this order. Until the
+last one, keep Production on `EMAIL_DELIVERY=redirect`, and nothing reaches
+a guest. Running Production on redirect also needs `EMAIL_REDIRECT_TO`,
+`EMAIL_FROM` and `SMTP_*`. Redirect sends every email to that inbox, staff's
+`staff.new` included, so restaurant staff get no new-booking email until
+go-live: they must watch "Cần xử lý" in `/admin/reservations`. Until an SMTP
+account exists, no email leaves a deployment, invitations included. After
+any change to these variables (switching redirect → live, adding or fixing
+`CRON_SECRET`), Deployments → … → Redeploy: Vercel applies a change only to
+a new deployment.
 
-1. **SMTP account:** host, port 587 (STARTTLS) or 465 (TLS), username, and a
-   password or app password. Microsoft 365: enable "Authenticated SMTP" for
-   that mailbox (and mind its daily recipient limit). Google Workspace: an app
-   password.
-2. **`EMAIL_FROM`:** for example `Furama Cuisine <no-reply@mail.furamavietnam.com>`,
-   an address or alias the login may send as.
-3. **DNS at the mail provider (IT Furama):** SPF includes the provider, DKIM
+1. **Migration 007, before any deploy:** apply 007 to production Neon, with
+   the checks in "Migration 007" above, before the first phase-5 deploy,
+   Preview or Production. With Vercel's Git integration, pushing or merging
+   `main` is the Production deploy, so migrate before that merge. Unlike 004
+   and 006, a build without 007 succeeds, and every booking then fails.
+2. **Neon plan:** the 5-minute cron queries the production branch around the
+   clock, so its compute never scales to zero: about 183 CU-hours a month at
+   the 0.25 CU minimum, roughly $19 a month on Launch at $0.106 per CU-hour.
+   Check the current prices on neon.tech/pricing. The Free plan's monthly
+   compute allowance runs out partway through the month; Neon then suspends
+   the compute, and bookings and the admin stop working. Before the first
+   Production deploy, confirm in Vercel → Storage → Neon that the project is
+   on Launch or higher. (Phase 9 adds a second 5-minute cron; nothing
+   changes.) A quieter overnight schedule is a spec change (§10.4) that
+   stalls retries; if the owner wants one anyway, Vercel cron times are UTC,
+   so Vietnam 06:00–23:59 is `*/5 0-16,23 * * *`.
+3. **Vercel project settings, before the first deploy:** turn on
+   "Automatically expose System Environment Variables" and OIDC Federation,
+   and keep Fluid Compute on (the default). BotID's browser half needs
+   `NEXT_PUBLIC_VERCEL_ENV` at build and its server half the OIDC token; the
+   variable is inlined at build, so a deploy built before the setting was on
+   skips BotID (bookings let through, one `[botid] off …` warning per
+   instance) until it is **redeployed**. Email needs the system variables
+   too: the outbox and the email gate read `VERCEL_ENV`; without it a
+   Production deployment counts as `development`, and the refusal of `live`
+   on a Preview cannot work. The `after()` email sends (up to 25 s once the
+   response is out) and the cron (`maxDuration` 300) assume Fluid Compute's
+   300-second function limit. Decide on BotID's Deep Analysis (billed per
+   check: read the current price on vercel.com/docs/botid); never set
+   `BOTID_DEV_BYPASS`.
+4. **SMTP account:** host, port 587 (STARTTLS) or 465 (TLS), username, and a
+   password or app password. Microsoft announced that Exchange Online retires
+   Basic authentication (username + password) for SMTP AUTH client
+   submission during 2026, and this app logs in only with a username and
+   password (no OAuth). Before choosing Microsoft 365, check Microsoft's
+   current status (while it still works, the mailbox also needs
+   "Authenticated SMTP" turned on), or use Google Workspace with an app
+   password, or a transactional SMTP provider (SMTP relay with a username and
+   password). Mind each provider's daily recipient limit.
+5. **`EMAIL_FROM`:** for example `Furama Cuisine <no-reply@mail.furamavietnam.com>`,
+   an address or alias the login may send as. It must also be a mailbox or
+   alias someone reads (a `no-reply@` alias too): Microsoft 365 and Google
+   accept a mistyped guest address and bounce it later to the sender, so the
+   email log shows "Đã gửi" while the bounce lands in that mailbox.
+6. **DNS at the mail provider (IT Furama):** SPF includes the provider, DKIM
    signs for the From domain, DMARC aligned (check the root domain first;
    start at `p=none`).
-4. **Vercel → Environment Variables, Production:** `EMAIL_DELIVERY=live`,
+7. **Vercel → Environment Variables, Production:** `EMAIL_DELIVERY=redirect`
+   and `EMAIL_REDIRECT_TO=<the Admin's inbox>` until go-live (step 13),
    `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`
    (`SMTP_SECURE` only if the port rule does not fit), `CRON_SECRET`
-   (`openssl rand -hex 32`), `BETTER_AUTH_URL` = the production origin. Add
-   `EMAIL_DELIVERY=live` with only Production ticked: the dashboard ticks
-   every environment by default, and the code refuses `live` on Preview and
-   Development (its emails then fail with `invalid_delivery_mode`).
-5. **Preview:** `EMAIL_DELIVERY=redirect`, `EMAIL_REDIRECT_TO=<the Admin's
+   (`openssl rand -hex 32`), `BETTER_AUTH_URL` = the production origin.
+8. **Preview:** `EMAIL_DELIVERY=redirect`, `EMAIL_REDIRECT_TO=<the Admin's
    inbox>`, `EMAIL_FROM`, `SMTP_*` (a separate login if possible), and
    `BETTER_AUTH_URL=<the preview's branch URL>` (set for that Git branch, and
    open the preview at that URL: every emailed link, from `staff.new`'s
@@ -506,33 +573,58 @@ Production on `EMAIL_DELIVERY=redirect` and nothing reaches a guest.
    and recipients, so redirect is mandatory there; a password reset on a
    Preview changes only that branch. Remove `RESEND_API_KEY` from every
    environment.
-6. **Cron:** after the first Production deploy, Project → Settings → Cron
-   Jobs shows `/api/cron/outbox` every 5 minutes (Vercel Pro).
-7. **BotID:** turn on "Automatically expose System Environment Variables"
-   (the browser half needs `NEXT_PUBLIC_VERCEL_ENV` at build) and OIDC
-   Federation (the server half needs its token), then **redeploy**: the
-   variable is inlined at build, so a deploy built before the setting was on
-   skips BotID (bookings let through, one `[botid] off …` warning per
-   instance). Decide on Deep Analysis (billed per check: read the current
-   price on vercel.com/docs/botid); never set `BOTID_DEV_BYPASS`.
-8. **Recipients:** in `/admin/settings/notifications`, add the notification
-   emails per restaurant or destination (spec §15 item 15), and confirm
-   `fb@furamavietnam.com` as the shared inbox (the fallback, and where guests'
-   replies go).
-9. **Migration 007** on Neon, with the checks above, in the phase-5 deploy
-   window.
-10. **First preview:** "Gửi email thử" in `/admin/settings/notifications`
-    arrives at the redirect inbox (that proves port 587/465 is reachable from
-    Vercel Functions, the login, and SPF/DKIM passing in the headers).
-11. **First preview:** book a table from a browser: the staff and guest
-    emails arrive (redirected). In the browser's network tab the booking's
-    action POST carries an `x-is-human` header, and the function logs show
-    none of `[botid] off`, `[botid] check failed` and `Possible
+9. **First preview:** push a branch other than `main` and open its preview
+   (pushed after step 1, its Neon branch forks with 007; a branch forked
+   earlier must be migrated first). "Gửi email thử" in
+   `/admin/settings/notifications` arrives at the redirect inbox (that proves
+   port 587/465 is reachable from Vercel Functions, the login, and SPF/DKIM
+   passing in the headers).
+10. **First preview, same branch:** book a table from a browser: the staff
+    and guest emails arrive (redirected). In the browser's network tab the
+    booking's action POST carries an `x-is-human` header, and the function
+    logs show none of `[botid] off`, `[botid] check failed` and `Possible
     misconfiguration`; the BotID traffic view shows the check. In
     `/admin/reservations/emails` the `staff.new` row is "Đã gửi", not
     `missing_app_url`; an invitation from `/admin/users` arrives at the
     redirect inbox with a link to the preview's origin, and the link opens
-    the invitation.
+    the invitation. Then three BotID checks:
+    - **A forged header is refused.** In the network tab, copy the booking's
+      action POST as cURL, change its `x-is-human` header to `junk`, and run
+      it in a terminal (not in the page's console: BotID's fetch wrapper
+      there would put a real answer back). The answer contains `bot_blocked`,
+      and the function logs show no `[botid] check failed` for it. If they
+      do, BotID fails open for forged headers: tell the developer.
+    - **A blocked challenge gives the phone number.** In DevTools → Network
+      request blocking, block `/149e9513-01fa-4fb0-aad4-566afd725d1b/*`,
+      reload the page, then tap REQUEST BOOKING twice. Within about 15 s the
+      drawer shows the copy with the phone number, and the button works
+      again. Unblock, tap again: the booking goes through.
+    - **Autofill does not trip the honeypot.** On an iPhone (Safari) and an
+      Android phone (Chrome), fill the form with the browser's autofill and
+      book. Neither gets "We could not accept this request online".
+11. **Production deploy and cron:** merge into `main` (Production starts on
+    redirect). After that deploy, Project → Settings → Cron Jobs shows
+    `/api/cron/outbox` every 5 minutes (Vercel Pro).
+12. **Recipients:** in `/admin/settings/notifications`, add the notification
+    emails per restaurant or destination (spec §15 item 15), and confirm
+    `fb@furamavietnam.com` as the shared inbox (the fallback, and where
+    guests' replies go).
+13. **Production go-live:** give Production `EMAIL_DELIVERY=live` with only
+    Production ticked (the dashboard ticks every environment by default, and
+    the code refuses `live` on Preview and Development: its emails then fail
+    with `invalid_delivery_mode`), remove Production's `EMAIL_REDIRECT_TO`
+    (live ignores it), then Deployments → … → Redeploy. On the new
+    deployment:
+    - `/admin/settings/notifications` says "Chế độ gửi: thật (live)";
+    - "Gửi email thử" to an outside inbox says "Đã gửi email thử tới …"
+      (not "chuyển hướng tới hộp thư thử nghiệm"), and the email arrives
+      there;
+    - within 5 minutes, Vercel → Settings → Cron Jobs → `/api/cron/outbox`
+      logs show 200, not 401;
+    - a test booking made with an address you read: its `guest.ack` (or
+      `guest.confirmed`, where the restaurant confirms automatically) reads
+      "Đã gửi" in `/admin/reservations/emails` and arrives at that address.
+      Cancel the booking afterwards.
 
 Decisions the owner gives (the build's defaults in brackets): "Báo khách qua
 email" on a cancel, also from a closure [on]; Vietnamese email for a booking
@@ -540,7 +632,9 @@ made in Vietnamese [yes]; guests' replies to the shared inbox and staff
 replies to the guest [yes]; the per-phone limit [3 active web requests per
 number per booking date]; BotID failing open and refusing verified bots [yes];
 the privacy policy's wording and its Vietnamese text (a lawyer's review under
-Law 91/2025/QH15) [an English draft]; which inbox Previews redirect to.
+Law 91/2025/QH15, which must also confirm the anti-abuse clause: the count of
+one phone number's online requests per day, and the bot check) [an English
+draft]; which inbox Previews redirect to.
 
 ### First Admin
 
