@@ -184,3 +184,23 @@ Final gate on 75106f7: typecheck; lint exit 0 (19 warnings); 53 files / 601 test
   (security declined note): this predates phase 4, and every probe that misses creates a real booking, so probing is noisy.
 - GX-3's extra "Next available: {date}" note: F3's scroll-into-view shows the selected day, and tapping a greyed day already
   gives its reason.
+
+## Applied to Neon (2026-10-02)
+
+- Pre-flight on the shared Neon database (read-only):
+  - `_migrations` held 001–005.
+  - pg_trgm 1.6 was available but not installed, and `neondb_owner` had CREATE.
+  - There were 0 bad `reserved_at` values, 0 reservations and 12 restaurants, every meal was known, and no string overrides existed.
+  - The database collation is the builtin C.UTF-8 provider.
+- Migration 006 was applied with `scripts/migrate.mjs`. Post-check:
+  - 25 service periods.
+  - `booking_settings` is `14 | 30 | (null) | 12 | f | t | 24`.
+  - No reservation is missing `meal` or `search_text`.
+  - pg_trgm 1.6 is installed.
+  - `fold_search('Nguyễn Thị ÁNH Đức')` returns `nguyen thi anh duc`.
+  - All 12 restaurants are bookable.
+- Plan risk 2: the advisory lock through Neon's **pooled** URL (a `-pooler` host, PgBouncer transaction mode), probed with two connections. The probe writes nothing.
+  - The second `pg_advisory_xact_lock` waited about 1.7 s until the first transaction committed, so the lock serialises.
+  - With `lock_timeout` 2 s it failed with 55P03 after about 2.2 s.
+  - `lock_timeout` was back to 0 after COMMIT, so it does not leak onto the pooled session.
+  - Result: the spec §16 fallback (`SELECT … FOR UPDATE`) is not needed.
