@@ -44,24 +44,29 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={`${r.source}:${r.id}`}>
-                <td>{formatDateTimeVi(r.at)}</td>
-                <td>{r.actor_label ?? 'Hệ thống'}</td>
-                <td>{auditActionLabel(r.action)}</td>
-                <td>{`${auditEntityLabel(r.entity_type)} · ${(r.entity_id && labels.get(`${r.entity_type}:${r.entity_id}`)) ?? r.entity_id ?? '—'}`}</td>
-                <td>
-                  {r.before === null && r.after === null ? (
-                    '—'
-                  ) : (
-                    <details>
-                      <summary>Xem</summary>
-                      <pre className="a-pre">{JSON.stringify({ trước: r.before, sau: r.after }, null, 2)}</pre>
-                    </details>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {rows.map((r) => {
+              const entity = `${auditEntityLabel(r.entity_type)} · ${(r.entity_id && labels.get(`${r.entity_type}:${r.entity_id}`)) ?? r.entity_id ?? '—'}`;
+              return (
+                <tr key={`${r.source}:${r.id}`}>
+                  <td>{formatDateTimeVi(r.at)}</td>
+                  <td>{r.actor_label ?? 'Hệ thống'}</td>
+                  <td>{auditActionLabel(r.action)}</td>
+                  <td>
+                    {r.entity_type === 'reservation' && r.entity_id ? <Link href={`/admin/reservations/${r.entity_id}`}>{entity}</Link> : entity}
+                  </td>
+                  <td>
+                    {r.before === null && r.after === null ? (
+                      '—'
+                    ) : (
+                      <details>
+                        <summary>Xem</summary>
+                        <pre className="a-pre">{JSON.stringify({ trước: r.before, sau: r.after }, null, 2)}</pre>
+                      </details>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

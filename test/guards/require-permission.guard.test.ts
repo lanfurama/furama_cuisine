@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { adminOnlyProblems, adminPluginCalls, adminPluginCallsIn, checkActions, publicActionsMissing, scanRepo } from './server-actions';
+import { roleCan } from '../../lib/server/auth/permissions';
+import { actionPermissions, adminOnlyProblems, adminPluginCalls, adminPluginCallsIn, checkActions, publicActionsMissing, scanRepo } from './server-actions';
 
 /*
  * Spec §7.1 / §13 "Bảo vệ": every Server Action ('use server' export or inline
@@ -41,6 +42,34 @@ describe('requirePermission guard (the repository)', () => {
 
 /** Files whose every action is Admin-only (spec §7.1: staff, invitations). */
 const ADMIN_ONLY_ACTIONS = ['app/admin/(shell)/users/actions.ts'];
+
+/*
+ * Spec §7.1's matrix for the booking screens, action by action: the exact
+ * permission each one asks for, and whether an Editor has it. A swapped
+ * permission (an Editor locked out of a booking screen, or let into an
+ * Admin-only one) fails here, and so does an action added without a row.
+ */
+const BOOKING_ACTIONS: Record<string, Record<string, { permission: object; editor: boolean }>> = {
+  'app/admin/(shell)/reservations/actions.ts': {
+    changeStatus: { permission: { reservations: ['update'] }, editor: true },
+    updateReservation: { permission: { reservations: ['update'] }, editor: true },
+    addNote: { permission: { reservations: ['note'] }, editor: true },
+  },
+};
+
+describe('booking actions follow the permission matrix (spec §7.1)', () => {
+  for (const [rel, actions] of Object.entries(BOOKING_ACTIONS)) {
+    it(rel, () => {
+      const found = actionPermissions(ROOT, rel);
+      expect(Object.keys(found).sort()).toEqual(Object.keys(actions).sort());
+      for (const [name, { permission, editor }] of Object.entries(actions)) {
+        expect(found[name], name).toEqual(permission);
+        expect(roleCan('editor', permission), `${name}: Editor`).toBe(editor);
+        expect(roleCan('admin', permission), `${name}: Admin`).toBe(true);
+      }
+    });
+  }
+});
 
 describe('requirePermission guard (what it catches)', () => {
   const none = new Set<string>();

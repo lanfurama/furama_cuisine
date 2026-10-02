@@ -155,7 +155,8 @@ test('remove deletes the account, after a confirmation', async ({ page }) => {
 
 test('an Editor has no Nhân viên link, and /admin/users shows the 403 view with no staff data', async ({ page }) => {
   await signInAs(page, STAFF.editor);
-  await expect(page.getByRole('navigation', { name: 'Điều hướng quản trị' }).getByRole('link')).toHaveText(['Tổng quan']);
+  // Phase 4 opens the booking screens to Editors (spec §7.1); the Admin area stays closed.
+  await expect(page.getByRole('navigation', { name: 'Điều hướng quản trị' }).getByRole('link')).toHaveText(['Tổng quan', 'Đặt bàn']);
   // Status 200, not 403: see app/admin/layout.tsx. What matters is what the response holds.
   const res = await page.goto('/admin/users');
   const body = (await res?.text()) ?? '';

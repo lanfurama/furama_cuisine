@@ -32,3 +32,11 @@ export function formatLongDateVi(value: DateInput): string {
 export function todayVi(now: Date = new Date()): string {
   return longDate.format(now);
 }
+
+// A calendar date (YYYY-MM-DD) is already Vietnam's: format it in UTC, so no server timezone shifts it.
+const isoDay = new Intl.DateTimeFormat('vi-VN', { timeZone: 'UTC', weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+/** "Th 2, 05/10/2026" (ICU vi-VN: Th 2 … Th 7, CN) for a booking's reserved_on. */
+export function formatIsoDayVi(date: string): string {
+  return isoDay.format(new Date(`${date}T00:00:00Z`));
+}

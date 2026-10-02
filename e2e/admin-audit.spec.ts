@@ -55,6 +55,10 @@ test('a booking event shows the booking’s reference, and an invitation its ema
   await expect(event.getByRole('cell').nth(2)).toHaveText('Đổi trạng thái đặt bàn');
   await expect(event.getByRole('cell').nth(3)).toHaveText(`Đặt bàn · ${reference}`);
   await expect(page.getByRole('row').filter({ hasText: email }).getByRole('cell').nth(3)).toHaveText(`Lời mời · ${email}`);
+  // The booking's row opens the booking.
+  await event.getByRole('link', { name: `Đặt bàn · ${reference}` }).click();
+  await expect(page).toHaveURL(new RegExp(`/admin/reservations/${booking!.id}$`));
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(`Đặt bàn ${reference}`);
 });
 
 test('the Admin pages back and forth through older entries', async ({ page }) => {

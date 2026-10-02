@@ -9,6 +9,7 @@ export type NavItem = { href: string; label: string; permission?: Permissions };
  */
 export const ADMIN_NAV: readonly NavItem[] = [
   { href: '/admin', label: 'Tổng quan' },
+  { href: '/admin/reservations', label: 'Đặt bàn', permission: { reservations: ['read'] } },
   { href: '/admin/users', label: 'Nhân viên', permission: { user: ['list'] } },
   { href: '/admin/audit', label: 'Nhật ký', permission: { audit: ['read'] } },
 ];

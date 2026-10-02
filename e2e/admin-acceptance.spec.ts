@@ -102,7 +102,8 @@ test('2. a role change writes exactly one audit row, with the acting Admin', asy
 test('3. the Editor is kept out of the Admin area, including a direct POST to an Admin-only action', async ({ browser, playwright, baseURL }, testInfo) => {
   const editor = await newVisitor(browser, testInfo);
   await signInAs(editor, invitee);
-  await expect(editor.getByRole('navigation', { name: 'Điều hướng quản trị' }).getByRole('link')).toHaveText(['Tổng quan']);
+  // Phase 4 opens the booking screens to Editors (spec §7.1); the Admin area stays closed.
+  await expect(editor.getByRole('navigation', { name: 'Điều hướng quản trị' }).getByRole('link')).toHaveText(['Tổng quan', 'Đặt bàn']);
   const res = await editor.goto('/admin/users');
   expect(await res?.text()).not.toContain(STAFF.admin.email);
   await expect(editor.getByRole('heading', { name: 'Không có quyền truy cập' })).toBeVisible();

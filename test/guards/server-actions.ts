@@ -293,6 +293,24 @@ function literalPermissions(arg: unknown): Permissions | null {
 }
 
 /**
+ * Each exported action of a file → the permission literal its first
+ * requirePermission() asks for (null when that is not a plain literal).
+ */
+export function actionPermissions(
+  root: string,
+  rel: string,
+  read: (rel: string) => string = (r) => readFileSync(join(root, r), 'utf8'),
+): Record<string, Permissions | null> {
+  return Object.fromEntries(
+    exportedFunctions(parse(rel, read(rel))).map(({ name, fn }) => {
+      const [first] = fn ? statements(fn) : [];
+      const scope = first?.type === 'TryStatement' ? ((first.block as Node).body as Node[])[0] : first;
+      return [name, literalPermissions((requirePermissionCall(scope)?.arguments as unknown[] | undefined)?.[0])];
+    }),
+  );
+}
+
+/**
  * Every action in these files must ask for a permission the Editor lacks,
  * written as a literal so this check can read it: a typo or a shared
  * permission would otherwise open an Admin-only action to Editors.
@@ -303,10 +321,7 @@ export function adminOnlyProblems(
   read: (rel: string) => string = (rel) => readFileSync(join(root, rel), 'utf8'),
 ): string[] {
   return rels.flatMap((rel) =>
-    exportedFunctions(parse(rel, read(rel))).flatMap(({ name, fn }) => {
-      const [first] = fn ? statements(fn) : [];
-      const scope = first?.type === 'TryStatement' ? ((first.block as Node).body as Node[])[0] : first;
-      const permissions = literalPermissions((requirePermissionCall(scope)?.arguments as unknown[] | undefined)?.[0]);
+    Object.entries(actionPermissions(root, rel, read)).flatMap(([name, permissions]) => {
       if (!permissions) return [`${rel}#${name}: ${NOT_LITERAL}`];
       if (roleCan('editor', permissions)) return [`${rel}#${name}: an Editor passes requirePermission(${JSON.stringify(permissions)})`];
       return [];
