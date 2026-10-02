@@ -69,6 +69,28 @@ VISUAL_BASE_URL=http://localhost:3201 npm run test:visual
 kill %1   # stop the server (or: lsof -ti tcp:3201 | xargs kill)
 ```
 
+Playwright runs two projects. `desktop` holds every spec file, in parallel
+workers; `desktop-serial` holds the `*.serial.spec.ts` files and runs after
+`desktop` has finished (`dependencies`), because they change what every guest
+page reads (a restaurant's online-booking switch). Running one serial file
+also runs the whole `desktop` project first; add `--project=desktop-serial
+--no-deps` to run it alone. Spec files run at the same time, so each one books
+its own restaurant and dates, and puts back the rules it changes:
+
+| Spec | Restaurant | Dates or rules |
+| --- | --- | --- |
+| `booking-v2` | Tàya House, Don Cipriani’s, Steakhouse The Fan | the last open day; a closure at +9; `max_party` 8 |
+| `admin-reservations` | Tàya House, V-Senses Cafe, ChaoShan Hotpot | +3, +4, +6, yesterday; +8; +7 |
+| `admin-booking-config` | Thai Siam Kitchen, Hura Izakaya | dinner hours and covers (+2, +3); `max_party` 8 |
+| `admin-booking-settings` | Danaksara | `auto_confirm`; the last open day |
+| `admin-closures` | Phố Cuốn; the MM Supercenter (Yum Food Village, ChaoShan Hotpot) | +5; a destination closure at +11 |
+| `booking-acceptance` | Yum Food Village | +3, +4, +12, +13, yesterday; dinner hours, covers and `max_party` |
+| `booking-switch.serial` | Tàya House, Hải Vân Lounge | online booking off, then on again |
+
+`booking-acceptance.spec.ts` checks every phase-4 acceptance criterion of the
+spec (§14.1 row 4) through the screens. Its tests share Yum Food Village's
+rules and run in order, so never run that file with `--repeat-each`.
+
 `E2E_BASE_URL=http://localhost:<port>` points the main Playwright suite at a
 server you started yourself (for example `next dev` with the same variables)
 instead of starting one. The admin specs still write their staff accounts
@@ -119,6 +141,84 @@ branch before that environment runs the phase-3 code: Better Auth checks its
 tables when it starts (`database.validateSchema`) and every admin page reads
 them. 005 only adds tables, so the guest site keeps working on a migrated
 database. Apply it with `node scripts/migrate.mjs` like the others.
+
+### Migration 006 (phase 4: booking v2)
+
+`006_booking_v2.sql` adds `booking_settings`, the restaurants' booking
+switch and overrides, `service_periods` (seeded to behave exactly as before:
+the old slots of each restaurant's meals, `slot_capacity` covers each),
+`closures` and `closure_i18n`, the v2 columns of `reservations`,
+`reservation_events`, `reservation_notes` and the `pg_trgm` search index, and
+it redefines `audit_feed` to show booking events. It only adds, but the
+phase-4 code needs it and the older code cannot write a booking on it
+(`reservations.meal` is NOT NULL and `source` has no default): apply 006 to an
+environment immediately before, or together with, its first phase-4 deploy,
+as with 003. The site has never been deployed, so no live traffic breaks.
+
+006 must run after 005 (it replaces 005's `audit_feed` view and reads
+`audit_log`, `locales` and `destinations`). `scripts/migrate.mjs` applies the
+files in name order and skips the ones `_migrations` lists, so it runs 005
+first if that is missing; never apply 006 by hand with `psql -f`. It runs in
+one transaction: if any statement fails (for example `CREATE EXTENSION
+pg_trgm`), nothing of it stays.
+
+Before applying 006 to a Neon branch, run these read-only checks on that
+branch (`npm run db:psql` reads `.env.local`, so open psql on the branch's own
+URL instead):
+
+```sql
+-- 1. Exactly 001–005 applied, 006 not yet.
+SELECT name FROM _migrations ORDER BY name;
+-- 2. pg_trgm is available (an empty result means 006 would roll back).
+SELECT name, default_version, installed_version FROM pg_available_extensions WHERE name = 'pg_trgm';
+-- 3. Every reserved_at is HH:MM (006 stops with a message otherwise; correct the rows first).
+SELECT id, reserved_at FROM reservations WHERE reserved_at !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$';
+-- 4. How many bookings become source 'legacy', is_test (they keep holding covers until purged).
+SELECT count(*), min(created_at), max(created_at) FROM reservations;
+-- 5. Every meal is one 006 knows (a restaurant with another would get no service period: closed every day).
+SELECT id, meals FROM restaurants WHERE NOT meals <@ ARRAY['Breakfast', 'Lunch', 'Dinner', 'Drinks'];
+-- 6. An override of these strings must keep the new {max}/{phone} (party_too_large) and read right for both causes (past).
+SELECT key, locale, value FROM content_strings WHERE key IN ('error.party_too_large', 'error.past', 'error.closed');
+```
+
+Then apply it with `DATABASE_URL_UNPOOLED=<the branch's direct URL> node
+scripts/migrate.mjs`, and check:
+
+```sql
+SELECT count(*) FROM service_periods;                        -- one per (restaurant, meal): 25 on the seed data
+SELECT * FROM booking_settings;                              -- one row: 14, 30, NULL, 12, false, true, 24
+SELECT count(*) FROM reservations WHERE meal IS NULL OR (search_text IS NULL AND anonymized_at IS NULL);  -- 0
+SELECT source, is_test, count(*) FROM reservations GROUP BY 1, 2;
+```
+
+The booking-day lock (`pg_advisory_xact_lock` with `SET LOCAL lock_timeout`
+inside a transaction, `lib/server/booking/lock.ts`) has only been tested on a
+direct Postgres connection. The app uses Neon's **pooled** URL, so check it
+once on a Neon branch before the first phase-4 deploy (spec §13). In two psql
+sessions on that branch's pooled URL:
+
+```sql
+-- session 1
+BEGIN;
+SELECT pg_advisory_xact_lock(hashtextextended('booking:taya-house:2030-01-01', 0));
+-- session 2: waits about 2 seconds, then fails with 55P03 (lock_timeout)
+BEGIN;
+SELECT set_config('lock_timeout', '2s', true);
+SELECT pg_advisory_xact_lock(hashtextextended('booking:taya-house:2030-01-01', 0));
+ROLLBACK;
+-- session 1
+COMMIT;
+```
+
+If session 2 does not wait, the pooler does not keep the transaction on one
+server connection and two guests could both take the last covers: stop and
+switch to the fallback of spec §16 (a lock row per restaurant and date,
+`SELECT … FOR UPDATE`).
+
+On the first preview after phase 4, check that a save under "Giờ và sức
+chứa" reaches the guest pages: switch a restaurant's online booking off, then
+open the home page a few times; every response should drop its RESERVE (the
+catalogue is cached per instance and `updateTag('restaurants')` expires it).
 
 **Never run `npx auth migrate`** (or `generate`) without
 `--config scripts/auth-cli.config.ts`: the Better Auth CLI loads `.env` and
@@ -200,9 +300,13 @@ bootstrapping production is what you mean to do.
 | `/en` | Static, `cacheLife('max')` | Home: hero, finder, cuisines, restaurants, destinations, experiences, heritage, stories, offers |
 | `/en/restaurants/[slug]` | Static for `taya-house`. Any other slug is a 404: the first visit is a soft 404 (status 200 with `noindex`), later visits get the cached 404, and without JavaScript the body is empty | Restaurant detail (Tàya House only until phase 6) |
 | `/taya-house` | Redirect | 308 to `/en/restaurants/taya-house` (`next.config.ts`) |
-| `/api/availability` | Dynamic | Booked covers per slot for one restaurant/day |
+| `/api/availability` | Dynamic, `no-store` | `?restaurant=&lang=[&from=&to=]`: each day's state (open, full, past, closed, too_large, outside) and public closure reason, with the clock, the party limit and the number to call; `?restaurant=&date=&lang=[&guests=]`: one day's services and slots with the covers left. 404 for an unknown restaurant or one with online booking off. `scripts/check-prerender.mjs` fails if it is ever prerendered |
 | `/admin/sign-in`, `/admin/accept-invite`, `/admin/reset-password` | Request time, nonce CSP | The only admin pages open without a session cookie |
-| `/admin`, `/admin/users`, `/admin/audit` | Request time, nonce CSP | Overview; staff and invitations (Admin); audit log (Admin). Without a session cookie the proxy sends them to sign-in (307, `?next=` kept) |
+| `/admin`, `/admin/users`, `/admin/audit` | Request time, nonce CSP | Overview (with pending and today's bookings); staff and invitations (Admin); audit log of `audit_log` and booking events, paged with `?truoc=`/`?sau=` (Admin). Without a session cookie the proxy sends them to sign-in (307, `?next=` kept) |
+| `/admin/reservations`, `/admin/reservations/[id]`, `/admin/reservations/day` | Request time, nonce CSP | Inbox (Cần xử lý · Hôm nay · Sắp tới · Tất cả, search by reference, phone, name or email); a booking (status changes, edit, internal notes, timeline); the printable day sheet. `reservations:read` |
+| `/admin/reservations/new` | Request time, nonce CSP | Phone bookings and walk-ins. `reservations:create` |
+| `/admin/reservations/closures`, `/admin/restaurants`, `/admin/restaurants/[id]/booking` | Request time, nonce CSP | Closures with the bookings each covers; the restaurants; "Giờ và sức chứa" (switch, overrides, service periods, slot preview, affected bookings; auto-confirm for Admins). `schedule:read` |
+| `/admin/settings/booking` | Request time, nonce CSP | Booking defaults. Admin (`settings:read`) |
 | `/api/auth/*` | Dynamic | Better Auth; `/api/auth/admin/*` is refused with 403 |
 
 Every admin page renders at request time (`app/admin/layout.tsx`: `instant =
@@ -251,21 +355,35 @@ read through cached functions in `lib/server/content/` (`'use cache'`,
 `cacheLife('max')`); their uncached loaders (`*.queries.ts`) are what the
 integration tests exercise.
 
-`reservations` records table requests. Availability is **derived from booked
-covers** against each restaurant's `slot_capacity`, replacing the design's
-placeholder hash-based availability. A slot closes when it has passed (plus 30
-minutes' lead time) or when the party would exceed the remaining covers.
+`reservations` records bookings (migration 006, phase 4). What a restaurant
+offers comes from the database, never from the code: `service_periods` (the
+weekly template: meal, weekdays, first and last seating, interval, covers per
+slot), `closures` (a restaurant, a destination or all, inclusive dates, some
+meals or the whole day, a public reason per language in `closure_i18n`) and
+`booking_settings` with each restaurant's overrides and `booking_enabled`.
+`lib/booking/resolve-day.ts` turns them into a day: `planDay` (the services
+and slots) for staff screens, and `resolveDay` (plus the window, the lead
+time, the same-day cut-off, the party limit and the covers held) for guests.
+Nothing that reads them is cached.
 
-Guarantees in the schema:
+Guarantees:
 
-- capacity is re-checked inside the insert's transaction under `SELECT … FOR
-  UPDATE`, so two simultaneous requests for the last seats cannot both win
-- a partial unique index rejects a double submit of the same table
-- `guests` is bounded 1–12 and `restaurant_id` is a foreign key
+- every write that takes covers (a guest's submit, a staff booking, an edit
+  that moves or grows a booking) takes one advisory lock per restaurant and
+  date (`lib/server/booking/lock.ts`) and only then reads the rules and the
+  covers, in the same transaction: concurrent requests for the last seats
+  cannot both win
+- covers are held by `requested`, `confirmed` and `seated` bookings only
+- a partial unique index rejects a second active booking of the same table,
+  time and phone
+- `version` (bumped by the `reservations_before_write` trigger on every
+  update) makes a stale admin page a conflict that names who changed it
+- every booking change is a `reservation_events` row (the timeline), never
+  an `audit_log` row; configuration changes are `audit_log` rows; the
+  `audit_feed` view shows both
 
-`app/actions.ts` re-validates every field, the slot's existence on that
-restaurant, the booking window and the lead time server-side — the client's
-checks are only there for immediate feedback.
+`app/actions.ts` (`submitReservation`) re-validates everything server-side;
+the guest form's checks are only there for immediate feedback.
 
 Migrations use the unpooled connection (DDL needs a direct session); the app
 uses the pooled one. Both pin `sslmode=verify-full`; local throwaway databases
