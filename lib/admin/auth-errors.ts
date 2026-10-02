@@ -1,3 +1,4 @@
+import { blamesSender } from '@/lib/email/smtp-reply';
 import type { ActionCode } from '@/lib/server/action-result';
 import type { EmailErrorCode } from '@/lib/server/email/types';
 
@@ -9,7 +10,8 @@ import type { EmailErrorCode } from '@/lib/server/email/types';
  * X-Retry-After header in seconds.
  * actionErrorMessage: the codes our admin Server Actions return (spec §7.4).
  * inviteEmailFailedMessage: why an invitation email did not go out.
- * Client components import this file, so it imports types only.
+ * Client components import this file, so it imports types and client-safe
+ * code only.
  */
 const AUTH_MESSAGES: Record<string, string> = {
   INVALID_EMAIL_OR_PASSWORD: 'Email hoặc mật khẩu không đúng.',
@@ -81,16 +83,22 @@ export function actionErrorMessage(code: ActionCode, params?: Record<string, str
 /**
  * What an Admin can do about a stored email error ("<code>: <message>",
  * describeEmailError; no address in it): the setup errors name the variables
- * to set, an SMTP refusal says whose side to check (R9).
+ * to set, an SMTP refusal says whose side to check (R9). A refusal of the
+ * envelope that blames the sender, a relay or the login (lib/email/smtp-reply.ts)
+ * names EMAIL_FROM: it is ours to fix, not the recipient's.
  */
 export function emailFailureHint(stored: string): string {
   const code = stored.split(':')[0];
+  const envelope = / at (?:RCPT TO|MAIL FROM): (.*)$/s.exec(stored);
+  if (envelope && blamesSender(envelope[1])) {
+    return 'Máy chủ SMTP không cho gửi từ địa chỉ này hoặc không cho chuyển tiếp: kiểm tra EMAIL_FROM là địa chỉ mà tài khoản SMTP_USER được phép gửi, và tài khoản đã đăng nhập (SMTP_USER, SMTP_PASSWORD).';
+  }
   if (code === 'missing_smtp_config') return 'Chưa cấu hình SMTP (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD) trên môi trường này.';
   if (code === 'missing_from') return 'Chưa đặt địa chỉ gửi (EMAIL_FROM).';
   if (code === 'missing_redirect_to') return 'Chế độ redirect cần EMAIL_REDIRECT_TO.';
   if (code === 'missing_app_url') return 'Chưa đặt BETTER_AUTH_URL (địa chỉ của trang quản trị) cho các liên kết trong email.';
   if (code === 'not_delivered' || code === 'invalid_delivery_mode') return 'Môi trường này chưa bật gửi email (EMAIL_DELIVERY).';
-  if (code === 'rejected') return 'Máy chủ SMTP từ chối địa chỉ người nhận.';
+  if (code === 'rejected') return 'Máy chủ SMTP từ chối địa chỉ người nhận: kiểm tra lại địa chỉ (gửi lại sẽ không giúp).';
   if (/SMTP EAUTH/.test(stored)) return 'Máy chủ SMTP từ chối tài khoản đăng nhập: kiểm tra SMTP_USER và SMTP_PASSWORD.';
   if (/SMTP (ECONNECTION|ETIMEDOUT|ESOCKET|EDNS|ETLS)/.test(stored)) return 'Không kết nối được máy chủ SMTP: kiểm tra SMTP_HOST, SMTP_PORT và SMTP_SECURE.';
   return 'Kiểm tra cấu hình gửi email rồi thử lại.';
@@ -116,6 +124,8 @@ const EMAIL_SETUP_ERRORS: Record<EmailErrorCode, boolean> = {
 
 /** `code` is the one in front of staff_invitation.email_error (an EmailErrorCode, or "unknown"). */
 export function inviteEmailFailedMessage(code: string | null | undefined): string {
+  // The address itself was refused for good: sending it again cannot help, a corrected invitation can.
+  if (code === 'rejected') return 'Chưa gửi được email: máy chủ SMTP từ chối địa chỉ này. Kiểm tra lại địa chỉ, rồi thu hồi lời mời và mời lại.';
   // `=== true`: an inherited key such as "toString" must not read as a setup error.
   return code && EMAIL_SETUP_ERRORS[code as EmailErrorCode] === true
     ? 'Chưa gửi được email: chưa cấu hình gửi email trên môi trường này. Báo bộ phận kỹ thuật, rồi bấm Gửi lại.'

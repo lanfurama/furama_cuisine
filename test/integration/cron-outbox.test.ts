@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vites
 import { GET } from '@/app/api/cron/outbox/route';
 import { getPool } from '@/db/client';
 import { cronAuthorized } from '@/lib/server/cron';
+import { addDays, venueNow } from '@/lib/venue-time';
 
 /* /api/cron/outbox (spec §10.4, §12): Vercel Cron's bearer secret or 401; with it, one drain of this env's due rows. */
 
@@ -10,11 +11,17 @@ const call = (authorization?: string) =>
   GET(new Request('http://localhost/api/cron/outbox', { headers: authorization ? { authorization } : {} }));
 const sql = (text: string, values: unknown[] = []) => getPool().query(text, values);
 
-/** One booking and three outbox rows: due in this env, due later, due in production. */
+/**
+ * One booking and three outbox rows: due in this env, due later, due in production. The route drains on
+ * the real clock, which skips a sitting that has passed (F5), so the booking is 30 days ahead of today;
+ * and staff.new goes only to an address that still gets it (F6), so the three are 'all' recipients.
+ */
 async function seed() {
+  await sql(`INSERT INTO notification_recipients (scope, email) VALUES ('all', 'a@furama.test'), ('all', 'b@furama.test'), ('all', 'c@furama.test')`);
   const { rows } = await sql(
     `INSERT INTO reservations (reference, restaurant_id, reserved_on, reserved_at, meal, guests, guest_name, phone, phone_e164, source)
-     VALUES ('FC-CRON0001', 'taya-house', '2026-10-05', '19:00', 'Dinner', 2, 'G', '0905 000 000', '+84905000000', 'web') RETURNING id`,
+     VALUES ('FC-CRON0001', 'taya-house', $1::date, '19:00', 'Dinner', 2, 'G', '0905 000 000', '+84905000000', 'web') RETURNING id`,
+    [addDays(venueNow().date, 30)],
   );
   await sql(
     `INSERT INTO email_outbox (env, event, audience, reservation_id, to_email, locale, next_attempt_at)
@@ -42,15 +49,18 @@ describe('cronAuthorized', () => {
 
 describe.skipIf(!process.env.TEST_DATABASE_URL)('GET /api/cron/outbox (database)', () => {
   beforeEach(async () => {
-    await sql('TRUNCATE reservations, reservation_events, email_outbox CASCADE');
+    await sql('TRUNCATE reservations, reservation_events, email_outbox, notification_recipients CASCADE');
+    // The drain logs each send, retry and failure; none of it belongs in the test output.
     vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
   afterAll(async () => {
-    await sql('TRUNCATE reservations, reservation_events, email_outbox CASCADE');
+    // Leave no recipient behind: the next file's bookings would email them instead of the shared inbox.
+    await sql('TRUNCATE reservations, reservation_events, email_outbox, notification_recipients CASCADE');
     await getPool().end();
   });
 
@@ -90,6 +100,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('GET /api/cron/outbox (database)
     await seed();
     // An unknown EMAIL_DELIVERY fails each send, not the drain: the row is retried later.
     expect(await (await call(`Bearer ${SECRET}`)).json()).toMatchObject({ claimed: 1, retried: 1 });
+    expect(vi.mocked(console.warn)).toHaveBeenCalledWith(expect.stringMatching(/^\[outbox\] retry id=\d+ event=staff\.new attempt=1 code=\w+ in=1m$/));
     await sql(`ALTER TABLE email_outbox RENAME TO email_outbox_gone`);
     try {
       const res = await call(`Bearer ${SECRET}`);

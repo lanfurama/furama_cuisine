@@ -10,7 +10,14 @@ import { describe, expect, it } from 'vitest';
  * under test/; Resend is gone (user decision: SMTP).
  */
 const ROOT = join(__dirname, '..', '..', '..');
-const SCAN = ['app', 'lib', 'components', 'db', 'scripts', 'e2e', 'proxy.ts'];
+/**
+ * The source folders, and every .ts/.mjs file at the repository root: next.config.ts,
+ * instrumentation-client.ts and proxy.ts run in the app too.
+ */
+const ROOT_FILES = readdirSync(ROOT, { withFileTypes: true })
+  .filter((e) => e.isFile() && /\.(ts|mjs)$/.test(e.name))
+  .map((e) => e.name);
+const SCAN = ['app', 'lib', 'components', 'db', 'scripts', 'e2e', ...ROOT_FILES];
 const ALLOWED = 'lib/server/email/';
 
 function files(path: string): string[] {
@@ -22,7 +29,8 @@ function files(path: string): string[] {
   }
 }
 
-const importOf = (name: string) => new RegExp(`(?:from\\s+|import\\s*\\(\\s*|require\\s*\\(\\s*)['"]${name}(?:/[^'"]*)?['"]`);
+// `from 'x'`, a bare `import 'x'` (side effects only), `import('x')` and `require('x')`.
+const importOf = (name: string) => new RegExp(`(?:from\\s+|import\\s+|import\\s*\\(\\s*|require\\s*\\(\\s*)['"]${name}(?:/[^'"]*)?['"]`);
 const NODEMAILER = importOf('nodemailer');
 const SMTP_SERVER = importOf('smtp-server');
 const RESEND = importOf('resend');
@@ -47,10 +55,15 @@ describe('mail transport imports', () => {
       `import type { SMTPTransportOptions } from 'nodemailer/lib/smtp-transport';`,
       `const m = await import("nodemailer")`,
       `require('nodemailer')`,
+      `import 'nodemailer';`,
     ]) {
       expect(NODEMAILER.test(line)).toBe(true);
     }
     expect(NODEMAILER.test(`import { sendEmail } from '@/lib/server/email/send';`)).toBe(false);
     expect(SMTP_SERVER.test(`import { SMTPServer } from 'smtp-server';`)).toBe(true);
+  });
+
+  it('scans the root files that run in the app', () => {
+    expect(SCAN).toEqual(expect.arrayContaining(['next.config.ts', 'instrumentation-client.ts', 'proxy.ts']));
   });
 });

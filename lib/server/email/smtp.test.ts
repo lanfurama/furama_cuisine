@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { startSilentServer, startSmtpSink, type SmtpSink } from '@/test/helpers/smtp-sink';
 import { sendStaffInvitation } from './auth-emails';
 import { createEmailSender, openMailer, type EmailDeps } from './send';
@@ -104,6 +104,40 @@ describe('SMTP on the wire (local sink)', () => {
     expect(sink.received).toEqual([]);
   });
 
+  it('a 5xx at RCPT TO is final only when it is about the mailbox; one that blames the sender or a relay is retried (F9)', async () => {
+    // Postfix and Exim (smtpd_delay_reject) report a sender or relay problem at RCPT TO, not at MAIL FROM.
+    const replies: Record<string, { code: number; message: string }> = {
+      'owned@guest.vn': { code: 553, message: '5.7.1 <owned@guest.vn>: Sender address rejected: not owned by user' },
+      'relay@guest.vn': { code: 554, message: '5.7.1 <relay@guest.vn>: Relay access denied' },
+      'plain-relay@guest.vn': { code: 554, message: '<plain-relay@guest.vn>: Relay access denied' },
+      'unknown@guest.vn': { code: 550, message: '5.1.1 <unknown@guest.vn>: Recipient address rejected: User unknown' },
+      // The local part names no one: a word inside the address must not read as the sender's fault.
+      'sender@guest.vn': { code: 550, message: '5.1.1 <sender@guest.vn>: Recipient address rejected: User unknown' },
+    };
+    const sink = track(await startSmtpSink({ refuseRecipient: (a) => replies[a] ?? null }));
+    const codeFor = async (to: string) => ((await senderFor(sink)({ to, subject: 'S', ...content }).catch((e: unknown) => e)) as { code?: string }).code;
+    expect(await codeFor('owned@guest.vn')).toBe('provider_error');
+    expect(await codeFor('relay@guest.vn')).toBe('provider_error');
+    expect(await codeFor('plain-relay@guest.vn')).toBe('provider_error');
+    expect(await codeFor('unknown@guest.vn')).toBe('rejected');
+    expect(await codeFor('sender@guest.vn')).toBe('rejected');
+    const owned = await senderFor(sink)({ to: 'owned@guest.vn', subject: 'S', ...content }).catch((e: unknown) => e);
+    expect(describeEmailError(owned)).toBe(
+      "provider_error: SMTP EENVELOPE at RCPT TO: Can't send mail - all recipients were rejected: 553 5.7.1 <<redacted>>: Sender address rejected: not owned by user",
+    );
+    expect(sink.received).toEqual([]);
+  });
+
+  it('every email says it was sent automatically (Auto-Submitted, RFC 3834): a booking email and an invitation (F10)', async () => {
+    const sink = track(await startSmtpSink());
+    await senderFor(sink)({ to: 'khach@guest.vn', subject: 'S', ...content, replyTo: 'fb@furama.test', idempotencyKey: 'outbox:7' });
+    await sendStaffInvitation({ to: 'new.staff@furama.test', token: 'tok', invitationId: '41', role: 'editor', inviterName: 'Lan' }, senderFor(sink));
+    expect(sink.received.map((m) => [m.to[0], m.autoSubmitted])).toEqual([
+      ['khach@guest.vn', 'auto-generated'],
+      ['new.staff@furama.test', 'auto-generated'],
+    ]);
+  });
+
   it('a server that never greets: the greeting timeout ends the send, not the function limit', async () => {
     const silent = track(await startSilentServer());
     const send = createEmailSender({
@@ -117,14 +151,16 @@ describe('SMTP on the wire (local sink)', () => {
   });
 
   it('a server slow to answer DATA: the send gives up at its cap, yet the server may still deliver (why delivery is at least once)', async () => {
-    const sink = track(await startSmtpSink({ holdDataMs: 800 }));
-    const err = await senderFor(sink, { sendTimeoutMs: 200 })({ to: 'a@furama.test', subject: 'S', ...content, idempotencyKey: 'outbox:5' }).catch(
+    // smtp-server waits about 100 ms before it greets; a 600 ms cap leaves a slow CI machine room for
+    // STARTTLS and the envelope, and the 2 s hold keeps DATA unanswered well past the cap.
+    const sink = track(await startSmtpSink({ holdDataMs: 2_000 }));
+    const err = await senderFor(sink, { sendTimeoutMs: 600 })({ to: 'a@furama.test', subject: 'S', ...content, idempotencyKey: 'outbox:5' }).catch(
       (e: unknown) => e,
     );
-    expect(describeEmailError(err)).toBe('provider_error: SMTP ETIMEDOUT: no answer within 200 ms');
+    expect(describeEmailError(err)).toBe('provider_error: SMTP ETIMEDOUT: no answer within 600 ms');
+    expect(sink.received).toEqual([]);
     // The client stopped waiting, but the message had already crossed: the server accepts it afterwards.
-    await new Promise((r) => setTimeout(r, 1_000));
-    expect(sink.received.map((m) => m.messageId)).toEqual(['<outbox-5@mail.furama.test>']);
+    await vi.waitFor(() => expect(sink.received.map((m) => m.messageId)).toEqual(['<outbox-5@mail.furama.test>']), { timeout: 4_000 });
   });
 
   it('one mailer sends a batch, each message on its own connection, and closes once', async () => {

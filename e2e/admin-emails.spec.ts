@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { Page } from '@playwright/test';
+import { formatIsoDayVi } from '../lib/admin/format';
 import { expectHydrated, watchCsp } from './csp';
 import { emailsTo } from './email-log';
 import { seedReservation, venueDay } from './reservation-fixtures';
@@ -10,8 +11,9 @@ import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures'
  * booking's own emails, the overview's counts, and the Admin's "Thông báo
  * email" (recipients, the restaurants left to the shared inbox, "Gửi email
  * thử"). The server runs EMAIL_DELIVERY=log, so a "sent" email is a line in
- * EMAIL_LOG_FILE. Data: Hải Vân Lounge +40 (no other spec books that far),
- * recipients on Hura Izakaya under a fresh address, removed afterwards. No
+ * EMAIL_LOG_FILE. Data: Hải Vân Lounge +40 (no other spec books that far) and
+ * yesterday (a sitting that has passed), recipients on Hura Izakaya under a
+ * fresh address, removed afterwards. No
  * spec running beside this one may add an 'all' or a 'destination'
  * recipient: booking-email expects the general inbox.
  */
@@ -23,15 +25,20 @@ const main = (page: Page) => page.getByRole('main');
 const nav = (page: Page) => page.getByRole('navigation', { name: 'Điều hướng quản trị' });
 const unique = () => randomBytes(3).toString('hex');
 
-/** A guest.confirmed email for a fresh confirmed booking, as the sender left it: failed after 7 sends. */
-async function failedEmail(to: string): Promise<{ reservationId: string; reference: string; outboxId: string }> {
-  const r = await seedReservation({ restaurant: 'hai-van-lounge', date: venueDay(40), status: 'confirmed', meal: 'Dinner' });
+const TIMEOUT = 'provider_error: SMTP ETIMEDOUT at CONN: Greeting never received';
+
+/** A guest.confirmed email for a fresh confirmed booking (19:00), as the sender left it: failed after 7 sends. */
+async function failedEmail(
+  to: string,
+  { date = venueDay(40), lastError = TIMEOUT }: { date?: string; lastError?: string } = {},
+): Promise<{ reservationId: string; reference: string; outboxId: string }> {
+  const r = await seedReservation({ restaurant: 'hai-van-lounge', date, status: 'confirmed', meal: 'Dinner' });
   await one(`UPDATE reservations SET email = $2 WHERE id = $1`, [r.id, to]);
   const row = await one<{ id: string }>(
     `INSERT INTO email_outbox (env, event, audience, reservation_id, to_email, locale, status, attempts, last_error)
-     VALUES ('development', 'guest.confirmed', 'guest', $1, $2, 'en', 'failed', 7, 'provider_error: SMTP ETIMEDOUT at CONN: Greeting never received')
+     VALUES ('development', 'guest.confirmed', 'guest', $1, $2, 'en', 'failed', 7, $3)
      RETURNING id::text`,
-    [r.id, to],
+    [r.id, to, lastError],
   );
   return { reservationId: r.id, reference: r.reference, outboxId: row!.id };
 }
@@ -49,11 +56,15 @@ test('an Editor finds a failed email on the overview and the log, masked, and se
   await expectHydrated(page);
   await expect(main(page).getByTestId('delivery-mode')).toContainText('chỉ ghi log');
   await expect(main(page).getByText('sau 1 phút, 5 phút, 15 phút, 1 giờ, 6 giờ, 12 giờ')).toBeVisible();
+  await expect(main(page).getByText('Tổng quan chỉ đếm email của những lượt đặt bàn chưa tới giờ.')).toBeVisible();
   const row = main(page).getByRole('row').filter({ hasText: reference });
   await expect(row).toContainText('Khách: đã xác nhận');
   await expect(row).toContainText(`k•••@guest.test`);
   await expect(row).not.toContainText(guest);
   await expect(row).toContainText('7 lần gửi');
+  await expect(row).toContainText(`Giờ hẹn: ${formatIsoDayVi(venueDay(40))} 19:00`);
+  // What to do, in Vietnamese, then the stored error itself.
+  await expect(row).toContainText('Không kết nối được máy chủ SMTP: kiểm tra SMTP_HOST, SMTP_PORT và SMTP_SECURE.');
   await expect(row).toContainText('SMTP ETIMEDOUT');
 
   await row.getByRole('button', { name: `Gửi lại Khách: đã xác nhận ${reference}` }).click();
@@ -75,6 +86,32 @@ test('an Editor finds a failed email on the overview and the log, masked, and se
   await expect(emails.getByRole('row').filter({ hasText: guest })).toContainText('Đã gửi');
   await expect(emails.getByRole('row').filter({ hasText: guest })).toContainText('1 lần gửi');
   expect(violations).toEqual([]);
+});
+
+test('a failed email whose sitting has passed shows the sitting and no "Gửi lại"; the overview counts emails still retrying', async ({ page }) => {
+  const guest = `khach.${unique()}@guest.test`;
+  const refused = "rejected: SMTP EENVELOPE at RCPT TO: Can't send mail - all recipients were rejected: 550 5.1.1 <redacted>: Recipient address rejected: User unknown";
+  const { reservationId, reference } = await failedEmail(guest, { date: venueDay(-1), lastError: refused });
+  await signInAs(page, STAFF.editor);
+  // Overview numbers are shared with the specs running beside this one: only the links are checked.
+  await expect(main(page).getByTestId('failed-emails')).toHaveAttribute('href', '/admin/reservations/emails?tab=failed');
+  const retrying = main(page).getByTestId('retrying-emails');
+  await expect(retrying).toContainText('email đang thử lại');
+  await expect(retrying).toHaveAttribute('href', '/admin/reservations/emails?tab=queued');
+
+  await page.goto('/admin/reservations/emails?tab=failed');
+  await expectHydrated(page);
+  const row = main(page).getByRole('row').filter({ hasText: reference });
+  await expect(row).toContainText(`Giờ hẹn: ${formatIsoDayVi(venueDay(-1))} 19:00`);
+  await expect(row).toContainText('Máy chủ SMTP từ chối địa chỉ người nhận: kiểm tra lại địa chỉ (gửi lại sẽ không giúp).');
+  await expect(row.getByRole('button', { name: /^Gửi lại/ })).toHaveCount(0);
+
+  // The booking's own table: the same hint, the whole stored error, and no "Gửi lại" either.
+  await page.goto(`/admin/reservations/${reservationId}`);
+  const email = main(page).getByRole('table', { name: 'Email của đặt bàn' }).getByRole('row').filter({ hasText: guest });
+  await expect(email).toContainText('Máy chủ SMTP từ chối địa chỉ người nhận');
+  await expect(email).toContainText('Recipient address rejected: User unknown');
+  await expect(email.getByRole('button', { name: /^Gửi lại/ })).toHaveCount(0);
 });
 
 test('"Gửi lại" is refused for an email that was sent meanwhile', async ({ page }) => {

@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getPool } from '@/db/client';
-import { formatDateTimeVi } from '@/lib/admin/format';
+import { outboxErrorHint } from '@/lib/admin/email-errors';
+import { formatDateTimeVi, formatIsoDayVi } from '@/lib/admin/format';
 import { EMAIL_EVENT_LABELS, maskEmail } from '@/lib/email/events';
 import { roleCan } from '@/lib/server/auth/permissions';
 import { requirePagePermission } from '@/lib/server/dal/session';
@@ -52,7 +53,7 @@ export default async function EmailLogPage({ searchParams }: { searchParams: Pro
       <SectionNav current="/admin/reservations/emails" />
       <h1>Nhật ký email</h1>
       <p className="a-lede">
-        {`Email lỗi được gửi lại tự động tối đa ${MAX_ATTEMPTS} lần (sau ${RETRY_DELAYS_MINUTES.map(wait).join(', ')}); hết lượt thì báo “Lỗi” ở đây và trên Tổng quan.`}
+        {`Mỗi email được gửi tối đa ${MAX_ATTEMPTS} lần: lần đầu ngay, nếu lỗi thì gửi lại sau ${RETRY_DELAYS_MINUTES.map(wait).join(', ')}; hết lượt thì báo “Lỗi”. Tổng quan chỉ đếm email của những lượt đặt bàn chưa tới giờ.`}
       </p>
       <p className="a-muted" data-testid="delivery-mode">
         {deliveryModeNotice()}
@@ -93,6 +94,7 @@ export default async function EmailLogPage({ searchParams }: { searchParams: Pro
                   <td className="a-ref">
                     <Link href={`/admin/reservations/${r.reservationId}`}>{r.reference}</Link>
                     <small className="a-sub">{r.restaurantName}</small>
+                    <small className="a-sub">{`Giờ hẹn: ${formatIsoDayVi(r.sittingDate)} ${r.sittingTime}`}</small>
                   </td>
                   <td>
                     <EmailStatusBadge status={r.status} />
@@ -100,8 +102,22 @@ export default async function EmailLogPage({ searchParams }: { searchParams: Pro
                     {r.status === 'queued' && r.attempts > 0 ? <small className="a-sub">{`Lần tới: ${formatDateTimeVi(r.nextAttemptAt)}`}</small> : null}
                     <small className="a-sub">{`${r.attempts} lần gửi`}</small>
                   </td>
-                  <td>{r.lastError ? <span className="a-error-text">{clip(redactEmails(r.lastError))}</span> : '—'}</td>
-                  <td>{canResend && resendable(r.status) ? <ResendEmail id={r.id} label={`${EMAIL_EVENT_LABELS[r.event]} ${r.reference}`} /> : null}</td>
+                  <td>
+                    {r.lastError ? (
+                      <>
+                        <span className="a-error-text">{outboxErrorHint(r.lastError)}</span>
+                        <small className="a-sub">{clip(redactEmails(r.lastError))}</small>
+                      </>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  {/* Past its sitting the drain would only skip it (F5): nothing to send again. */}
+                  <td>
+                    {canResend && resendable(r.status) && !r.sittingPassed ? (
+                      <ResendEmail id={r.id} label={`${EMAIL_EVENT_LABELS[r.event]} ${r.reference}`} />
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>

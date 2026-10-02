@@ -48,7 +48,7 @@ export type EmailErrorCode =
   | 'missing_app_url'
   /** Log mode on a Vercel Production or Preview deployment: logged without its link, so it reached no one. */
   | 'not_delivered'
-  /** The SMTP server refused the recipient for good (5xx at RCPT TO): retrying cannot help. */
+  /** The SMTP server refused the recipient for good (a 5xx at RCPT TO about the mailbox, not the sender): retrying cannot help. */
   | 'rejected'
   /** Anything else on the way to the SMTP server: network, TLS, auth, 4xx, a timeout. Retried. */
   | 'provider_error';
@@ -74,6 +74,8 @@ export type TransportMessage = {
   text: string;
   messageId?: string;
   replyTo?: string;
+  /** Extra headers (Auto-Submitted). */
+  headers?: Record<string, string>;
 };
 
 /** The slice of a nodemailer transporter we use; tests inject a fake or the real one aimed at a local sink. */

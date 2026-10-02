@@ -121,6 +121,20 @@ describe('booking emails', () => {
     expect(text).not.toContain('Reason');
   });
 
+  it('the Vietnamese decline reads as final, like its intro: “không thể”, never the pending “chưa” (F11)', async () => {
+    const strings = registryStrings('guest.declined', 'vi');
+    for (const line of [strings['email.guest.declined.subject'], strings['email.guest.declined.heading']]) {
+      expect(line).toMatch(/không thể/i);
+      expect(line).not.toMatch(/chưa/i);
+    }
+    const { subject, text } = await render('guest.declined', VI);
+    expect(subject).toBe('Rất tiếc, chúng tôi không thể nhận yêu cầu đặt bàn của bạn (FC-7K3QH9XA)');
+    expect(text).toContain('Không thể xác nhận đặt bàn');
+    expect(text).not.toMatch(/chưa/i);
+    // English is unchanged.
+    expect((await render('guest.declined', EN)).subject).toBe('We could not confirm your table request (FC-7K3QH9XA)');
+  });
+
   it('the request and confirmation open with the same words as the done screen of the form', async () => {
     expect((await render('guest.ack')).text).toContain('Your table request at Tàya House has been received. Our team will contact you shortly to confirm.');
     expect((await render('guest.confirmed')).text).toContain('Your table at Tàya House is confirmed. We look forward to welcoming you.');

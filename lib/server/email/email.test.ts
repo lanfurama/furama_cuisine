@@ -177,6 +177,7 @@ describe('delivery modes', () => {
       html: '<p>hi</p>',
       text: 'hi',
       messageId: '<invite-7-ab12@mail.furama.test>',
+      headers: { 'Auto-Submitted': 'auto-generated' },
     });
     expect(sendMail.mock.calls[0][0]).not.toHaveProperty('replyTo');
     // One message, one connection: the transport is released after the send.

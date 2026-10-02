@@ -18,7 +18,9 @@ export const metadata: Metadata = { title: 'Tổng quan' };
 /*
  * The greeting; bookings waiting for staff and today's bookings (spec §7.2
  * "đặt bàn chờ xử lý"), with the booking emails of this environment that used
- * up their attempts ("email lỗi", §10.4, §12), for roles that read bookings;
+ * up their attempts ("email lỗi", §10.4, §12) and those retrying after a
+ * failure (an SMTP outage shows within minutes), both only for sittings still
+ * ahead, for roles that read bookings;
  * to Admins, invitations whose email failed, and the restaurants whose "đặt
  * bàn mới" goes to the shared inbox ("nhà hàng chưa có người nhận thông báo",
  * R21). Translation widgets arrive with phase 8.
@@ -55,6 +57,11 @@ export default async function OverviewPage() {
             <li>
               <Link href="/admin/reservations/emails?tab=failed" data-testid="failed-emails">
                 <strong>{emails?.failed ?? 0}</strong> email lỗi
+              </Link>
+            </li>
+            <li>
+              <Link href="/admin/reservations/emails?tab=queued" data-testid="retrying-emails">
+                <strong>{emails?.retrying ?? 0}</strong> email đang thử lại
               </Link>
             </li>
           </ul>

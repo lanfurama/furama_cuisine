@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getPool } from '@/db/client';
+import { outboxErrorHint } from '@/lib/admin/email-errors';
 import { formatDateTimeVi, formatIsoDayVi } from '@/lib/admin/format';
 import { seatings } from '@/lib/booking/resolve-day';
 import { HOLDING_STATUSES } from '@/lib/booking/rules';
@@ -175,6 +176,8 @@ export default async function ReservationPage({ params }: { params: Promise<{ id
       {/* The booking's emails (R2): history lives in email_outbox, beside the timeline; the full address shows here (R12). */}
       <section aria-labelledby="res-emails-title">
         <h2 id="res-emails-title">Email</h2>
+        {/* The sitting is in "Ngày giờ" above; once it has started no email of this booking goes out (F5). */}
+        {emails[0]?.sittingPassed ? <p className="a-muted">Đã qua giờ hẹn: email của đặt bàn này không được gửi nữa.</p> : null}
         {emails.length === 0 ? (
           <p className="a-muted">Chưa có email nào cho đặt bàn này.</p>
         ) : (
@@ -203,10 +206,21 @@ export default async function ReservationPage({ params }: { params: Promise<{ id
                     <td>
                       <EmailStatusBadge status={m.status} />
                       {m.sentAt ? <small className="a-sub">{formatDateTimeVi(m.sentAt)}</small> : null}
+                      {m.status === 'queued' && m.attempts > 0 ? <small className="a-sub">{`Lần tới: ${formatDateTimeVi(m.nextAttemptAt)}`}</small> : null}
                       <small className="a-sub">{`${m.attempts} lần gửi`}</small>
                     </td>
-                    <td>{m.lastError ? <span className="a-error-text">{redactEmails(m.lastError)}</span> : '—'}</td>
-                    <td>{canResend && resendable(m.status) ? <ResendEmail id={m.id} label={EMAIL_EVENT_LABELS[m.event]} /> : null}</td>
+                    <td>
+                      {m.lastError ? (
+                        <>
+                          <span className="a-error-text">{outboxErrorHint(m.lastError)}</span>
+                          <small className="a-sub">{redactEmails(m.lastError)}</small>
+                        </>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    {/* Past its sitting the drain would only skip it (F5): nothing to send again. */}
+                    <td>{canResend && resendable(m.status) && !m.sittingPassed ? <ResendEmail id={m.id} label={EMAIL_EVENT_LABELS[m.event]} /> : null}</td>
                   </tr>
                 ))}
               </tbody>

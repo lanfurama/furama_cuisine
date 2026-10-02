@@ -91,7 +91,7 @@ its own restaurant and dates, and puts back the rules it changes:
 | `booking-acceptance` | Yum Food Village | +3, +4, +12, +13, yesterday; dinner hours, covers and `max_party` |
 | `booking-switch.serial` | Tàya House, Hải Vân Lounge | online booking off, then on again |
 | `booking-email` | Café Indochine, Tàya House | the last open day (a guest booking: its staff email goes to the shared inbox); +3 (`seedReservation()`: a booking to confirm, and a confirmed one with an email row due for its second attempt) |
-| `admin-emails` | Hải Vân Lounge, Hura Izakaya | +40 (failed emails written straight into `email_outbox`); a restaurant recipient under a fresh address, deleted afterwards |
+| `admin-emails` | Hải Vân Lounge, Hura Izakaya | +40 (failed emails written straight into `email_outbox`); yesterday (a failed email whose sitting has passed); a restaurant recipient under a fresh address, deleted afterwards |
 | `guest-guard` | Phố Cuốn | today + 13 (three web requests seeded for a fresh number); the other tests book nothing, and the header-contrast tests write nothing |
 
 The other specs write no booking, closure or rule (the guest specs that
@@ -379,14 +379,20 @@ and from there over a traditional SMTP account with nodemailer: port 587 with
 a mandatory STARTTLS upgrade (the client refuses to go on in clear), or 465
 with TLS from the first byte; TLS 1.2 or newer; each message on its own
 connection; per-step timeouts and a 30-second cap on a whole send. Only
-`lib/server/email/` may import nodemailer (a guard test checks it).
+`lib/server/email/` may import nodemailer (a guard test checks it). Every
+email carries `Auto-Submitted: auto-generated` (RFC 3834), so vacation
+responders do not answer it.
 
 - **Message-ID.** SMTP has no idempotency key. A staff email's Message-ID is
   made from its key (`<invite-<id>-<hash>@<EMAIL_FROM domain>>`, never the
   token), so a retry of the same send is recognisably the same message.
-- **Errors.** A recipient the server refuses for good (5xx at `RCPT TO`) is
-  `rejected`; anything else on the way (network, TLS, login, 4xx, a 5xx after
-  the message such as a sending quota, a timeout) is `provider_error`.
+- **Errors.** A recipient refused for good (a 5xx at `RCPT TO` about the
+  mailbox) is `rejected`; a refusal that blames the sender, a relay or the
+  login (a `5.7.x` code, or such wording, which Postfix and Exim report at
+  `RCPT TO`) is retried like any provider error, and the email log says to
+  check `EMAIL_FROM` and the SMTP login. Anything else on the way (network,
+  TLS, login, 4xx, a 5xx after the message such as a sending quota, a
+  timeout) is `provider_error`.
   Addresses are removed from every stored error and log line, and the SMTP
   server's host and IP address from every stored error (Editors read them in
   the email log).
@@ -407,9 +413,10 @@ connection; per-step timeouts and a 30-second cap on a whole send. Only
 A failed invitation email leaves the invitation in place and the staff screen
 says "Chưa gửi được email, bấm Gửi lại" (or, for a setup problem such as
 `not_delivered`, `missing_smtp_config` or `missing_app_url`, that email is not
-set up on this environment); a failed reset email is only logged. Tests reach
-SMTP only through `test/helpers/smtp-sink.ts`, an in-process server on
-`127.0.0.1`.
+set up on this environment; for an address the server refused, to check it,
+revoke the invitation and invite again); a failed reset email is only
+logged. Tests reach SMTP only through `test/helpers/smtp-sink.ts`, an
+in-process server on `127.0.0.1`.
 
 **Booking emails** (spec §10.3–10.4) go through an outbox:
 
@@ -428,13 +435,20 @@ SMTP only through `test/helpers/smtp-sink.ts`, an in-process server on
   the server's acceptance and the `sent` mark, the next run sends it again
   with the same Message-ID, and the recipient may get two identical copies.
 - **Retries.** After a failure the row waits 1, 5, 15, 60, 360 and 720
-  minutes (seven attempts within about 19.4 hours), then it is `failed` and the
-  overview counts it. A recipient refused for good (5xx at `RCPT TO`) fails at
-  once. "Gửi lại" in `/admin/reservations/emails` puts a failed email back with
-  a fresh schedule.
+  minutes (seven attempts within about 19.4 hours), then it is `failed`. A
+  recipient refused for good (a 5xx at `RCPT TO` about the mailbox) fails at
+  once; a refusal that blames the sender, a relay or the login is retried
+  like any provider error. The overview counts the failed emails and those
+  retrying after a failure, only for bookings whose sitting is still ahead
+  (the "Lỗi" tab lists every failed one). "Gửi lại" in
+  `/admin/reservations/emails` puts a failed email back with a fresh
+  schedule; it is not offered once the sitting has passed.
 - **Skipped, not sent,** when the booking no longer matches the email (a
-  confirmation for a booking cancelled meanwhile), was anonymised, or the
-  guest's address changed since it was queued; `last_error` says why.
+  confirmation for a booking cancelled meanwhile), was anonymised, the
+  guest's address changed since it was queued, or its sitting has started; a
+  staff email also when its recipient was removed or switched off, or (sent
+  to the shared inbox) when that address changed. `last_error` says why, and
+  the email log says it in Vietnamese.
 - **Environments.** Each row records its environment (`VERCEL_ENV`), and a
   sender only sends its own: a Preview never sends production's rows.
 

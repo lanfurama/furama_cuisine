@@ -2,6 +2,7 @@ import 'server-only';
 import type { Pool, PoolClient } from 'pg';
 import type { EmailAudience, EmailEvent, EmailStatus } from '@/lib/email/events';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
+import { VENUE_TZ, type IsoDate } from '@/lib/venue-time';
 import type { OutboxEnv } from './env';
 import { restaurantsWithoutRecipient } from './recipients';
 
@@ -38,12 +39,26 @@ export type EmailLogRow = {
   lastError: string | null;
   sentAt: Date | null;
   createdAt: Date;
+  /** The booking's sitting, Da Nang's date and HH:MM. */
+  sittingDate: IsoDate;
+  sittingTime: string;
+  /** The sitting has started: the drain skips the email (F5), so "Gửi lại" is not offered. */
+  sittingPassed: boolean;
   cursor: string;
 };
+
+/**
+ * SQL: the sitting of reservation `r` has not started yet, on Da Nang's clock. The one definition for
+ * the overview's counts and the log. It agrees with the drain's rule (lib/server/email/drain.ts
+ * staleReason: minutesUntil(date, time, now) < 0 skips, lib/venue-time.ts, VENUE_TZ): minutesUntil
+ * counts whole minutes of the venue's clock, so the sitting minute itself is still ahead.
+ */
+const SITTING_AHEAD = `(r.reserved_on + r.reserved_at::time) >= date_trunc('minute', now() AT TIME ZONE '${VENUE_TZ}')`;
 
 const COLUMNS = `o.id::text, o.event, o.audience, o.reservation_id::text AS "reservationId", r.reference, t.name AS "restaurantName",
   o.to_email AS "toEmail", o.locale, o.status, o.attempts::int,
   o.next_attempt_at AS "nextAttemptAt", o.last_error AS "lastError", o.sent_at AS "sentAt", o.created_at AS "createdAt",
+  to_char(r.reserved_on, 'YYYY-MM-DD') AS "sittingDate", r.reserved_at AS "sittingTime", NOT ${SITTING_AHEAD} AS "sittingPassed",
   (extract(epoch FROM o.created_at) * 1000000)::bigint::text || '_' || o.id::text AS cursor`;
 
 const FROM = `email_outbox o JOIN reservations r ON r.id = o.reservation_id JOIN restaurants t ON t.id = r.restaurant_id`;
@@ -88,17 +103,37 @@ export async function listReservationEmails(db: Db, reservationId: string, env: 
   return rows;
 }
 
+export type EmailOverview = {
+  /** Used up their attempts. */
+  failed: number;
+  /** Failed at least once and wait for their next attempt: an SMTP outage shows here within minutes, not after 19 hours. */
+  retrying: number;
+  unrouted: { id: string; name: string }[];
+};
+
 /**
  * The overview's email block (spec §7.2, §10.4 "hiện trên Tổng quan", §12,
- * R21): this env's emails that used up their attempts, and the restaurants
- * taking bookings whose staff.new goes to the shared inbox.
+ * R21): this env's emails that used up their attempts, and those retrying,
+ * counting only bookings whose sitting is still ahead: an email about a meal
+ * already eaten is never sent (F5), so staff cannot act on it and it would
+ * never leave the count. The "Lỗi" tab still lists every failed row. Then the
+ * restaurants taking bookings whose staff.new goes to the shared inbox.
  */
-export async function emailOverview(db: Db, env: OutboxEnv): Promise<{ failed: number; unrouted: { id: string; name: string }[] }> {
-  const { rows } = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM email_outbox WHERE env = $1 AND status = 'failed'`, [env]);
-  return { failed: rows[0].n, unrouted: await restaurantsWithoutRecipient(db) };
+export async function emailOverview(db: Db, env: OutboxEnv): Promise<EmailOverview> {
+  const { rows } = await db.query<{ failed: number; retrying: number }>(
+    `SELECT count(*) FILTER (WHERE o.status = 'failed')::int AS failed,
+            count(*) FILTER (WHERE o.status IN ('queued', 'sending') AND o.last_error IS NOT NULL)::int AS retrying
+       FROM email_outbox o JOIN reservations r ON r.id = o.reservation_id
+      WHERE o.env = $1 AND ${SITTING_AHEAD}`,
+    [env],
+  );
+  return { failed: rows[0].failed, retrying: rows[0].retrying, unrouted: await restaurantsWithoutRecipient(db) };
 }
 
-/** A row "Gửi lại" may touch: one that failed for good, or one waiting for its next attempt. */
+/**
+ * A row "Gửi lại" may touch: one that failed for good, or one waiting for its next attempt. The
+ * screens also hide the button once the sitting has passed; a row requeued anyway ends skipped (F5).
+ */
 export const resendable = (status: EmailStatus) => status === 'failed' || status === 'queued';
 
 export type RequeueResult =

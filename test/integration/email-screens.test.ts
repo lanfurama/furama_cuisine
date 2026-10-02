@@ -18,6 +18,7 @@ import {
 } from '@/lib/server/email/recipients';
 import { createEmailSender } from '@/lib/server/email/send';
 import { sendTestEmail } from '@/lib/server/email/test-email';
+import { addDays, venueNow } from '@/lib/venue-time';
 import { TEST_DATABASE_URL } from '../helpers/db';
 import { startSmtpSink, type SmtpSink } from '../helpers/smtp-sink';
 
@@ -34,6 +35,8 @@ let pool: Pool;
 let sink: SmtpSink;
 const ADMIN = { id: 'admin-1', email: 'owner@furama.test', name: 'Chủ quán' };
 const ORIGIN = 'https://admin.furama.test';
+/** Da Nang's date `n` days from today: the overview and the log compare sittings with the database's clock. */
+const venueDay = (n: number) => addDays(venueNow().date, n);
 
 const recipient = (over: Partial<RecipientInput> = {}): RecipientInput => ({
   scope: 'all',
@@ -68,13 +71,23 @@ async function wouldQueue(restaurant: string): Promise<[string, string, boolean]
   }
 }
 
-async function seedReservation(over: { status?: string; email?: string | null; locale?: string; restaurant?: string; statusReason?: string | null } = {}) {
+/** A booking at 19:00, 30 days ahead unless `date` says otherwise (a sitting still ahead on any real clock). */
+async function seedReservation(
+  over: { status?: string; email?: string | null; locale?: string; restaurant?: string; statusReason?: string | null; date?: string } = {},
+) {
   const { rows } = await pool.query<{ id: string }>(
     `INSERT INTO reservations (reference, restaurant_id, reserved_on, reserved_at, guests, guest_name, phone, phone_e164, email, status, status_reason, meal, source, locale, note)
-     VALUES ('FC-' || upper(substr(md5(random()::text), 1, 8)), $1, '2026-10-05', '19:00', 4, 'Nguyễn Thị Ánh', '0905 123 456',
+     VALUES ('FC-' || upper(substr(md5(random()::text), 1, 8)), $1, $6::date, '19:00', 4, 'Nguyễn Thị Ánh', '0905 123 456',
              '+849052' || lpad((floor(random() * 1e5))::int::text, 5, '0'), $2, $3, $4, 'Dinner', 'web', $5, 'Bàn gần cửa sổ.')
      RETURNING id::text`,
-    [over.restaurant ?? 'taya-house', over.email === undefined ? 'anh.nguyen@guest.vn' : over.email, over.status ?? 'requested', over.statusReason ?? null, over.locale ?? 'en'],
+    [
+      over.restaurant ?? 'taya-house',
+      over.email === undefined ? 'anh.nguyen@guest.vn' : over.email,
+      over.status ?? 'requested',
+      over.statusReason ?? null,
+      over.locale ?? 'en',
+      over.date ?? venueDay(30),
+    ],
   );
   return rows[0].id;
 }
@@ -82,12 +95,22 @@ async function seedReservation(over: { status?: string; email?: string | null; l
 /** An outbox row about booking `reservationId`, as a sender would have left it. */
 async function queue(
   reservationId: string,
-  over: { event?: string; to?: string; env?: string; status?: string; attempts?: number; locale?: string; lockedFor?: string; createdAt?: string } = {},
+  over: {
+    event?: string;
+    to?: string;
+    env?: string;
+    status?: string;
+    attempts?: number;
+    locale?: string;
+    lockedFor?: string;
+    createdAt?: string;
+    lastError?: string;
+  } = {},
 ) {
   const event = over.event ?? 'guest.confirmed';
   const { rows } = await pool.query<{ id: string }>(
-    `INSERT INTO email_outbox (env, event, audience, reservation_id, to_email, locale, status, attempts, locked_until, sent_at, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + $9::interval, CASE WHEN $7 = 'sent' THEN now() END, coalesce($10::timestamptz, now()))
+    `INSERT INTO email_outbox (env, event, audience, reservation_id, to_email, locale, status, attempts, locked_until, sent_at, created_at, last_error)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + $9::interval, CASE WHEN $7 = 'sent' THEN now() END, coalesce($10::timestamptz, now()), $11)
      RETURNING id::text`,
     [
       over.env ?? 'development',
@@ -100,6 +123,7 @@ async function queue(
       over.attempts ?? 0,
       over.lockedFor ?? null,
       over.createdAt ?? null,
+      over.lastError ?? null,
     ],
   );
   return rows[0].id;
@@ -144,14 +168,15 @@ describe.skipIf(!TEST_DATABASE_URL)('email screens and templates (database)', ()
   describe('rendering from the reservation row', () => {
     it('a guest email speaks the booking’s language when it is on, or when the registry has its copy (vi); else the default (R10)', async () => {
       // vi is off on the site (migration 004), yet the registry has every email key in Vietnamese: a phone booking in vi reads Vietnamese.
-      const viBooking = await seedReservation({ locale: 'vi', status: 'confirmed' });
+      // Rendering reads no clock, so a literal date can pin the formatted day.
+      const viBooking = await seedReservation({ locale: 'vi', status: 'confirmed', date: '2026-10-05' });
       const off = await render('guest.confirmed', viBooking, 'vi');
       expect(off).toMatchObject({ locale: 'vi', subject: expect.stringMatching(/^Đặt bàn của bạn đã được xác nhận \(FC-/) });
       expect(off.html).toContain('lang="vi"');
       expect(off.text).toContain('Thứ Hai, 5 tháng 10, 2026');
       // A language with no copy of its own, switched off: the default language, not English copy with Korean dates.
       await pool.query(`INSERT INTO locales (code, bcp47, native_name, short_label, script, sort_order) VALUES ('ko', 'ko', '한국어', 'KO', 'hangul', 90)`);
-      const ko = await seedReservation({ locale: 'ko', status: 'confirmed' });
+      const ko = await seedReservation({ locale: 'ko', status: 'confirmed', date: '2026-10-05' });
       const fallback = await render('guest.confirmed', ko, 'ko');
       expect(fallback).toMatchObject({ locale: 'en', subject: expect.stringMatching(/^Your table is confirmed \(FC-/) });
       expect(fallback.text).toContain('Monday, October 5, 2026');
@@ -345,7 +370,10 @@ describe.skipIf(!TEST_DATABASE_URL)('email screens and templates (database)', ()
       const second = await listEmailLog(pool, { env: 'development', tab: 'all', after: first.next });
       expect(second.rows.map((r) => r.id)).toEqual([mine[2], mine[1], mine[0]]);
       expect(second.next).toBeNull();
-      expect((await listEmailLog(pool, { env: 'development', tab: 'failed' })).rows.every((r) => r.status === 'failed')).toBe(true);
+      // Every second seeded row failed (26 of 52); the production one is another env's.
+      const failedTab = (await listEmailLog(pool, { env: 'development', tab: 'failed' })).rows;
+      expect(failedTab).toHaveLength(mine.filter((_, i) => i % 2).length);
+      expect(failedTab.every((r) => r.status === 'failed')).toBe(true);
       // "Đang chờ" shows the rows a sender holds too.
       expect((await listEmailLog(pool, { env: 'development', tab: 'queued' })).rows.map((r) => [r.id, r.status])).toEqual([[held, 'sending']]);
       // A cursor that is not one is ignored, not an error.
@@ -365,7 +393,29 @@ describe.skipIf(!TEST_DATABASE_URL)('email screens and templates (database)', ()
       expect(overview.unrouted.map((r) => r.id)).toContain('taya-house');
       expect((await emailOverview(pool, 'production')).failed).toBe(1);
       await createRecipient(pool, ADMIN, recipient({ scope: 'all', email: 'gm@furama.test' }));
-      expect(await emailOverview(pool, 'development')).toEqual({ failed: 1, unrouted: [] });
+      expect(await emailOverview(pool, 'development')).toEqual({ failed: 1, retrying: 0, unrouted: [] });
+    });
+
+    it('the overview counts only what staff can act on: failed and retrying emails of sittings still ahead; the log shows each sitting (F7)', async () => {
+      const ERROR = 'provider_error: SMTP ETIMEDOUT at CONN: Greeting never received';
+      const yesterday = await seedReservation({ status: 'confirmed', date: venueDay(-1) });
+      const ahead = await seedReservation({ status: 'confirmed', date: venueDay(30) });
+      await queue(yesterday, { status: 'failed', attempts: MAX_ATTEMPTS, lastError: ERROR });
+      await queue(yesterday, { attempts: 2, lastError: ERROR }); // retrying, but about a meal already eaten
+      await queue(ahead, { status: 'failed', attempts: MAX_ATTEMPTS, lastError: ERROR });
+      await queue(ahead, { attempts: 1, lastError: ERROR }); // retrying
+      await queue(ahead); // queued, never tried
+      await queue(ahead, { status: 'failed', attempts: MAX_ATTEMPTS, lastError: ERROR, env: 'production' });
+      expect(await emailOverview(pool, 'development')).toMatchObject({ failed: 1, retrying: 1 });
+      expect(await emailOverview(pool, 'production')).toMatchObject({ failed: 1, retrying: 0 });
+
+      // The "Lỗi" tab still lists every failed row; each row carries its sitting, and whether it has passed.
+      const failedTab = (await listEmailLog(pool, { env: 'development', tab: 'failed' })).rows;
+      expect(failedTab.map((r) => [r.reservationId, r.sittingDate, r.sittingTime, r.sittingPassed])).toEqual([
+        [ahead, venueDay(30), '19:00', false],
+        [yesterday, venueDay(-1), '19:00', true],
+      ]);
+      expect((await listReservationEmails(pool, yesterday, 'development')).map((r) => r.sittingPassed)).toEqual([true, true]);
     });
   });
 

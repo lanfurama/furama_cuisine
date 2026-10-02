@@ -2,9 +2,11 @@ import 'server-only';
 import type { Pool } from 'pg';
 import { getPool } from '@/db/client';
 import { EVENT_STATUSES, type EmailEvent } from '@/lib/email/events';
+import { minutesUntil } from '@/lib/venue-time';
 import { loadBookingEmailData, type BookingEmailData } from './booking/load';
 import { renderOutboxEmail } from './booking/render';
 import { outboxEnv } from './env';
+import { reachesSql } from './recipients';
 import { openMailer, senderDomain, type EmailDeps, type Mailer } from './send';
 import { EmailSendError, describeEmailError, type SendEmailResult } from './types';
 
@@ -15,8 +17,9 @@ import { EmailSendError, describeEmailError, type SendEmailResult } from './type
  * SMTP has no idempotency key, so delivery is AT LEAST ONCE (R1):
  *   1. claim one due row: FOR UPDATE SKIP LOCKED, then status 'sending', a
  *      lease (locked_until), attempts + 1, and a Message-ID fixed for good;
- *   2. re-read the booking: an event that no longer matches its status is
- *      marked skipped, never sent (R7);
+ *   2. re-read the booking: an event that no longer matches its status, or
+ *      whose sitting has started, is marked skipped, never sent (R7); so is a
+ *      staff.new whose recipient no longer gets it;
  *   3. send over SMTP, holding no database connection meanwhile;
  *   4. mark it sent, or schedule the next attempt, fenced by `attempts` so a
  *      drain whose lease ran out cannot overwrite a newer claim.
@@ -44,6 +47,8 @@ export type DrainOptions = {
   env?: Record<string, string | undefined>;
   /** Tests: the mailer's transport, sink and timeouts. */
   mailer?: Partial<EmailDeps>;
+  /** The moment a sitting is measured against (staleReason); read once per drain. Tests pin it; everyone else gets the clock. */
+  now?: Date;
 };
 
 /**
@@ -62,6 +67,8 @@ export type ClaimedRow = {
   attempts: number;
   idempotency_key: string;
   message_id: string | null;
+  /** staff.new to the shared inbox (site_settings.email), because no recipient reached the booking. */
+  fallback: boolean;
 };
 
 async function claimOne(pool: Pool, env: string, ids: readonly string[] | null, domain: string | null): Promise<ClaimedRow | null> {
@@ -89,7 +96,7 @@ async function claimOne(pool: Pool, env: string, ids: readonly string[] | null, 
             updated_at = now()
        FROM next
       WHERE o.id = next.id
-      RETURNING o.id::text, o.event, o.reservation_id::text, o.to_email, o.locale, o.attempts, o.idempotency_key, o.message_id`,
+      RETURNING o.id::text, o.event, o.reservation_id::text, o.to_email, o.locale, o.attempts, o.idempotency_key, o.message_id, o.fallback`,
     [env, ids, LEASE_SECONDS, domain, MAX_ATTEMPTS],
   );
   return rows[0] ?? null;
@@ -107,8 +114,13 @@ async function reapExhausted(pool: Pool, env: string): Promise<number> {
   return rowCount ?? 0;
 }
 
-/** Why a claimed row must not be sent any more (R7), or null when it still holds. */
-function staleReason(row: ClaimedRow, booking: BookingEmailData | null): string | null {
+/**
+ * Why a claimed row must not be sent any more (R7), or null when it still holds. Once the sitting has
+ * started, no booking email is true any more: a confirmation, an acknowledgement or a "new booking,
+ * please confirm" after the meal only confuses (a retry 6 or 12 hours on, or "Gửi lại" on an old row).
+ * Measured on Da Nang's clock (minutesUntil), so a sitting is still sendable during its own minute.
+ */
+export function staleReason(row: ClaimedRow, booking: BookingEmailData | null, now: Date): string | null {
   if (!booking) return 'skipped: the booking no longer exists';
   if (booking.anonymized) return 'skipped: the booking was anonymised';
   if (!EVENT_STATUSES[row.event].includes(booking.status)) return `skipped: the booking is now ${booking.status}`;
@@ -116,7 +128,28 @@ function staleReason(row: ClaimedRow, booking: BookingEmailData | null): string 
   if (row.event.startsWith('guest.') && booking.email?.trim().toLowerCase() !== row.to_email.trim().toLowerCase()) {
     return 'skipped: the guest email changed';
   }
+  if (minutesUntil(booking.date, booking.time, now) < 0) return 'skipped: the sitting has passed';
   return null;
+}
+
+/**
+ * staff.new carries the guest's name, phone, email and request, so it goes only to an address that
+ * still gets it now, not when it was queued: an active recipient reaching this booking (the same
+ * reachesSql as the queue), or, for a fallback row, the shared inbox as it is now. A recipient the
+ * Admin removed or switched off, or an inbox that moved, is skipped (a retry or "Gửi lại" included).
+ */
+async function recipientStillWanted(pool: Pool, row: ClaimedRow): Promise<boolean> {
+  const { rows } = row.fallback
+    ? await pool.query<{ ok: boolean }>(`SELECT EXISTS (SELECT 1 FROM site_settings s WHERE lower(s.email) = lower($1)) AS ok`, [row.to_email])
+    : await pool.query<{ ok: boolean }>(
+        `SELECT EXISTS (
+           SELECT 1 FROM reservations r JOIN restaurants t ON t.id = r.restaurant_id, notification_recipients n
+            WHERE r.id = $1 AND n.active AND 'staff.new' = ANY (n.events) AND lower(n.email) = lower($2)
+              AND ${reachesSql('n', 'r.restaurant_id', 't.destination')}
+         ) AS ok`,
+        [row.reservation_id, row.to_email],
+      );
+  return rows[0].ok;
 }
 
 /** Every mark after a claim is fenced (code rule 3): a drain whose lease ran out must not overwrite the newer claim. */
@@ -132,6 +165,7 @@ export async function drainOutbox(options: DrainOptions = {}): Promise<DrainRepo
   const domain = senderDomain(env.EMAIL_FROM);
   const limit = options.limit ?? 50;
   const budgetMs = options.budgetMs ?? 20_000;
+  const now = options.now ?? new Date();
   const started = Date.now();
   const report: DrainReport = { claimed: 0, sent: 0, skipped: 0, retried: 0, failed: 0, lost: 0 };
 
@@ -144,7 +178,7 @@ export async function drainOutbox(options: DrainOptions = {}): Promise<DrainRepo
         const row = await claimOne(pool, own, ids, domain);
         if (!row) break;
         report.claimed += 1;
-        await deliver(pool, mailer, row, report);
+        await deliver(pool, mailer, row, report, now);
       }
     }
   } finally {
@@ -153,12 +187,14 @@ export async function drainOutbox(options: DrainOptions = {}): Promise<DrainRepo
   return report;
 }
 
-async function deliver(pool: Pool, mailer: Mailer, row: ClaimedRow, report: DrainReport): Promise<void> {
+async function deliver(pool: Pool, mailer: Mailer, row: ClaimedRow, report: DrainReport, now: Date): Promise<void> {
   const tag = `id=${row.id} event=${row.event} attempt=${row.attempts}`;
   let result: SendEmailResult;
   try {
     const booking = await loadBookingEmailData(pool, row.reservation_id);
-    const stale = staleReason(row, booking);
+    const stale =
+      staleReason(row, booking, now) ??
+      (row.event === 'staff.new' && !(await recipientStillWanted(pool, row)) ? 'skipped: the recipient no longer gets these emails' : null);
     if (stale) {
       if (await mark(pool, row, `UPDATE email_outbox SET status = 'skipped', locked_until = NULL, last_error = $3, updated_at = now()`, [stale])) {
         report.skipped += 1;

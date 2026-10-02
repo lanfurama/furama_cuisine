@@ -1,6 +1,7 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { createElement } from 'react';
+import { DEPLOYED } from '@/lib/botid';
 import { INVITE_TTL_DAYS, RESET_TOKEN_SECONDS } from '@/lib/server/auth/lifetimes';
 import { sendEmail as defaultSend } from './send';
 import { PasswordResetEmail, passwordResetSubject } from './templates/password-reset';
@@ -16,8 +17,6 @@ import { EmailSendError, type SendEmailInput, type SendEmailResult } from './typ
  */
 
 type Send = (input: SendEmailInput) => Promise<SendEmailResult>;
-
-const DEPLOYED = new Set(['production', 'preview']);
 
 /**
  * The origin of every emailed link (invite, reset, and the booking link in

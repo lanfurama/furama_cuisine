@@ -6,6 +6,9 @@ import { createStaffReservation, transitionReservation, type ReservationActor, t
 import { LEASE_SECONDS, RETRY_DELAYS_MINUTES, drainOutbox, type DrainOptions } from '@/lib/server/email/drain';
 import { outboxEnv } from '@/lib/server/email/env';
 import { outboxEffects } from '@/lib/server/email/outbox';
+import { requeueEmail } from '@/lib/server/email/outbox-log';
+import { deleteRecipient, getSharedInbox, listRecipients, saveSharedInbox } from '@/lib/server/email/recipients';
+import { addDays, venueNow } from '@/lib/venue-time';
 import { TEST_DATABASE_URL } from '../helpers/db';
 import { startSmtpSink, type SinkOptions, type SmtpSink } from '../helpers/smtp-sink';
 
@@ -19,7 +22,10 @@ import { startSmtpSink, type SinkOptions, type SmtpSink } from '../helpers/smtp-
 let pool: Pool;
 const LAN: ReservationActor = { id: 'staff-lan', label: 'Lan (lan@furama.test)' };
 // Friday 2 Oct 2026, 10:00 in Vietnam. Tàya House (destination resort): Dinner 18:00–21:00.
+// The bookings below are dated 2026-10-05, so every drain is handed this NOW too: the drain skips an
+// email whose sitting has passed (F5), and on the real clock these dates will have passed.
 const NOW = new Date('2026-10-02T10:00:00+07:00');
+const ADMIN = { id: 'admin-1', email: 'owner@furama.test', name: 'Chủ quán' };
 let phoneSeq = 0;
 const nextPhone = () => `0905 ${String(200000 + ++phoneSeq).slice(0, 3)} ${String(200000 + phoneSeq).slice(3)}`;
 
@@ -67,19 +73,20 @@ async function sink(options: SinkOptions = {}) {
   return s;
 }
 const drainTo = (s: SmtpSink, options: DrainOptions = {}) =>
-  drainOutbox({ pool, env: s.env(), mailer: { transportOverrides: s.clientOverrides }, ...options });
+  drainOutbox({ pool, env: s.env(), mailer: { transportOverrides: s.clientOverrides }, now: NOW, ...options });
 
 describe.skipIf(!TEST_DATABASE_URL)('email outbox (database + local SMTP sink)', () => {
   beforeAll(() => {
     pool = new Pool({ connectionString: TEST_DATABASE_URL, max: 8 });
   });
   afterAll(async () => {
-    // Leave no recipient behind: the next file's bookings would email them instead of the general inbox.
+    // Leave no recipient behind, and the shared inbox as seeded: the next file's bookings would email them instead of the general inbox.
     await pool.query('TRUNCATE email_outbox, notification_recipients');
+    await pool.query(`UPDATE site_settings SET email = 'fb@furamavietnam.com'`);
     await pool.end();
   });
   beforeEach(async () => {
-    await pool.query('TRUNCATE reservations, reservation_events, reservation_notes, closures, email_outbox, notification_recipients CASCADE');
+    await pool.query('TRUNCATE reservations, reservation_events, reservation_notes, closures, email_outbox, notification_recipients, audit_log CASCADE');
     await pool.query('UPDATE restaurants SET booking_enabled = true, window_days = NULL, lead_minutes = NULL, max_party = NULL, auto_confirm = NULL');
     await pool.query('UPDATE booking_settings SET window_days = 14, lead_minutes = 30, same_day_cutoff = NULL, max_party = 12, auto_confirm = false, guest_ack_email = true');
     await pool.query(`UPDATE site_settings SET email = 'fb@furamavietnam.com'`);
@@ -105,14 +112,16 @@ describe.skipIf(!TEST_DATABASE_URL)('email outbox (database + local SMTP sink)',
 
       const result = await guestBooking();
       const rows = await outbox();
-      expect(rows.map(({ event, audience, to_email, locale, fallback, status, attempts }) => ({ event, audience, to_email, locale, fallback, status, attempts }))).toEqual([
+      // Sorted here: the insert order of the staff rows (DISTINCT ON, then UNION ALL) is not a promise of the SQL.
+      const byAddress = (a: Row, b: Row) => a.audience.localeCompare(b.audience) || a.to_email.toLowerCase().localeCompare(b.to_email.toLowerCase());
+      expect([...rows].sort(byAddress).map(({ event, audience, to_email, locale, fallback, status, attempts }) => ({ event, audience, to_email, locale, fallback, status, attempts }))).toEqual([
+        { event: 'guest.ack', audience: 'guest', to_email: 'guest@example.com', locale: 'en', fallback: false, status: 'queued', attempts: 0 },
         { event: 'staff.new', audience: 'staff', to_email: 'gm@furama.test', locale: 'vi', fallback: false, status: 'queued', attempts: 0 },
         // The destination row wins over the 'all' row for the same inbox: its spelling, its language.
         { event: 'staff.new', audience: 'staff', to_email: 'Resort@Furama.test', locale: 'vi', fallback: false, status: 'queued', attempts: 0 },
         { event: 'staff.new', audience: 'staff', to_email: 'taya@furama.test', locale: 'en', fallback: false, status: 'queued', attempts: 0 },
-        { event: 'guest.ack', audience: 'guest', to_email: 'guest@example.com', locale: 'en', fallback: false, status: 'queued', attempts: 0 },
       ]);
-      expect(result.outboxIds).toEqual(rows.map((r) => r.id));
+      expect([...result.outboxIds].sort()).toEqual(rows.map((r) => r.id).sort());
       // Every row points at the booking and the created event of the same transaction, in this env.
       const links = await pool.query(
         `SELECT DISTINCT o.env, o.reservation_id::text AS r, e.type FROM email_outbox o JOIN reservation_events e ON e.id = o.reservation_event_id`,
@@ -318,6 +327,21 @@ describe.skipIf(!TEST_DATABASE_URL)('email outbox (database + local SMTP sink)',
       expect((await full(failed.id)).last_error).not.toContain('gone@example.com');
     });
 
+    it('a refusal at RCPT TO that blames the sender (553 5.7.1) is retried like any provider error, not failed (F9)', async () => {
+      const s = await sink({ refuseRecipient: (a) => ({ code: 553, message: `5.7.1 <${a}>: Sender address rejected: not owned by user` }) });
+      await guestBooking({ email: '' });
+      const [{ id }] = await outbox();
+      expect(await drainTo(s)).toMatchObject({ claimed: 1, retried: 1, failed: 0 });
+      const row = await full(id);
+      expect(row).toMatchObject({
+        status: 'queued',
+        attempts: 1,
+        last_error: expect.stringMatching(/^provider_error: SMTP EENVELOPE at RCPT TO: .*553 5\.7\.1 <<redacted>>: Sender address rejected/),
+      });
+      // The next attempt is on the ladder (1 minute), as for any provider error: fixing EMAIL_FROM lets it through.
+      expect(Math.round(Number(row.wait_min))).toBe(RETRY_DELAYS_MINUTES[0]);
+    });
+
     it('skips an email that no longer matches the booking: a confirmation cancelled before it went, an ack after the confirm', async () => {
       const s = await sink();
       const a = await guestBooking();
@@ -438,8 +462,9 @@ describe.skipIf(!TEST_DATABASE_URL)('email outbox (database + local SMTP sink)',
     });
 
     it('a drain whose lease ran out mid-send cannot overwrite the newer claim (fenced by attempts)', async () => {
-      // Both sends wait 600 ms for the server; the first then fails with 451, the second is accepted.
-      const s = await sink({ holdDataMs: 600, failData: (i) => (i === 0 ? 451 : null) });
+      // Both sends wait 2 s for the server, ample time for the second claim to reach DATA meanwhile, even on
+      // a slow CI machine; the first then fails with 451, the second is accepted.
+      const s = await sink({ holdDataMs: 2_000, failData: (i) => (i === 0 ? 451 : null) });
       await guestBooking({ email: '' });
       const [{ id }] = await outbox();
       const slow = drainTo(s);
@@ -471,12 +496,12 @@ describe.skipIf(!TEST_DATABASE_URL)('email outbox (database + local SMTP sink)',
       const [{ id }] = await outbox();
       const logged: unknown[] = [];
       const logSink = (e: unknown) => void logged.push(e);
-      expect(await drainOutbox({ pool, env: { VERCEL_ENV: 'preview', EMAIL_DELIVERY: 'log' }, mailer: { logSink } })).toMatchObject({ claimed: 0 });
+      expect(await drainOutbox({ pool, env: { VERCEL_ENV: 'preview', EMAIL_DELIVERY: 'log' }, mailer: { logSink }, now: NOW })).toMatchObject({ claimed: 0 });
       await pool.query(`UPDATE email_outbox SET env = 'preview'`);
-      expect(await drainOutbox({ pool, env: { VERCEL_ENV: 'preview', EMAIL_DELIVERY: 'log' }, mailer: { logSink } })).toMatchObject({ retried: 1 });
+      expect(await drainOutbox({ pool, env: { VERCEL_ENV: 'preview', EMAIL_DELIVERY: 'log' }, mailer: { logSink }, now: NOW })).toMatchObject({ retried: 1 });
       expect((await full(id)).last_error).toMatch(/^not_delivered: /);
       await pool.query(`UPDATE email_outbox SET env = 'development', next_attempt_at = now()`);
-      expect(await drainOutbox({ pool, env: {}, mailer: { logSink } })).toMatchObject({ sent: 1 });
+      expect(await drainOutbox({ pool, env: {}, mailer: { logSink }, now: NOW })).toMatchObject({ sent: 1 });
       expect(await full(id)).toMatchObject({ status: 'sent', provider_id: 'log', attempts: 2 });
       expect(logged).toHaveLength(2);
     });
@@ -486,7 +511,7 @@ describe.skipIf(!TEST_DATABASE_URL)('email outbox (database + local SMTP sink)',
       await s.close();
       sinks = [];
       const booking = await guestBooking({ email: '' });
-      const report = await drainOutbox({ pool, env: s.env(), mailer: { transportOverrides: s.clientOverrides } });
+      const report = await drainOutbox({ pool, env: s.env(), mailer: { transportOverrides: s.clientOverrides }, now: NOW });
       expect(report).toMatchObject({ claimed: 1, retried: 1 });
       const lastError = (await full(booking.outboxIds[0])).last_error;
       expect(lastError).toMatch(/^provider_error: SMTP ESOCKET at CONN: connect ECONNREFUSED/);
@@ -503,6 +528,87 @@ describe.skipIf(!TEST_DATABASE_URL)('email outbox (database + local SMTP sink)',
       const lines = [vi.mocked(console.info), vi.mocked(console.warn), vi.mocked(console.error)].flatMap((m) => m.mock.calls.map((c) => c.join(' ')));
       expect(lines.filter((l) => l.startsWith('[outbox]'))).toHaveLength(2);
       expect(lines.filter((l) => l.startsWith('[outbox]') && l.includes('@'))).toEqual([]);
+    });
+  });
+
+  describe('no booking email once its sitting has started (F5)', () => {
+    it('"Gửi lại" on a failed confirmation of yesterday’s sitting: requeued, then skipped by the drain, never sent', async () => {
+      const s = await sink();
+      const a = await guestBooking();
+      const { rows } = await pool.query('SELECT version FROM reservations WHERE id = $1', [a.id]);
+      await transitionReservation(pool, LAN, { id: a.id, version: rows[0].version, to: 'confirmed', reason: null, notifyGuest: false }, { now: NOW, effects: outboxEffects('development') });
+      await pool.query(`DELETE FROM email_outbox WHERE event <> 'guest.confirmed'`);
+      const [{ id }] = await outbox();
+      // As the sender leaves it after seven failed attempts; the booking was for yesterday, on the real clock.
+      await pool.query(`UPDATE email_outbox SET status = 'failed', attempts = 7, last_error = 'provider_error: SMTP ETIMEDOUT at CONN: Greeting never received' WHERE id = $1`, [id]);
+      await pool.query(`UPDATE reservations SET reserved_on = $2::date WHERE id = $1`, [a.id, addDays(venueNow().date, -1)]);
+      expect(await requeueEmail(pool, ADMIN, { id, env: 'development' })).toMatchObject({ ok: true });
+      // No `now`: the drain reads the real clock itself, as the cron, after() and "Gửi lại" do.
+      const report = await drainOutbox({ pool, env: s.env(), mailer: { transportOverrides: s.clientOverrides } });
+      expect(report).toMatchObject({ claimed: 1, sent: 0, skipped: 1 });
+      expect(await full(id)).toMatchObject({ status: 'skipped', attempts: 1, last_error: 'skipped: the sitting has passed' });
+      expect(s.attempts).toBe(0);
+    });
+
+    it('a request whose sitting passed an hour ago: its staff.new and guest.ack, due for their 7th attempt, are skipped, not sent', async () => {
+      const s = await sink();
+      const a = await guestBooking();
+      await pool.query(`UPDATE email_outbox SET attempts = 6, last_error = 'provider_error: SMTP ETIMEDOUT at CONN: Greeting never received'`);
+      // NOW is 10:00 on 2 Oct in Da Nang; the sitting was at 09:00 that day.
+      await pool.query(`UPDATE reservations SET reserved_on = '2026-10-02', reserved_at = '09:00' WHERE id = $1`, [a.id]);
+      expect(await drainTo(s)).toMatchObject({ claimed: 2, sent: 0, skipped: 2, failed: 0 });
+      expect((await pool.query(`SELECT event, status, attempts, last_error FROM email_outbox ORDER BY id`)).rows).toEqual([
+        { event: 'staff.new', status: 'skipped', attempts: 7, last_error: 'skipped: the sitting has passed' },
+        { event: 'guest.ack', status: 'skipped', attempts: 7, last_error: 'skipped: the sitting has passed' },
+      ]);
+      expect(s.attempts).toBe(0);
+    });
+  });
+
+  describe('staff.new only to whom it still concerns (F6)', () => {
+    const GONE = 'skipped: the recipient no longer gets these emails';
+
+    it('a recipient the Admin deleted: "Gửi lại" on its failed staff.new ends skipped, and nothing reaches the old address', async () => {
+      const s = await sink();
+      await recipient({ scope: 'restaurant', restaurant_id: 'taya-house', email: 'taya@furama.test' });
+      await guestBooking({ email: '' });
+      const [{ id, to_email }] = await outbox();
+      expect(to_email).toBe('taya@furama.test');
+      await pool.query(`UPDATE email_outbox SET status = 'failed', attempts = 7, last_error = 'provider_error: SMTP ETIMEDOUT at CONN: Greeting never received' WHERE id = $1`, [id]);
+      const [r] = await listRecipients(pool);
+      expect(await deleteRecipient(pool, ADMIN, { id: r.id, token: r.token })).toEqual({ ok: true, data: null });
+      expect(await requeueEmail(pool, ADMIN, { id, env: 'development' })).toMatchObject({ ok: true });
+      expect(await drainTo(s)).toMatchObject({ claimed: 1, sent: 0, skipped: 1 });
+      expect(await full(id)).toMatchObject({ status: 'skipped', last_error: GONE });
+      expect(s.attempts).toBe(0);
+    });
+
+    it('a recipient switched off: its queued staff.new is skipped; another one still reaching the booking (its destination) gets it', async () => {
+      const s = await sink();
+      await recipient({ scope: 'restaurant', restaurant_id: 'taya-house', email: 'taya@furama.test' });
+      await recipient({ scope: 'destination', destination_id: 'resort', email: 'resort@furama.test' });
+      await guestBooking({ email: '' });
+      await pool.query(`UPDATE notification_recipients SET active = false WHERE email = 'taya@furama.test'`);
+      expect(await drainTo(s)).toMatchObject({ claimed: 2, sent: 1, skipped: 1 });
+      expect((await pool.query(`SELECT to_email, status, last_error FROM email_outbox ORDER BY to_email`)).rows).toEqual([
+        { to_email: 'resort@furama.test', status: 'sent', last_error: null },
+        { to_email: 'taya@furama.test', status: 'skipped', last_error: GONE },
+      ]);
+      expect(s.received.map((m) => m.to)).toEqual([['resort@furama.test']]);
+    });
+
+    it('a fallback row goes to the shared inbox while it is unchanged; once the inbox moves, the rows still waiting are skipped', async () => {
+      const s = await sink();
+      await guestBooking({ email: '' });
+      await guestBooking({ email: '', time: '19:30' });
+      const [first, second] = await outbox();
+      expect([first, second]).toMatchObject([{ fallback: true, to_email: 'fb@furamavietnam.com' }, { fallback: true, to_email: 'fb@furamavietnam.com' }]);
+      expect(await drainTo(s, { ids: [first.id], limit: 1 })).toMatchObject({ claimed: 1, sent: 1 });
+      const inbox = await getSharedInbox(pool);
+      expect(await saveSharedInbox(pool, ADMIN, { email: 'datban@furama.test', token: inbox.token })).toEqual({ ok: true, data: null });
+      expect(await drainTo(s)).toMatchObject({ claimed: 1, sent: 0, skipped: 1 });
+      expect(await full(second.id)).toMatchObject({ status: 'skipped', last_error: GONE });
+      expect(s.received.map((m) => m.to)).toEqual([['fb@furamavietnam.com']]);
     });
   });
 });

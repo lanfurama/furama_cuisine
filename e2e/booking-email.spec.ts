@@ -33,8 +33,12 @@ function logged(): Logged[] {
     throw error;
   }
 }
-/** [to, subject] of every logged email about one booking. */
-const about = (reference: string) => logged().filter((e) => e.subject.includes(reference)).map((e) => [e.to, e.subject]);
+/** [to, subject] of every logged email about one booking, by recipient: after() sends them in no promised order. */
+const about = (reference: string) =>
+  logged()
+    .filter((e) => e.subject.includes(reference))
+    .map((e) => [e.to, e.subject])
+    .sort(([a], [b]) => a.localeCompare(b));
 
 test.use({ reducedMotion: 'reduce' });
 test.beforeEach(async ({ page }) => {
@@ -62,18 +66,23 @@ async function bookCafeIndochine(page: Page, guest: string): Promise<string> {
 test('A1, A4. a guest booking emails the staff (the general inbox: nobody is listed) and the guest, after the response', async ({ page }) => {
   const guest = `guest-${Date.now()}@example.com`;
   const reference = await bookCafeIndochine(page, guest);
+  // Sorted by recipient: the shared inbox (fb@…) before the guest (guest-…).
   await expect.poll(() => about(reference)).toEqual([
     ['fb@furamavietnam.com', expect.stringMatching(new RegExp(`^Đặt bàn mới ${reference}: Café Indochine, .+ \\d{2}:\\d{2}, 2 khách$`))],
     [guest, `We have received your table request (${reference})`],
   ]);
   const ack = logged().find((e) => e.to === guest && e.subject.includes(reference));
   expect(ack?.text).toContain('Your table request at Café Indochine has been received. Our team will contact you shortly to confirm.');
-  const rows = await one<{ statuses: string[]; events: string[]; fallback: boolean[] }>(
-    `SELECT array_agg(o.status ORDER BY o.id) AS statuses, array_agg(o.event ORDER BY o.id) AS events, array_agg(o.fallback ORDER BY o.id) AS fallback
-       FROM email_outbox o JOIN reservations r ON r.id = o.reservation_id WHERE r.reference = $1`,
-    [reference],
-  );
-  expect(rows).toEqual({ statuses: ['sent', 'sent'], events: ['staff.new', 'guest.ack'], fallback: [true, false] });
+  // The log line is written during the send; the row is marked sent just after it: poll, never read once.
+  await expect
+    .poll(() =>
+      one<{ statuses: string[]; events: string[]; fallback: boolean[] }>(
+        `SELECT array_agg(o.status ORDER BY o.id) AS statuses, array_agg(o.event ORDER BY o.id) AS events, array_agg(o.fallback ORDER BY o.id) AS fallback
+           FROM email_outbox o JOIN reservations r ON r.id = o.reservation_id WHERE r.reference = $1`,
+        [reference],
+      ),
+    )
+    .toEqual({ statuses: ['sent', 'sent'], events: ['staff.new', 'guest.ack'], fallback: [true, false] });
 
   // A4: the Admin's overview names the restaurant whose new-booking email went to the shared inbox.
   await seedStaff();
@@ -91,7 +100,7 @@ test('A2. confirming in the admin emails the guest', async ({ page }) => {
   await page.getByRole('main').getByRole('button', { name: 'Xác nhận', exact: true }).click();
   await expect(page.getByRole('main').getByRole('status')).toHaveText('Đã chuyển sang “Đã xác nhận”. Email báo khách đang được gửi.');
   await expect.poll(() => about(r.reference)).toEqual([[guest, `Your table is confirmed (${r.reference})`]]);
-  expect(await one(`SELECT status, attempts FROM email_outbox WHERE reservation_id = $1`, [r.id])).toEqual({ status: 'sent', attempts: 1 });
+  await expect.poll(() => one(`SELECT status, attempts FROM email_outbox WHERE reservation_id = $1`, [r.id])).toEqual({ status: 'sent', attempts: 1 });
 });
 
 test('A3. a failed email is retried: the next cron run sends a row whose first attempt failed', async ({ request }) => {

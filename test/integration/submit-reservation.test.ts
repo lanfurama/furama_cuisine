@@ -96,7 +96,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('submitReservation v2 (database)
     ]);
     // after() got one task; running it is what Vercel's waitUntil does once the response is out.
     expect(afterTasks).toHaveLength(1);
-    vi.useRealTimers();
+    // Still on the faked date (only Date is faked): the drain skips an email whose sitting has passed
+    // (F5), and on the real clock this booking's 2 October sitting has.
     await afterTasks[0]();
     expect((await sql(`SELECT status, provider_id FROM email_outbox ORDER BY id`)).rows).toEqual([
       { status: 'sent', provider_id: 'log' },

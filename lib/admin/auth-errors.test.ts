@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { actionErrorMessage, authErrorMessage, emailFailureHint, inviteEmailFailedMessage } from './auth-errors';
 
+const REJECTED = 'Máy chủ SMTP từ chối địa chỉ người nhận: kiểm tra lại địa chỉ (gửi lại sẽ không giúp).';
+const SENDER =
+  'Máy chủ SMTP không cho gửi từ địa chỉ này hoặc không cho chuyển tiếp: kiểm tra EMAIL_FROM là địa chỉ mà tài khoản SMTP_USER được phép gửi, và tài khoản đã đăng nhập (SMTP_USER, SMTP_PASSWORD).';
+const REFUSED_INVITE = 'Chưa gửi được email: máy chủ SMTP từ chối địa chỉ này. Kiểm tra lại địa chỉ, rồi thu hồi lời mời và mời lại.';
+
 describe('authErrorMessage', () => {
   it.each([
     [401, 'INVALID_EMAIL_OR_PASSWORD', 'Email hoặc mật khẩu không đúng.'],
@@ -76,9 +81,7 @@ describe('"Gửi email thử" failures (R9)', () => {
     ]) {
       expect(emailFailureHint(stored)).toBe('Không kết nối được máy chủ SMTP: kiểm tra SMTP_HOST, SMTP_PORT và SMTP_SECURE.');
     }
-    expect(emailFailureHint("rejected: SMTP EENVELOPE at RCPT TO: Can't send mail - all recipients were rejected: 550 <redacted>")).toBe(
-      'Máy chủ SMTP từ chối địa chỉ người nhận.',
-    );
+    expect(emailFailureHint("rejected: SMTP EENVELOPE at RCPT TO: Can't send mail - all recipients were rejected: 550 <redacted>")).toBe(REJECTED);
     expect(emailFailureHint('provider_error: SMTP EMESSAGE at DATA: Message failed: 554 Message rejected')).toBe('Kiểm tra cấu hình gửi email rồi thử lại.');
     const stored = 'provider_error: SMTP EAUTH at AUTH PLAIN: Invalid login: 535 Authentication failed';
     expect(actionErrorMessage('email_failed', { error: stored })).toBe(
@@ -89,17 +92,46 @@ describe('"Gửi email thử" failures (R9)', () => {
   });
 });
 
+describe('SMTP refusals: whose side to check (F9)', () => {
+  it.each([
+    ["provider_error: SMTP EENVELOPE at RCPT TO: Can't send mail - all recipients were rejected: 553 5.7.1 <<redacted>>: Sender address rejected: not owned by user"],
+    ["provider_error: SMTP EENVELOPE at RCPT TO: Can't send mail - all recipients were rejected: 554 5.7.1 <<redacted>>: Relay access denied"],
+    ["provider_error: SMTP EENVELOPE at RCPT TO: Can't send mail - all recipients were rejected: 554 <<redacted>>: Relay access denied"],
+    ['provider_error: SMTP EENVELOPE at MAIL FROM: Mail command failed: 553 5.7.1 <<redacted>>: Sender address rejected: not owned by user'],
+    ['provider_error: SMTP EENVELOPE at MAIL FROM: Mail command failed: 550 5.7.60 SMTP; Client does not have permissions to send as this sender'],
+  ])('a refusal of the sender, a relay or the login names EMAIL_FROM: %s', (stored) => {
+    expect(emailFailureHint(stored)).toBe(SENDER);
+    expect(emailFailureHint(stored)).toContain('EMAIL_FROM');
+  });
+
+  it('a refused mailbox says so, and that sending again will not help; the same words elsewhere than the envelope do not blame the sender', () => {
+    expect(emailFailureHint("rejected: SMTP EENVELOPE at RCPT TO: Can't send mail - all recipients were rejected: 550 5.1.1 <<redacted>>: Recipient address rejected: User unknown")).toBe(
+      REJECTED,
+    );
+    expect(REJECTED).not.toContain('Gửi lại');
+    expect(emailFailureHint("provider_error: SMTP EENVELOPE at RCPT TO: Can't send mail - all recipients were rejected: 451 Try again later")).toBe(
+      'Kiểm tra cấu hình gửi email rồi thử lại.',
+    );
+    expect(emailFailureHint('provider_error: SMTP EMESSAGE at DATA: Message failed: 554 5.7.1 Message rejected as spam')).toBe('Kiểm tra cấu hình gửi email rồi thử lại.');
+  });
+});
+
 describe('inviteEmailFailedMessage', () => {
   const setup = 'Chưa gửi được email: chưa cấu hình gửi email trên môi trường này. Báo bộ phận kỹ thuật, rồi bấm Gửi lại.';
   it.each([
     ['not_delivered', setup],
     ['missing_smtp_config', setup],
     ['missing_app_url', setup],
-    ['rejected', 'Chưa gửi được email, bấm Gửi lại.'],
+    ['rejected', REFUSED_INVITE],
     ['invalid_delivery_mode', setup],
     ['provider_error', 'Chưa gửi được email, bấm Gửi lại.'],
     ['unknown', 'Chưa gửi được email, bấm Gửi lại.'],
     ['toString', 'Chưa gửi được email, bấm Gửi lại.'],
     [null, 'Chưa gửi được email, bấm Gửi lại.'],
   ])('%s', (code, message) => expect(inviteEmailFailedMessage(code)).toBe(message));
+
+  it('a refused address is not worth sending again: the message says to check it and invite again (F9)', () => {
+    expect(inviteEmailFailedMessage('rejected')).not.toContain('Gửi lại');
+    expect(inviteEmailFailedMessage('rejected')).toContain('mời lại');
+  });
 });

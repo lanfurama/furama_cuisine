@@ -2,6 +2,8 @@ import 'server-only';
 import type { ReactElement } from 'react';
 import { plainTextSelectors, render } from 'react-email';
 import type { SMTPTransportOptions } from 'nodemailer/lib/smtp-transport';
+import { DEPLOYED } from '@/lib/botid';
+import { blamesSender } from '@/lib/email/smtp-reply';
 import { createSmtpTransport, smtpConfigFromEnv, smtpTransportOptions } from './smtp';
 import {
   EmailSendError,
@@ -36,8 +38,11 @@ export type EmailDeps = {
 
 export const SEND_TIMEOUT_MS = 30_000;
 
-/** Vercel deployments: their logs live on Vercel, and a Preview may run on a copy of production's staff. */
-const DEPLOYED = new Set(['production', 'preview']);
+/**
+ * RFC 3834: every email here is sent by the system. Without it a staff vacation responder may answer
+ * the guest (staff.new replies to the guest, R11), and a guest's auto-reply the shared inbox.
+ */
+const AUTO_SUBMITTED = { 'Auto-Submitted': 'auto-generated' };
 
 /**
  * Default log sink. Invite and reset links are bearer tokens, so on a Vercel deployment
@@ -50,6 +55,7 @@ const DEPLOYED = new Set(['production', 'preview']);
  * separate server process.
  */
 export const consoleLogSink: EmailLogSink = async (email) => {
+  // A Vercel deployment (DEPLOYED): its logs live on Vercel, and a Preview may run on a copy of production's staff.
   if (DEPLOYED.has(process.env.VERCEL_ENV ?? '')) {
     const domain = email.to.split('@')[1] ?? 'unknown';
     console.info(`[email:log] to=*@${domain} key=${email.idempotencyKey ?? '-'}`);
@@ -138,7 +144,16 @@ function withDeadline<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
 }
 
-type SmtpFailure = { message?: string; code?: string; command?: string; responseCode?: number; address?: unknown; hostname?: unknown };
+type SmtpFailure = {
+  message?: string;
+  code?: string;
+  command?: string;
+  responseCode?: number;
+  /** The server's reply line ("553 5.7.1 <a@b>: Sender address rejected: …"), when it sent one. */
+  response?: string;
+  address?: unknown;
+  hostname?: unknown;
+};
 
 const IPV4 = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
 
@@ -156,12 +171,19 @@ function scrubHost(text: string, names: unknown[]): string {
   return out.replace(IPV4, '<smtp-host>');
 }
 
-/** A refused recipient (5xx at RCPT TO) is final; anything else (network, TLS, login, 4xx, timeout) may pass later. */
+/**
+ * A recipient refused for good (a 5xx at RCPT TO about the mailbox) is final; anything else (network,
+ * TLS, login, 4xx, timeout) may pass later. A 5xx at RCPT TO that blames the sender, a relay or the
+ * login (a 5.7.x code, or such wording: Postfix and Exim report them there) is retried too: it fails
+ * every email until someone fixes EMAIL_FROM or the account, and then they go through by themselves.
+ * With neither a 5.7.x code nor such wording, a 5xx at RCPT TO stays final, as before.
+ */
 function smtpError(cause: unknown, host: string): EmailSendError {
   const e = (cause ?? {}) as SmtpFailure;
   const where = [e.code, e.command].filter(Boolean).join(' at ');
   const message = scrubHost(redactEmails(`SMTP ${where ? `${where}: ` : ''}${e.message ?? String(cause)}`), [host, e.address, e.hostname]);
-  const permanent = typeof e.responseCode === 'number' && e.responseCode >= 500 && e.responseCode < 600 && /^RCPT/i.test(e.command ?? '');
+  const refusedAtRcpt = typeof e.responseCode === 'number' && e.responseCode >= 500 && e.responseCode < 600 && /^RCPT/i.test(e.command ?? '');
+  const permanent = refusedAtRcpt && !blamesSender(e.response ?? e.message ?? '');
   return new EmailSendError(permanent ? 'rejected' : 'provider_error', message, { cause });
 }
 
@@ -244,7 +266,7 @@ export function openMailer(overrides: Partial<EmailDeps> = {}): Mailer {
       let info;
       try {
         info = await withDeadline(
-          transport.sendMail({ from, to, subject, html, text, messageId, ...(replyTo ? { replyTo } : {}) }),
+          transport.sendMail({ from, to, subject, html, text, messageId, headers: AUTO_SUBMITTED, ...(replyTo ? { replyTo } : {}) }),
           deps.sendTimeoutMs,
         );
       } catch (cause) {

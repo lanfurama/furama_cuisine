@@ -17,6 +17,8 @@ export type ReceivedMail = {
   messageId: string | null;
   subject: string | null;
   replyTo: string | null;
+  /** The Auto-Submitted header (RFC 3834) as sent. */
+  autoSubmitted: string | null;
   /** Whether the session was encrypted when the message arrived. */
   secure: boolean;
   user: string | null;
@@ -29,8 +31,11 @@ export type SinkOptions = {
   noStartTls?: boolean;
   /** Require this login. */
   login?: { user: string; pass: string };
-  /** Answer RCPT TO for this address with this SMTP code (e.g. 550, 451). */
-  refuseRecipient?: (address: string) => number | null;
+  /**
+   * Answer RCPT TO for this address with this SMTP code (e.g. 550, 451), or with a code and the
+   * reply text after it, as a real server words it ("5.7.1 <a@b>: Sender address rejected: …").
+   */
+  refuseRecipient?: (address: string) => number | { code: number; message: string } | null;
   /** Fail the message after DATA with this code; called per message, so it can fail only some. */
   failData?: (index: number) => number | null;
   /** Hold the reply to DATA this long (a slow server). */
@@ -88,8 +93,9 @@ export async function startSmtpSink(options: SinkOptions = {}): Promise<SmtpSink
       return callback(smtpError(535, 'Authentication failed'));
     },
     onRcptTo(address, _session, callback) {
-      const code = options.refuseRecipient?.(address.address) ?? null;
-      if (code) return callback(smtpError(code, code >= 500 ? `${address.address}: Recipient address rejected` : 'Try again later'));
+      const refusal = options.refuseRecipient?.(address.address) ?? null;
+      if (typeof refusal === 'object' && refusal) return callback(smtpError(refusal.code, refusal.message));
+      if (refusal) return callback(smtpError(refusal, refusal >= 500 ? `${address.address}: Recipient address rejected` : 'Try again later'));
       return callback();
     },
     onData(stream, session, callback) {
@@ -105,6 +111,7 @@ export async function startSmtpSink(options: SinkOptions = {}): Promise<SmtpSink
           messageId: header(raw, 'Message-ID'),
           subject: header(raw, 'Subject'),
           replyTo: header(raw, 'Reply-To'),
+          autoSubmitted: header(raw, 'Auto-Submitted'),
           secure: session.secure,
           user: typeof session.user === 'string' ? session.user : null,
         };

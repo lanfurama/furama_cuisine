@@ -454,7 +454,7 @@ export const REGISTRY = {
   },
   'email.guest.declined.subject': {
     en: 'We could not confirm your table request ({reference})',
-    vi: 'Chúng tôi chưa thể nhận yêu cầu đặt bàn của bạn ({reference})',
+    vi: 'Rất tiếc, chúng tôi không thể nhận yêu cầu đặt bàn của bạn ({reference})',
     maxLength: 120,
     vars: ['reference'],
     context: 'Subject of the email a guest gets when staff decline the request. {reference}: keep it.',
@@ -462,7 +462,7 @@ export const REGISTRY = {
   },
   'email.guest.declined.heading': {
     en: 'Request not confirmed',
-    vi: 'Yêu cầu chưa được xác nhận',
+    vi: 'Không thể xác nhận đặt bàn',
     maxLength: 80,
     context: 'Heading of the decline email.',
     screen: 'emails',
