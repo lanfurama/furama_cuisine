@@ -1,5 +1,6 @@
 import 'server-only';
 import { checkBotId } from 'botid/server';
+import { DEPLOYED } from '@/lib/botid';
 
 /*
  * Step 1 of submitReservation (spec §10.2): Vercel BotID.
@@ -13,12 +14,16 @@ import { checkBotId } from 'botid/server';
  * turns that into "every caller is a bot", through BotID's own development
  * bypass (developmentOptions), which is how tests walk the blocked path in a
  * real server. A deployment ignores the variable.
+ *
+ * The two halves must agree. A request without x-is-human gets a bot verdict
+ * from Vercel, so the server asks BotID only when the browser was given it:
+ * when the build inlined NEXT_PUBLIC_VERCEL_ENV as a deployment, which is
+ * what instrumentation-client.ts decides by, as well as VERCEL_ENV saying so
+ * at runtime.
  */
 
-/** VERCEL_ENV of a Vercel deployment. `vercel dev` and `vercel env pull` say 'development': not one. */
-const DEPLOYED = new Set(['production', 'preview']);
-
 export type BotCheck = typeof checkBotId;
+type Verdict = Awaited<ReturnType<BotCheck>>;
 
 /**
  * How long a booking waits for BotID's verdict. checkBotId's fetch to Vercel has no deadline of
@@ -28,24 +33,57 @@ export type BotCheck = typeof checkBotId;
 export const BOTID_TIMEOUT_MS = 3_000;
 
 /**
+ * What isBotRequest decides by, read at each call. NEXT_PUBLIC_VERCEL_ENV is written out in full
+ * on purpose: `next build` replaces that exact expression with its build-time value in server
+ * code just as in the browser bundle (node_modules/next/dist/docs/01-app/02-guides/
+ * environment-variables.md:164; define-env.js gives every NEXT_PUBLIC_* to the client, nodejs and
+ * edge builds alike), so this is the value instrumentation-client.ts saw. A lookup through a
+ * variable is not inlined (same file, :182-191) and would read the runtime environment instead.
+ */
+const processEnv = (): Record<string, string | undefined> => ({
+  VERCEL_ENV: process.env.VERCEL_ENV,
+  NEXT_PUBLIC_VERCEL_ENV: process.env.NEXT_PUBLIC_VERCEL_ENV,
+  BOTID_DEV_BYPASS: process.env.BOTID_DEV_BYPASS,
+});
+
+const HALF_SET_UP =
+  '[botid] off, bookings let through unchecked: this deployment was built without NEXT_PUBLIC_VERCEL_ENV, so browsers were never given BotID. Turn on "Automatically expose System Environment Variables" in the Vercel project settings, then redeploy.';
+
+/** Once per server instance: the cause is the deployment's settings, not any one request. */
+let warnedHalfSetUp = false;
+
+/**
+ * A bot, verified or not. BotID's own GOOD-BOT bypass marks a verified bot
+ * `isBot: false, isVerifiedBot: true`, so either flag refuses.
+ */
+const refused = (verdict: Verdict): boolean => verdict.isBot === true || verdict.isVerifiedBot === true;
+
+/**
  * True when the request should be refused as a bot. A verified bot (a search
  * crawler, an AI agent acting for someone) is refused too: booking is for
  * people, and the refusal gives the phone number (error.bot_blocked).
  *
  * Fails open: when BotID cannot answer (Vercel's API down, OIDC switched off
- * in the project) or has not answered within BOTID_TIMEOUT_MS, the booking
- * goes ahead and the failure is logged. The honeypot, consent and the
- * per-phone limit still stand, and a guest who cannot book costs more than a
- * bot that gets through for a while.
+ * in the project), answers without a verdict, or has not answered within
+ * BOTID_TIMEOUT_MS, the booking goes ahead and the failure is logged. The
+ * honeypot, consent and the per-phone limit still stand, and a guest who
+ * cannot book costs more than a bot that gets through for a while.
  */
 export async function isBotRequest(
-  env: Record<string, string | undefined> = process.env,
+  env: Record<string, string | undefined> = processEnv(),
   check: BotCheck = checkBotId,
 ): Promise<boolean> {
   if (!DEPLOYED.has(env.VERCEL_ENV ?? '')) {
     if (env.BOTID_DEV_BYPASS !== 'BAD-BOT') return false;
-    const verdict = await check({ developmentOptions: { isDevelopment: true, bypass: 'BAD-BOT' } });
-    return verdict.isBot;
+    return refused(await check({ developmentOptions: { isDevelopment: true, bypass: 'BAD-BOT' } }));
+  }
+  if (!DEPLOYED.has(env.NEXT_PUBLIC_VERCEL_ENV ?? '')) {
+    // Deployed, but the browser half was never installed: no request carries x-is-human.
+    if (!warnedHalfSetUp) {
+      warnedHalfSetUp = true;
+      console.warn(HALF_SET_UP);
+    }
+    return false;
   }
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -58,7 +96,12 @@ export async function isBotRequest(
         );
       }),
     ]);
-    return verdict.isBot;
+    // checkBotId parses the API's reply without looking at its status, so a JSON error (an expired
+    // OIDC token, BotID off for the project, a rate limit) comes back as a "verdict" with no isBot.
+    if (typeof verdict?.isBot !== 'boolean') {
+      throw Object.assign(new Error('no verdict in the BotID response'), { name: 'BotIdError' });
+    }
+    return refused(verdict);
   } catch (err) {
     // BotID's own messages name configuration, never the guest.
     console.error('[botid] check failed, request let through', {

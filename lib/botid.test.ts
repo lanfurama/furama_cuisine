@@ -28,7 +28,14 @@ describe('botIdEnabled', () => {
  */
 describe('BOTID_PROTECT under the real BotID fetch wrapper', () => {
   const sent: { url: string; method: string; headers: Headers }[] = [];
-  const original = { window: globalThis.window, document: globalThis.document, location: globalThis.location, fetch: globalThis.fetch };
+  // Every global beforeAll replaces, so afterAll puts all of them back.
+  const original = {
+    window: globalThis.window,
+    document: globalThis.document,
+    location: globalThis.location,
+    fetch: globalThis.fetch,
+    XMLHttpRequest: globalThis.XMLHttpRequest,
+  };
 
   beforeAll(async () => {
     const fakeWindow = {

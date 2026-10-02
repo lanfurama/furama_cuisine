@@ -15,8 +15,12 @@
  */
 export const BOTID_PROTECT = [{ path: '/*', method: 'POST' }];
 
-/** VERCEL_ENV of a Vercel deployment, as NEXT_PUBLIC_VERCEL_ENV inlines it at build. */
-const DEPLOYED = new Set(['production', 'preview']);
+/**
+ * VERCEL_ENV of a Vercel deployment, and NEXT_PUBLIC_VERCEL_ENV, its copy that `next build` inlines.
+ * `vercel dev` and `vercel env pull` say 'development': not one. The server half
+ * (lib/server/guard/bot.ts) decides by the same set.
+ */
+export const DEPLOYED: ReadonlySet<string> = new Set(['production', 'preview']);
 
 /**
  * Only a Vercel deployment can answer BotID's challenge (its script is a
