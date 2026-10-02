@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useActionState, useId } from 'react';
+import { submitKeepingValues } from '@/lib/admin/form';
 import type { ActionResult } from '@/lib/server/action-result';
 import { cancelReservations, type CancelManyResult } from '../reservations/actions';
 import { FieldError, FormMessage } from './FormMessage';
@@ -44,7 +45,11 @@ export function AffectedList({ items, title }: { items: AffectedItem[]; title: s
     );
   }
   return (
-    <form className="a-affected" action={action} aria-label={title}>
+    // submitKeepingValues: a refused cancel (no reason, nothing ticked) keeps the ticks and the reason, where
+    // action={action} would reset them. The key clears them once a cancel changes the list (refresh()): a
+    // booking skipped because it changed comes back with a new version and must not stay ticked. The hook
+    // state lives above the form, so the outcome notice survives. method="post": never a GET before hydration.
+    <form className="a-affected" method="post" onSubmit={submitKeepingValues(action)} key={items.map((i) => `${i.id}:${i.version}`).join()} aria-label={title}>
       <p className="a-warn">{`${items.length} đặt bàn bị ảnh hưởng. Hệ thống không tự hủy: chọn những đặt bàn cần hủy, ghi lý do rồi bấm Hủy.`}</p>
       <table className="a-table a-table--compact">
         <thead>

@@ -16,7 +16,10 @@ import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures'
 test.beforeAll(() => seedStaff());
 test.use({ reducedMotion: 'reduce' }); // no reveal animation on the guest's booking bar
 
-const SEED_DINNER = `UPDATE service_periods SET last_seating = '21:00', covers_per_slot = 22 WHERE restaurant_id = 'thai-siam-kitchen' AND meal = 'Dinner'`;
+// Migration 006's seed for Thai Siam Kitchen's dinner: 18:00–21:00 every 30 minutes, every day, 22 covers.
+const SEED_DINNER = `UPDATE service_periods SET weekdays = '{1,2,3,4,5,6,7}', first_seating = '18:00', last_seating = '21:00', interval_min = 30,
+  covers_per_slot = 22, active = true WHERE restaurant_id = 'thai-siam-kitchen' AND meal = 'Dinner'`;
+const SEED_PERIODS = `DELETE FROM service_periods WHERE restaurant_id = 'thai-siam-kitchen' AND meal NOT IN ('Lunch', 'Dinner')`;
 const CLEAR_AUDIT = `DELETE FROM audit_log WHERE entity_id IN ('thai-siam-kitchen', 'hura-izakaya')`;
 
 /** The guest opens the drawer from a home-page card (a restaurant without its own page only reserves). */
@@ -124,4 +127,80 @@ test('shorter dinner hours list the bookings they leave out, and only the ticked
     await one(SEED_DINNER);
     await one(CLEAR_AUDIT);
   }
+});
+
+test('the periods editor keeps showing what it will post, after a refused save and after a saved one', async ({ page }) => {
+  try {
+    await signInAs(page, STAFF.editor);
+    await page.goto('/admin/restaurants/thai-siam-kitchen/booking');
+    await expectHydrated(page);
+    const editor = page.getByRole('form', { name: 'Ca phục vụ' });
+    const rowOf = (meal: string) => editor.getByRole('row').filter({ has: page.getByLabel(`Khoảng cách của ca ${meal}`, { exact: true }) });
+    // What staff see must be what the form posts: React resets a form once its action settles, which
+    // would put each select and checkbox back to its server-rendered (or first) option.
+    const expectDinnerEdited = async () => {
+      const dinner = rowOf('Dinner');
+      await expect(dinner.getByLabel('Bữa của ca 2', { exact: true })).toHaveValue('Dinner');
+      await expect(dinner.getByLabel('Khoảng cách của ca Dinner', { exact: true })).toHaveValue('60');
+      await expect(dinner.getByRole('checkbox', { name: 'T2', exact: true })).not.toBeChecked();
+      await expect(dinner.getByRole('checkbox', { name: 'T3', exact: true })).toBeChecked();
+      await expect(dinner.getByLabel('Bật ca Dinner', { exact: true })).toBeChecked();
+    };
+
+    // Dinner every hour and not on Mondays, beside a new Drinks service that shares its 18:00 (R6).
+    await rowOf('Dinner').getByLabel('Khoảng cách của ca Dinner', { exact: true }).selectOption('60');
+    await rowOf('Dinner').getByRole('checkbox', { name: 'T2', exact: true }).uncheck();
+    await editor.getByRole('button', { name: 'Thêm ca' }).click();
+    await editor.getByLabel('Bữa của ca 3', { exact: true }).selectOption('Drinks');
+    await editor.getByRole('button', { name: 'Lưu ca phục vụ' }).click();
+    await expect(editor.getByText('Hai ca trùng giờ: Dinner và Drinks cùng có giờ 18:00.')).toBeVisible();
+    await expectDinnerEdited();
+    await expect(editor.getByLabel('Bữa của ca 3', { exact: true })).toHaveValue('Drinks');
+    await expect(rowOf('Drinks').getByLabel('Khoảng cách của ca Drinks', { exact: true })).toHaveValue('30');
+    await expect(rowOf('Drinks').getByRole('checkbox', { name: 'T2', exact: true })).toBeChecked();
+
+    // Without the Drinks row the same edit saves, and the editor still shows what was saved.
+    await rowOf('Drinks').getByRole('button', { name: 'Xóa' }).click();
+    await editor.getByRole('button', { name: 'Lưu ca phục vụ' }).click();
+    await expect(editor.getByRole('status')).toHaveText('Đã lưu ca phục vụ.');
+    await expectDinnerEdited();
+    expect(
+      await one(`SELECT interval_min, weekdays::int[] AS weekdays FROM service_periods WHERE restaurant_id = 'thai-siam-kitchen' AND meal = 'Dinner'`),
+    ).toEqual({ interval_min: 60, weekdays: [2, 3, 4, 5, 6, 7] });
+  } finally {
+    await one(SEED_PERIODS);
+    await one(SEED_DINNER);
+    await one(CLEAR_AUDIT);
+  }
+});
+
+test('a refused batch cancel keeps the ticks and the reason; the cancel then goes through', async ({ page }) => {
+  // 21:30 is no dinner seating (18:00–21:00 every 30 minutes), so the booking is listed without changing the hours.
+  const off = await seedReservation({ restaurant: 'thai-siam-kitchen', date: venueDay(2), time: '21:30' });
+  await signInAs(page, STAFF.editor);
+  await page.goto('/admin/restaurants/thai-siam-kitchen/booking');
+  await expectHydrated(page);
+  const section = page.getByRole('region', { name: 'Đặt bàn sắp tới không còn khớp' });
+  const list = section.getByRole('form', { name: 'Đặt bàn sắp tới không còn khớp giờ hoặc sức chứa' });
+  const tick = list.getByRole('checkbox', { name: `Chọn ${off.reference}` });
+  const reason = list.getByLabel('Lý do hủy', { exact: true });
+  const cancel = list.getByRole('button', { name: 'Hủy các đặt bàn đã chọn' });
+
+  await tick.check();
+  await cancel.click();
+  await expect(list.getByText('Nhập lý do hủy.')).toBeVisible();
+  await expect(tick).toBeChecked();
+  // And the other way round: a reason with nothing ticked is refused, and the reason stays.
+  await tick.uncheck();
+  await reason.fill('Bếp đóng sớm');
+  await cancel.click();
+  await expect(list.getByText('Chọn ít nhất một đặt bàn.')).toBeVisible();
+  await expect(reason).toHaveValue('Bếp đóng sớm');
+  expect((await reservationRow(off.id)).status).toBe('requested');
+
+  await tick.check();
+  await cancel.click();
+  await expect(section.getByRole('status')).toHaveText('Đã hủy 1 đặt bàn.');
+  await expect(section.getByRole('row').filter({ hasText: off.reference })).toHaveCount(0);
+  expect(await reservationRow(off.id)).toMatchObject({ status: 'cancelled', status_reason: 'Bếp đóng sớm' });
 });

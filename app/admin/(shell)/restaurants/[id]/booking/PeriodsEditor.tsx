@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import { submitKeepingValues } from '@/lib/admin/form';
 import { SLOT_INTERVALS } from '@/lib/booking/rules';
 import type { ActionResult } from '@/lib/server/action-result';
 import { FieldError, FormMessage } from '../../../_ui/FormMessage';
@@ -47,7 +48,10 @@ export function PeriodsEditor({ restaurantId, token, meals, periods }: { restaur
   const rowErrors = Object.entries(state && !state.ok ? (state.fieldErrors ?? {}) : {}).filter(([key]) => key !== 'periods');
 
   return (
-    <form action={action} aria-label="Ca phục vụ">
+    // Not action={action}: React resets a form once its action settles, and a reset puts each controlled
+    // select and checkbox back to its server-rendered (or first) option while `rows`, and so the posted
+    // JSON, keep the edited values. method="post": a submit before hydration must not GET the list into the URL.
+    <form method="post" onSubmit={submitKeepingValues(action)} aria-label="Ca phục vụ">
       <input type="hidden" name="restaurant" value={restaurantId} />
       <input type="hidden" name="token" value={token} />
       <input type="hidden" name="periods" value={JSON.stringify(rows)} />
