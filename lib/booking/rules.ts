@@ -58,6 +58,9 @@ export type BookingRules = {
   closures: ClosureRule[];
 };
 
+/** The number guests call for a larger group (spec §10.2): a destination's phone until phase 6 adds restaurants.phone_*. */
+export type GroupPhone = { display: string; tel: string };
+
 /** Covers held per "HH:MM" on one date. */
 export type BookedCovers = Record<string, number>;
 
