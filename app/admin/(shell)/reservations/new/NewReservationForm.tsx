@@ -14,6 +14,9 @@ export type SlotOption = { time: string; label: string };
  * Posts to the target the page was rendered for (the hidden restaurant and
  * date), which the line at the top names. The page keys this form on that
  * target, so a new pick remounts it with the new times.
+ *
+ * "Gửi email xác nhận" (spec §10.3, R8) is on by default for a phone booking
+ * and hidden for a walk-in, who is already at the table.
  */
 export function NewReservationForm(props: {
   restaurantId: string;
@@ -28,6 +31,7 @@ export function NewReservationForm(props: {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(createReservation, null);
   const picked = usePickedTarget();
   const [refused, setRefused] = useState(false);
+  const [walkIn, setWalkIn] = useState(false);
   const err = (name: string) => `res-new-${name}-error`;
   // The picker no longer shows this form's target: its times are the old target's, so posting would book there.
   const stale = !!picked && (picked.restaurant !== props.restaurantId || picked.date !== props.date);
@@ -55,11 +59,11 @@ export function NewReservationForm(props: {
       <fieldset className="a-field a-field--wide">
         <legend>Nguồn</legend>
         <label className="a-check">
-          <input type="radio" name="source" value="phone" defaultChecked />
+          <input type="radio" name="source" value="phone" defaultChecked onChange={() => setWalkIn(false)} />
           Điện thoại (đã xác nhận)
         </label>
         <label className="a-check">
-          <input type="radio" name="source" value="walk_in" disabled={!props.walkInAllowed} />
+          <input type="radio" name="source" value="walk_in" disabled={!props.walkInAllowed} onChange={() => setWalkIn(true)} />
           Khách vãng lai (đã đến)
         </label>
       </fieldset>
@@ -93,6 +97,12 @@ export function NewReservationForm(props: {
         <label htmlFor="res-new-email">Email (không bắt buộc)</label>
         <input id="res-new-email" name="email" type="email" aria-describedby={err('email')} />
         <FieldError state={state} name="email" id={err('email')} />
+        {walkIn ? null : (
+          <label className="a-check">
+            <input type="checkbox" name="notifyGuest" defaultChecked />
+            Gửi email xác nhận cho khách (khi có email)
+          </label>
+        )}
       </div>
       <div className="a-field">
         <label htmlFor="res-new-locale">Ngôn ngữ của khách</label>

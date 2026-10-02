@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useId } from 'react';
+import { useActionState, useId, useState } from 'react';
 import { submitKeepingValues } from '@/lib/admin/form';
 import type { ActionResult } from '@/lib/server/action-result';
 import { cancelReservations, type CancelManyResult } from '../reservations/actions';
@@ -24,11 +24,17 @@ export type AffectedItem = {
 /*
  * Bookings that new hours, a new capacity or a closure leave out (spec §10.1).
  * Nothing is ticked at first, and nothing is cancelled unless staff tick it,
- * write a reason and press the button: never automatic.
+ * write a reason and press the button: never automatic. "Báo khách qua email"
+ * is on by default, as for a single cancel (R8): each guest who gave an
+ * address gets guest.cancelled with the reason.
  */
 export function AffectedList({ items, title }: { items: AffectedItem[]; title: string }) {
   const [state, action, pending] = useActionState<ActionResult<CancelManyResult> | null, FormData>(cancelReservations, null);
   const uid = useId();
+  const formKey = items.map((i) => `${i.id}:${i.version}`).join();
+  // The box remounts ticked with the form (its key); the hint's state follows it back to on.
+  const [notifyAt, setNotifyAt] = useState({ formKey, on: true });
+  const notify = notifyAt.formKey === formKey ? notifyAt.on : true;
   const done = state?.ok ? state.data : null;
   const notice = done ? (
     <p className="a-notice" role="status">
@@ -49,7 +55,7 @@ export function AffectedList({ items, title }: { items: AffectedItem[]; title: s
     // action={action} would reset them. The key clears them once a cancel changes the list (refresh()): a
     // booking skipped because it changed comes back with a new version and must not stay ticked. The hook
     // state lives above the form, so the outcome notice survives. method="post": never a GET before hydration.
-    <form className="a-affected" method="post" onSubmit={submitKeepingValues(action)} key={items.map((i) => `${i.id}:${i.version}`).join()} aria-label={title}>
+    <form className="a-affected" method="post" onSubmit={submitKeepingValues(action)} key={formKey} aria-label={title}>
       <p className="a-warn">{`${items.length} đặt bàn bị ảnh hưởng. Hệ thống không tự hủy: chọn những đặt bàn cần hủy, ghi lý do rồi bấm Hủy.`}</p>
       <table className="a-table a-table--compact">
         <thead>
@@ -83,8 +89,22 @@ export function AffectedList({ items, title }: { items: AffectedItem[]; title: s
       </table>
       <div className="a-field">
         <label htmlFor={`${uid}-reason`}>Lý do hủy</label>
-        <input id={`${uid}-reason`} name="reason" maxLength={500} aria-describedby={`${uid}-reason-error`} />
+        <input
+          id={`${uid}-reason`}
+          name="reason"
+          maxLength={500}
+          aria-describedby={notify ? `${uid}-reason-hint ${uid}-reason-error` : `${uid}-reason-error`}
+        />
+        {notify ? (
+          <small className="a-sub" id={`${uid}-reason-hint`}>
+            Lý do này sẽ được gửi cho khách.
+          </small>
+        ) : null}
         <FieldError state={state} name="reason" id={`${uid}-reason-error`} />
+        <label className="a-check">
+          <input type="checkbox" name="notifyGuest" defaultChecked onChange={(e) => setNotifyAt({ formKey, on: e.target.checked })} />
+          Báo khách qua email
+        </label>
         <FieldError state={state} name="items" id={`${uid}-items-error`} />
       </div>
       {notice ?? <FormMessage state={state && !state.ok ? state : null} />}

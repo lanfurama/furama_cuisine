@@ -10,7 +10,7 @@ import { STAFF, expect, newVisitor, one, seedStaff, signInAs, test } from './sta
  * no-show work, with the time windows and the version conflict of §10.3;
  * the inbox search; an edit re-checked against capacity; a phone booking
  * past capacity; a phone booking at the restaurant and date the picker
- * shows; the printable day sheet. The admin CSP stays clean (no inline
+ * shows; the printable day sheet; the guest-email checkboxes of phase 5. The admin CSP stays clean (no inline
  * styles). Tàya House at +3, +4, +6 (one booking outside the hours) and
  * yesterday, V-Senses Cafe at +8, ChaoShan Hotpot at +7, Café Indochine at
  * +6: dates no other spec books there. The tests that count covers (Tàya
@@ -64,6 +64,37 @@ test('cancel needs a reason; the reason is kept and shown', async ({ page }) => 
   await expect(page.getByRole('list', { name: 'Dòng thời gian' }).getByRole('listitem').first()).toContainText('Lý do: Khách gọi báo hủy');
   await expect(main(page).getByText('Đặt bàn đã kết thúc; không còn thao tác nào.')).toBeVisible();
   expect(await reservationRow(r.id)).toMatchObject({ status: 'cancelled', status_reason: 'Khách gọi báo hủy' });
+});
+
+test('the guest emails staff choose (R8): "Báo khách" is on for a cancel and says the reason goes out; "Gửi email xác nhận" is for a phone booking only', async ({ page }) => {
+  const r = await seedReservation({ status: 'confirmed' });
+  const guest = `cancel-${r.id}@example.com`;
+  await one(`UPDATE reservations SET email = $2 WHERE id = $1`, [r.id, guest]);
+  await signInAs(page, STAFF.editor);
+  await page.goto(`/admin/reservations/${r.id}`);
+  await expectHydrated(page);
+  const notify = main(page).getByRole('checkbox', { name: 'Báo khách qua email khi hủy' });
+  const hint = main(page).getByText('Lý do này sẽ được gửi cho khách.');
+  await expect(notify).toBeChecked();
+  await expect(hint).toBeVisible();
+  await notify.uncheck();
+  await expect(hint).toBeHidden();
+  await notify.check();
+  await page.getByLabel('Lý do (bắt buộc khi hủy hoặc từ chối)', { exact: true }).fill('Nhà hàng có tiệc riêng');
+  await main(page).getByRole('button', { name: 'Hủy', exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Đã hủy');
+  expect(await one(`SELECT event, to_email FROM email_outbox WHERE reservation_id = $1`, [r.id])).toEqual({ event: 'guest.cancelled', to_email: guest });
+
+  // Nothing is booked below: the form only shows or hides the box.
+  await page.goto('/admin/reservations/new?nha_hang=taya-house');
+  await expectHydrated(page);
+  const form = page.getByRole('form', { name: 'Đặt bàn mới' });
+  const confirmEmail = form.getByRole('checkbox', { name: 'Gửi email xác nhận cho khách (khi có email)' });
+  await expect(confirmEmail).toBeChecked();
+  await form.getByRole('radio', { name: 'Khách vãng lai (đã đến)' }).check();
+  await expect(confirmEmail).toBeHidden();
+  await form.getByRole('radio', { name: 'Điện thoại (đã xác nhận)' }).check();
+  await expect(confirmEmail).toBeChecked();
 });
 
 test('no-show only once the sitting is 15 minutes past; the correction only on the same service day', async ({ page }) => {

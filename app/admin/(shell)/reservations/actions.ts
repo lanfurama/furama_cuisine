@@ -8,6 +8,7 @@ import type { ReservationStatus } from '@/lib/booking/rules';
 import { toE164 } from '@/lib/phone';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
 import { listLocales } from '@/lib/server/booking/queries';
+import { outboxEffects } from '@/lib/server/email/outbox';
 import {
   addReservationNote,
   createStaffReservation,
@@ -22,8 +23,8 @@ import { requirePermission } from '@/lib/server/dal/session';
  * transaction (the change and its reservation_events row, never audit_log) →
  * refresh() → ActionResult. Editor and Admin alike (spec §7.1). Reservations
  * are never cached, so there is no tag to expire; refresh() re-renders the
- * page in the same response. No email yet: notifyGuest stays false until
- * phase 5 adds the checkbox and the outbox.
+ * page in the same response. A change that emails the guest queues its
+ * email_outbox rows in the same transaction (outboxEffects, spec §10.3–10.4).
  */
 
 const field = (formData: FormData, name: string) => formData.get(name) ?? undefined;
@@ -39,8 +40,10 @@ export async function changeStatus(
       version: field(formData, 'version'),
       to: field(formData, 'to'),
       reason: field(formData, 'reason'),
+      notifyGuest: field(formData, 'notifyGuest'),
     });
-    const result = await transitionReservation(getPool(), staffActor(staff), { ...input, notifyGuest: false });
+    const effects = outboxEffects();
+    const result = await transitionReservation(getPool(), staffActor(staff), input, { effects });
     if (!result.ok) return result;
     refresh();
     return { ok: true, data: { status: result.data.status } };
@@ -85,21 +88,27 @@ export async function createReservation(_prev: ActionResult | null, formData: Fo
     if (!(await listLocales(pool)).some((l) => l.code === input.locale)) {
       return { ok: false, code: 'invalid', fieldErrors: { locale: ['Chọn ngôn ngữ của khách.'] } };
     }
-    const result = await createStaffReservation(pool, staffActor(staff), {
-      restaurantId: input.restaurant,
-      date: input.date,
-      time: input.time,
-      guests: input.guests,
-      name: input.name,
-      phone: input.phone,
-      phoneE164: toE164(input.phone)!,
-      email: input.email,
-      note: input.note,
-      locale: input.locale,
-      source: input.source,
-      overCapacityReason: input.overCapacityReason,
-      notifyGuest: false,
-    });
+    const effects = outboxEffects();
+    const result = await createStaffReservation(
+      pool,
+      staffActor(staff),
+      {
+        restaurantId: input.restaurant,
+        date: input.date,
+        time: input.time,
+        guests: input.guests,
+        name: input.name,
+        phone: input.phone,
+        phoneE164: toE164(input.phone)!,
+        email: input.email,
+        note: input.note,
+        locale: input.locale,
+        source: input.source,
+        overCapacityReason: input.overCapacityReason,
+        notifyGuest: input.notifyGuest,
+      },
+      { effects },
+    );
     if (!result.ok) return result;
     // redirect() throws NEXT_REDIRECT, which actionError() rethrows (unstable_rethrow): it may sit in the try (R13).
     redirect(`/admin/reservations/${result.data.id}`);
@@ -119,13 +128,19 @@ export type CancelManyResult = { cancelled: number; skipped: number };
 export async function cancelReservations(_prev: ActionResult<CancelManyResult> | null, formData: FormData): Promise<ActionResult<CancelManyResult>> {
   try {
     const staff = await requirePermission({ reservations: ['update'] });
-    const input = CancelManyForm.parse({ items: formData.getAll('item'), reason: field(formData, 'reason') });
+    const input = CancelManyForm.parse({ items: formData.getAll('item'), reason: field(formData, 'reason'), notifyGuest: field(formData, 'notifyGuest') });
     const pool = getPool();
     const actor = staffActor(staff);
+    const effects = outboxEffects();
     let cancelled = 0;
     for (const item of input.items) {
       const [id, version] = item.split(':');
-      const result = await transitionReservation(pool, actor, { id, version: Number(version), to: 'cancelled', reason: input.reason, notifyGuest: false });
+      const result = await transitionReservation(
+        pool,
+        actor,
+        { id, version: Number(version), to: 'cancelled', reason: input.reason, notifyGuest: input.notifyGuest },
+        { effects },
+      );
       if (result.ok) cancelled += 1;
     }
     refresh();

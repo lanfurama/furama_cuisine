@@ -4,6 +4,8 @@ import { getPool } from '@/db/client';
 import { resolveDay } from '@/lib/booking/resolve-day';
 import { slotVerdict } from '@/lib/booking/slot-code';
 import type { BookingErrorCode } from '@/lib/booking-errors';
+import { outboxEnv } from '@/lib/server/email/env';
+import { queueWebBookingEmails } from '@/lib/server/email/outbox';
 import { newReference } from '@/lib/server/reference';
 import { venueNow, type IsoDate } from '@/lib/venue-time';
 import type { ReservationRequest } from './input';
@@ -13,12 +15,13 @@ import { loadBookedCovers, loadRestaurantRules } from './rules';
 /*
  * Step 6 of submitReservation (spec §10.2): one transaction that takes the
  * booking-day lock, re-reads the rules and the covers, re-runs resolveDay,
- * and inserts the booking with its 'created' event. The outbox rows of step 6
- * and after() of step 7 arrive in phase 5.
+ * and inserts the booking with its 'created' event and its email_outbox rows
+ * (staff.new, then guest.ack or guest.confirmed). Nothing is sent here; the
+ * action drains `outboxIds` once this has committed (step 7).
  */
 
 export type CreateOutcome =
-  | { ok: true; id: string; reference: string; date: IsoDate; status: 'requested' | 'confirmed' }
+  | { ok: true; id: string; reference: string; date: IsoDate; status: 'requested' | 'confirmed'; outboxIds: string[] }
   | { ok: false; code: BookingErrorCode; params?: Record<string, string> };
 
 export type CreateOptions = {
@@ -113,9 +116,10 @@ async function insertInTransaction(client: PoolClient, input: ReservationRequest
     ],
   );
   const id = rows[0].id;
-  await client.query(`INSERT INTO reservation_events (reservation_id, actor_kind, type, to_status) VALUES ($1, 'guest', 'created', $2)`, [
-    id,
-    status,
-  ]);
-  return { ok: true, id, reference, date: input.date, status };
+  const event = await client.query<{ id: string }>(
+    `INSERT INTO reservation_events (reservation_id, actor_kind, type, to_status) VALUES ($1, 'guest', 'created', $2) RETURNING id::text`,
+    [id, status],
+  );
+  const outboxIds = await queueWebBookingEmails(client, { reservationId: id, eventId: event.rows[0].id, env: outboxEnv(), status });
+  return { ok: true, id, reference, date: input.date, status, outboxIds };
 }

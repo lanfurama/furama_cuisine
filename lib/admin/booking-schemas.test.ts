@@ -20,8 +20,11 @@ describe('booking form schemas', () => {
       version: 3,
       to: 'confirmed',
       reason: null,
+      notifyGuest: false,
     });
     expect(TransitionForm.parse({ id: '12', version: '3', to: 'cancelled', reason: '  Khách hủy  ' }).reason).toBe('Khách hủy');
+    // "Báo khách": a ticked checkbox posts "on"; an unticked one posts nothing.
+    expect(TransitionForm.parse({ id: '12', version: '3', to: 'cancelled', reason: 'x', notifyGuest: 'on' }).notifyGuest).toBe(true);
     expect(TransitionForm.safeParse({ id: '12', version: '0', to: 'eaten', reason: '' }).success).toBe(false);
   });
 
@@ -55,7 +58,10 @@ describe('booking form schemas', () => {
       guests: 30,
       email: null,
       overCapacityReason: 'Đã gọi bếp',
+      notifyGuest: false,
     });
+    // "Gửi email xác nhận" (R8): on by default in the form, so a phone booking usually posts "on".
+    expect(NewReservationForm.parse({ ...base, notifyGuest: 'on' }).notifyGuest).toBe(true);
     expect(NewReservationForm.safeParse({ ...base, restaurant: 'x;drop', source: 'web', locale: '' }).error?.flatten().fieldErrors).toEqual({
       restaurant: [expect.any(String)],
       source: ['Chọn nguồn đặt bàn.'],
@@ -99,7 +105,8 @@ describe('booking form schemas', () => {
   });
 
   it('a batch cancel: ticked id:version pairs and a reason', () => {
-    expect(CancelManyForm.parse({ items: ['12:3', '7:1'], reason: ' Đóng cửa ' })).toEqual({ items: ['12:3', '7:1'], reason: 'Đóng cửa' });
+    expect(CancelManyForm.parse({ items: ['12:3', '7:1'], reason: ' Đóng cửa ' })).toEqual({ items: ['12:3', '7:1'], reason: 'Đóng cửa', notifyGuest: false });
+    expect(CancelManyForm.parse({ items: ['12:3'], reason: 'x', notifyGuest: 'on' }).notifyGuest).toBe(true);
     expect(CancelManyForm.safeParse({ items: [], reason: '' }).error?.flatten().fieldErrors).toEqual({
       items: ['Chọn ít nhất một đặt bàn.'],
       reason: ['Nhập lý do hủy.'],

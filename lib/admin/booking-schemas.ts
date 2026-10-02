@@ -26,11 +26,16 @@ export const Time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, { error: 'Ch�
 /** A reason staff write: at most 500 characters (reservation_events.reason); blank = none. */
 export const Reason = z.preprocess(blankToNull, z.string().trim().max(500, { error: 'Lý do tối đa 500 ký tự.' }).nullable());
 
+/** An HTML checkbox: "on" when ticked, no entry at all when not. */
+export const Checkbox = z.preprocess((v) => v === 'on', z.boolean());
+
 export const TransitionForm = z.object({
   id: Id,
   version: Version,
   to: z.enum(RESERVATION_STATUSES),
   reason: Reason,
+  /** "Báo khách qua email khi hủy" (spec §10.3, R8); confirm and decline always email a guest who gave an address. */
+  notifyGuest: Checkbox,
 });
 
 /** The guest's details as staff type them; the limits are the guest form's (lib/server/booking/input.ts). */
@@ -62,6 +67,8 @@ export const NewReservationForm = z.object({
   time: Time,
   source: z.enum(['phone', 'walk_in'], { error: 'Chọn nguồn đặt bàn.' }),
   locale: z.string().regex(/^[a-z]{2,3}(-[a-z0-9]{2,8})*$/, { error: 'Chọn ngôn ngữ của khách.' }),
+  /** "Gửi email xác nhận" (spec §10.3, R8): a phone booking with an email; a walk-in never gets one. */
+  notifyGuest: Checkbox,
   ...GuestFields,
 });
 
@@ -72,6 +79,8 @@ export const CancelManyForm = z.object({
     .min(1, { error: 'Chọn ít nhất một đặt bàn.' })
     .max(200),
   reason: z.string().trim().min(1, { error: 'Nhập lý do hủy.' }).max(500, { error: 'Lý do tối đa 500 ký tự.' }),
+  /** "Báo khách qua email" under an affected list (R8): on by default, like a single cancel. */
+  notifyGuest: Checkbox,
 });
 
 /** A per-restaurant override: blank follows "Cài đặt đặt bàn"; the bounds are migration 006's. */
@@ -89,7 +98,7 @@ const override = (min: number, max: number, label: string) =>
 export const RulesForm = z.object({
   restaurant: RestaurantId,
   token: Token,
-  bookingEnabled: z.preprocess((v) => v === 'on', z.boolean()),
+  bookingEnabled: Checkbox,
   windowDays: override(1, 90, 'Số ngày đặt trước'),
   leadMinutes: override(0, 1440, 'Đặt trước tối thiểu (phút)'),
   maxParty: override(1, 50, 'Số khách tối đa'),
@@ -157,8 +166,8 @@ export const SettingsForm = z.object({
   leadMinutes: bounded(0, 1440, 'Từ 0 đến 1440 phút.', 'Nhập số phút (0 nếu không cần đặt trước).'),
   sameDayCutoff: z.preprocess(blankToNull, Time.nullable()),
   maxParty: bounded(1, 50, 'Từ 1 đến 50 khách.', 'Nhập số khách (từ 1 đến 50).'),
-  autoConfirm: z.preprocess((v) => v === 'on', z.boolean()),
-  guestAckEmail: z.preprocess((v) => v === 'on', z.boolean()),
+  autoConfirm: Checkbox,
+  guestAckEmail: Checkbox,
   piiRetentionMonths: bounded(1, 120, 'Từ 1 đến 120 tháng.', 'Nhập số tháng (từ 1 đến 120).'),
 });
 
@@ -171,7 +180,7 @@ export const ClosureForm = z
     startsOn: IsoDay,
     endsOn: IsoDay,
     meals: z.array(Meal).max(4),
-    showReason: z.preprocess((v) => v === 'on', z.boolean()),
+    showReason: Checkbox,
     reasonEn: z.preprocess(blankToNull, z.string().trim().max(160, { error: 'Tối đa 160 ký tự.' }).nullable()),
     reasonVi: z.preprocess(blankToNull, z.string().trim().max(160, { error: 'Tối đa 160 ký tự.' }).nullable()),
     internalNote: z.preprocess(blankToNull, z.string().trim().max(2000, { error: 'Tối đa 2000 ký tự.' }).nullable()),
