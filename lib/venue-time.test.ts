@@ -3,7 +3,9 @@ import {
   addDays,
   daysBetween,
   formatDay,
+  fromMinutes,
   isValidIsoDate,
+  isoWeekday,
   minutesUntil,
   toMinutes,
   venueNow,
@@ -43,8 +45,17 @@ describe('calendar maths', () => {
     expect(isValidIsoDate(20261002)).toBe(false);
   });
 
-  it('reads HH:MM as minutes after midnight', () => {
+  it('reads HH:MM as minutes after midnight, and writes them back', () => {
     expect(toMinutes('19:30')).toBe(1170);
+    expect(fromMinutes(1170)).toBe('19:30');
+    expect(fromMinutes(390)).toBe('06:30');
+    expect(fromMinutes(0)).toBe('00:00');
+  });
+
+  it('numbers ISO weekdays Monday 1 to Sunday 7, from the calendar date alone', () => {
+    expect(isoWeekday('2026-10-05')).toBe(1);
+    expect(isoWeekday('2026-10-01')).toBe(4);
+    expect(isoWeekday('2026-10-04')).toBe(7);
   });
 });
 

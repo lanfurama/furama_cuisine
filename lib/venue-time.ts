@@ -46,7 +46,14 @@ export function isValidIsoDate(s: unknown): s is IsoDate {
   );
 }
 
+/** ISO weekday of a calendar date: 1 = Monday … 7 = Sunday (spec §5.2 service_periods.weekdays). */
+export const isoWeekday = (d: IsoDate): number => new Date(utcMidnight(d)).getUTCDay() || 7;
+
 export const toMinutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+
+/** 1140 → "19:00". */
+export const fromMinutes = (m: number) =>
+  `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 
 /** Minutes from the venue's "now" until `hhmm` on `date`; negative once it has passed. */
 export function minutesUntil(date: IsoDate, hhmm: string, now: Date = new Date()): number {
