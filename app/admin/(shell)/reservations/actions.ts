@@ -7,6 +7,7 @@ import { CancelManyForm, EditForm, NewReservationForm, NoteForm, TransitionForm 
 import type { ReservationStatus } from '@/lib/booking/rules';
 import { toE164 } from '@/lib/phone';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
+import { saveInboxSearch, searchText } from '@/lib/server/booking/inbox-search';
 import { listLocales } from '@/lib/server/booking/queries';
 import { drainAfterCommit } from '@/lib/server/email/after-commit';
 import { outboxEffects } from '@/lib/server/email/outbox';
@@ -158,4 +159,15 @@ export async function cancelReservations(_prev: ActionResult<CancelManyResult> |
   } catch (err) {
     return actionError(err);
   }
+}
+
+/**
+ * The inbox search box (spec §7.2). A POST, so the guest's phone, name or
+ * email never reaches the URL (phase-4 ruling SEC-2, R18): the text waits in a
+ * short-lived httpOnly cookie and the inbox URL carries only its id.
+ */
+export async function searchReservations(formData: FormData): Promise<void> {
+  await requirePermission({ reservations: ['read'] });
+  const q = searchText(formData.get('q'));
+  redirect(q ? `/admin/reservations?tim=${await saveInboxSearch(q)}` : '/admin/reservations');
 }

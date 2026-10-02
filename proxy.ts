@@ -55,6 +55,9 @@ function adminProxy(request: NextRequest) {
     url.search = '';
     const next = new URLSearchParams(search);
     next.delete('_rsc');
+    // An old inbox link may still carry a search (?q=, before phase 5 kept it in a cookie):
+    // a guest's phone or name must not ride on into the sign-in URL (phase-4 ruling SEC-2).
+    next.delete('q');
     const query = next.toString();
     if (pathname !== '/admin' || query) url.searchParams.set('next', `${pathname}${query ? `?${query}` : ''}`);
     return NextResponse.redirect(url, 307);

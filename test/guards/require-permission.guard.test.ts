@@ -64,6 +64,7 @@ const BOOKING_ACTIONS: Record<string, Record<string, { permission: object; edito
     addNote: { permission: { reservations: ['note'] }, editor: true },
     createReservation: { permission: { reservations: ['create'] }, editor: true },
     cancelReservations: { permission: { reservations: ['update'] }, editor: true },
+    searchReservations: { permission: { reservations: ['read'] }, editor: true },
   },
   'app/admin/(shell)/reservations/closures/actions.ts': {
     addClosure: { permission: { schedule: ['update'] }, editor: true },

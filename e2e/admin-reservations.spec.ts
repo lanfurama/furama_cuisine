@@ -181,19 +181,44 @@ test('the inbox finds a booking by reference or phone, and confirms it from the 
   const r = await seedReservation({ restaurant: 'v-senses-cafe', date: venueDay(8) });
   await signInAs(page, STAFF.editor);
   await page.goto('/admin/reservations');
-  await page.getByLabel('Tìm theo mã, số điện thoại, tên hoặc email', { exact: true }).fill(r.reference.toLowerCase().replace('-', ''));
+  const box = page.getByLabel('Tìm theo mã, số điện thoại, tên hoặc email', { exact: true });
+  await box.fill(r.reference.toLowerCase().replace('-', ''));
   await page.getByRole('button', { name: 'Tìm', exact: true }).click();
   await expect(page.getByRole('row').filter({ hasText: r.reference })).toBeVisible();
   await expect(page.getByRole('table').getByRole('row')).toHaveCount(2);
 
+  // Phase-4 ruling SEC-2: the guest's number never reaches the URL (request logs, history, the sign-in `next`).
   const local = `0${r.phone.slice(3, 6)} ${r.phone.slice(6, 9)} ${r.phone.slice(9)}`;
-  await page.goto(`/admin/reservations?q=${encodeURIComponent(local)}`);
+  const first = page.url();
+  await box.fill(local);
+  await page.getByRole('button', { name: 'Tìm', exact: true }).click();
+  // The lede first: the URL check below must see the second search's page, not the first one's.
+  await expect(page.getByText(`Kết quả cho “${local}” trong mọi đặt bàn.`)).toBeVisible();
   await expect(page.getByRole('row').filter({ hasText: r.reference })).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/reservations\?tim=[0-9a-f]{8}$/);
+  expect(page.url()).not.toBe(first);
+  expect(page.url()).not.toContain(r.phone.slice(-6));
+  // A reload keeps the results: the text waits in an httpOnly cookie under that id.
+  await page.reload();
+  await expect(page.getByRole('row').filter({ hasText: r.reference })).toBeVisible();
+  await expect(box).toHaveValue(local);
+  expect(await page.evaluate(() => document.cookie)).not.toContain('fc_inbox_search');
 
   // A requested booking can be confirmed right from the results.
   await page.getByRole('button', { name: `Xác nhận ${r.reference}` }).click();
   await expect(page.getByRole('row').filter({ hasText: r.reference })).toContainText('Đã xác nhận');
   expect((await reservationRow(r.id)).status).toBe('confirmed');
+
+  // A search in another tab replaces the cookie: this tab says so rather than showing the other tab's results.
+  const other = await page.context().newPage();
+  await other.goto('/admin/reservations');
+  await other.getByLabel('Tìm theo mã, số điện thoại, tên hoặc email', { exact: true }).fill('Không ai tên này');
+  await other.getByRole('button', { name: 'Tìm', exact: true }).click();
+  await expect(other.getByText('Kết quả cho “Không ai tên này” trong mọi đặt bàn.')).toBeVisible();
+  await page.reload();
+  await expect(main(page).getByRole('status')).toHaveText('Kết quả tìm kiếm đã hết hạn. Hãy tìm lại.');
+  await expect(page.getByRole('navigation', { name: 'Lọc đặt bàn' })).toBeVisible();
+  await other.close();
 });
 
 test('an edit into a full slot is refused with the covers left, keeps what was typed, then saves with a reason', async ({ page }) => {

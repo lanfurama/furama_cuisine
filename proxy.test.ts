@@ -19,6 +19,9 @@ describe('proxy: /admin without a session cookie', () => {
     ['/admin?x=1', '/admin/sign-in?next=%2Fadmin%3Fx%3D1'],
     // The RSC request id of a client navigation is not part of where the user was going.
     ['/admin/users?_rsc=abc', '/admin/sign-in?next=%2Fadmin%2Fusers'],
+    // Nor is an old inbox search: guest data stays out of URLs (phase-4 ruling SEC-2).
+    ['/admin/reservations?q=0905123456&tab=all', '/admin/sign-in?next=%2Fadmin%2Freservations%3Ftab%3Dall'],
+    ['/admin/reservations?q=Nguyen', '/admin/sign-in?next=%2Fadmin%2Freservations'],
   ])('%s → 307 %s', (path, location) => {
     const res = get(path);
     expect(res.status).toBe(307);

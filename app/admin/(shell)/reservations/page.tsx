@@ -3,10 +3,12 @@ import Link from 'next/link';
 import { getPool } from '@/db/client';
 import { formatDateTimeVi, formatIsoDayVi } from '@/lib/admin/format';
 import { SOURCE_LABELS } from '@/lib/reservations/lifecycle';
+import { readInboxSearch } from '@/lib/server/booking/inbox-search';
 import { INBOX_TABS, listInbox, type InboxTab } from '@/lib/server/booking/queries';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { venueNow } from '@/lib/venue-time';
 import { QuickConfirm } from './QuickConfirm';
+import { searchReservations } from './actions';
 import { SectionNav } from './_ui/SectionNav';
 import { StatusBadge } from './_ui/StatusBadge';
 
@@ -17,26 +19,29 @@ export const metadata: Metadata = { title: 'Đặt bàn' };
 
 const TAB_LABELS: Record<InboxTab, string> = { pending: 'Cần xử lý', today: 'Hôm nay', upcoming: 'Sắp tới', all: 'Tất cả' };
 
-type Search = { tab?: string | string[]; q?: string | string[]; sau?: string | string[] };
+/* `tim` is the id of a search kept in a cookie (lib/server/booking/inbox-search.ts); the text itself never rides in the URL. */
+type Search = { tab?: string | string[]; tim?: string | string[]; sau?: string | string[] };
 const one = (v: string | string[] | undefined) => (typeof v === 'string' ? v : undefined);
 
 export default async function ReservationsPage({ searchParams }: { searchParams: Promise<Search> }) {
   await requirePagePermission({ reservations: ['read'] });
   const params = await searchParams;
   const tab = (INBOX_TABS as readonly string[]).includes(one(params.tab) ?? '') ? (one(params.tab) as InboxTab) : 'pending';
-  const q = one(params.q)?.trim() ?? '';
+  const searchId = one(params.tim);
+  const saved = await readInboxSearch(searchId);
+  const q = saved && saved !== 'expired' ? saved.q : '';
   const after = one(params.sau);
   // "Hôm nay" is Da Nang's date, whatever the server's timezone.
   const { rows, next, searched } = await listInbox(getPool(), { tab, q, after, today: venueNow().date });
   const shownTab: InboxTab = searched ? 'all' : tab;
   const query = (extra: Record<string, string>) =>
-    new URLSearchParams({ ...(shownTab !== 'pending' ? { tab: shownTab } : {}), ...(q ? { q } : {}), ...extra }).toString();
+    new URLSearchParams({ ...(searched && searchId ? { tim: searchId } : shownTab !== 'pending' ? { tab: shownTab } : {}), ...extra }).toString();
 
   return (
     <>
       <SectionNav current="/admin/reservations" />
       <h1>Đặt bàn</h1>
-      <form className="a-search" role="search" action="/admin/reservations">
+      <form className="a-search" role="search" action={searchReservations}>
         <label htmlFor="inbox-q">Tìm theo mã, số điện thoại, tên hoặc email</label>
         <div className="a-search-row">
           <input id="inbox-q" name="q" type="search" defaultValue={q} placeholder="FC-7K3QH9XA, 0905…, Nguyễn…" />
@@ -45,6 +50,11 @@ export default async function ReservationsPage({ searchParams }: { searchParams:
           </button>
         </div>
       </form>
+      {saved === 'expired' ? (
+        <p className="a-lede" role="status">
+          Kết quả tìm kiếm đã hết hạn. Hãy tìm lại.
+        </p>
+      ) : null}
       {searched ? (
         <p className="a-lede">
           {`Kết quả cho “${q}” trong mọi đặt bàn. `}
