@@ -25,8 +25,11 @@ import { dirname, join, relative, sep } from 'node:path';
 const PAGES = {
   '/en': 'en',
   '/en/restaurants/taya-house': 'en/restaurants/taya-house',
+  '/en/privacy': 'en/privacy',
 };
 const TAGS = ['restaurants', 'i18n:en', 'locales', 'content:ui'];
+/** Tags a page carries beyond the layout's: the privacy policy's own reader (lib/server/content/legal.ts). */
+const PAGE_TAGS = { '/en/privacy': ['content:legal'] };
 const REVALIDATE = 2_592_000; // cacheLife('max'): 30 days
 const EXPIRE = 31_536_000; // 1 year
 
@@ -72,7 +75,7 @@ for (const [route, file] of Object.entries(PAGES)) {
   const meta = JSON.parse(readFileSync(join(dir, 'server', 'app', `${file}.meta`), 'utf8'));
   if (meta.postponed) problems.push(`${route} is only partially prerendered`);
   const tags = String(meta.headers?.['x-next-cache-tags'] ?? '').split(',');
-  for (const tag of TAGS) {
+  for (const tag of [...TAGS, ...(PAGE_TAGS[route] ?? [])]) {
     if (!tags.includes(tag)) problems.push(`${route} is missing the cache tag ${tag}`);
   }
 }
@@ -115,7 +118,9 @@ if (problems.length) {
   console.error(`Prerender and font check failed:\n- ${problems.join('\n- ')}`);
   process.exit(1);
 }
-console.log(`Prerender check passed: ${Object.keys(PAGES).join(', ')} (tags: ${TAGS.join(', ')}).`);
+console.log(
+  `Prerender check passed: ${Object.keys(PAGES).join(', ')} (tags: ${TAGS.join(', ')}; ${Object.entries(PAGE_TAGS).map(([route, tags]) => `${route} also ${tags.join(', ')}`).join('; ')}).`,
+);
 console.log(`Admin check passed: ${adminRoutes.map(([route]) => route).join(', ')} have no static shell.`);
 console.log(`Uncached check passed: ${UNCACHED.join(', ')} built as a route handler, not prerendered.`);
 console.log(`Font check passed: ${fontSummary}.`);

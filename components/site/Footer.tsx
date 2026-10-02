@@ -1,12 +1,14 @@
 'use client';
 
+import Link from 'next/link';
 import { CONTACT, SOCIALS } from '@/lib/data';
+import { privacyHref } from '@/lib/legal';
 import { useSite } from '@/components/site/SiteProvider';
 import { homeHref } from '@/lib/i18n/href';
 import { useReveal } from '@/lib/motion';
 
 export function Footer() {
-  const { goHomeTop, locale } = useSite();
+  const { goHomeTop, locale, strings } = useSite();
   const reveal = useReveal<HTMLDivElement>('fade');
 
   return (
@@ -50,6 +52,10 @@ export function Footer() {
           <a href={`mailto:${CONTACT.email}`} className="footer-strong">
             {CONTACT.email}
           </a>
+          {/* e2e/visual-added.css hides this link, so the pre-phase-5 baselines still compare pixel for pixel. */}
+          <Link href={privacyHref(locale)} className="footer-strong footer-legal">
+            {strings['legal.link']}
+          </Link>
         </div>
       </div>
 

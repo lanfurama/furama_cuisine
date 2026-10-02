@@ -52,6 +52,6 @@ for (const [name, path] of Object.entries(PAGES)) {
     await prepare(page);
     await page.goto(path + SUFFIX);
     await settle(page);
-    await expect(page).toHaveScreenshot(`${name}.png`, { fullPage: true, stylePath: './e2e/visual.css' });
+    await expect(page).toHaveScreenshot(`${name}.png`, { fullPage: true, stylePath: ['./e2e/visual.css', './e2e/visual-added.css'] });
   });
 }

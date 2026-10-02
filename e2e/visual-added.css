@@ -1,0 +1,7 @@
+/*
+ * Elements added after the baselines were taken (e2e/__visual__/), hidden from
+ * both visual specs so everything else still compares pixel for pixel. Each
+ * takes no space when hidden; each has a functional E2E of its own.
+ */
+/* Phase 5: the footer's privacy-policy link (e2e/guest-guard.spec.ts). */
+.footer-legal { display: none !important; }

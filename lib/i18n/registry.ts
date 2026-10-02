@@ -203,6 +203,109 @@ export const REGISTRY = {
       'Reservation form, a button under error.network when the dates or the times could not be loaded (server error or no connection); it asks the server again.',
     screen: 'booking',
   },
+  // ── The privacy notice and consent (spec §11, Law 91/2025/QH15). English only until a reviewed ──
+  // Vietnamese text exists (R17); lib/legal.test.ts pins a hash of these texts to PRIVACY_POLICY_VERSION.
+  // booking.* so they reach the reservation form; legal.link reaches the browser too (form and footer).
+  'booking.privacy_notice': {
+    en: 'We use your name, phone number and email only to arrange this booking and to contact you about it.',
+    maxLength: 240,
+    context:
+      'Reservation form, above the consent checkbox: the short privacy notice at the point of collection (spec §11, Law 91/2025/QH15). Must stay true to legal.* on the policy page.',
+    screen: 'legal',
+  },
+  'booking.consent': {
+    en: 'I agree to Furama Cuisine using my details as described in the privacy policy.',
+    maxLength: 160,
+    context:
+      'Reservation form, the label of the required consent checkbox. The policy link sits next to it (legal.link), not inside the label.',
+    screen: 'legal',
+  },
+  'legal.link': {
+    en: 'Privacy policy',
+    maxLength: 40,
+    context: 'Link to the privacy policy page, in the reservation form next to the consent box and in the site footer.',
+    screen: 'legal',
+  },
+  'legal.title': {
+    en: 'Privacy policy',
+    maxLength: 60,
+    context: 'Privacy policy page: the heading and the browser tab title.',
+    screen: 'legal',
+  },
+  'legal.updated': {
+    en: 'Last updated {date}',
+    maxLength: 60,
+    vars: ['date'],
+    context: 'Privacy policy page, under the heading. {date} is the policy version’s date, formatted; keep it.',
+    screen: 'legal',
+  },
+  'legal.intro': {
+    en: 'Furama Cuisine is the dining brand of Furama Resort Danang and Furama Dining House. This policy explains what we do with the details you give us when you request a table online.',
+    maxLength: 600,
+    context: 'Privacy policy page, the opening paragraph: who is responsible for the data.',
+    screen: 'legal',
+  },
+  'legal.collect_heading': {
+    en: 'What we collect',
+    maxLength: 80,
+    context: 'Privacy policy page, a section heading.',
+    screen: 'legal',
+  },
+  'legal.collect_body': {
+    en: 'Your name and phone number; your email address and any special request, if you give them; the restaurant, date, time and party size you chose; and the time you sent the request and agreed to this policy.',
+    maxLength: 1200,
+    context: 'Privacy policy page, the body of “What we collect”. Must match the fields of the reservation form.',
+    screen: 'legal',
+  },
+  'legal.use_heading': {
+    en: 'How we use it',
+    maxLength: 80,
+    context: 'Privacy policy page, a section heading.',
+    screen: 'legal',
+  },
+  'legal.use_body': {
+    en: 'Only to arrange your booking: to hold your table, to confirm, change or cancel it with you by phone or email, and to welcome you on the day. We do not use your details for marketing and we do not sell them.',
+    maxLength: 1200,
+    context: 'Privacy policy page, the body of “How we use it”.',
+    screen: 'legal',
+  },
+  'legal.share_heading': {
+    en: 'Who sees it',
+    maxLength: 80,
+    context: 'Privacy policy page, a section heading.',
+    screen: 'legal',
+  },
+  'legal.share_body': {
+    en: 'Our reservations staff. The companies that host this website and its database and send our emails process your details on our behalf and only on our instructions.',
+    maxLength: 1200,
+    context: 'Privacy policy page, the body of “Who sees it”: staff and processors (hosting, database, email).',
+    screen: 'legal',
+  },
+  'legal.keep_heading': {
+    en: 'How long we keep it',
+    maxLength: 80,
+    context: 'Privacy policy page, a section heading.',
+    screen: 'legal',
+  },
+  'legal.keep_body': {
+    en: 'We keep your contact details for up to 24 months after the date of your booking, then remove them. We keep only the date, time, party size and restaurant, without your name or contact details, for our statistics.',
+    maxLength: 1200,
+    context: 'Privacy policy page, the body of “How long we keep it”. The months must match the retention setting (booking_settings.pii_retention_months).',
+    screen: 'legal',
+  },
+  'legal.rights_heading': {
+    en: 'Your rights',
+    maxLength: 80,
+    context: 'Privacy policy page, a section heading.',
+    screen: 'legal',
+  },
+  'legal.rights_body': {
+    en: 'You may ask to see, correct or delete your details, or withdraw your consent, at any time. Write to {email} or call the restaurant. Withdrawing consent does not affect a booking already handled.',
+    maxLength: 1200,
+    vars: ['email'],
+    context: 'Privacy policy page, the body of “Your rights”. {email} is the contact address, shown as a link; keep it.',
+    screen: 'legal',
+  },
   // ── Booking emails (spec §10.4): email.<event>.<field>, shared labels under email.common. ──
   // Rendered in the reservation's language for guests and the recipient's for staff
   // (lib/server/email/booking/render.ts). Phase 7 edits them in /admin/content/emails.
@@ -445,11 +548,13 @@ export const STRING_KEYS = Object.keys(REGISTRY) as StringKey[];
 /** Same pattern as the CHECK on content_strings.key (migration 004). */
 export const KEY_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/;
 
-/** Keys the browser needs: the reservation form's copy and its error messages. */
-export type ClientKey = Extract<StringKey, `error.${string}` | `booking.${string}`>;
+/** Keys the browser needs: the reservation form's copy and its error messages, and the policy link (form and footer). */
+export type ClientKey = Extract<StringKey, `error.${string}` | `booking.${string}` | 'legal.link'>;
 
 /** Keys the browser needs at first paint; passed to SiteProvider. Grow this list per component that moves to t(). */
-export const CLIENT_KEYS = STRING_KEYS.filter((k): k is ClientKey => k.startsWith('error.') || k.startsWith('booking.'));
+export const CLIENT_KEYS = STRING_KEYS.filter(
+  (k): k is ClientKey => k.startsWith('error.') || k.startsWith('booking.') || k === 'legal.link',
+);
 
 /** The registry's own text for a language other than English; only `vi`, and only where declared. */
 export function registryLocaleDefault(key: StringKey, locale: string): string | undefined {

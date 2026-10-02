@@ -16,6 +16,7 @@ for (const [name, path] of Object.entries(PAGES)) {
     await expect(page).toHaveScreenshot(`nojs-${name}.png`, {
       fullPage: true,
       mask: [page.locator('.hero-slides')],
+      stylePath: './e2e/visual-added.css',
     });
   });
 }
