@@ -32,22 +32,26 @@ function WithPhone({ template, params, phone }: { template: string; params: Mess
  * again can help. A 404 (the restaurant stopped taking online bookings) gets
  * its own message and no Try again. The message describes the button, so a
  * guest sent here by REQUEST BOOKING hears why. tabIndex -1: REQUEST BOOKING
- * moves the focus here when there is no button to land on.
+ * moves the focus here when there is no button to land on, and so does the
+ * drawer when a 404 takes the focused button away. `onFocus` tells the drawer
+ * the focus is in here, so it can keep it in the dialog when the button goes.
  */
 function LoadFailed({
   count,
   code,
   strings,
   onRetry,
+  onFocus,
 }: {
   count: number;
   code: LoadFailure;
   strings: ClientStrings;
   onRetry: () => void;
+  onFocus: () => void;
 }) {
   const messageId = useId();
   return (
-    <div className="load-failed" tabIndex={-1}>
+    <div className="load-failed" tabIndex={-1} onFocus={onFocus}>
       {/* A new alert per failure, so a Try again that fails again is read out again. */}
       <div key={count} id={messageId} className="drawer-error" role="alert">
         {strings[`error.${code}`]}
@@ -203,29 +207,65 @@ export function ReserveDrawer() {
 
   const open = overlay === 'drawer';
   const hintId = useId();
+  const privacyId = useId();
+  const consentErrorId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
+  const headingRef = useRef<HTMLDivElement>(null);
+  const datesLabelRef = useRef<HTMLDivElement>(null);
+  const timesLabelRef = useRef<HTMLDivElement>(null);
 
-  /* Try again removes itself once the answer arrives, and a removed button
-     drops the focus to <body>, outside this modal dialog. The focus moves to
-     what arrived instead: the chosen day, or the chosen time. Checked after
-     every render (no dependency list): the target appears with the answer,
-     and the check is a ref read until a Try again is pending. */
-  const retriedAt = useRef<'dates' | 'times' | null>(null);
+  /* A failure's Try again goes while it may hold the focus: when an answer
+     comes, whoever asked for it (Try again, or REQUEST BOOKING, which focuses
+     Try again and asks again itself), and when the answer is a 404, which
+     keeps the message but takes the button. A removed button drops the focus
+     to <body>, outside this modal dialog. So while the focus was last in a
+     failure message (or Try again was clicked: Safari does not focus a
+     clicked button), the render that leaves the focus outside the dialog puts
+     it back, on the first of: what arrived (the chosen day, or the chosen
+     time); the message, if it is still there; the section's label, when the
+     answer came with nothing to choose (a closed day, every time taken, no
+     open date); the drawer's heading. While the answer is still on its way,
+     the label holds the focus (`parked`) and hands it on when it comes.
+     Checked after every render (no dependency list): the target comes with
+     an answer, and the check is a ref read while nothing is armed. */
+  const restore = useRef<{ at: 'dates' | 'times'; parked: HTMLElement | null } | null>(null);
+  const arm = (at: 'dates' | 'times') => {
+    restore.current = { at, parked: null };
+  };
   const retry = () => {
-    retriedAt.current = loadFailed?.at ?? null;
+    if (loadFailed) arm(loadFailed.at);
     retryAvailability();
   };
   useLayoutEffect(() => {
-    const at = retriedAt.current;
+    const armed = restore.current;
+    if (!armed) return;
+    const dialog = dialogRef.current;
     const root = drawerRef.current;
-    if (!at || !root || loadFailed?.at === at) return; // still failing: the button is still there
-    const target =
-      at === 'dates'
-        ? root.querySelector<HTMLElement>('.daystrip .day[aria-pressed="true"]')
-        : (root.querySelector<HTMLElement>('.slot[data-selected="true"]') ?? root.querySelector<HTMLElement>('.slot:not([disabled])'));
-    if (!target) return; // the times are still on their way
-    retriedAt.current = null;
-    if (!root.contains(document.activeElement)) target.focus();
+    if (!dialog || !root) {
+      restore.current = null; // closed: nothing to put back on the next open
+      return;
+    }
+    const active = document.activeElement;
+    if (active && active !== armed.parked && dialog.contains(active)) {
+      // Still in the message (its Try again is still there), or the guest moved on: leave the focus be.
+      if (!active.closest('.load-failed')) restore.current = null;
+      return;
+    }
+    const time =
+      armed.at === 'times'
+        ? (root.querySelector<HTMLElement>('.slot[data-selected="true"]') ?? root.querySelector<HTMLElement>('.slot:not([disabled])'))
+        : null;
+    const day = armed.at === 'dates' ? root.querySelector<HTMLElement>('.daystrip .day[aria-pressed="true"]') : null;
+    const failure = root.querySelector<HTMLElement>('.load-failed');
+    const label = (armed.at === 'dates' ? datesLabelRef : timesLabelRef).current;
+    // No message and no answer yet: the dates, or the chosen day's times, are on their way.
+    const onItsWay = !time && !day && !failure && (armed.at === 'dates' ? days.length === 0 : !!booking.date && !board);
+    restore.current = onItsWay && label ? { at: armed.at, parked: label } : null;
+    // A time may lie below the fold: scroll to it. The rest sit where Try again was, and the strip
+    // keeps the chosen day in view itself (no scrollIntoView), so a phone's drawer does not jump.
+    if (time) time.focus();
+    else (day ?? failure?.querySelector<HTMLElement>('.load-retry') ?? failure ?? label ?? headingRef.current)?.focus({ preventScroll: true });
   });
 
   /* REQUEST BOOKING stopped on a failure shown above: take the guest to it (its Try again, or the message). */
@@ -264,7 +304,7 @@ export function ReserveDrawer() {
     .join(' · ');
 
   return (
-    <div className="drawer-root" role="dialog" aria-modal="true" aria-label="Reserve a table">
+    <div ref={dialogRef} className="drawer-root" role="dialog" aria-modal="true" aria-label="Reserve a table">
       <button
         type="button"
         data-anim="backdrop"
@@ -276,7 +316,10 @@ export function ReserveDrawer() {
       <aside ref={drawerRef} data-anim="drawer" className="drawer">
         <div className="drawer-head">
           <div className="drawer-head-copy">
-            <div className="drawer-kicker">RESERVE A TABLE</div>
+            {/* tabIndex -1, like the DATE and TIME labels: where the focus goes when nothing else is left to hold it. */}
+            <div ref={headingRef} className="drawer-kicker" tabIndex={-1}>
+              RESERVE A TABLE
+            </div>
             <div className="drawer-name">{restaurant?.name}</div>
             <div className="drawer-meta">
               {restaurant ? `${restaurant.type} · ${DESTS[restaurant.dest]}` : ''}
@@ -344,9 +387,17 @@ export function ReserveDrawer() {
                 />
               </div>
 
-              <div className="drawer-label">DATE</div>
+              <div ref={datesLabelRef} className="drawer-label" tabIndex={-1}>
+                DATE
+              </div>
               {loadFailed?.at === 'dates' ? (
-                <LoadFailed count={loadFailed.count} code={loadFailed.code} strings={strings} onRetry={retry} />
+                <LoadFailed
+                  count={loadFailed.count}
+                  code={loadFailed.code}
+                  strings={strings}
+                  onRetry={retry}
+                  onFocus={() => arm('dates')}
+                />
               ) : (
                 <DayStrip
                   days={days}
@@ -401,10 +452,18 @@ export function ReserveDrawer() {
                 )}
               </div>
 
-              <div className="drawer-label">TIME</div>
+              <div ref={timesLabelRef} className="drawer-label" tabIndex={-1}>
+                TIME
+              </div>
               {loadFailed
                 ? loadFailed.at === 'times' && (
-                    <LoadFailed count={loadFailed.count} code={loadFailed.code} strings={strings} onRetry={retry} />
+                    <LoadFailed
+                      count={loadFailed.count}
+                      code={loadFailed.code}
+                      strings={strings}
+                      onRetry={retry}
+                      onFocus={() => arm('times')}
+                    />
                   )
                 : !board && booking.date && <div className="slot-loading">{strings['booking.loading']}</div>}
               {board?.state === 'closed' && <div className="drawer-error">{strings['error.closed']}</div>}
@@ -511,7 +570,7 @@ export function ReserveDrawer() {
 
                 {/* Spec §11: the notice at the point of collection, the policy one tap away (a new tab keeps this form), and a box only a person ticks. */}
                 <div className="drawer-consent">
-                  <p className="drawer-privacy" id="drawer-privacy">
+                  <p className="drawer-privacy" id={privacyId}>
                     {strings['booking.privacy_notice']}{' '}
                     <a href={privacyHref(locale)} target="_blank" rel="noopener">
                       {strings['legal.link']}
@@ -522,13 +581,18 @@ export function ReserveDrawer() {
                       type="checkbox"
                       checked={consent}
                       onChange={(e) => setConsent(e.target.checked)}
-                      aria-describedby="drawer-privacy"
+                      // The error sits outside the label (the label is the box's name), so it joins the description while it shows.
+                      aria-describedby={errors.consent ? `${privacyId} ${consentErrorId}` : privacyId}
                       aria-invalid={errors.consent}
                       data-invalid={errors.consent}
                     />
                     <span>{strings['booking.consent']}</span>
                   </label>
-                  {errors.consent && <span className="field-error">{strings['error.consent_required']}</span>}
+                  {errors.consent && (
+                    <span id={consentErrorId} className="field-error">
+                      {strings['error.consent_required']}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

@@ -230,6 +230,10 @@ async function fillDetails(drawer: Locator) {
   await drawer.getByRole('checkbox', { name: 'I agree to Furama Cuisine using my details as described in the privacy policy.' }).check();
 }
 
+/** Whether the focus is inside the modal booking dialog: not on <body>, whose next Tab reaches the page behind it. */
+const focusInDialog = (page: Page) =>
+  page.evaluate(() => !!document.activeElement?.closest('[role="dialog"][aria-modal="true"]'));
+
 test('when the dates cannot load, the guest is told once: REQUEST BOOKING points at Try again, which recovers and keeps the focus in the dialog', async ({ page }) => {
   let failing = true;
   await page.clock.setFixedTime(NOW);
@@ -287,8 +291,63 @@ test('a restaurant that stopped taking bookings says so, with no futile Try agai
   await expect(drawer.getByRole('button', { name: 'Try again' })).toHaveCount(0);
   await fillDetails(drawer);
   await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
+  // No button to land on: the button takes the guest to the message itself.
+  await expect(drawer.locator('.load-failed')).toBeFocused();
   await expect(drawer.getByRole('alert')).toHaveCount(1);
   expect(posts.count).toBe(0);
+});
+
+test('when REQUEST BOOKING’s own re-ask brings the dates, the focus goes from its Try again to the chosen day, inside the dialog', async ({ page }) => {
+  let failing = true;
+  let holding = false;
+  await page.clock.setFixedTime(NOW);
+  await mockAvailability(page, clock);
+  await failAvailability(page, (url) => failing && isCalendar(url), (route) => route.fulfill({ status: 503, json: { error: 'unavailable' } }));
+  // Holds the re-ask until the button has moved the focus to Try again.
+  const release = await holdAvailability(page, (url) => holding && isCalendar(url));
+  const posts = await abortServerActions(page);
+  await page.goto(HOME_PATH);
+  await reserveButton(page).click();
+  const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
+  await expect(drawer.getByRole('alert')).toHaveText(NETWORK);
+  await fillDetails(drawer);
+
+  // Back online before the guest presses REQUEST BOOKING: it points at Try again and asks again itself.
+  failing = false;
+  holding = true;
+  await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
+  const retry = drawer.getByRole('button', { name: 'Try again' });
+  await expect(retry).toBeFocused();
+
+  release();
+  await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
+  await expect(retry).toHaveCount(0);
+  // The focused Try again is gone: the focus is on the chosen day, not on <body> behind the modal.
+  await expect(drawer.locator('.day[aria-pressed="true"]')).toBeFocused();
+  expect(await focusInDialog(page)).toBe(true);
+  expect(posts.count).toBe(0);
+});
+
+test('when Try again is answered with a 404, the message stays and keeps the focus, inside the dialog', async ({ page }) => {
+  let status = 503;
+  await page.clock.setFixedTime(NOW);
+  await mockAvailability(page, clock);
+  await failAvailability(page, isCalendar, (route) =>
+    route.fulfill({ status, json: { error: status === 404 ? 'restaurant_unavailable' : 'unavailable' } }),
+  );
+  await page.goto(HOME_PATH);
+  await reserveButton(page).click();
+  const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
+  await expect(drawer.getByRole('alert')).toHaveText(NETWORK);
+
+  // The Admin switched online booking off meanwhile: the answer takes Try again away, and leaves the message.
+  status = 404;
+  const retry = drawer.getByRole('button', { name: 'Try again' });
+  await retry.click();
+  await expect(drawer.getByRole('alert')).toHaveText(GONE);
+  await expect(retry).toHaveCount(0);
+  await expect(drawer.locator('.load-failed')).toBeFocused();
+  expect(await focusInDialog(page)).toBe(true);
 });
 
 test('when the times cannot load, the guest is told instead of waiting forever, and Try again recovers with the focus on the chosen time', async ({ page }) => {
@@ -310,6 +369,30 @@ test('when the times cannot load, the guest is told instead of waiting forever, 
   await expect(drawer.locator('.slot:not([disabled])')).toHaveCount(12);
   await expect(drawer.getByRole('alert')).toHaveCount(0);
   await expect(drawer.getByRole('button', { name: '19:00 — 16 covers left' })).toBeFocused();
+});
+
+test('when Try again brings a day with no time to choose, the focus goes to the TIME label, inside the dialog', async ({ page }) => {
+  let failing = true;
+  const dayAnswers: Record<string, MockDay> = {};
+  await page.clock.setFixedTime(NOW);
+  await mockAvailability(page, { ...clock, dayAnswers });
+  await failAvailability(page, (url) => failing && url.searchParams.has('date'), (route) => route.abort('internetdisconnected'));
+  await page.goto(HOME_PATH);
+  await reserveButton(page).click();
+  const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
+  await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
+  await expect(drawer.getByRole('alert')).toHaveText(NETWORK);
+
+  // The answer that comes back: a closure took the day meanwhile, so no time arrives to take the focus.
+  dayAnswers['2026-10-02'] = { state: 'closed' };
+  failing = false;
+  const retry = drawer.getByRole('button', { name: 'Try again' });
+  await retry.click();
+  await expect(drawer.getByText('The restaurant is closed at that time — please choose another time or day.')).toBeVisible();
+  await expect(retry).toHaveCount(0);
+  await expect(drawer.locator('.slot')).toHaveCount(0);
+  await expect(drawer.getByText('TIME', { exact: true })).toBeFocused();
+  expect(await focusInDialog(page)).toBe(true);
 });
 
 test('while the dates are on their way the drawer says so, and REQUEST BOOKING waits for them instead of failing', async ({ page }) => {

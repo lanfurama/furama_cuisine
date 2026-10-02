@@ -56,10 +56,14 @@ test('nothing is sent until the consent box is ticked; the notice links the poli
   await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
   await expect(drawer.getByText('Please tick the box to agree to how we use your details.')).toBeVisible();
   await expect(box).toHaveAttribute('aria-invalid', 'true');
+  // The box's description carries the error, so a screen reader says what is wrong, not only "invalid".
+  await expect(box).toHaveAccessibleDescription(/only to arrange this booking.*Please tick the box to agree to how we use your details\.$/);
   expect(posts).toHaveLength(0);
 
   await box.check();
   await expect(drawer.getByText('Please tick the box to agree to how we use your details.')).toHaveCount(0);
+  await expect(box).not.toHaveAccessibleDescription(/Please tick the box/);
+  await expect(box).toHaveAccessibleDescription(/only to arrange this booking/);
 
   const link = drawer.getByRole('link', { name: 'Privacy policy' });
   await expect(link).toHaveAttribute('href', '/en/privacy');
