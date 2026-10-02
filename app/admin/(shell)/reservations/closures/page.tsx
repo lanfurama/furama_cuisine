@@ -86,6 +86,7 @@ export default async function ClosuresPage() {
                 time: a.time,
                 guests: a.guests,
                 name: a.name,
+                hasEmail: a.hasEmail,
                 statusLabel: STATUS_LABELS[a.status],
                 why: 'Nằm trong ngày đóng cửa',
               }))}

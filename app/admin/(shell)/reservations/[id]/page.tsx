@@ -124,7 +124,7 @@ export default async function ReservationPage({ params }: { params: Promise<{ id
 
       <section aria-labelledby="res-status-title">
         <h2 id="res-status-title">Trạng thái</h2>
-        <TransitionPanel id={reservation.id} version={reservation.version} options={options} />
+        <TransitionPanel id={reservation.id} version={reservation.version} options={options} hasEmail={Boolean(reservation.email)} />
       </section>
 
       {editable ? (

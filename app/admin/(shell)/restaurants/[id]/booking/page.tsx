@@ -102,6 +102,7 @@ export default async function RestaurantBookingPage({
             time: a.time,
             guests: a.guests,
             name: a.name,
+            hasEmail: a.hasEmail,
             statusLabel: STATUS_LABELS[a.status],
             why: WHY[a.kind],
           }))}

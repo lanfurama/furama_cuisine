@@ -30,6 +30,8 @@ export type AffectedReservation = {
   phone: string;
   status: ReservationStatus;
   version: number;
+  /** The guest gave an email: a cancel with "Báo khách qua email" ticked sends them the reason (R8). */
+  hasEmail: boolean;
   kind: AffectedKind;
   /** For `closed`: the closure that takes the sitting out. */
   closureId: string | null;
@@ -45,7 +47,7 @@ async function upcoming(pool: Pool, options: { restaurantIds?: readonly string[]
   const { rows } = await pool.query<Row>(
     `SELECT r.id::text, r.reference, r.restaurant_id AS "restaurantId", t.name AS "restaurantName",
             to_char(r.reserved_on, 'YYYY-MM-DD') AS date, r.reserved_at AS time, r.guests, r.guest_name AS name, r.phone,
-            r.status, r.version, r.meal
+            r.status, r.version, r.meal, coalesce(r.email, '') <> '' AS "hasEmail"
        FROM reservations r JOIN restaurants t ON t.id = r.restaurant_id
       WHERE r.status = ANY ($1::text[]) AND r.reserved_on >= $2::date
         AND ($3::date IS NULL OR r.reserved_on <= $3::date)

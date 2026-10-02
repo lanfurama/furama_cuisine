@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import { submitKeepingValues } from '@/lib/admin/form';
 import type { ReservationStatus } from '@/lib/booking/rules';
 import type { ActionResult } from '@/lib/server/action-result';
 import { FieldError, FormMessage } from '../../_ui/FormMessage';
@@ -9,29 +10,37 @@ import { changeStatus } from '../actions';
 export type TransitionOption = { to: ReservationStatus; label: string; reasonRequired: boolean; enabled: boolean; hint: string | null };
 
 /*
- * One form, one button per transition the status allows; React builds the
- * FormData with the clicked button, so its name/value reaches the action.
- * The version is the one this page was drawn with: a stale one comes back
- * as "Vừa được … thay đổi". The server checks the windows and reasons again.
+ * One form, one button per transition the status allows; submitKeepingValues
+ * builds the FormData with the clicked button, so its name/value reaches the
+ * action. The version is the one this page was drawn with: a stale one comes
+ * back as "Vừa được … thay đổi". The server checks the windows and reasons again.
  *
  * Guest email (spec §10.3, R8): confirming and declining always email a guest
  * who gave an address; a cancel does when "Báo khách qua email khi hủy" stays
- * ticked (on by default). The reason field says when its text will reach the
- * guest: staff often type it in Vietnamese for an English email.
+ * ticked (on by default). Only the decline and cancel emails quote the reason,
+ * so the hint under the one reason field names them, and only when the guest
+ * gave an address: staff often type it in Vietnamese for an English email.
  */
-export function TransitionPanel({ id, version, options }: { id: string; version: number; options: TransitionOption[] }) {
+export function TransitionPanel({ id, version, options, hasEmail }: { id: string; version: number; options: TransitionOption[]; hasEmail: boolean }) {
   const [state, action, pending] = useActionState<ActionResult<{ status: ReservationStatus }> | null, FormData>(changeStatus, null);
-  // The box is uncontrolled (the action's form reset ticks it again); its state follows it back to on with each result.
-  const [notifyAt, setNotifyAt] = useState<{ state: typeof state; on: boolean }>({ state, on: true });
-  const notify = notifyAt.state === state ? notifyAt.on : true;
+  // The reason and "Báo khách" keep what staff typed and chose through every refusal (no reason; a conflict,
+  // then "Tải lại"), so an unticked box never comes back ticked behind their back. Only a change made here
+  // starts them over: taken during render when its result arrives, not in an effect, and not with a key,
+  // which would remount the hook's state above with them.
+  const [draft, setDraft] = useState({ state, reason: '', notify: true });
+  if (draft.state !== state) setDraft(state?.ok ? { state, reason: '', notify: true } : { ...draft, state });
   if (options.length === 0) return <p className="a-muted">Đặt bàn đã kết thúc; không còn thao tác nào.</p>;
   const needsReason = options.some((o) => o.reasonRequired);
   const canCancel = options.some((o) => o.to === 'cancelled');
   const canDecline = options.some((o) => o.to === 'declined');
-  const reasonHint =
-    canCancel && notify ? 'Lý do này sẽ được gửi cho khách.' : canDecline ? 'Lý do từ chối sẽ được gửi cho khách.' : null;
+  // The buttons whose email quotes the reason: a decline's always, a cancel's while "Báo khách" is ticked.
+  const quotedBy = hasEmail ? [canDecline ? 'từ chối' : null, canCancel && draft.notify ? 'hủy' : null].filter((b) => b !== null) : [];
+  const reasonHint = quotedBy.length ? `Khi ${quotedBy.join(' hoặc ')}, lý do này sẽ được gửi cho khách.` : null;
   return (
-    <form className="a-transitions" action={action}>
+    // Not action={action}: React resets a form once its action settles, whatever it returned, and that reset
+    // ticked "Báo khách" again after a refused cancel, so the next cancel emailed a guest staff chose not to.
+    // method="post": a submit before hydration must not GET the reason into the URL.
+    <form className="a-transitions" method="post" onSubmit={submitKeepingValues(action)}>
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="version" value={version} />
       <FormMessage state={state} success="Đã cập nhật trạng thái." />
@@ -41,6 +50,11 @@ export function TransitionPanel({ id, version, options }: { id: string; version:
           id="res-transition-reason"
           name="reason"
           maxLength={500}
+          value={draft.reason}
+          onChange={(e) => {
+            const reason = e.target.value;
+            setDraft((d) => ({ ...d, reason }));
+          }}
           aria-describedby={reasonHint ? 'res-transition-reason-hint res-transition-reason-error' : 'res-transition-reason-error'}
         />
         {reasonHint ? (
@@ -52,7 +66,15 @@ export function TransitionPanel({ id, version, options }: { id: string; version:
       </div>
       {canCancel ? (
         <label className="a-check">
-          <input type="checkbox" name="notifyGuest" defaultChecked onChange={(e) => setNotifyAt({ state, on: e.target.checked })} />
+          <input
+            type="checkbox"
+            name="notifyGuest"
+            checked={draft.notify}
+            onChange={(e) => {
+              const notify = e.target.checked;
+              setDraft((d) => ({ ...d, notify }));
+            }}
+          />
           Báo khách qua email khi hủy
         </label>
       ) : null}

@@ -8,10 +8,11 @@ import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures'
 /*
  * Closures (spec §10.1, §14.1 phase 4): a closure made in the admin lists the
  * bookings it takes out and cancels only what staff tick, skipping one that
- * changed since the page was drawn; the guest sees the day greyed out with
- * the public reason. Phố Cuốn at +5 and the MM Supercenter (Yum Food Village,
- * ChaoShan Hotpot) at +11: dates no other spec books there. Each test deletes
- * its closure.
+ * changed since the page was drawn, and emails the guests only while "Báo
+ * khách qua email" is ticked; the guest sees the day greyed out with the
+ * public reason. Phố Cuốn at +5 and the MM Supercenter (Yum Food Village,
+ * ChaoShan Hotpot) at +11: dates no other spec books there; Phố Cuốn at
+ * +60 to +62, past every booking window. Each test deletes its closure.
  */
 
 test.beforeAll(() => seedStaff());
@@ -73,6 +74,63 @@ test('a dinner closure lists the dinner bookings, not lunch, and cancels only th
     expect(await one(`SELECT count(*)::int AS n FROM reservation_events WHERE reservation_id = $1 AND to_status = 'cancelled'`, [dinner.id])).toEqual({ n: 1 });
     expect(await one(`SELECT count(*)::int AS n FROM audit_log WHERE entity_type = 'reservation'`)).toEqual({ n: 0 });
     expect(violations).toEqual([]);
+  } finally {
+    await one(`DELETE FROM closures WHERE internal_note = $1`, [note]);
+  }
+});
+
+test('a cancel from the list emails each guest the reason only while “Báo khách qua email” is ticked (R8)', async ({ page }) => {
+  // Phố Cuốn two months out, past every booking window like the tests below: the closure greys out no day another spec books.
+  const date = venueDay(62);
+  const note = `E2E notify ${Date.now().toString(36)}`;
+  const told = await seedReservation({ restaurant: 'pho-cuon', date, time: '19:00' });
+  const untold = await seedReservation({ restaurant: 'pho-cuon', date, time: '19:30', status: 'confirmed' });
+  const noEmail = await seedReservation({ restaurant: 'pho-cuon', date, time: '20:00' });
+  await one(`UPDATE reservations SET email = 'bulk-' || id || '@example.com' WHERE id = ANY ($1::bigint[])`, [[told.id, untold.id]]);
+  try {
+    await one(`INSERT INTO closures (scope, restaurant_id, starts_on, ends_on, internal_note) VALUES ('restaurant', 'pho-cuon', $1, $1, $2)`, [date, note]);
+    await signInAs(page, STAFF.editor);
+    await page.goto('/admin/reservations/closures');
+    await expectHydrated(page);
+    const affected = page.getByRole('region').filter({ hasText: note }).getByRole('form', { name: /^Đặt bàn bị ảnh hưởng/ });
+    const pick = (reference: string) => affected.getByRole('checkbox', { name: `Chọn ${reference}` });
+    const notify = affected.getByRole('checkbox', { name: 'Báo khách qua email', exact: true });
+    const hint = affected.getByText('Lý do này sẽ được gửi cho khách.', { exact: true });
+    const cancel = affected.getByRole('button', { name: 'Hủy các đặt bàn đã chọn' });
+
+    // The hint shows only while the email will quote the reason: the box on, and a ticked guest who gave an address.
+    await expect(notify).toBeChecked();
+    await expect(hint).toBeHidden();
+    await pick(noEmail.reference).check();
+    await expect(hint).toBeHidden();
+    await pick(told.reference).check();
+    await expect(hint).toBeVisible();
+    await notify.uncheck();
+    await expect(hint).toBeHidden();
+    await notify.check();
+    await expect(hint).toBeVisible();
+    await pick(noEmail.reference).uncheck();
+
+    // Ticked: the guest gets guest.cancelled.
+    await affected.getByLabel('Lý do hủy', { exact: true }).fill('Bếp sửa chữa');
+    await cancel.click();
+    await expect(affected.getByRole('status')).toHaveText('Đã hủy 1 đặt bàn.');
+    await expect(pick(told.reference)).toHaveCount(0);
+    expect(await one(`SELECT event, to_email FROM email_outbox WHERE reservation_id = $1`, [told.id])).toEqual({
+      event: 'guest.cancelled',
+      to_email: `bulk-${told.id}@example.com`,
+    });
+
+    // Unticked: the next cancel emails no one.
+    await notify.uncheck();
+    await pick(untold.reference).check();
+    await expect(hint).toBeHidden();
+    await affected.getByLabel('Lý do hủy', { exact: true }).fill('Bếp sửa chữa');
+    await cancel.click();
+    await expect(pick(untold.reference)).toHaveCount(0);
+    expect(await reservationRow(untold.id)).toMatchObject({ status: 'cancelled', status_reason: 'Bếp sửa chữa' });
+    expect(await one(`SELECT count(*)::int AS n FROM email_outbox WHERE reservation_id = $1`, [untold.id])).toEqual({ n: 0 });
+    expect((await reservationRow(noEmail.id)).status).toBe('requested');
   } finally {
     await one(`DELETE FROM closures WHERE internal_note = $1`, [note]);
   }

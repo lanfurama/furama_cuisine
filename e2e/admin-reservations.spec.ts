@@ -54,6 +54,8 @@ test('cancel needs a reason; the reason is kept and shown', async ({ page }) => 
   const r = await seedReservation({ status: 'confirmed' });
   await signInAs(page, STAFF.editor);
   await page.goto(`/admin/reservations/${r.id}`);
+  // No guest email, so no email will quote the reason (R8).
+  await expect(main(page).getByText(/sẽ được gửi cho khách/)).toHaveCount(0);
   await main(page).getByRole('button', { name: 'Hủy', exact: true }).click();
   await expect(main(page).getByText('Nhập lý do.')).toBeVisible();
   expect((await reservationRow(r.id)).status).toBe('confirmed');
@@ -66,7 +68,7 @@ test('cancel needs a reason; the reason is kept and shown', async ({ page }) => 
   expect(await reservationRow(r.id)).toMatchObject({ status: 'cancelled', status_reason: 'Khách gọi báo hủy' });
 });
 
-test('the guest emails staff choose (R8): "Báo khách" is on for a cancel and says the reason goes out; "Gửi email xác nhận" is for a phone booking only', async ({ page }) => {
+test('the guest emails staff choose (R8): "Báo khách" is on for a cancel and says the reason goes out; unticked, it stays so through a refused cancel; "Gửi email xác nhận" is for a phone booking only', async ({ page }) => {
   const r = await seedReservation({ status: 'confirmed' });
   const guest = `cancel-${r.id}@example.com`;
   await one(`UPDATE reservations SET email = $2 WHERE id = $1`, [r.id, guest]);
@@ -74,16 +76,49 @@ test('the guest emails staff choose (R8): "Báo khách" is on for a cancel and s
   await page.goto(`/admin/reservations/${r.id}`);
   await expectHydrated(page);
   const notify = main(page).getByRole('checkbox', { name: 'Báo khách qua email khi hủy' });
-  const hint = main(page).getByText('Lý do này sẽ được gửi cho khách.');
+  const reason = page.getByLabel('Lý do (bắt buộc khi hủy hoặc từ chối)', { exact: true });
+  const cancel = main(page).getByRole('button', { name: 'Hủy', exact: true });
+  // One reason field serves every button: the hint names the ones whose email quotes it ("Đã đến" emails no one).
+  const hint = main(page).getByText(/sẽ được gửi cho khách/);
   await expect(notify).toBeChecked();
-  await expect(hint).toBeVisible();
+  await expect(hint).toHaveText('Khi hủy, lý do này sẽ được gửi cho khách.');
   await notify.uncheck();
-  await expect(hint).toBeHidden();
+  await expect(hint).toHaveCount(0);
   await notify.check();
-  await page.getByLabel('Lý do (bắt buộc khi hủy hoặc từ chối)', { exact: true }).fill('Nhà hàng có tiệc riêng');
-  await main(page).getByRole('button', { name: 'Hủy', exact: true }).click();
+  await reason.fill('Nhà hàng có tiệc riêng');
+  await cancel.click();
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Đã hủy');
   expect(await one(`SELECT event, to_email FROM email_outbox WHERE reservation_id = $1`, [r.id])).toEqual({ event: 'guest.cancelled', to_email: guest });
+
+  // Unticked, the box stays unticked through each refusal (no reason; someone else's change, then "Tải lại"),
+  // and so does the reason once typed: the cancel that finally goes through emails no one.
+  const quiet = await seedReservation();
+  await one(`UPDATE reservations SET email = $2 WHERE id = $1`, [quiet.id, `quiet-${quiet.id}@example.com`]);
+  await page.goto(`/admin/reservations/${quiet.id}`);
+  await expectHydrated(page);
+  await expect(hint).toHaveText('Khi từ chối hoặc hủy, lý do này sẽ được gửi cho khách.');
+  await notify.uncheck();
+  await expect(hint).toHaveText('Khi từ chối, lý do này sẽ được gửi cho khách.');
+  await cancel.click();
+  await expect(main(page).getByText('Nhập lý do.')).toBeVisible();
+  await expect(notify).not.toBeChecked();
+  await expect(hint).toHaveText('Khi từ chối, lý do này sẽ được gửi cho khách.');
+  await reason.fill('Khách đổi ngày');
+  await one(`UPDATE reservations SET note = 'Ghế trẻ em' WHERE id = $1`, [quiet.id]);
+  await cancel.click();
+  const alert = main(page).getByRole('alert');
+  await expect(alert).toContainText('Vừa được người khác thay đổi');
+  await expect(notify).not.toBeChecked();
+  await expect(reason).toHaveValue('Khách đổi ngày');
+  await alert.getByRole('button', { name: 'Tải lại' }).click();
+  // The reload drew the change (the edit form shows it) and kept the box and the reason.
+  await expect(page.getByRole('form', { name: 'Sửa đặt bàn' }).getByLabel('Yêu cầu của khách', { exact: true })).toHaveValue('Ghế trẻ em');
+  await expect(notify).not.toBeChecked();
+  await expect(reason).toHaveValue('Khách đổi ngày');
+  await cancel.click();
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Đã hủy');
+  expect(await reservationRow(quiet.id)).toMatchObject({ status: 'cancelled', status_reason: 'Khách đổi ngày' });
+  expect(await one(`SELECT count(*)::int AS n FROM email_outbox WHERE reservation_id = $1`, [quiet.id])).toEqual({ n: 0 });
 
   // Nothing is booked below: the form only shows or hides the box.
   await page.goto('/admin/reservations/new?nha_hang=taya-house');
