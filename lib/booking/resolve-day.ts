@@ -78,6 +78,15 @@ export function planDay(
   return { periods, wholeDayReason: wholeDay.find((c) => c.publicReason)?.publicReason ?? null };
 }
 
+/** The service and capacity a time belongs to on a planned day, closed or not; null for a time off the grid. */
+export function findPlannedSlot(plan: { periods: PlannedPeriod[] }, time: string): { period: PlannedPeriod; capacity: number } | null {
+  for (const period of plan.periods) {
+    const slot = period.slots.find((s) => s.time === time);
+    if (slot) return { period, capacity: slot.capacity };
+  }
+  return null;
+}
+
 /**
  * Whether the clock alone closes a sitting (spec §10.1 step 4, first two
  * rules). Lead: venueNow truncates to the minute, so "minutes left > lead" is

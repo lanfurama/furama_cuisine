@@ -115,14 +115,25 @@ export async function loadRestaurantRules(db: Db, restaurantId: string, locale: 
   return (await loadBookingRules(db, [restaurantId], locale, from)).get(restaurantId) ?? null;
 }
 
-/** Covers held per date and "HH:MM" for one restaurant, from..to inclusive (holding statuses only). */
-export async function loadBookedCovers(db: Db, restaurantId: string, from: IsoDate, to: IsoDate): Promise<Record<IsoDate, BookedCovers>> {
+/**
+ * Covers held per date and "HH:MM" for one restaurant, from..to inclusive
+ * (holding statuses only). `excludeId` leaves one booking out: an edit
+ * re-checks a slot without counting itself.
+ */
+export async function loadBookedCovers(
+  db: Db,
+  restaurantId: string,
+  from: IsoDate,
+  to: IsoDate,
+  excludeId: string | null = null,
+): Promise<Record<IsoDate, BookedCovers>> {
   const { rows } = await db.query<{ day: string; reserved_at: string; covers: number }>(
     `SELECT to_char(reserved_on, 'YYYY-MM-DD') AS day, reserved_at, SUM(guests)::int AS covers
        FROM reservations
       WHERE restaurant_id = $1 AND reserved_on BETWEEN $2::date AND $3::date AND status = ANY ($4::text[])
+        AND ($5::bigint IS NULL OR id <> $5::bigint)
       GROUP BY reserved_on, reserved_at`,
-    [restaurantId, from, to, HOLDING_STATUSES],
+    [restaurantId, from, to, HOLDING_STATUSES, excludeId],
   );
   const out: Record<IsoDate, BookedCovers> = {};
   for (const row of rows) (out[row.day] ??= {})[row.reserved_at] = row.covers;

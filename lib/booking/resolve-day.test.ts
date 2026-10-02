@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clockBlock, findSlot, planDay, resolveDay, resolveRange, seatings } from './resolve-day';
+import { clockBlock, findPlannedSlot, findSlot, planDay, resolveDay, resolveRange, seatings } from './resolve-day';
 import type { BookingRules, ClosureRule, PeriodRule } from './rules';
 
 // 2026-10-01 is a Thursday. The runner is pinned to UTC (npm test sets TZ=UTC);
@@ -78,6 +78,14 @@ describe('planDay (staff paths: no clock, no window, no booking switch)', () => 
       ['Lunch', true],
       ['Dinner', true],
     ]);
+  });
+
+  it('finds the service and capacity of a time, closed or not; nothing for a time off the grid', () => {
+    const plan = planDay(rules({ closures: [closure({ meals: ['Dinner'] })] }), '2026-10-05');
+    expect(findPlannedSlot(plan, '12:00')).toMatchObject({ period: { meal: 'Lunch', closed: false }, capacity: 16 });
+    expect(findPlannedSlot(plan, '19:00')).toMatchObject({ period: { meal: 'Dinner', closed: true }, capacity: 16 });
+    expect(findPlannedSlot(plan, '19:15')).toBeNull();
+    expect(findPlannedSlot(planDay(rules({ periods: [] }), '2026-10-05'), '19:00')).toBeNull();
   });
 });
 

@@ -121,6 +121,9 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('booking rule loaders (database)
       '2026-10-05': { '19:00': 9 },
       '2026-10-06': { '12:00': 2 },
     });
+    // An edit re-checks its slot without counting itself.
+    const { rows } = await sql(`SELECT id::text FROM reservations WHERE phone_e164 = '+84905000003'`);
+    expect(await loadBookedCovers(getPool(), 'taya-house', '2026-10-05', '2026-10-05', rows[0].id)).toEqual({ '2026-10-05': { '19:00': 5 } });
   });
 
   it('serialises one restaurant-day, and gives up after lock_timeout with 55P03', async () => {
