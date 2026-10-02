@@ -1,52 +1,62 @@
 'use client';
 
 import { DESTS, DEST_KEYS, MEAL_LABELS } from '@/lib/data';
-import { MAX_GUESTS, fmtDay, guestLabel, seatsLeft, slotsFor, unavailable } from '@/lib/booking';
+import { fmtDay, guestLabel } from '@/lib/booking';
+import { dayReason, slotOpen } from '@/lib/booking/client';
 import { useSite } from '@/components/site/SiteProvider';
 import { Dropdown, type Option } from '@/components/ui/Dropdown';
 import { useReveal } from '@/lib/motion';
 
 /** The wide "Where would you like to dine?" bar above the footer. */
 export function BookingBar() {
-  const { restaurants, booking, setBooking, availability, openReserve, dayList, now } = useSite();
+  const { bookable, booking, setBooking, board, openReserve, days, maxParty, now, strings } = useSite();
   const title = useReveal<HTMLHeadingElement>('title');
   const panel = useReveal<HTMLDivElement>('up');
 
-  // No date during the server render, so no clock read either.
-  const at = booking.date ? now() : undefined;
+  // No board during the server render, so no clock read either.
+  const at = board ? now() : undefined;
 
-  const destinationOptions: Option<string>[] = DEST_KEYS.map((k) => ({
-    value: k,
-    label: DESTS[k],
-  }));
+  // Only places and restaurants that take bookings online (booking_enabled).
+  const destinationOptions: Option<string>[] = DEST_KEYS.filter((k) => bookable.some((r) => r.dest === k)).map(
+    (k) => ({ value: k, label: DESTS[k] }),
+  );
 
-  const restaurantOptions: Option<string>[] = restaurants
+  const restaurantOptions: Option<string>[] = bookable
     .filter((r) => r.dest === booking.destination)
     .map((r) => ({ value: r.id, label: r.name }));
 
-  const dayOptions: Option<string>[] = dayList.map((d, i) => ({
-    value: d,
-    label: fmtDay(d),
-    note: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : undefined,
-  }));
+  const dayOptions: Option<string>[] = days.map((d, i) => {
+    const open = d.state === 'open';
+    return {
+      value: d.date,
+      label: fmtDay(d.date),
+      note: open ? (i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : undefined) : dayReason({ ...d, reason: undefined }, strings),
+      hint: open ? undefined : dayReason(d, strings),
+      disabled: !open,
+    };
+  });
 
-  const timeOptions: Option<string>[] = slotsFor(restaurants, booking.restaurant).flatMap((g) =>
-    g.times.map((t) => {
-      const taken = unavailable(booking.date, t, booking.guests, availability, at);
-      const left = seatsLeft(t, availability);
-      return {
-        value: t,
-        label: t,
-        note: taken ? 'Full' : left !== null && left <= 6 ? `${left} left` : MEAL_LABELS[g.meal],
-        disabled: taken,
-      };
-    }),
-  );
+  /* Until the day's slots arrive (and in the server HTML), the field shows the chosen time as it is. */
+  const timeOptions: Option<string>[] =
+    board && at
+      ? board.periods.flatMap((p) =>
+          p.slots.map((s) => {
+            const taken = !slotOpen(board, p, s, booking.guests, at);
+            return {
+              value: s.time,
+              label: s.time,
+              note: taken ? 'Full' : s.left <= 6 ? `${s.left} left` : MEAL_LABELS[p.meal],
+              disabled: taken,
+            };
+          }),
+        )
+      : [{ value: booking.time, label: booking.time }];
 
-  const guestOptions: Option<number>[] = Array.from({ length: MAX_GUESTS }, (_, i) => ({
-    value: i + 1,
-    label: guestLabel(i + 1),
-  }));
+  /* Likewise the party: 1…maxParty once the server has said, the chosen size before. */
+  const guestOptions: Option<number>[] =
+    maxParty !== null
+      ? Array.from({ length: maxParty }, (_, i) => ({ value: i + 1, label: guestLabel(i + 1) }))
+      : [{ value: booking.guests, label: guestLabel(booking.guests) }];
 
   return (
     <section id="reserve" className="booking">

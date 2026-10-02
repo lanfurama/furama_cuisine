@@ -6,6 +6,8 @@ export type Option<T extends string | number> = {
   value: T;
   label: string;
   note?: string;
+  /** Longer text for a disabled option (a closure's public reason): its tooltip and accessible description. */
+  hint?: string;
   disabled?: boolean;
 };
 
@@ -60,6 +62,7 @@ export function Dropdown<T extends string | number>({
                 role="option"
                 aria-selected={selected}
                 aria-disabled={o.disabled}
+                title={o.hint}
                 className="dd-option"
                 data-selected={selected}
                 data-disabled={o.disabled}

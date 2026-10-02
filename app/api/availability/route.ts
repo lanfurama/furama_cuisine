@@ -64,9 +64,7 @@ export async function GET(request: Request) {
           slots: p.closed ? [] : p.slots.map((s) => ({ time: s.time, left: s.left, bookable: s.bookable, ...(s.block ? { block: s.block } : {}) })),
         })),
       };
-      // Transitional, until the guest form reads v2 (phase 4, Task 6): the phase-1 client reads booked and capacity.
-      const phase1 = { booked, capacity: Math.max(0, ...rules.periods.map((p) => p.coversPerSlot)) };
-      return NextResponse.json({ ...body, ...phase1 }, { headers: NO_STORE });
+      return NextResponse.json(body, { headers: NO_STORE });
     }
 
     const start = from ?? today;

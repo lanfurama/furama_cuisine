@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { mockAvailability } from './availability-mock';
 import { serveImagesFromPublic } from './images';
 import { DETAIL_PATH, HOME_PATH } from './paths';
 
@@ -39,11 +40,7 @@ test.describe('a guest whose phone is set to Honolulu time', () => {
   test('sees Da Nang dates in the reserve drawer', async ({ page }) => {
     // 18:00 UTC on 1 Oct: still 1 Oct in Honolulu (08:00), already 2 Oct in Da Nang (01:00).
     await page.clock.setFixedTime(new Date('2026-10-01T18:00:00Z'));
-    await page.route('**/api/availability**', (route) =>
-      route.fulfill({
-        json: { today: '2026-10-02', now: '2026-10-01T18:00:00.000Z', date: '2026-10-02', booked: {}, capacity: 16 },
-      }),
-    );
+    await mockAvailability(page, { today: () => '2026-10-02', now: () => '2026-10-01T18:00:00.000Z' });
 
     await page.goto(HOME_PATH);
     await page.getByRole('button', { name: 'RESERVE', exact: true }).first().click();
@@ -58,15 +55,8 @@ test.describe('a guest whose phone is set to Honolulu time', () => {
 test("a guest whose device clock is a day behind still books from Da Nang's today", async ({ page }) => {
   // 10:00 on 1 Oct in Da Nang: the browser thinks today is 1 Oct, the server says 2 Oct.
   await page.clock.setFixedTime(new Date('2026-10-01T03:00:00Z'));
-  await page.route('**/api/availability**', (route) => {
-    const date = new URL(route.request().url()).searchParams.get('date');
-    if (date === '2026-10-01') {
-      return route.fulfill({ status: 400, json: { error: 'date out of range' } });
-    }
-    return route.fulfill({
-      json: { today: '2026-10-02', now: '2026-10-02T03:00:00.000Z', date: date ?? '2026-10-02', booked: {}, capacity: 16 },
-    });
-  });
+  // The calendar comes first and starts at 2 Oct; a stray day request for 1 Oct would answer state 'outside', as the server does.
+  await mockAvailability(page, { today: () => '2026-10-02', now: () => '2026-10-02T03:00:00.000Z' });
 
   await page.goto(HOME_PATH);
   await page.getByRole('button', { name: 'RESERVE', exact: true }).first().click();
@@ -84,13 +74,7 @@ test('reopening the drawer the next day moves Today forward', async ({ page }) =
   let serverNow = new Date('2026-10-01T03:00:00Z');
   let serverToday = '2026-10-01';
   await page.clock.setFixedTime(serverNow);
-  await page.route('**/api/availability**', (route) => {
-    const date = new URL(route.request().url()).searchParams.get('date');
-    if (date && date < serverToday) return route.fulfill({ status: 400, json: { error: 'date out of range' } });
-    return route.fulfill({
-      json: { today: serverToday, now: serverNow.toISOString(), date: date ?? serverToday, booked: {}, capacity: 16 },
-    });
-  });
+  await mockAvailability(page, { today: () => serverToday, now: () => serverNow.toISOString() });
 
   await page.goto(HOME_PATH);
   const reserve = page.getByRole('button', { name: 'RESERVE', exact: true }).first();
@@ -113,12 +97,7 @@ test('submitting after the chosen sitting has closed explains why and moves the 
   // runs on to 18:45 while the guest fills in the form.
   let serverNow = new Date('2026-10-02T03:00:00Z');
   await page.clock.setFixedTime(serverNow);
-  await page.route('**/api/availability**', (route) => {
-    const date = new URL(route.request().url()).searchParams.get('date');
-    return route.fulfill({
-      json: { today: '2026-10-02', now: serverNow.toISOString(), date: date ?? '2026-10-02', booked: {}, capacity: 16 },
-    });
-  });
+  await mockAvailability(page, { today: () => '2026-10-02', now: () => serverNow.toISOString() });
   // The client gate must stop this; if it ever lets the request through, abort it.
   let reachedServer = false;
   page.on('request', (r) => {

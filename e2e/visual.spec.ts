@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { mockAvailability } from './availability-mock';
 import { PAGES } from './paths';
 
 /**
@@ -15,18 +16,7 @@ async function prepare(page: Page) {
   await page.clock.setFixedTime(FIXED_NOW);
   await page.addInitScript(() => sessionStorage.setItem('fc-intro-seen', '1'));
   await page.emulateMedia({ reducedMotion: 'reduce' }); // data-motion="off": no reveals, no hero timer
-  await page.route('**/api/availability**', async (route) => {
-    const url = new URL(route.request().url());
-    await route.fulfill({
-      json: {
-        today: '2026-10-05',
-        now: FIXED_NOW.toISOString(),
-        date: url.searchParams.get('date') ?? '2026-10-05',
-        booked: {},
-        capacity: {},
-      },
-    });
-  });
+  await mockAvailability(page, { today: () => '2026-10-05', now: () => FIXED_NOW.toISOString() });
 }
 
 async function settle(page: Page) {

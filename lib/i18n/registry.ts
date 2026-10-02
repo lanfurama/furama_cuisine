@@ -116,6 +116,51 @@ export const REGISTRY = {
     context: 'The browser could not reach the server (client side only).',
     screen: 'ui-text',
   },
+  'booking.day_closed': {
+    en: 'Closed',
+    maxLength: 40,
+    context: 'Reservation form, on a date that takes no bookings when the closure has no public reason. Short: it also fits a dropdown note.',
+    screen: 'booking',
+  },
+  'booking.day_full': {
+    en: 'Fully booked',
+    maxLength: 40,
+    context: 'Reservation form, on a date with no tables left at any time. Short: it also fits a dropdown note.',
+    screen: 'booking',
+  },
+  'booking.day_past': {
+    en: 'No more tables today',
+    maxLength: 40,
+    context: 'Reservation form, on today once every sitting has closed to online booking.',
+    screen: 'booking',
+  },
+  'booking.day_note': {
+    en: '{date}: {reason}',
+    maxLength: 60,
+    vars: ['date', 'reason'],
+    context:
+      'Line under the date strip after a guest taps a date that takes no bookings, and that date’s spoken name. {date} is the formatted date, {reason} the public closure reason or one of booking.day_*; keep both.',
+    screen: 'booking',
+  },
+  'booking.meal_closed': {
+    en: 'Not available on this date.',
+    maxLength: 80,
+    context: 'Under a meal heading (Lunch, Dinner…) when a closure takes out that meal only. The public reason, if any, follows on its own line.',
+    screen: 'booking',
+  },
+  'booking.no_dates': {
+    en: 'No dates are open for online booking. Please call us on {phone}.',
+    maxLength: 140,
+    vars: ['phone'],
+    context: 'Reservation form, when no date in the booking window takes bookings. {phone} is the restaurant’s number; keep it.',
+    screen: 'booking',
+  },
+  'booking.loading': {
+    en: 'Checking tables…',
+    maxLength: 40,
+    context: 'Reservation form, in place of the time slots while they load.',
+    screen: 'booking',
+  },
 } as const satisfies Record<string, StringDef>;
 
 export type StringKey = keyof typeof REGISTRY;
@@ -125,8 +170,11 @@ export const STRING_KEYS = Object.keys(REGISTRY) as StringKey[];
 /** Same pattern as the CHECK on content_strings.key (migration 004). */
 export const KEY_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/;
 
+/** Keys the browser needs: the reservation form's copy and its error messages. */
+export type ClientKey = Extract<StringKey, `error.${string}` | `booking.${string}`>;
+
 /** Keys the browser needs at first paint; passed to SiteProvider. Grow this list per component that moves to t(). */
-export const CLIENT_KEYS = STRING_KEYS.filter((k) => k.startsWith('error.')) as StringKey[];
+export const CLIENT_KEYS = STRING_KEYS.filter((k): k is ClientKey => k.startsWith('error.') || k.startsWith('booking.'));
 
 /** The registry's own text for a language other than English; only `vi`, and only where declared. */
 export function registryLocaleDefault(key: StringKey, locale: string): string | undefined {

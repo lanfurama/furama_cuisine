@@ -174,9 +174,10 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('GET /api/availability v2 (datab
       expect(await res.json()).toMatchObject({ date: '2026-10-01', state: 'outside', periods: [] });
     });
 
-    it('still carries the phase-1 fields until the guest form moves to v2 (Task 6 removes them)', async () => {
-      await book('2026-10-03', '19:00', 4);
-      expect(await json('restaurant=taya-house&date=2026-10-03')).toMatchObject({ booked: { '19:00': 4 }, capacity: 16 });
+    it('answers exactly the v2 fields, nothing of the phase-1 shape', async () => {
+      expect(Object.keys(await json('restaurant=taya-house&date=2026-10-03')).sort()).toEqual(
+        ['date', 'leadMinutes', 'maxParty', 'now', 'periods', 'restaurant', 'sameDayCutoff', 'state', 'today'],
+      );
     });
   });
 

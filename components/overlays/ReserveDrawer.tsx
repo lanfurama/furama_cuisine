@@ -1,30 +1,114 @@
 'use client';
 
+import { useState } from 'react';
 import { DESTS, DEST_KEYS, MEAL_LABELS } from '@/lib/data';
-import {
-  MAX_GUESTS,
-  findRestaurant,
-  fmtDay,
-  guestLabel,
-  seatsLeft,
-  slotsFor,
-  unavailable,
-} from '@/lib/booking';
-import { formatDay } from '@/lib/venue-time';
-import { useSite } from '@/components/site/SiteProvider';
+import { findRestaurant, fmtDay, guestLabel } from '@/lib/booking';
+import { dayReason, slotOpen } from '@/lib/booking/client';
+import type { DayInfo } from '@/lib/booking/api';
+import type { GroupPhone } from '@/lib/booking/rules';
+import { formatMessage, type MessageParams } from '@/lib/i18n/format';
+import { formatDay, type IsoDate } from '@/lib/venue-time';
+import { useSite, type ClientStrings } from '@/components/site/SiteProvider';
 import { Dropdown, type Option } from '@/components/ui/Dropdown';
 import { animateSelector, useOpenAnimation } from '@/lib/motion';
+
+/** A message with {phone} turned into a tel: link (any other placeholder is filled as text). */
+function WithPhone({ template, params, phone }: { template: string; params: MessageParams; phone: GroupPhone }) {
+  const parts = template.split('{phone}');
+  if (parts.length < 2 || !phone.tel) return <>{formatMessage(template, { ...params, phone: phone.display })}</>;
+  return (
+    <>
+      {formatMessage(parts[0], params)}
+      <a href={`tel:${phone.tel}`}>{phone.display}</a>
+      {formatMessage(parts.slice(1).join(phone.display), params)}
+    </>
+  );
+}
+
+/**
+ * The booking window as the server sent it. A day that takes no bookings is
+ * greyed out and cannot be chosen; tapping it shows why. Mounted only while
+ * the drawer shows, so the note starts empty on every open.
+ */
+function DayStrip({
+  days,
+  selected,
+  onPick,
+  strings,
+  groupPhone,
+}: {
+  days: DayInfo[];
+  selected: IsoDate | '';
+  onPick: (date: IsoDate) => void;
+  strings: ClientStrings;
+  groupPhone: GroupPhone | null;
+}) {
+  /* The unavailable day a guest last tapped. */
+  const [note, setNote] = useState<DayInfo | null>(null);
+  const noDates = days.length > 0 && !days.some((d) => d.state === 'open');
+
+  return (
+    <>
+      <div className="daystrip">
+        {days.map((d, i) => {
+          const day = formatDay(d.date);
+          const open = d.state === 'open';
+          const isSelected = open && d.date === selected;
+          return (
+            <button
+              type="button"
+              key={d.date}
+              className="day"
+              data-selected={isSelected}
+              data-state={d.state}
+              aria-pressed={isSelected}
+              // Still focusable, so the reason in its name is read out; a tap shows it below.
+              aria-disabled={open ? undefined : true}
+              aria-label={
+                open
+                  ? undefined
+                  : formatMessage(strings['booking.day_note'], { date: day.label, reason: dayReason(d, strings) })
+              }
+              onClick={() => {
+                setNote(open ? null : d);
+                if (open) onPick(d.date);
+              }}
+            >
+              <span className="day-wd">{i === 0 ? 'Today' : day.weekday}</span>
+              <span className="day-num">{day.day}</span>
+              <span className="day-mo">{day.month}</span>
+            </button>
+          );
+        })}
+      </div>
+      {note && (
+        <p className="day-note" role="status">
+          {formatMessage(strings['booking.day_note'], { date: fmtDay(note.date), reason: dayReason(note, strings) })}
+        </p>
+      )}
+      {noDates && groupPhone && (
+        <p className="day-note">
+          <WithPhone template={strings['booking.no_dates']} params={{}} phone={groupPhone} />
+        </p>
+      )}
+    </>
+  );
+}
 
 export function ReserveDrawer() {
   const {
     restaurants,
+    bookable,
     overlay,
     closeDrawer,
     booking,
     setBooking,
-    availability,
-    dayList,
+    days,
+    maxParty,
+    groupPhone,
+    board,
     now,
+    strings,
     confirmedDate,
     form,
     setFormField,
@@ -45,15 +129,17 @@ export function ReserveDrawer() {
 
   if (!open) return null;
 
-  const restaurant = findRestaurant(restaurants, booking.restaurant) ?? restaurants[0];
+  const restaurant = findRestaurant(bookable, booking.restaurant) ?? findRestaurant(restaurants, booking.restaurant);
   const at = now();
-  const groups = slotsFor(restaurants, booking.restaurant);
-  const anyAvailable = groups.some((g) =>
-    g.times.some((t) => !unavailable(booking.date, t, booking.guests, availability, at)),
-  );
+  const anyAvailable =
+    board?.periods.some((p) => p.slots.some((s) => slotOpen(board, p, s, booking.guests, at))) ?? true;
+  const atLimit = maxParty !== null && booking.guests >= maxParty;
 
-  const destinationOptions: Option<string>[] = DEST_KEYS.map((k) => ({ value: k, label: DESTS[k] }));
-  const restaurantOptions: Option<string>[] = restaurants
+  // Only places and restaurants that take bookings online (booking_enabled).
+  const destinationOptions: Option<string>[] = DEST_KEYS.filter((k) => bookable.some((r) => r.dest === k)).map(
+    (k) => ({ value: k, label: DESTS[k] }),
+  );
+  const restaurantOptions: Option<string>[] = bookable
     .filter((r) => r.dest === booking.destination)
     .map((r) => ({ value: r.id, label: r.name }));
 
@@ -140,25 +226,13 @@ export function ReserveDrawer() {
               </div>
 
               <div className="drawer-label">DATE</div>
-              <div className="daystrip">
-                {dayList.map((d, i) => {
-                  const day = formatDay(d);
-                  return (
-                    <button
-                      type="button"
-                      key={d}
-                      className="day"
-                      data-selected={d === booking.date}
-                      aria-pressed={d === booking.date}
-                      onClick={() => setBooking({ date: d })}
-                    >
-                      <span className="day-wd">{i === 0 ? 'Today' : day.weekday}</span>
-                      <span className="day-num">{day.day}</span>
-                      <span className="day-mo">{day.month}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <DayStrip
+                days={days}
+                selected={booking.date}
+                onPick={(date) => setBooking({ date })}
+                strings={strings}
+                groupPhone={groupPhone}
+              />
 
               <div className="guests">
                 <div>
@@ -177,47 +251,59 @@ export function ReserveDrawer() {
                   <button
                     type="button"
                     aria-label="More guests"
-                    disabled={booking.guests >= MAX_GUESTS}
-                    onClick={() => setBooking({ guests: Math.min(MAX_GUESTS, booking.guests + 1) })}
+                    // The limit comes from the server (booking rules); until it answers, no growing.
+                    disabled={maxParty === null || atLimit}
+                    onClick={() => setBooking({ guests: booking.guests + 1 })}
                   >
                     +
                   </button>
                 </div>
               </div>
+              {atLimit && groupPhone && (
+                <p className="guests-hint">
+                  <WithPhone
+                    template={strings['error.party_too_large']}
+                    params={{ max: maxParty }}
+                    phone={groupPhone}
+                  />
+                </p>
+              )}
 
               <div className="drawer-label">TIME</div>
-              {groups.map((g) => (
-                <div key={g.meal} className="slotgroup">
-                  <div className="slotgroup-meal">{MEAL_LABELS[g.meal]}</div>
-                  <div className="slotgrid">
-                    {g.times.map((t) => {
-                      const taken = unavailable(booking.date, t, booking.guests, availability, at);
-                      const left = seatsLeft(t, availability);
-                      return (
-                        <button
-                          type="button"
-                          key={t}
-                          className="slot"
-                          data-selected={!taken && t === booking.time}
-                          data-taken={taken}
-                          disabled={taken}
-                          aria-label={
-                            taken
-                              ? `${t} — fully booked`
-                              : left !== null
-                                ? `${t} — ${left} covers left`
-                                : t
-                          }
-                          onClick={() => setBooking({ time: t })}
-                        >
-                          {t}
-                        </button>
-                      );
-                    })}
-                  </div>
+              {!board && booking.date && <div className="slot-loading">{strings['booking.loading']}</div>}
+              {board?.state === 'closed' && <div className="drawer-error">{strings['error.closed']}</div>}
+              {board?.periods.map((p) => (
+                <div key={p.meal} className="slotgroup" data-closed={p.closed || undefined}>
+                  <div className="slotgroup-meal">{MEAL_LABELS[p.meal]}</div>
+                  {p.closed ? (
+                    <div className="slotgroup-note">
+                      <span>{strings['booking.meal_closed']}</span>
+                      {p.reason && <span className="slotgroup-reason">{p.reason}</span>}
+                    </div>
+                  ) : (
+                    <div className="slotgrid">
+                      {p.slots.map((s) => {
+                        const taken = !slotOpen(board, p, s, booking.guests, at);
+                        return (
+                          <button
+                            type="button"
+                            key={s.time}
+                            className="slot"
+                            data-selected={!taken && s.time === booking.time}
+                            data-taken={taken}
+                            disabled={taken}
+                            aria-label={taken ? `${s.time} — fully booked` : `${s.time} — ${s.left} covers left`}
+                            onClick={() => setBooking({ time: s.time })}
+                          >
+                            {s.time}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ))}
-              {!anyAvailable && (
+              {!anyAvailable && board?.state !== 'closed' && (
                 <div className="drawer-error">
                   No tables left on this date — please choose another day.
                 </div>

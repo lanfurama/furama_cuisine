@@ -163,6 +163,41 @@
   font-variant-numeric: lining-nums;
 }
 
+/* A day that takes no bookings (closed, full, or past its last sitting):
+   the struck-through look of a taken slot. It stays focusable so its reason
+   is read out; a tap shows the reason under the strip. */
+.day:is([data-state='closed'], [data-state='full'], [data-state='past']) {
+  border-color: var(--disabled-line);
+  background: rgba(255, 255, 255, 0);
+  color: var(--disabled-time);
+  cursor: not-allowed;
+}
+
+.day:is([data-state='closed'], [data-state='full'], [data-state='past']) .day-wd,
+.day:is([data-state='closed'], [data-state='full'], [data-state='past']) .day-mo {
+  color: var(--disabled-time);
+}
+
+.day:is([data-state='closed'], [data-state='full'], [data-state='past']) .day-num {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.day-note,
+.guests-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.day-note a,
+.guests-hint a {
+  color: var(--green);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .guests {
   margin-top: 22px;
   display: flex;
@@ -247,6 +282,24 @@
   color: var(--disabled-time);
   text-decoration: line-through;
   cursor: not-allowed;
+}
+
+.slot-loading,
+.slotgroup-note {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.slotgroup-note {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.slotgroup-reason {
+  color: var(--disabled-time);
 }
 
 .drawer-error {
