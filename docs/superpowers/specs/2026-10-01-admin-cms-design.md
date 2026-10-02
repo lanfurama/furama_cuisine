@@ -73,13 +73,13 @@ Một app Next.js 16.3 (App Router) trên Vercel
       dal/       verifySession(), requirePermission(): cổng duy nhất cho mọi thao tác ghi của admin
       content/   đọc (cache, nhận locale) và ghi (Server Action → quyền → zod → ghi → audit → làm mới cache)
       booking/   lịch phục vụ, sức chứa, giao dịch đặt bàn, vòng đời trạng thái
-      email/     outbox, template React Email, gửi qua Resend
+      email/     outbox, template React Email, gửi qua SMTP (nodemailer)
       media/     đăng ký và dọn file
       ai/        client Vertex không khóa, danh mục model, các tính năng, sổ chi phí
            │
            ├── Neon Postgres   nội dung, bản dịch, đặt bàn, nhân viên, nhật ký (một DB, migration SQL)
            ├── Vercel Blob     ảnh và PDF upload (store public, iad1)
-           ├── Resend          email (gửi từ subdomain của furamavietnam.com)
+           ├── Máy chủ SMTP    email (tài khoản SMTP; tên miền gửi có SPF, DKIM, DMARC)
            └── Vertex AI       qua AI SDK 7 + @ai-sdk/google-vertex; xác thực Vercel OIDC → GCP WIF
 ```
 
@@ -91,7 +91,7 @@ Một app Next.js 16.3 (App Router) trên Vercel
 | `ai`, `@ai-sdk/google-vertex`, `@ai-sdk/react` | ^7.0, ^5.0, ^4.0 | Gọi Gemini và Claude trên Vertex; `useCompletion` |
 | `google-auth-library`, `@vercel/oidc` | ^10.9, ^3.8 | Xác thực Vertex không cần khóa |
 | `@vercel/blob` | ^2.8 | Upload trực tiếp từ trình duyệt (presigned) |
-| `resend`, `react-email` | ^6.31, ^6.11 | Gửi email. Import component từ `'react-email'`, vì `@react-email/components` đã ngừng hỗ trợ. |
+| `nodemailer`, `react-email` | ^10.0, ^6.11 | Gửi email qua SMTP (587 STARTTLS hoặc 465 TLS). Import component từ `'react-email'`, vì `@react-email/components` đã ngừng hỗ trợ. `smtp-server` (dev) là máy SMTP giả trong test. |
 | `zod` | ^4 | Kiểm tra đầu vào, thông báo lỗi tiếng Việt qua `z.locales.vi()` |
 | `intl-messageformat` | ^12 | Chuỗi ICU (số nhiều, biến) |
 | `libphonenumber-js` | ^1.13 | Chuẩn hóa số điện thoại sang E.164 |
@@ -155,7 +155,7 @@ Cột "Đợt" cho biết đợt nào tạo bảng. Bảng dùng chung cho cả 
 |---|---|---|
 | `destination_i18n` | | `name`, `card_title_1/2`, `card_blurb_1/2`, `address` |
 | `sections` | `key` (hero, film, finder, cuisines, restaurants, destinations, experiences, heritage, stories, offers, booking_bar), `is_visible` (restaurants luôn bật, có CHECK), `image_id`, `link_url` (với film chỉ nhận URL YouTube hoặc Vimeo) | chữ nằm trong `content_strings` |
-| `site_settings` (một hàng) | `email`, `default_restaurant_id` (nhà hàng chọn sẵn ở thanh đặt bàn trang chủ; NULL thì lấy nhà hàng đặt được đầu tiên), `default_occasion`, `og_image_id`, `hero_autoplay_ms` | — |
+| `site_settings` (một hàng; đợt 5 tạo sớm với cột `email`, đợt 6 thêm các cột còn lại bằng `ADD COLUMN IF NOT EXISTS`) | `email`, `default_restaurant_id` (nhà hàng chọn sẵn ở thanh đặt bàn trang chủ; NULL thì lấy nhà hàng đặt được đầu tiên), `default_occasion`, `og_image_id`, `hero_autoplay_ms` | — |
 | `cuisines` → `cuisine_i18n` | `id` (slug), `image_id` | `label` |
 | `restaurants` (bảng có sẵn, mở rộng) → `restaurant_i18n` | `name` (giữ ở bảng chính, không dịch); thêm `slug`, `destination_id` (FK), `card_image_id`, `detail_image_id`, `og_image_id`, `phone_e164`, `phone_display`, `map_url`, `has_detail_page`, `is_published`, `archived_at` | `type_label`, `detail_kicker`, `story_label`, `story`, `highlights_title`, `menu_pdf_media_id` hoặc `menu_pdf_url`, `seo_title`, `seo_description` |
 | `restaurant_cuisines` | `(restaurant_id, cuisine_id)`, `sort_order` | — |
@@ -648,7 +648,7 @@ Mỗi lần lưu cấu hình đều ghi audit và gọi `updateTag('ai-settings'
 
 ### 10.4 Email
 
-**Resend.** Gửi từ `EMAIL_FROM` trên một subdomain đã xác minh, ví dụ `mail.furamavietnam.com`.
+**SMTP** (thay Resend theo quyết định của chủ dự án ngày 2026-10-02). Gửi qua máy chủ SMTP truyền thống bằng nodemailer, cổng 587 (bắt buộc STARTTLS) hoặc 465 (TLS), từ `EMAIL_FROM`. Thông số nằm trong `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, đọc lúc gửi.
 
 **Sự kiện và template:** một bộ tên duy nhất, dùng cho `email_outbox.event`, `notification_recipients.events[]` và key nội dung.
 
@@ -668,9 +668,9 @@ Mỗi lần lưu cấu hình đều ghi audit và gọi `updateTag('ai-settings'
 
 **Outbox:**
 - Các hàng outbox được ghi **trong cùng transaction** với đặt bàn hoặc lần chuyển trạng thái. Mỗi người nhận là một hàng riêng.
-- Idempotency key là `outbox:{id}` (UNIQUE), cũng dùng làm `Idempotency-Key` khi gọi Resend.
+- Idempotency key là `outbox:{id}` (UNIQUE). SMTP không có idempotency key, nên email được gửi **ít nhất một lần**: bộ gửi giữ hàng bằng lease trước khi gửi và đánh dấu `sent` ngay sau đó; mọi lần gửi của một hàng dùng cùng Message-ID `<outbox-{id}.{12 ký tự hex}@{tên miền gửi}>`. Nếu tiến trình chết giữa lúc máy chủ SMTP nhận thư và lúc đánh dấu, người nhận có thể nhận hai bản giống hệt.
 - Bộ gửi lấy hàng bằng `FOR UPDATE SKIP LOCKED` và đọc lại đặt bàn trước khi gửi. Nếu sự kiện không còn khớp trạng thái thì đánh dấu `skipped`.
-- Gửi lần đầu ngay sau commit. Lỗi thì thử lại sau 1 phút, 5 phút, 15 phút, 1 giờ, 6 giờ, 12 giờ, tức tối đa 7 lần gửi. Mọi lần gửi đều nằm trong 24 giờ, là thời gian Resend còn giữ key. Hết số lần thì đánh dấu `failed` và hiện trên Tổng quan.
+- Gửi lần đầu ngay sau commit. Lỗi thì thử lại sau 1 phút, 5 phút, 15 phút, 1 giờ, 6 giờ, 12 giờ, tức tối đa 7 lần gửi. Mọi lần gửi nằm trong khoảng 19,4 giờ. Hết số lần thì đánh dấu `failed` và hiện trên Tổng quan.
 - Mốc dưới 5 phút được xử lý ở lần chạy cron kế tiếp, hoặc sớm hơn nếu `after()` của một thao tác khác chạy bộ gửi.
 
 **Kích hoạt bộ gửi:**
@@ -687,7 +687,7 @@ Mỗi lần lưu cấu hình đều ghi audit và gọi `updateTag('ai-settings'
 | `redirect` | Preview và Dev: mọi email gửi tới `EMAIL_REDIRECT_TO`. |
 | `log` | Mặc định khi không đặt; dùng cho CI và máy dev. |
 
-- Cổng này áp cho **cả email mời và đặt lại mật khẩu**. Hai loại email này đi thẳng qua Resend, không qua outbox.
+- Cổng này áp cho **cả email mời và đặt lại mật khẩu**. Hai loại email này đi thẳng qua SMTP, không qua outbox.
 - Cột `env` lấy từ `VERCEL_ENV`; không có thì là `development`. Bộ gửi chỉ gửi những hàng có `env` trùng với môi trường của nó.
 
 ## 11. Bảo mật và dữ liệu cá nhân
@@ -740,7 +740,7 @@ Mỗi lần lưu cấu hình đều ghi audit và gọi `updateTag('ai-settings'
 | Lớp | Nội dung |
 |---|---|
 | Unit (Vitest) | `venue-time` (server ở UTC, lúc 23:59, 00:01, 06:59 giờ VN); `resolveDay` (ca, ngày đóng cửa, biên cửa sổ 14 ngày); bảng chuyển trạng thái; chuẩn hóa mã tham chiếu và số điện thoại; ICU; che thuật ngữ và kiểm tra biến; zod cho cấu hình AI và quy tắc model/region; quy tắc chọn bản dịch hiển thị; regex matcher của proxy (`unstable_doesMiddlewareMatch` từ `next/experimental/testing/server`, vì Next 16.3.7 chưa có `unstable_doesProxyMatch`) |
-| Tích hợp DB (Postgres 18 trong CI; advisory lock kiểm một lần trên branch Neon qua URL pooled) | Migration chạy được trên bản sao dữ liệu; đặt bàn song song không vượt sức chứa; chặn trùng; outbox idempotent; cổng môi trường; audit ghi cùng transaction; khôi phục từ nhật ký (sửa, xóa, sắp xếp); ẩn danh xong không bảng nào còn tên, SĐT hay email của đặt bàn quá hạn; media-sweep chỉ xóa blob mồ côi đúng môi trường; job dịch chia phần, dừng khi hết ngân sách và chạy tiếp được |
+| Tích hợp DB (Postgres 18 trong CI; advisory lock kiểm một lần trên branch Neon qua URL pooled) | Migration chạy được trên bản sao dữ liệu; đặt bàn song song không vượt sức chứa; chặn trùng; outbox gửi ít nhất một lần và không gửi trùng khi hai bộ gửi chạy song song; cổng môi trường; audit ghi cùng transaction; khôi phục từ nhật ký (sửa, xóa, sắp xếp); ẩn danh xong không bảng nào còn tên, SĐT hay email của đặt bàn quá hạn; media-sweep chỉ xóa blob mồ côi đúng môi trường; job dịch chia phần, dừng khi hết ngân sách và chạy tiếp được |
 | E2E (Playwright) | Đặt bàn bằng EN và VI; chuyển ngôn ngữ; ngày đóng cửa; đổi giờ ca thì slot của khách đổi theo; ma trận quyền (Editor bị chặn ở `/admin/settings` **và** khi POST thẳng vào action chỉ dành cho Admin; chưa đăng nhập bị từ chối; `POST /api/auth/admin/set-role` từ trình duyệt bị từ chối); không hạ quyền được Admin cuối cùng; token mời dùng lại hoặc hết hạn; sửa nội dung thì web khách hiện thay đổi; ưu đãi quá `valid_until` biến mất (giả lập đồng hồ); thêm `ko` → dịch → duyệt → bật thì `/ko` hoạt động, sitemap có hreflang, không cần deploy; xác nhận đặt bàn tạo email (`EMAIL_DELIVERY=log`); nhà hàng chưa có người nhận vẫn gửi email về hộp thư chung; cron trả 401 khi thiếu secret |
 | AI | CI dùng phản hồi ghi sẵn; một bộ nhỏ gọi Vertex thật khi cần |
 | Trực quan | Chụp màn hình trang chủ và trang chi tiết ở EN và ở ngôn ngữ dài nhất, trên mobile và desktop |
@@ -762,7 +762,7 @@ Mỗi lần lưu cấu hình đều ghi audit và gọi `updateTag('ai-settings'
 | 0 | Môi trường an toàn | Branch Neon `dev` và branch cho từng preview; `.env.local` trỏ sang `dev`; tắt đăng ký Neon Auth; Vitest, Playwright, oxlint (không dùng ESLint vì typescript-eslint chỉ hỗ trợ TypeScript < 6.1, còn dự án dùng TypeScript 7); CI trên GitHub Actions; sửa `npm run lint` | CI xanh; môi trường dev không còn dùng DB production | 1–2 |
 | 1 | Sửa lỗi đặt bàn và giao diện | `venue-time`; ngày ISO giữa client và server; "hôm nay" do server cấp; cutoff đúng; mã tham chiếu mới có thử lại; `phone_e164` và index chặn trùng mới; mã lỗi; ngày render sau khi mount; `IntroTrigger` | Test giờ VN 00:00–07:00 lưu đúng ngày; hero hiện lại sau khi chuyển trang; hết lỗi hydration | 4–5 |
 | 2 | Tái cấu trúc web khách | `app/(site)/[lang]` (chỉ `en`); `proxy.ts`; chuyển `app/taya-house` thành `restaurants/[slug]` (tạm dùng hằng) và chuyển hướng `/taya-house`; `global-not-found`, `error.tsx`; Cache Components và Partial Prefetching; bảng `locales`, `content_strings`, `destinations`; khung lớp đọc dữ liệu và registry; slug cho ẩm thực và bữa ăn; bỏ code viết riêng cho Tàya; hero và chấm hành trình tính theo số lượng; `ViewMarker`; truy vấn DOM theo trang | `/en` giống hệt trang hiện tại (so ảnh chụp màn hình); `/taya-house` chuyển hướng đúng; build xanh | 6–8 |
-| 3 | Đăng nhập và khung admin | Better Auth, vai trò, mời (thu hồi, gửi lại), đặt lại mật khẩu, khóa endpoint plugin admin, `audit_log`, màn nhân viên, layout admin tiếng Việt (render động, CSP nonce), Resend cho email đăng nhập | Mời → nhận → đăng nhập; Editor bị chặn khỏi khu vực Admin; đổi vai trò tạo đúng một dòng audit với đúng người thực hiện; gọi thẳng `/api/auth/admin/*` từ trình duyệt bị từ chối | 7–9 |
+| 3 | Đăng nhập và khung admin | Better Auth, vai trò, mời (thu hồi, gửi lại), đặt lại mật khẩu, khóa endpoint plugin admin, `audit_log`, màn nhân viên, layout admin tiếng Việt (render động, CSP nonce), Resend cho email đăng nhập (từ đợt 5: SMTP) | Mời → nhận → đăng nhập; Editor bị chặn khỏi khu vực Admin; đổi vai trò tạo đúng một dòng audit với đúng người thực hiện; gọi thẳng `/api/auth/admin/*` từ trình duyệt bị từ chối | 7–9 |
 | 4 | Đặt bàn v2 | Migration đặt bàn; ca phục vụ, ngày đóng cửa, quy tắc đặt bàn; engine availability và API; form khách dùng slot từ server và hiện ngày đóng cửa; vòng đời trạng thái; màn hộp thư, chi tiết, tạo mới, theo ngày, ngày đóng cửa; màn **Giờ và sức chứa** `/admin/restaurants/[id]/booking`; màn **Cài đặt đặt bàn** | Đặt bàn song song không vượt sức chứa; ngày đóng cửa hiện xám cho khách; xác nhận, hủy, no-show chạy đúng; Editor đổi giờ ca tối và sức chứa thì khách thấy slot mới ngay; đặt `max_party` = 8 thì form chặn 9 khách; liệt kê đúng các đặt bàn bị ảnh hưởng | 9–11 |
 | 5 | Email và chống spam → **mốc ra mắt A (bản EN)** | Outbox; template EN/VI (chữ lấy từ registry); gửi sau commit; cron; người nhận và "Gửi email thử"; nhật ký email; cổng môi trường; trang chính sách và ô đồng ý; honeypot, giới hạn theo số điện thoại, BotID | Có đặt bàn mới thì nhân viên nhận email; xác nhận thì khách nhận email; email lỗi được gửi lại; không có người nhận thì gửi về email chung; bot bị chặn | 5–7 |
 | 6 | Chuyển nội dung vào DB | Toàn bộ bảng nội dung và bản dịch; `sections`, `site_settings`, `media` (trỏ tới `/assets`); seed từ `lib/data.ts`; web khách đọc từ DB; trang chi tiết đọc từ DB và mở cho mọi nhà hàng bật `has_detail_page`; khóa ngoại `reservations.offer_id`; form đặt bàn gửi `offerId` | Web giống hệt bản trước (so ảnh chụp màn hình); bật `has_detail_page` cho một nhà hàng khác thì trang chạy | 8–10 |
@@ -791,13 +791,13 @@ Với 1 dev, thời gian thực tế khoảng 4–4,5 tháng. Với 2 dev làm s
 
 **Ngay bây giờ**
 1. Neon Console → branch production → Auth: **tắt đăng ký**. Hiện ai có URL cũng tạo được tài khoản.
-2. Nâng Vercel lên **Pro**.
+2. Nâng Vercel lên **Pro** (đã xong ngày 2026-10-02).
 3. Cho biết **domain production** và **email của Admin đầu tiên**.
 
 **Trước đợt 3 (email)**
 
-4. Chọn cách tạo Resend: qua Vercel Marketplace, hoặc tạo tài khoản trực tiếp (Marketplace có thể yêu cầu domain mua trên Vercel).
-5. IT Furama thêm bản ghi DNS cho subdomain gửi mail (MX, SPF, DKIM, DMARC) theo hướng dẫn của Resend. Trước đó kiểm tra xem domain gốc đã có bản ghi DMARC chưa.
+4. Cung cấp tài khoản SMTP (host, cổng 587 hoặc 465, tên đăng nhập, mật khẩu hoặc app password) và địa chỉ gửi `EMAIL_FROM` mà tài khoản đó được phép gửi. Đặt chúng làm biến môi trường trên Vercel, không gửi qua chat và không commit.
+5. IT Furama cấu hình SPF, DKIM, DMARC cho tên miền gửi tại nhà cung cấp mail (DMARC bắt đầu `p=none`; kiểm trước xem domain gốc đã có DMARC chưa).
 
 **Trước đợt 9 (Google Cloud)**
 
@@ -825,7 +825,7 @@ Với 1 dev, thời gian thực tế khoảng 4–4,5 tháng. Với 2 dev làm s
 | `hooks.before` có chặn được `/api/auth/admin/*` mà không chặn `auth.api.*` phía server hay không | Kiểm chứng ngày đầu đợt 3. Phương án dự phòng: chặn đường dẫn này trong route `/api/auth/[...all]` |
 | Advisory lock qua URL pooled của Neon chưa được kiểm tra | Viết test tích hợp ở đợt 4. Dự phòng: dùng `SELECT … FOR UPDATE` trên một hàng khóa theo `(restaurant, date)` |
 | Cache Components và Partial Prefetching (App Shell cho URL mới) | Kiểm chứng ở đợt 2; nếu không ổn thì dùng phương án dự phòng ở 6.2 |
-| Resend qua Marketplace có thể không nhận domain không mua trên Vercel | Tạo tài khoản Resend trực tiếp |
+| Vercel Functions chưa chắc ra được cổng 587/465 của nhà cung cấp SMTP | Kiểm bằng "Gửi email thử" ở preview đầu tiên; dự phòng: đổi 587↔465 hoặc đổi nhà cung cấp |
 | Bố cục cố định có thể tràn chữ sau khi dịch | Giới hạn độ dài, cảnh báo, kiểm tra bằng ảnh chụp màn hình |
 | Đây là phương án nhiều code nhất | Chia nhỏ thành từng đợt, mỗi đợt có test và nghiệm thu; phần không bắt buộc để ở 14.2 |
 | Repo GitHub đang để **public** | Spec và code không chứa bí mật; nên cân nhắc chuyển repo sang private |
