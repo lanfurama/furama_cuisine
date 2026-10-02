@@ -1,9 +1,11 @@
 import 'server-only';
 import type { Pool } from 'pg';
+import { findPlannedSlot, planDay, type PlannedPeriod } from '@/lib/booking/resolve-day';
 import { HOLDING_STATUSES, type ReservationStatus } from '@/lib/booking/rules';
 import type { Meal } from '@/lib/data';
 import { escapeLike, parseSearch } from '@/lib/reservations/search';
 import type { IsoDate } from '@/lib/venue-time';
+import { loadBookingRules } from './rules';
 
 /*
  * The admin's reservation reads. Keyset pagination (no OFFSET): the cursor
@@ -164,4 +166,66 @@ export async function overviewCounts(pool: Pool, today: IsoDate): Promise<{ pend
     [today, HOLDING_STATUSES],
   );
   return rows[0];
+}
+
+/** Every restaurant, for the pickers of the new-booking and day-sheet screens. */
+export async function listRestaurantOptions(pool: Pool): Promise<{ id: string; name: string }[]> {
+  const { rows } = await pool.query<{ id: string; name: string }>('SELECT id, name FROM restaurants ORDER BY sort_order, id');
+  return rows;
+}
+
+/** The languages a guest may speak, enabled on the site or not: staff record the guest's, the email follows it from phase 5. */
+export async function listLocales(pool: Pool): Promise<{ code: string; name: string; isDefault: boolean }[]> {
+  const { rows } = await pool.query<{ code: string; name: string; isDefault: boolean }>(
+    `SELECT code, native_name AS name, is_default AS "isDefault" FROM locales ORDER BY sort_order, code`,
+  );
+  return rows;
+}
+
+// ── the day sheet (spec §7.2 "Bảng theo ngày", printable) ───────────────────
+
+export type SheetRow = Omit<InboxRow, 'cursor'> & { meal: Meal; note: string | null };
+
+export type DaySheetRestaurant = {
+  id: string;
+  name: string;
+  /** The day's services from planDay, each slot with the covers held now. */
+  periods: (Omit<PlannedPeriod, 'slots'> & { slots: { time: string; capacity: number; booked: number }[] })[];
+  /** Bookings that still count (not cancelled or declined), by time. */
+  reservations: SheetRow[];
+  /** Those whose time is no longer a slot of the day (the hours changed after they were made). */
+  outside: SheetRow[];
+};
+
+/** Every restaurant (or one) on a date: its services and slots with the covers held, and its bookings. */
+export async function daySheet(pool: Pool, date: IsoDate, restaurantId?: string | null): Promise<DaySheetRestaurant[]> {
+  const restaurants = (await listRestaurantOptions(pool)).filter((r) => !restaurantId || r.id === restaurantId);
+  const ids = restaurants.map((r) => r.id);
+  const [rules, bookings] = await Promise.all([
+    loadBookingRules(pool, ids, 'vi', date),
+    pool.query<SheetRow>(
+      `SELECT ${COLUMNS}, r.meal, r.note
+         FROM reservations r JOIN restaurants t ON t.id = r.restaurant_id
+        WHERE r.reserved_on = $1::date AND r.restaurant_id = ANY ($2::text[]) AND r.status NOT IN ('cancelled', 'declined')
+        ORDER BY r.reserved_at, r.id`,
+      [date, ids],
+    ),
+  ]);
+  return restaurants.flatMap((r) => {
+    const loaded = rules.get(r.id);
+    if (!loaded) return [];
+    const plan = planDay(loaded.rules, date);
+    const mine = bookings.rows.filter((b) => b.restaurantId === r.id);
+    const booked: Record<string, number> = {};
+    for (const b of mine) if ((HOLDING_STATUSES as readonly string[]).includes(b.status)) booked[b.time] = (booked[b.time] ?? 0) + b.guests;
+    return [
+      {
+        id: r.id,
+        name: r.name,
+        periods: plan.periods.map((p) => ({ ...p, slots: p.slots.map((s) => ({ ...s, booked: booked[s.time] ?? 0 })) })),
+        reservations: mine,
+        outside: mine.filter((b) => !findPlannedSlot(plan, b.time)),
+      },
+    ];
+  });
 }

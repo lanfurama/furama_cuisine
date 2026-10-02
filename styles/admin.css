@@ -611,3 +611,109 @@ body.admin {
   margin-right: 4px;
   font-size: 22px;
 }
+
+.a-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+.a-filter .a-field {
+  margin-bottom: 0;
+}
+
+fieldset.a-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+}
+
+fieldset.a-field legend {
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.a-check,
+.a-field .a-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 16px 8px 0;
+  font-weight: 400;
+}
+
+/* Text inputs are 44px tall; a checkbox or a radio is not a text input. */
+.a-field input[type='checkbox'],
+.a-field input[type='radio'],
+.a-check input {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.a-table--compact th,
+.a-table--compact td {
+  padding: 6px 10px;
+  vertical-align: top;
+}
+
+.a-sheet {
+  margin: 0 0 28px;
+}
+
+.a-sheet h3 {
+  margin: 16px 0 8px;
+  font-size: 15px;
+}
+
+/* The day sheet on paper (spec §7.2): the sheet only, black on white, a restaurant never split. */
+@media print {
+  body.admin {
+    background: #fff;
+    font-size: 11pt;
+  }
+
+  .a-shell {
+    display: block;
+  }
+
+  .a-sidebar,
+  .a-header,
+  .a-noprint,
+  .a-subnav {
+    display: none;
+  }
+
+  .a-main {
+    max-width: none;
+    padding: 0;
+  }
+
+  .a-table {
+    border-color: #999;
+  }
+
+  .a-table th,
+  .a-table td {
+    border-bottom-color: #bbb;
+  }
+
+  .a-status {
+    padding: 0;
+    background: none;
+    color: #000;
+  }
+
+  .a-sheet {
+    break-inside: avoid;
+  }
+
+  .admin a {
+    text-decoration: none;
+  }
+}

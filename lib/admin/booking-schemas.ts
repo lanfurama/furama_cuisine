@@ -14,6 +14,7 @@ import { z } from './zod';
 const blankToNull = (v: unknown) => (v === undefined || (typeof v === 'string' && v.trim() === '') ? null : v);
 
 export const Id = z.string().regex(/^\d{1,18}$/);
+export const RestaurantId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
 export const Version = z.coerce.number().int().min(1);
 export const IsoDay = z.string().refine(isValidIsoDate, { error: 'Chọn một ngày hợp lệ.' });
 export const Time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, { error: 'Chọn giờ (HH:MM).' });
@@ -48,4 +49,14 @@ export const EditForm = z.object({ id: Id, version: Version, date: IsoDay, time:
 export const NoteForm = z.object({
   id: Id,
   body: z.string().trim().min(1, { error: 'Nhập nội dung ghi chú.' }).max(2000, { error: 'Ghi chú tối đa 2000 ký tự.' }),
+});
+
+/** A phone booking (confirmed) or a walk-in (seated) made by staff; the action checks the language exists. */
+export const NewReservationForm = z.object({
+  restaurant: RestaurantId,
+  date: IsoDay,
+  time: Time,
+  source: z.enum(['phone', 'walk_in'], { error: 'Chọn nguồn đặt bàn.' }),
+  locale: z.string().regex(/^[a-z]{2,3}(-[a-z0-9]{2,8})*$/, { error: 'Chọn ngôn ngữ của khách.' }),
+  ...GuestFields,
 });

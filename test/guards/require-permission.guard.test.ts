@@ -54,6 +54,7 @@ const BOOKING_ACTIONS: Record<string, Record<string, { permission: object; edito
     changeStatus: { permission: { reservations: ['update'] }, editor: true },
     updateReservation: { permission: { reservations: ['update'] }, editor: true },
     addNote: { permission: { reservations: ['note'] }, editor: true },
+    createReservation: { permission: { reservations: ['create'] }, editor: true },
   },
 };
 

@@ -1,14 +1,15 @@
 import type { Page } from '@playwright/test';
 import { expectHydrated, watchCsp } from './csp';
 import { reservationRow, seedReservation, serviceDayNow, venueDay } from './reservation-fixtures';
-import { STAFF, expect, newVisitor, seedStaff, signInAs, test } from './staff-fixtures';
+import { STAFF, expect, newVisitor, one, seedStaff, signInAs, test } from './staff-fixtures';
 
 /*
  * Spec §14.1 phase 4, the inbox and the detail screen: confirm, cancel and
  * no-show work, with the time windows and the version conflict of §10.3;
- * the inbox search; an edit re-checked against capacity. The admin CSP stays
- * clean (no inline styles). Tàya House at +3, +4 and yesterday, V-Senses Cafe
- * at +8: dates no other spec books there.
+ * the inbox search; an edit re-checked against capacity; a phone booking
+ * past capacity; the printable day sheet. The admin CSP stays clean (no
+ * inline styles). Tàya House at +3, +4, +6 and yesterday, V-Senses Cafe at
+ * +8, ChaoShan Hotpot at +7: dates no other spec books there.
  */
 
 test.beforeAll(() => seedStaff());
@@ -140,4 +141,59 @@ test('an edit into a full slot is refused with the covers left, keeps what was t
   await expect(latest).toContainText('Giờ: 19:00 → 19:30');
   await expect(latest).toContainText('Lý do: Khách quen, kê thêm ghế');
   expect(await reservationRow(r.id)).toMatchObject({ reserved_at: '19:30', over_capacity: true, version: 2 });
+});
+
+test('a phone booking past capacity needs a reason; the form keeps what was typed, then opens the new booking', async ({ page }) => {
+  // ChaoShan Hotpot dinner, seven days out: 28 covers a slot, and no other spec books it.
+  const date = venueDay(7);
+  await signInAs(page, STAFF.editor);
+  await page.goto(`/admin/reservations/new?nha_hang=chaoshan-hotpot&ngay=${date}`);
+  await expectHydrated(page);
+  const form = page.getByRole('form', { name: 'Đặt bàn mới' });
+  await expect(form.getByRole('radio', { name: 'Khách vãng lai (đã đến)' })).toBeDisabled();
+  await form.getByLabel('Giờ', { exact: true }).selectOption('19:00');
+  await form.getByLabel('Số khách', { exact: true }).fill('30');
+  await form.getByLabel('Tên khách', { exact: true }).fill('Đoàn khách E2E');
+  const digits = String(Date.now()).slice(-6);
+  await form.getByLabel('Điện thoại', { exact: true }).fill(`0912 ${digits.slice(0, 3)} ${digits.slice(3)}`);
+  await form.getByLabel('Ngôn ngữ của khách', { exact: true }).selectOption('vi');
+  await form.getByRole('button', { name: 'Tạo đặt bàn' }).click();
+  await expect(form.getByRole('alert')).toContainText('Khung giờ này chỉ còn');
+  // Refused, not reset: what was typed is still there.
+  await expect(form.getByLabel('Tên khách', { exact: true })).toHaveValue('Đoàn khách E2E');
+  await expect(form.getByLabel('Số khách', { exact: true })).toHaveValue('30');
+
+  await form.getByLabel('Lý do vượt sức chứa (chỉ khi khung giờ đã hết chỗ)', { exact: true }).fill('Đoàn công ty, đã gọi bếp');
+  await form.getByRole('button', { name: 'Tạo đặt bàn' }).click();
+  // redirect() inside the action's try: actionError lets it through (unstable_rethrow).
+  await expect(page).toHaveURL(/\/admin\/reservations\/\d+$/);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Đã xác nhận');
+  await expect(page.getByTestId('sitting')).toContainText('19:00 · Dinner');
+  const created = page.getByRole('list', { name: 'Dòng thời gian' }).getByRole('listitem').first();
+  await expect(created).toContainText('Tạo đặt bàn');
+  await expect(created).toContainText('Lý do: Đoàn công ty, đã gọi bếp');
+  const id = new URL(page.url()).pathname.split('/').pop();
+  expect(await one(`SELECT source, status, over_capacity, locale, guests FROM reservations WHERE id = $1`, [id])).toEqual({
+    source: 'phone',
+    status: 'confirmed',
+    over_capacity: true,
+    locale: 'vi',
+    guests: 30,
+  });
+});
+
+test('the day sheet lists each service with its load, and prints without the admin chrome', async ({ page }) => {
+  const date = venueDay(6);
+  const r = await seedReservation({ date, status: 'confirmed', guests: 4 });
+  await signInAs(page, STAFF.editor);
+  await page.goto(`/admin/reservations/day?ngay=${date}&nha_hang=taya-house`);
+  const sheet = page.getByRole('region', { name: 'Tàya House' });
+  const row = sheet.getByRole('row').filter({ hasText: r.reference });
+  await expect(row).toContainText('19:00');
+  await expect(row).toContainText('4/16');
+  await expect(page.getByRole('button', { name: 'In bảng' })).toBeVisible();
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.getByRole('navigation', { name: 'Điều hướng quản trị' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'In bảng' })).toBeHidden();
+  await expect(row).toBeVisible();
 });

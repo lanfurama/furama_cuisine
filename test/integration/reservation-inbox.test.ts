@@ -1,6 +1,6 @@
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { INBOX_PAGE_SIZE, getReservation, listEvents, listInbox, listNotes, overviewCounts } from '@/lib/server/booking/queries';
+import { INBOX_PAGE_SIZE, daySheet, getReservation, listEvents, listInbox, listLocales, listNotes, overviewCounts } from '@/lib/server/booking/queries';
 import { TEST_DATABASE_URL } from '../helpers/db';
 
 /*
@@ -58,7 +58,8 @@ describe.skipIf(!TEST_DATABASE_URL)('reservation inbox (database)', () => {
     await pool.end();
   });
   beforeEach(async () => {
-    await pool.query('TRUNCATE reservations, reservation_events, reservation_notes CASCADE');
+    await pool.query('TRUNCATE reservations, reservation_events, reservation_notes, closures CASCADE');
+    await pool.query(`UPDATE service_periods SET active = true WHERE restaurant_id = 'taya-house'`);
   });
 
   it('tabs: Cần xử lý (requested, soonest first) · Hôm nay · Sắp tới · Tất cả (newest first)', async () => {
@@ -155,5 +156,37 @@ describe.skipIf(!TEST_DATABASE_URL)('reservation inbox (database)', () => {
     await seed({ date: TODAY, guests: 9, status: 'cancelled' });
     await seed({ date: TODAY, guests: 5, status: 'no_show' });
     expect(await overviewCounts(pool, TODAY)).toEqual({ pending: 2, today: 3, todayCovers: 9 });
+  });
+
+  it('the day sheet: each service’s slots with the covers held, the bookings that still count, and those outside the hours', async () => {
+    await seed({ time: '19:00', guests: 4, status: 'confirmed' });
+    await seed({ time: '19:00', guests: 3, status: 'seated' });
+    await seed({ time: '19:00', guests: 5, status: 'no_show' });
+    await seed({ time: '19:00', guests: 6, status: 'cancelled' });
+    // Booked when dinner ran later: 21:30 is no longer a slot.
+    const late = await seed({ time: '21:30', guests: 2, status: 'confirmed' });
+    await pool.query(`INSERT INTO closures (scope, restaurant_id, starts_on, ends_on, meals) VALUES ('restaurant', 'taya-house', '2026-10-05', '2026-10-05', '{Lunch}')`);
+    const [taya] = await daySheet(pool, '2026-10-05', 'taya-house');
+    expect(taya.name).toBe('Tàya House');
+    expect(taya.reservations.map((r) => [r.time, r.status])).toEqual([
+      ['19:00', 'confirmed'],
+      ['19:00', 'seated'],
+      ['19:00', 'no_show'],
+      ['21:30', 'confirmed'],
+    ]);
+    expect(taya.periods.map((p) => [p.meal, p.closed])).toEqual([
+      ['Lunch', true],
+      ['Dinner', false],
+    ]);
+    expect(taya.periods[1].slots.find((s) => s.time === '19:00')).toEqual({ time: '19:00', capacity: 16, booked: 7 });
+    expect(taya.outside.map((r) => r.id)).toEqual([late]);
+    expect((await daySheet(pool, '2026-10-05')).map((r) => r.id)).toContain('hai-van-lounge');
+  });
+
+  it('lists every language a guest may speak, enabled or not, the default marked', async () => {
+    expect(await listLocales(pool)).toEqual([
+      { code: 'en', name: 'English', isDefault: true },
+      { code: 'vi', name: 'Tiếng Việt', isDefault: false },
+    ]);
   });
 });

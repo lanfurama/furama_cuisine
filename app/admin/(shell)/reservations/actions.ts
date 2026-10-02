@@ -1,12 +1,20 @@
 'use server';
 
 import { refresh } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { getPool } from '@/db/client';
-import { EditForm, NoteForm, TransitionForm } from '@/lib/admin/booking-schemas';
+import { EditForm, NewReservationForm, NoteForm, TransitionForm } from '@/lib/admin/booking-schemas';
 import type { ReservationStatus } from '@/lib/booking/rules';
 import { toE164 } from '@/lib/phone';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
-import { addReservationNote, editReservation, staffActor, transitionReservation } from '@/lib/server/booking/reservations';
+import { listLocales } from '@/lib/server/booking/queries';
+import {
+  addReservationNote,
+  createStaffReservation,
+  editReservation,
+  staffActor,
+  transitionReservation,
+} from '@/lib/server/booking/reservations';
 import { requirePermission } from '@/lib/server/dal/session';
 
 /*
@@ -63,6 +71,38 @@ export async function addNote(_prev: ActionResult | null, formData: FormData): P
     if (!result.ok) return result;
     refresh();
     return { ok: true, data: null };
+  } catch (err) {
+    return actionError(err);
+  }
+}
+
+/** A phone booking or a walk-in; on success, the new booking's page. */
+export async function createReservation(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  try {
+    const staff = await requirePermission({ reservations: ['create'] });
+    const input = NewReservationForm.parse(Object.fromEntries(formData));
+    const pool = getPool();
+    if (!(await listLocales(pool)).some((l) => l.code === input.locale)) {
+      return { ok: false, code: 'invalid', fieldErrors: { locale: ['Chọn ngôn ngữ của khách.'] } };
+    }
+    const result = await createStaffReservation(pool, staffActor(staff), {
+      restaurantId: input.restaurant,
+      date: input.date,
+      time: input.time,
+      guests: input.guests,
+      name: input.name,
+      phone: input.phone,
+      phoneE164: toE164(input.phone)!,
+      email: input.email,
+      note: input.note,
+      locale: input.locale,
+      source: input.source,
+      overCapacityReason: input.overCapacityReason,
+      notifyGuest: false,
+    });
+    if (!result.ok) return result;
+    // redirect() throws NEXT_REDIRECT, which actionError() rethrows (unstable_rethrow): it may sit in the try (R13).
+    redirect(`/admin/reservations/${result.data.id}`);
   } catch (err) {
     return actionError(err);
   }
