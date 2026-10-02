@@ -18,6 +18,17 @@ export type Db = Pool | PoolClient;
 
 export type LoadedRules = { rules: BookingRules; groupPhone: GroupPhone | null };
 
+/**
+ * SQL: the number guests call about the restaurant aliased `restaurant`: its
+ * destination's, else the first destination that has one (phase-4 R11). The
+ * booking emails print the same number (lib/server/email/booking/load.ts).
+ */
+export const groupPhoneSql = (restaurant: string) => `(SELECT json_build_object('display', d.phone_display, 'tel', d.phone_e164)
+               FROM destinations d
+              WHERE d.phone_e164 IS NOT NULL
+              ORDER BY (d.id = ${restaurant}.destination) DESC, d.sort_order, d.id
+              LIMIT 1)`;
+
 type RulesRow = {
   id: string;
   name: string;
@@ -48,11 +59,7 @@ export async function loadBookingRules(db: Db, restaurantIds: readonly string[],
             to_char(s.same_day_cutoff, 'HH24:MI')         AS same_day_cutoff,
             COALESCE(r.max_party, s.max_party)::int       AS max_party,
             COALESCE(r.auto_confirm, s.auto_confirm)      AS auto_confirm,
-            (SELECT json_build_object('display', d.phone_display, 'tel', d.phone_e164)
-               FROM destinations d
-              WHERE d.phone_e164 IS NOT NULL
-              ORDER BY (d.id = r.destination) DESC, d.sort_order, d.id
-              LIMIT 1) AS group_phone,
+            ${groupPhoneSql('r')} AS group_phone,
             COALESCE((
               SELECT json_agg(json_build_object(
                        'id', p.id::text, 'meal', p.meal, 'weekdays', p.weekdays,

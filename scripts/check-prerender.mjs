@@ -92,12 +92,14 @@ for (const [route, entry] of adminRoutes) {
 /*
  * 1c. Availability is never cached (spec §6.2): a GET handler that stops
  * reading the request is prerendered at build time, and every guest would get
- * the build's slots. The route must not be in the prerender manifest at all.
+ * the build's slots. The outbox cron (spec §10.4) likewise: prerendered, its
+ * one build-time run would be all the sending it ever did. Neither route may
+ * be in the prerender manifest at all.
  * It must also be in the build as a route handler: a moved or renamed route
  * is missing from the prerender manifest too, so that test alone would pass
  * on a build without it.
  */
-const UNCACHED = ['/api/availability'];
+const UNCACHED = ['/api/availability', '/api/cron/outbox'];
 const appPaths = JSON.parse(readFileSync(join(dir, 'server', 'app-paths-manifest.json'), 'utf8'));
 for (const route of UNCACHED) {
   if (!appPaths[`${route}/route`]) {

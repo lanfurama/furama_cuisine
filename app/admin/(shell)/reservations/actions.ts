@@ -8,6 +8,7 @@ import type { ReservationStatus } from '@/lib/booking/rules';
 import { toE164 } from '@/lib/phone';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
 import { listLocales } from '@/lib/server/booking/queries';
+import { drainAfterCommit } from '@/lib/server/email/after-commit';
 import { outboxEffects } from '@/lib/server/email/outbox';
 import {
   addReservationNote,
@@ -24,7 +25,8 @@ import { requirePermission } from '@/lib/server/dal/session';
  * refresh() → ActionResult. Editor and Admin alike (spec §7.1). Reservations
  * are never cached, so there is no tag to expire; refresh() re-renders the
  * page in the same response. A change that emails the guest queues its
- * email_outbox rows in the same transaction (outboxEffects, spec §10.3–10.4).
+ * email_outbox rows in the same transaction (outboxEffects, spec §10.3–10.4),
+ * and drainAfterCommit sends them once it has committed (R20).
  */
 
 const field = (formData: FormData, name: string) => formData.get(name) ?? undefined;
@@ -45,6 +47,7 @@ export async function changeStatus(
     const effects = outboxEffects();
     const result = await transitionReservation(getPool(), staffActor(staff), input, { effects });
     if (!result.ok) return result;
+    drainAfterCommit(effects.queued);
     refresh();
     return { ok: true, data: { status: result.data.status } };
   } catch (err) {
@@ -110,6 +113,8 @@ export async function createReservation(_prev: ActionResult | null, formData: Fo
       { effects },
     );
     if (!result.ok) return result;
+    // Before redirect(), which throws: after() is only scheduled once the booking has committed.
+    drainAfterCommit(effects.queued);
     // redirect() throws NEXT_REDIRECT, which actionError() rethrows (unstable_rethrow): it may sit in the try (R13).
     redirect(`/admin/reservations/${result.data.id}`);
   } catch (err) {
@@ -133,15 +138,20 @@ export async function cancelReservations(_prev: ActionResult<CancelManyResult> |
     const actor = staffActor(staff);
     const effects = outboxEffects();
     let cancelled = 0;
-    for (const item of input.items) {
-      const [id, version] = item.split(':');
-      const result = await transitionReservation(
-        pool,
-        actor,
-        { id, version: Number(version), to: 'cancelled', reason: input.reason, notifyGuest: input.notifyGuest },
-        { effects },
-      );
-      if (result.ok) cancelled += 1;
+    try {
+      for (const item of input.items) {
+        const [id, version] = item.split(':');
+        const result = await transitionReservation(
+          pool,
+          actor,
+          { id, version: Number(version), to: 'cancelled', reason: input.reason, notifyGuest: input.notifyGuest },
+          { effects },
+        );
+        if (result.ok) cancelled += 1;
+      }
+    } finally {
+      // Each cancel commits on its own: a throw halfway still sends the emails of those that did (R20).
+      if (effects.queued.length > 0) drainAfterCommit(effects.queued);
     }
     refresh();
     return { ok: true, data: { cancelled, skipped: input.items.length - cancelled } };

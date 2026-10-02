@@ -3,6 +3,7 @@
 import type { BookingErrorCode } from '@/lib/booking-errors';
 import { createWebReservation } from '@/lib/server/booking/create';
 import { parseReservationInput } from '@/lib/server/booking/input';
+import { drainAfterCommit } from '@/lib/server/email/after-commit';
 import type { IsoDate } from '@/lib/venue-time';
 
 export type ReservationResult =
@@ -10,8 +11,8 @@ export type ReservationResult =
   | { ok: false; code: BookingErrorCode; params?: Record<string, string> };
 
 /**
- * Books a table (spec §10.2, steps 2, 3, 4, 6 and 7; BotID, the honeypot, the
- * phone limit and the outbox arrive in phase 5). Everything the client claimed
+ * Books a table (spec §10.2, steps 2, 3, 4, 6 and 7; BotID, the honeypot and
+ * the phone limit come with phase 5's anti-spam work). Everything the client claimed
  * is parsed with zod, then re-checked against the venue's clock and the live
  * rules inside one locked transaction. Failures come back as codes; the
  * browser turns them into copy. A database error throws, so the guest sees
@@ -22,5 +23,7 @@ export async function submitReservation(input: unknown): Promise<ReservationResu
   if (!parsed.ok) return parsed;
   const result = await createWebReservation(parsed.value);
   if (!result.ok) return result;
+  // Step 7: the booking has committed; its emails go out after the response (a failed send never fails the booking, spec §12).
+  drainAfterCommit(result.outboxIds);
   return { ok: true, data: { reference: result.reference, date: result.date, status: result.status } };
 }

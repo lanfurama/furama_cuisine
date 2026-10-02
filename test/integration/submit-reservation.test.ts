@@ -1,4 +1,16 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+/*
+ * next/server's after() throws outside a request scope (E468), and these
+ * tests call the action directly: collect the callbacks instead, and run them
+ * where a test wants to see what the response would have triggered.
+ */
+const afterTasks = vi.hoisted(() => [] as (() => unknown)[]);
+vi.mock('next/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/server')>()),
+  after: (task: () => unknown) => void afterTasks.push(task),
+}));
+
 import { submitReservation } from '@/app/actions';
 import { getPool } from '@/db/client';
 import { createWebReservation } from '@/lib/server/booking/create';
@@ -36,6 +48,9 @@ async function warmPool(n: number) {
 
 describe.skipIf(!process.env.TEST_DATABASE_URL)('submitReservation v2 (database)', () => {
   beforeEach(async () => {
+    afterTasks.length = 0;
+    // Recipients survive DELETE FROM reservations; another file may leave one behind. Outbox rows go with their booking.
+    await sql('DELETE FROM notification_recipients');
     await sql('DELETE FROM reservations');
     await sql('DELETE FROM closures');
     await sql('UPDATE restaurants SET booking_enabled = true, max_party = NULL, auto_confirm = NULL, lead_minutes = NULL, window_days = NULL');
@@ -65,6 +80,35 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('submitReservation v2 (database)
     ]);
     const events = await sql(`SELECT actor_kind, actor_id, type, from_status, to_status FROM reservation_events`);
     expect(events.rows).toEqual([{ actor_kind: 'guest', actor_id: null, type: 'created', from_status: null, to_status: 'requested' }]);
+  });
+
+  it('queues staff.new and guest.ack in the booking transaction, and sends them only after the response (spec §10.2 steps 6–7)', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const result = await submitReservation({ ...request, email: 'an@example.com', locale: 'en' });
+    expect(result.ok).toBe(true);
+    const queued = await sql(`SELECT event, to_email, status FROM email_outbox ORDER BY id`);
+    expect(queued.rows).toEqual([
+      { event: 'staff.new', to_email: 'fb@furamavietnam.com', status: 'queued' },
+      { event: 'guest.ack', to_email: 'an@example.com', status: 'queued' },
+    ]);
+    // after() got one task; running it is what Vercel's waitUntil does once the response is out.
+    expect(afterTasks).toHaveLength(1);
+    vi.useRealTimers();
+    await afterTasks[0]();
+    expect((await sql(`SELECT status, provider_id FROM email_outbox ORDER BY id`)).rows).toEqual([
+      { status: 'sent', provider_id: 'log' },
+      { status: 'sent', provider_id: 'log' },
+    ]);
+    expect(info.mock.calls.some(([line]) => String(line).startsWith('[outbox] sent id='))).toBe(true);
+    // The drain's own log lines carry ids and events, never an address.
+    expect(info.mock.calls.filter(([line]) => String(line).startsWith('[outbox]')).some(([line]) => String(line).includes('@'))).toBe(false);
+    info.mockRestore();
+  });
+
+  it('a refused booking schedules no drain', async () => {
+    expect(await submitReservation({ ...request, guests: 99 })).toMatchObject({ ok: false });
+    expect(await submitReservation({ ...request, name: '' })).toMatchObject({ ok: false });
+    expect(afterTasks).toHaveLength(0);
   });
 
   it('falls back to the default language for an unknown or disabled locale', async () => {
