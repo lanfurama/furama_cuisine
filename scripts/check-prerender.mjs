@@ -7,7 +7,7 @@
  *    of those tags (spec §6.2) would never reach them. The admin pages are the
  *    opposite (1b): no static shell at all, since a shell built at build time
  *    could not carry the per-request CSP nonce (spec §11). /api/availability
- *    (1c) must not be prerendered either.
+ *    (1c) must be built as a route handler, and must not be prerendered either.
  * 2. The web fonts must reach the pages as one family each. lib/fonts/index.ts
  *    loads every subset with its own localFont call and joins the calls into
  *    one family through `declarations`, which relies on the bundler naming a
@@ -92,10 +92,17 @@ for (const [route, entry] of adminRoutes) {
 /*
  * 1c. Availability is never cached (spec §6.2): a GET handler that stops
  * reading the request is prerendered at build time, and every guest would get
- * the build's slots. The route must not be in the manifest at all.
+ * the build's slots. The route must not be in the prerender manifest at all.
+ * It must also be in the build as a route handler: a moved or renamed route
+ * is missing from the prerender manifest too, so that test alone would pass
+ * on a build without it.
  */
 const UNCACHED = ['/api/availability'];
+const appPaths = JSON.parse(readFileSync(join(dir, 'server', 'app-paths-manifest.json'), 'utf8'));
 for (const route of UNCACHED) {
+  if (!appPaths[`${route}/route`]) {
+    problems.push(`${route} is missing from the build (no ${route}/route handler in .next/server/app-paths-manifest.json)`);
+  }
   if (manifest.routes[route] || manifest.dynamicRoutes[route]) problems.push(`${route} is prerendered; it must run per request`);
 }
 
@@ -108,7 +115,7 @@ if (problems.length) {
 }
 console.log(`Prerender check passed: ${Object.keys(PAGES).join(', ')} (tags: ${TAGS.join(', ')}).`);
 console.log(`Admin check passed: ${adminRoutes.map(([route]) => route).join(', ')} have no static shell.`);
-console.log(`Uncached check passed: ${UNCACHED.join(', ')} not prerendered.`);
+console.log(`Uncached check passed: ${UNCACHED.join(', ')} built as a route handler, not prerendered.`);
 console.log(`Font check passed: ${fontSummary}.`);
 
 function checkFonts() {

@@ -78,8 +78,8 @@ test('A1. concurrent bookings never exceed capacity: eight replays of a guest’
 
   // The same Server Action eight times at once, each from another phone (the dedupe index would refuse a repeat).
   // Through one server the requests barely overlap, so the test holds every INSERT INTO reservations
-  // back until all eight are inside their transactions: then only the booking-day lock stands
-  // between them and eight readings of "four covers left".
+  // back until five of them, as many as the app's pool has connections (db/client.ts), are inside their
+  // transactions: then only the booking-day lock stands between them and five readings of "four covers left".
   const body = request.postData()!;
   expect(body).toContain(phone);
   const gate = db();
@@ -104,7 +104,16 @@ test('A1. concurrent bookings never exceed capacity: eight replays of a guest’
     // other three wait for a connection. Five lock waiters: one at its INSERT and four at the
     // booking-day lock (without that lock, all five at the INSERT, each having read "four left").
     await expect
-      .poll(async () => (await one<{ n: number }>(`SELECT count(*)::int AS n FROM pg_locks WHERE NOT granted`))!.n, { timeout: 4000 })
+      .poll(
+        // This database's waiters only: tests on another database of the same Postgres (the integration
+        // suite, another checkout's E2E) must not fill the count.
+        async () =>
+          (await one<{ n: number }>(
+            `SELECT count(*)::int AS n FROM pg_locks
+              WHERE NOT granted AND database = (SELECT oid FROM pg_database WHERE datname = current_database())`,
+          ))!.n,
+        { timeout: 4000 },
+      )
       .toBeGreaterThanOrEqual(5);
   } finally {
     await gate.query('COMMIT');
@@ -186,6 +195,11 @@ test('A3. confirm, cancel and no-show work, each when it may and with what it ne
   expect(await one(`SELECT count(*)::int AS n FROM reservation_events WHERE reservation_id = ANY ($1::bigint[]) AND type = 'status_changed'`, [[request.id, toCancel.id, past.id]])).toEqual({
     n: 3,
   });
+  expect(
+    await one(`SELECT count(*)::int AS n FROM audit_log WHERE entity_type = 'reservation' AND entity_id = ANY ($1::text[])`, [
+      [request.id, toCancel.id, past.id],
+    ]),
+  ).toEqual({ n: 0 });
 });
 
 test('A4. an Editor moves the last dinner seating to 22:00 with 10 covers; the guest, who saw 21:00 last, sees the new slots at once', async ({ page, browser }) => {

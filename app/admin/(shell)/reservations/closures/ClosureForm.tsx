@@ -177,16 +177,20 @@ function ClosureFields({
 
 export function DeleteClosure({ values }: { values: ClosureValues }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(removeClosure, null);
+  // The confirm sits on the button, not on the form's onSubmit: the admin guard asks every form with
+  // onSubmit for method="post" (lib/admin/admin-pages.guard.test.ts), and React warns about a method on
+  // a form whose action is a function (it posts that form itself). Cancelling the click stops the submit.
   return (
-    <form
-      className="a-inline"
-      action={action}
-      onSubmit={(e) => {
-        if (!window.confirm('Xóa ngày đóng cửa này? Khách sẽ đặt được bàn lại vào những ngày đó.')) e.preventDefault();
-      }}
-    >
+    <form className="a-inline" action={action}>
       <WasScope values={values} />
-      <button className="a-btn a-btn--ghost a-btn--small" type="submit" disabled={pending}>
+      <button
+        className="a-btn a-btn--ghost a-btn--small"
+        type="submit"
+        disabled={pending}
+        onClick={(e) => {
+          if (!window.confirm('Xóa ngày đóng cửa này? Khách sẽ đặt được bàn lại vào những ngày đó.')) e.preventDefault();
+        }}
+      >
         Xóa ngày đóng cửa
       </button>
       <FormMessage state={state && !state.ok ? state : null} />

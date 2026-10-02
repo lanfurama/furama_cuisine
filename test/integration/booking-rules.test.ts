@@ -151,4 +151,22 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('booking rule loaders (database)
       await other.end();
     }
   });
+
+  it('sets lock_timeout for its own transaction only: the pooled connection is back to its default after COMMIT', async () => {
+    // A session-wide 5s would follow the connection back into the pool and time out unrelated statements.
+    const client = await getPool().connect();
+    const timeout = async () => (await client.query<{ lock_timeout: string }>('SHOW lock_timeout')).rows[0].lock_timeout;
+    try {
+      const before = await timeout();
+      expect(before).not.toBe('5s');
+      await client.query('BEGIN');
+      await lockBookingDay(client, 'taya-house', '2026-10-05');
+      expect(await timeout()).toBe('5s');
+      await client.query('COMMIT');
+      expect(await timeout()).toBe(before);
+    } finally {
+      // Destroyed, not returned: a failed run must not hand the pool a connection with a changed setting.
+      client.release(true);
+    }
+  });
 });

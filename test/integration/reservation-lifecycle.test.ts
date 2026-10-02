@@ -30,9 +30,10 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 type Seed = { status?: string; date?: string; time?: string; guests?: number; phone?: string; restaurant?: string; source?: string };
 
-async function seed(over: Seed = {}): Promise<{ id: string; version: number }> {
+/** Inserts a booking straight into the table; `db` may be a client inside an open transaction. */
+async function seed(over: Seed = {}, db: Pool | PoolClient = pool): Promise<{ id: string; version: number }> {
   const phone = over.phone ?? `+849050${String(Math.floor(Math.random() * 1e5)).padStart(5, '0')}`;
-  const { rows } = await pool.query<{ id: string; version: number }>(
+  const { rows } = await db.query<{ id: string; version: number }>(
     `INSERT INTO reservations (reference, restaurant_id, reserved_on, reserved_at, guests, guest_name, phone, phone_e164, status, meal, source)
      VALUES ('FC-' || upper(substr(md5(random()::text), 1, 8)), $1, $2::date, $3, $4, 'Nguyễn Minh Anh', $5, $5, $6,
              CASE WHEN $3 < '15:00' THEN 'Lunch' ELSE 'Dinner' END, $7)
@@ -120,6 +121,36 @@ function pausingPool(base: Pool) {
     },
   } as unknown as Pool;
   return { pool: paused$, paused, letGo };
+}
+
+/**
+ * Another write holding a restaurant-day, in raw SQL with the key lib/server/booking/lock.ts uses
+ * ('booking:<id>:<date>'), so this also pins the key's format. release() rolls back if still open.
+ */
+async function holdDay(restaurantId: string, date: string) {
+  const client = await pool.connect();
+  let open = false;
+  try {
+    await client.query('BEGIN');
+    open = true;
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`booking:${restaurantId}:${date}`]);
+  } catch (err) {
+    if (open) await client.query('ROLLBACK');
+    client.release();
+    throw err;
+  }
+  return {
+    client,
+    commit: async () => {
+      await client.query('COMMIT');
+      open = false;
+    },
+    release: async () => {
+      if (open) await client.query('ROLLBACK');
+      open = false;
+      client.release();
+    },
+  };
 }
 
 describe.skipIf(!TEST_DATABASE_URL)('reservation lifecycle (database)', () => {
@@ -468,6 +499,53 @@ describe.skipIf(!TEST_DATABASE_URL)('reservation lifecycle (database)', () => {
     it('not for a booking that no longer holds seats', async () => {
       const r = await seed({ status: 'cancelled', phone: '+84905000001' });
       expect(await edit(r.id, r.version, { guests: 3 })).toEqual({ ok: false, code: 'not_allowed' });
+    });
+
+    // Code rule 1: an edit that moves or grows a booking takes the target day's booking-day lock before it
+    // counts covers, or it would read the slot before another write's covers commit and overfill it.
+    it('a move into another day waits for that day’s lock, then counts what the holder booked', async () => {
+      const r = await seed({ phone: '+84905000001' }); // 2 guests at 19:00 on 5 Oct
+      const holder = await holdDay('taya-house', '2026-10-06');
+      let edited: Promise<unknown> | undefined;
+      try {
+        // The holder fills 19:00 on 6 Oct (16 of 16 covers), not committed yet.
+        await seed({ date: '2026-10-06', status: 'confirmed', guests: 16 }, holder.client);
+        let settled = false;
+        edited = edit(r.id, r.version, { date: '2026-10-06' }).finally(() => {
+          settled = true;
+        });
+        await sleep(300);
+        expect(settled).toBe(false);
+        await holder.commit();
+        expect(await edited).toEqual({ ok: false, code: 'full', params: { left: '0' } });
+        expect(await row(r.id)).toMatchObject({ date: '2026-10-05', time: '19:00', guests: 2, version: r.version });
+      } finally {
+        // Always end the holder: a stuck transaction would keep its lock into the next test.
+        await holder.release();
+        await edited?.catch(() => {});
+      }
+    });
+
+    it('a larger party on the same day waits for the day’s lock, then counts what the holder booked', async () => {
+      const r = await seed({ phone: '+84905000001' }); // 2 guests at 19:00 on 5 Oct
+      const holder = await holdDay('taya-house', '2026-10-05');
+      let edited: Promise<unknown> | undefined;
+      try {
+        // The holder books 14 more at 19:00 on 5 Oct, not committed yet: with this booking's 2, 16 of 16.
+        await seed({ status: 'confirmed', guests: 14 }, holder.client);
+        let settled = false;
+        edited = edit(r.id, r.version, { guests: 3 }).finally(() => {
+          settled = true;
+        });
+        await sleep(300);
+        expect(settled).toBe(false);
+        await holder.commit();
+        expect(await edited).toEqual({ ok: false, code: 'full', params: { left: '2' } });
+        expect(await row(r.id)).toMatchObject({ guests: 2, version: r.version });
+      } finally {
+        await holder.release();
+        await edited?.catch(() => {});
+      }
     });
   });
 

@@ -93,7 +93,9 @@ describe.skipIf(!TEST_DATABASE_URL)('reservation inbox (database)', () => {
     expect(await search('nguyen minh anh')).toEqual([anh]);
     expect(await search('Bình')).toEqual([binh]);
     expect(await search('anh.nguyen@example')).toEqual([anh]);
-    expect(await search('100%')).toEqual([]); // a LIKE wildcard is a character, not "anything"
+    // a LIKE wildcard is a character, not "anything": unescaped, these would find Ánh and Bình.
+    expect(await search('ngu%anh')).toEqual([]);
+    expect(await search('b_nh')).toEqual([]);
     // A search ignores the tab: neither booking is today.
     expect((await listInbox(pool, { tab: 'today', q: 'tran', today: TODAY })).searched).toBe(true);
   });

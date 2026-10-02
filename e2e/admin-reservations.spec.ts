@@ -13,12 +13,21 @@ import { STAFF, expect, newVisitor, one, seedStaff, signInAs, test } from './sta
  * shows; the printable day sheet. The admin CSP stays clean (no inline
  * styles). Tàya House at +3, +4, +6 (one booking outside the hours) and
  * yesterday, V-Senses Cafe at +8, ChaoShan Hotpot at +7, Café Indochine at
- * +6: dates no other spec books there.
+ * +6: dates no other spec books there. The tests that count covers (Tàya
+ * House +4 and +6, ChaoShan Hotpot +7) empty their day first, so the file
+ * passes again on a database it has already run on.
  */
 
 test.beforeAll(() => seedStaff());
 
 const main = (page: Page) => page.getByRole('main');
+
+/**
+ * A test that counts covers first empties the restaurant-day it owns: a second run on the same database
+ * would otherwise count the first run's bookings as well. Their events and notes go with them (ON DELETE CASCADE).
+ */
+const clearDay = (restaurant: string, date: string) =>
+  one(`DELETE FROM reservations WHERE restaurant_id = $1 AND reserved_on = $2::date`, [restaurant, date]);
 
 test('an Editor confirms a request; the timeline names who did it', async ({ page }) => {
   const r = await seedReservation();
@@ -123,6 +132,7 @@ test('the inbox finds a booking by reference or phone, and confirms it from the 
 
 test('an edit into a full slot is refused with the covers left, keeps what was typed, then saves with a reason', async ({ page }) => {
   const date = venueDay(4);
+  await clearDay('taya-house', date);
   await seedReservation({ date, time: '19:30', guests: 15, status: 'confirmed' });
   const r = await seedReservation({ date, time: '19:00', guests: 2 });
   await signInAs(page, STAFF.editor);
@@ -150,6 +160,8 @@ test('an edit into a full slot is refused with the covers left, keeps what was t
 test('a phone booking past capacity needs a reason; the form keeps what was typed, then opens the new booking', async ({ page }) => {
   // ChaoShan Hotpot dinner, seven days out: 28 covers a slot, and no other spec books it.
   const date = venueDay(7);
+  await clearDay('chaoshan-hotpot', date);
+  const violations = await watchCsp(page);
   await signInAs(page, STAFF.editor);
   await page.goto(`/admin/reservations/new?nha_hang=chaoshan-hotpot&ngay=${date}`);
   await expectHydrated(page);
@@ -184,6 +196,7 @@ test('a phone booking past capacity needs a reason; the form keeps what was type
     locale: 'vi',
     guests: 30,
   });
+  expect(violations).toEqual([]);
 });
 
 test('the booking goes where the picker points, without "Xem giờ trống"; while it loads, the form refuses', async ({ page }) => {
@@ -232,9 +245,11 @@ test('the booking goes where the picker points, without "Xem giờ trống"; whi
 
 test('the day sheet lists each service with its load, and prints without the admin chrome', async ({ page }) => {
   const date = venueDay(6);
+  await clearDay('taya-house', date);
   const r = await seedReservation({ date, status: 'confirmed', guests: 4 });
   // Dinner ends at 21:00: a booking at 23:30 (made before the hours changed) still holds its covers.
   const late = await seedReservation({ date, time: '23:30', meal: 'Dinner', status: 'confirmed', guests: 3, name: 'Khách Ngoài Giờ E2E' });
+  const violations = await watchCsp(page);
   await signInAs(page, STAFF.editor);
   await page.goto(`/admin/reservations/day?ngay=${date}&nha_hang=taya-house`);
   const sheet = page.getByRole('region', { name: 'Tàya House' });
@@ -258,4 +273,5 @@ test('the day sheet lists each service with its load, and prints without the adm
   await expect(page.getByRole('button', { name: 'In bảng' })).toBeHidden();
   await expect(row).toBeVisible();
   await expect(outside).toBeVisible();
+  expect(violations).toEqual([]);
 });
