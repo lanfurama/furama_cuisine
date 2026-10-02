@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CancelManyForm, EditForm, NewReservationForm, NoteForm, PeriodsForm, RulesForm, TransitionForm } from './booking-schemas';
+import { AutoConfirmForm, CancelManyForm, EditForm, NewReservationForm, NoteForm, PeriodsForm, RulesForm, SettingsForm, TransitionForm } from './booking-schemas';
 
 /* The booking screens' action inputs (spec §7.3): FormData strings in, typed values or Vietnamese field errors out. */
 describe('booking form schemas', () => {
@@ -93,5 +93,32 @@ describe('booking form schemas', () => {
       items: ['Chọn ít nhất một đặt bàn.'],
       reason: ['Nhập lý do hủy.'],
     });
+  });
+
+  it('booking settings: every default inside the database’s bounds, a blank cut-off for none, checkboxes as on/off', () => {
+    const base = { token: '1', windowDays: '14', leadMinutes: '30', sameDayCutoff: '', maxParty: '12', piiRetentionMonths: '24' };
+    expect(SettingsForm.parse({ ...base, autoConfirm: 'on' })).toEqual({
+      token: '1',
+      windowDays: 14,
+      leadMinutes: 30,
+      sameDayCutoff: null,
+      maxParty: 12,
+      autoConfirm: true,
+      guestAckEmail: false,
+      piiRetentionMonths: 24,
+    });
+    expect(SettingsForm.safeParse({ ...base, windowDays: '91', leadMinutes: '-1', sameDayCutoff: '25:00', maxParty: '0', piiRetentionMonths: '121' }).error?.flatten().fieldErrors).toEqual({
+      windowDays: ['Từ 1 đến 90 ngày.'],
+      leadMinutes: ['Từ 0 đến 1440 phút.'],
+      sameDayCutoff: ['Chọn giờ (HH:MM).'],
+      maxParty: ['Từ 1 đến 50 khách.'],
+      piiRetentionMonths: ['Từ 1 đến 120 tháng.'],
+    });
+  });
+
+  it('auto-confirm per restaurant: follow the default, on, or off', () => {
+    const base = { restaurant: 'danaksara', token: '1' };
+    expect(['inherit', 'on', 'off'].map((autoConfirm) => AutoConfirmForm.parse({ ...base, autoConfirm }).autoConfirm)).toEqual([null, true, false]);
+    expect(AutoConfirmForm.safeParse({ ...base, autoConfirm: 'yes' }).success).toBe(false);
   });
 });

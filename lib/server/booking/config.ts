@@ -217,3 +217,52 @@ export async function saveRestaurantRules(pool: Pool, actor: AuditActor, input: 
     return { ok: true, data: null } as const;
   });
 }
+
+// ── auto_confirm per restaurant (Admin: reservations:auto-confirm) ──────────
+
+/** null follows booking_settings.auto_confirm. */
+export async function saveAutoConfirm(
+  pool: Pool,
+  actor: AuditActor,
+  input: { restaurantId: string; token: string; autoConfirm: boolean | null },
+): Promise<{ ok: true; data: null } | NotFound | Conflict> {
+  return withTransaction(pool, async (client) => {
+    const locked = await lockRestaurant(client, input.restaurantId, input.token);
+    if (locked) return locked;
+    const before = await getRestaurantBooking(client, input.restaurantId);
+    await client.query('UPDATE restaurants SET auto_confirm = $2, updated_at = now(), updated_by = $3 WHERE id = $1', [
+      input.restaurantId,
+      input.autoConfirm,
+      actor.id,
+    ]);
+    await insertAudit(client, actor, {
+      action: 'update',
+      entityType: 'restaurant_booking',
+      entityId: input.restaurantId,
+      before: { auto_confirm: before?.autoConfirm ?? null },
+      after: { auto_confirm: input.autoConfirm },
+    });
+    return { ok: true, data: null } as const;
+  });
+}
+
+// ── booking_settings (Admin: settings:update) ───────────────────────────────
+
+export async function saveBookingSettings(pool: Pool, actor: AuditActor, input: BookingSettings): Promise<{ ok: true; data: null } | Conflict> {
+  return withTransaction(pool, async (client) => {
+    const { rows } = await client.query<{ token: string; updated_by: string | null; updated_at: Date }>(
+      `SELECT ${US('updated_at')} AS token, updated_by, updated_at FROM booking_settings FOR UPDATE`,
+    );
+    if (rows[0]?.token !== input.token) return conflictBy(client, rows[0]?.updated_by ?? null, rows[0]?.updated_at ?? new Date());
+    const { token: _before, ...before } = await getBookingSettings(client);
+    await client.query(
+      `UPDATE booking_settings
+          SET window_days = $1, lead_minutes = $2, same_day_cutoff = $3::time, max_party = $4, auto_confirm = $5,
+              guest_ack_email = $6, pii_retention_months = $7, updated_at = now(), updated_by = $8`,
+      [input.windowDays, input.leadMinutes, input.sameDayCutoff, input.maxParty, input.autoConfirm, input.guestAckEmail, input.piiRetentionMonths, actor.id],
+    );
+    const { token: _after, ...after } = await getBookingSettings(client);
+    await insertAudit(client, actor, { action: 'settings', entityType: 'booking_settings', entityId: null, before, after });
+    return { ok: true, data: null } as const;
+  });
+}

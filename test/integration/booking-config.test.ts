@@ -4,13 +4,18 @@ import { planDay } from '@/lib/booking/resolve-day';
 import type { AuditActor } from '@/lib/server/audit';
 import { findAffected } from '@/lib/server/booking/affected';
 import {
+  getBookingSettings,
   getRestaurantBooking,
   loadPeriods,
   overlappingPeriods,
+  saveAutoConfirm,
+  saveBookingSettings,
   saveRestaurantRules,
   saveServicePeriods,
   type PeriodInput,
 } from '@/lib/server/booking/config';
+import { createWebReservation } from '@/lib/server/booking/create';
+import { parseReservationInput } from '@/lib/server/booking/input';
 import { loadRestaurantRules } from '@/lib/server/booking/rules';
 import { TEST_DATABASE_URL } from '../helpers/db';
 
@@ -54,6 +59,7 @@ async function resetTaya() {
      VALUES ('taya-house', 'Lunch', '11:30', '13:30', 30, 16, 20), ('taya-house', 'Dinner', '18:00', '21:00', 30, 16, 40)`,
   );
   await pool.query(`UPDATE restaurants SET booking_enabled = true, window_days = NULL, lead_minutes = NULL, max_party = NULL, auto_confirm = NULL`);
+  await pool.query(`UPDATE booking_settings SET window_days = 14, lead_minutes = 30, same_day_cutoff = NULL, max_party = 12, auto_confirm = false`);
 }
 
 describe.skipIf(!TEST_DATABASE_URL)('booking configuration (database)', () => {
@@ -189,6 +195,39 @@ describe.skipIf(!TEST_DATABASE_URL)('booking configuration (database)', () => {
           { booking_enabled: true, window_days: null, lead_minutes: null, max_party: null },
           { booking_enabled: false, window_days: null, lead_minutes: 60, max_party: 8 },
         ],
+      ]);
+    });
+  });
+
+  describe('settings and auto-confirm (Admin)', () => {
+    it('saves the defaults every restaurant inherits, with a token and a settings audit row', async () => {
+      const s = await getBookingSettings(pool);
+      expect(s).toMatchObject({ windowDays: 14, leadMinutes: 30, sameDayCutoff: null, maxParty: 12, autoConfirm: false, guestAckEmail: true, piiRetentionMonths: 24 });
+      expect(await saveBookingSettings(pool, ACTOR, { ...s, maxParty: 8, sameDayCutoff: '17:00' })).toEqual({ ok: true, data: null });
+      expect(await getBookingSettings(pool)).toMatchObject({ maxParty: 8, sameDayCutoff: '17:00' });
+      // Every restaurant without its own override now takes parties of up to 8, and closes today at 17:00.
+      expect((await loadRestaurantRules(pool, 'danaksara', 'en', '2026-10-05'))!.rules).toMatchObject({ maxParty: 8, sameDayCutoff: '17:00' });
+      expect(await saveBookingSettings(pool, ACTOR, s)).toMatchObject({ ok: false, code: 'conflict' });
+      const [row] = await audit();
+      expect(row).toMatchObject({ action: 'settings', entity_type: 'booking_settings', entity_id: null });
+      expect(row.after).toMatchObject({ maxParty: 8, sameDayCutoff: '17:00' });
+      expect(row.after).not.toHaveProperty('token');
+    });
+
+    it('auto-confirm per restaurant: a guest’s booking there is confirmed at once', async () => {
+      const r = await getRestaurantBooking(pool, 'danaksara');
+      expect(await saveAutoConfirm(pool, ACTOR, { restaurantId: 'danaksara', token: 'stale', autoConfirm: true })).toMatchObject({ ok: false, code: 'conflict' });
+      expect(await saveAutoConfirm(pool, ACTOR, { restaurantId: 'danaksara', token: r!.token, autoConfirm: true })).toEqual({ ok: true, data: null });
+      expect(await getRestaurantBooking(pool, 'danaksara')).toMatchObject({ autoConfirm: true });
+      const parsed = parseReservationInput({ restaurant: 'danaksara', date: '2026-10-05', time: '19:00', guests: 2, name: 'Khách Web', phone: '0905 444 555', email: '', note: '', locale: 'en' });
+      if (!parsed.ok) throw new Error(parsed.code);
+      expect(await createWebReservation(parsed.value, { now: NOW, pool })).toMatchObject({ ok: true, status: 'confirmed' });
+      // Elsewhere the default (off) still holds.
+      const other = parseReservationInput({ restaurant: 'don-ciprianis', date: '2026-10-05', time: '19:00', guests: 2, name: 'Khách Web', phone: '0905 444 555', email: '', note: '', locale: 'en' });
+      if (!other.ok) throw new Error(other.code);
+      expect(await createWebReservation(other.value, { now: NOW, pool })).toMatchObject({ ok: true, status: 'requested' });
+      expect((await audit()).map((a) => [a.entity_type, a.entity_id, a.before, a.after])).toEqual([
+        ['restaurant_booking', 'danaksara', { auto_confirm: null }, { auto_confirm: true }],
       ]);
     });
   });

@@ -40,8 +40,12 @@ describe('requirePermission guard (the repository)', () => {
   });
 });
 
-/** Files whose every action is Admin-only (spec §7.1: staff, invitations). */
-const ADMIN_ONLY_ACTIONS = ['app/admin/(shell)/users/actions.ts'];
+/** Files whose every action is Admin-only (spec §7.1: staff, invitations; booking settings; auto_confirm). */
+const ADMIN_ONLY_ACTIONS = [
+  'app/admin/(shell)/users/actions.ts',
+  'app/admin/(shell)/settings/booking/actions.ts',
+  'app/admin/(shell)/restaurants/[id]/booking/auto-confirm-actions.ts',
+];
 
 /*
  * Spec §7.1's matrix for the booking screens, action by action: the exact
@@ -60,6 +64,12 @@ const BOOKING_ACTIONS: Record<string, Record<string, { permission: object; edito
   'app/admin/(shell)/restaurants/[id]/booking/actions.ts': {
     savePeriods: { permission: { schedule: ['update'] }, editor: true },
     saveRules: { permission: { reservations: ['configure'] }, editor: true },
+  },
+  'app/admin/(shell)/restaurants/[id]/booking/auto-confirm-actions.ts': {
+    saveAutoConfirmSetting: { permission: { reservations: ['auto-confirm'] }, editor: false },
+  },
+  'app/admin/(shell)/settings/booking/actions.ts': {
+    saveSettings: { permission: { settings: ['update'] }, editor: false },
   },
 };
 

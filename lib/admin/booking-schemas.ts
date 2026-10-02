@@ -128,3 +128,24 @@ export const PeriodsForm = z.object({
     }
   }, z.array(PeriodForm).max(20, { error: 'Tối đa 20 ca phục vụ.' })),
 });
+
+/** auto_confirm per restaurant (Admin): follow "Cài đặt đặt bàn" (null), on or off. */
+export const AutoConfirmForm = z.object({
+  restaurant: RestaurantId,
+  token: Token,
+  autoConfirm: z.enum(['inherit', 'on', 'off']).transform((v) => (v === 'inherit' ? null : v === 'on')),
+});
+
+const bounded = (min: number, max: number, message: string) => z.coerce.number({ error: message }).int({ error: message }).min(min, { error: message }).max(max, { error: message });
+
+/** "Cài đặt đặt bàn" (Admin): the defaults every restaurant inherits; the bounds are migration 006's. */
+export const SettingsForm = z.object({
+  token: Token,
+  windowDays: bounded(1, 90, 'Từ 1 đến 90 ngày.'),
+  leadMinutes: bounded(0, 1440, 'Từ 0 đến 1440 phút.'),
+  sameDayCutoff: z.preprocess(blankToNull, Time.nullable()),
+  maxParty: bounded(1, 50, 'Từ 1 đến 50 khách.'),
+  autoConfirm: z.preprocess((v) => v === 'on', z.boolean()),
+  guestAckEmail: z.preprocess((v) => v === 'on', z.boolean()),
+  piiRetentionMonths: bounded(1, 120, 'Từ 1 đến 120 tháng.'),
+});

@@ -6,12 +6,14 @@ import { formatIsoDayVi } from '@/lib/admin/format';
 import { planDay } from '@/lib/booking/resolve-day';
 import { MEALS } from '@/lib/data';
 import { STATUS_LABELS } from '@/lib/reservations/lifecycle';
+import { roleCan } from '@/lib/server/auth/permissions';
 import { findAffected, type AffectedKind } from '@/lib/server/booking/affected';
 import { getBookingSettings, getRestaurantBooking, loadPeriods } from '@/lib/server/booking/config';
 import { loadBookedCovers, loadRestaurantRules } from '@/lib/server/booking/rules';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { isValidIsoDate, venueNow } from '@/lib/venue-time';
 import { AffectedList } from '../../../_ui/AffectedList';
+import { AutoConfirmForm } from './AutoConfirmForm';
 import { PeriodsEditor } from './PeriodsEditor';
 import { RulesForm } from './RulesForm';
 
@@ -33,7 +35,7 @@ export default async function RestaurantBookingPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ ngay?: string | string[] }>;
 }) {
-  await requirePagePermission({ schedule: ['read'] });
+  const staff = await requirePagePermission({ schedule: ['read'] });
   const [{ id }, { ngay }] = await Promise.all([params, searchParams]);
   const pool = getPool();
   const restaurant = await getRestaurantBooking(pool, id);
@@ -71,6 +73,10 @@ export default async function RestaurantBookingPage({
           }}
           defaults={{ windowDays: settings.windowDays, leadMinutes: settings.leadMinutes, maxParty: settings.maxParty }}
         />
+        {/* Admin only (spec §7.1): an Editor never gets the control, and the action refuses them anyway. */}
+        {roleCan(staff.role, { reservations: ['auto-confirm'] }) ? (
+          <AutoConfirmForm restaurantId={restaurant.id} token={restaurant.token} value={restaurant.autoConfirm} defaultValue={settings.autoConfirm} />
+        ) : null}
       </section>
 
       <section aria-labelledby="booking-periods-title">
