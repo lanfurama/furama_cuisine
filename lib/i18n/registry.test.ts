@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatMessage, usesIcuSyntax } from './format';
-import { ADMIN_SCREENS, KEY_PATTERN, REGISTRY, STRING_KEYS, type StringDef } from './registry';
+import { ADMIN_SCREENS, CLIENT_KEYS, KEY_PATTERN, REGISTRY, STRING_KEYS, type StringDef } from './registry';
 import { resolveStrings } from './resolve';
 
 describe('registry', () => {
@@ -22,6 +22,10 @@ describe('registry', () => {
 
   it('error.outside_window names no fixed span: each restaurant sets its own window, 1–90 days', () => {
     expect(REGISTRY['error.outside_window'].en).not.toMatch(/week|fortnight|\d+ days/i);
+  });
+
+  it('sends the privacy notice, the consent label and the policy link to the browser (the drawer and the footer read them)', () => {
+    expect(CLIENT_KEYS).toEqual(expect.arrayContaining(['booking.privacy_notice', 'booking.consent', 'legal.link']));
   });
 });
 

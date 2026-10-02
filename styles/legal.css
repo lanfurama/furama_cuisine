@@ -15,7 +15,8 @@
   line-height: 1.1;
 }
 
-.legal-updated {
+/* Under .legal, as `.legal p` would otherwise win on specificity and set it as body text. */
+.legal .legal-updated {
   margin: 12px 0 32px;
   font-size: 12px;
   letter-spacing: 0.08em;

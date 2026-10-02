@@ -20,7 +20,14 @@ async function strings() {
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await strings();
-  return { title: `${t['legal.title']} — Furama Cuisine`, description: t['legal.intro'] };
+  const title = `${t['legal.title']} — Furama Cuisine`;
+  // A page's openGraph replaces the layout's whole object (generate-metadata.md, "Merging"), so a
+  // shared link previews the policy instead of the home page; type is the layout's, carried over.
+  return {
+    title,
+    description: t['legal.intro'],
+    openGraph: { title, description: t['legal.intro'], type: 'website' },
+  };
 }
 
 /** A body whose {email} becomes a mailto link. */

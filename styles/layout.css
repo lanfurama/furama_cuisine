@@ -20,6 +20,21 @@
   -webkit-backdrop-filter: blur(10px);
 }
 
+/*
+ * A page with no hero of its own (view 'other': the privacy policy, a page not
+ * found) has the cream page behind the header, the colour of the header's own
+ * text, so its header is solid from the top, as it is once scrolled. <ViewMarker>
+ * sets html[data-view] once hydrated; before that the server HTML holds exactly
+ * one page, so :has() on its <main> decides (as for the detail view below).
+ */
+html[data-view='other'] .hdr,
+html:not([data-view]):has(main[data-view='other']) .hdr {
+  background: rgba(20, 32, 28, 0.96);
+  box-shadow: 0 1px 0 rgba(247, 242, 232, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
 .hdr-inner {
   height: 100%;
   display: flex;
@@ -35,6 +50,12 @@
 }
 
 .hdr-full[data-solid='true'] {
+  height: var(--header-h-solid);
+}
+
+/* The hero-less pages' solid header (above) is the condensed one too, as once scrolled. */
+html[data-view='other'] .hdr-full,
+html:not([data-view]):has(main[data-view='other']) .hdr-full {
   height: var(--header-h-solid);
 }
 
