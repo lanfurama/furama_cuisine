@@ -1,3 +1,4 @@
+import { withBotId } from 'botid/next/config';
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
@@ -18,4 +19,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// BotID (spec §10.2 step 1): rewrites its challenge script and API under
+// /149e9513-01fa-4fb0-aad4-566afd725d1b/… to Vercel. Requested only where
+// instrumentation-client.ts installs BotID, i.e. on a Vercel deployment.
+export default withBotId(nextConfig);

@@ -14,7 +14,7 @@ import { actionPermissions, adminOnlyProblems, adminPluginCalls, adminPluginCall
 const PUBLIC_ACTIONS = new Map([
   [
     'app/actions.ts#submitReservation',
-    'the honeypot first, then zod with consent, the per-phone daily limit, the slot and window checks, the per-table unique index (spec §7.1, §10.2)',
+    'honeypot and BotID first, then zod with consent, the per-phone daily limit, the slot and window checks, the per-table unique index (spec §7.1, §10.2)',
   ],
   ['app/admin/(auth)/sign-in/actions.ts#signIn', 'Better Auth checks the password, rate-limited per IP in auth_rate_limit'],
   ['app/admin/(shell)/actions.ts#signOut', 'ends only the session of the cookie it is sent with'],

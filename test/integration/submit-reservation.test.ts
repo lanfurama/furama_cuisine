@@ -300,6 +300,24 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('submitReservation v2 (database)
       expect(await submitReservation({ honeypot: 'x', name: 'A' })).toEqual({ ok: false, code: 'bot_blocked' });
       warn.mockRestore();
     });
+
+    it('BotID’s verdict (its development bypass set to BAD-BOT) answers bot_blocked', async () => {
+      vi.stubEnv('BOTID_DEV_BYPASS', 'BAD-BOT');
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {}); // BotID: no x-is-human header off Vercel
+      try {
+        expect(await submitReservation(request)).toEqual({ ok: false, code: 'bot_blocked' });
+        expect(warn).toHaveBeenCalledWith('[booking] refused as a bot', { by: 'botid' });
+      } finally {
+        vi.unstubAllEnvs();
+        warn.mockRestore();
+        error.mockRestore();
+      }
+      expect(await count()).toBe(0);
+      expect(afterTasks).toHaveLength(0);
+      // Off Vercel and without the bypass, the same request books.
+      expect(await submitReservation(request)).toMatchObject({ ok: true });
+    });
   });
 
   describe('consent (spec §11)', () => {

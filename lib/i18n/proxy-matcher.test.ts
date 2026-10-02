@@ -52,3 +52,16 @@ describe('proxy matcher', () => {
   // so the proxy skips it and it 404s. Real unprefixed top-level names need 4+ letters.
   it('treats a 2–3 letter first segment as a locale', () => expect(m('/faq/x')).toBe(false));
 });
+
+// BotID's challenge script and API (botid/next/config rewrites them to Vercel). The proxy runs
+// before rewrites (proxy.md:236-247), so matching here would send them to /en/149e9513-….
+describe('proxy matcher and BotID', () => {
+  it.each([
+    '/149e9513-01fa-4fb0-aad4-566afd725d1b/2d206a39-8ed7-437e-a3be-862e0f06eea3/a-4-a/c.js?i=0&v=3&h=x',
+    '/149e9513-01fa-4fb0-aad4-566afd725d1b/2d206a39-8ed7-437e-a3be-862e0f06eea3/p.js',
+    '/149e9513-01fa-4fb0-aad4-566afd725d1b/2d206a39-8ed7-437e-a3be-862e0f06eea3/tl',
+    '/149e9513-01fa-4fb0-aad4-566afd725d1b',
+  ])('skips %s', (u) => expect(m(u)).toBe(false));
+
+  it('still runs on an unprefixed path that merely starts with digits', () => expect(m('/149e9513')).toBe(true));
+});

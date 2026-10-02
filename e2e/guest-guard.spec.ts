@@ -9,6 +9,9 @@ import { expect, one, test } from './staff-fixtures';
  * privacy notice, the consent box and the policy page; the honeypot; the
  * per-phone limit's message. The footer link to the policy is hidden from the
  * visual specs by e2e/visual-added.css, so this spec is what checks it.
+ * BotID is off outside Vercel: the honeypot test checks the built client sends
+ * no challenge header here, and e2e/botid.spec.ts walks the blocked path in a
+ * run of its own (BOTID_DEV_BYPASS=BAD-BOT).
  * Pho Cuon's last open day (today + 13) is this spec's own: no other spec
  * books there.
  */
@@ -97,6 +100,8 @@ test('the honeypot is invisible to people and screen readers, out of the tab ord
   // Never a fake success (R15): the guest is told, with the restaurant's number to call.
   await expect(drawer.getByRole('alert')).toHaveText(`We could not accept this request online. Please call us on ${GROUP_PHONE.display} to book.`);
   expect(posts).toHaveLength(1);
+  // Off Vercel, BotID is not installed (lib/botid.ts botIdEnabled): no challenge rides on the action.
+  expect(posts[0].headers['x-is-human']).toBeUndefined();
   expect((await one<{ n: number }>(`SELECT count(*)::int AS n FROM reservations WHERE phone_e164 = $1`, [`+84905${digits}`]))!.n).toBe(0);
 });
 

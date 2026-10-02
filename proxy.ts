@@ -11,11 +11,14 @@ import { ENABLED_LOCALES, LOCALE_COOKIE, pickLocale } from '@/lib/i18n/locales';
  * locale-shaped segment": 2–3 letters plus optional -subtags, the shape the
  * locales table allows. An unprefixed top-level page of 2–3 letters (/faq) is
  * therefore never redirected; give real top-level pages 4+ letters.
+ * BotID's paths (/149e9513-…/, rewritten to Vercel by withBotId in
+ * next.config.ts) are skipped too: the proxy runs before rewrites
+ * (proxy.md:236-247), so it would send them to /en/149e9513-… instead.
  */
 export const config = {
   matcher: [
     '/admin/:path*',
-    '/((?!api(?:/|$)|_next(?:/|$)|admin(?:/|$)|[a-z]{2,3}(?:-[a-z0-9]{2,8})*(?:/|$)|.*\\..*).*)',
+    '/((?!api(?:/|$)|_next(?:/|$)|admin(?:/|$)|149e9513-01fa-4fb0-aad4-566afd725d1b(?:/|$)|[a-z]{2,3}(?:-[a-z0-9]{2,8})*(?:/|$)|.*\\..*).*)',
   ],
 };
 
