@@ -16,7 +16,8 @@ describe.skipIf(!TEST_DATABASE_URL)('the audit feed', () => {
     await pool.end();
   });
   beforeEach(async () => {
-    await pool.query(`TRUNCATE ${STAFF_TABLES} CASCADE`);
+    // Since migration 006 the feed also shows reservation_events, and other files leave bookings behind.
+    await pool.query(`TRUNCATE ${STAFF_TABLES}, reservations CASCADE`);
   });
 
   it('puts the newest first and breaks ties by id, numerically', async () => {
@@ -49,6 +50,35 @@ describe.skipIf(!TEST_DATABASE_URL)('the audit feed', () => {
     expect(second.rows.map((r) => r.entity_id)).toEqual(['r51', 'r52', 'r53', 'r54', 'r55']);
     expect(second.hasNext).toBe(false);
     expect((await listAuditFeed(pool, 99)).rows).toEqual([]);
+  });
+
+  it('merges reservation events into the same timeline', async () => {
+    await pool.query(
+      `INSERT INTO audit_log (at, actor_email, action, entity_type, entity_id)
+       VALUES (now() - interval '2 minutes', 'a@furama.test', 'update', 'restaurant', 'taya-house')`,
+    );
+    const { rows } = await pool.query(
+      `INSERT INTO reservations (reference, restaurant_id, reserved_on, reserved_at, meal, guests, guest_name, phone, phone_e164, source)
+       VALUES ('FC-FEED0001', 'taya-house', '2026-10-05', '19:00', 'Dinner', 2, 'An', 'x', '+84905000000', 'web') RETURNING id`,
+    );
+    await pool.query(
+      `INSERT INTO reservation_events (reservation_id, at, actor_kind, type, to_status)
+       VALUES ($1, now() - interval '3 hours', 'guest', 'created', 'requested')`,
+      [rows[0].id],
+    );
+    await pool.query(
+      `INSERT INTO reservation_events (reservation_id, at, actor_kind, actor_id, actor_label, type, from_status, to_status, changes)
+       VALUES ($1, now() - interval '1 minute', 'staff', 'u1', 'ed@furama.test', 'status_changed', 'requested', 'confirmed', '{"note": ["a", "b"]}')`,
+      [rows[0].id],
+    );
+    const feed = await listAuditFeed(pool, 1);
+    expect(feed.rows.map((r) => [r.source, r.action, r.entity_type, r.entity_id, r.actor_label])).toEqual([
+      ['reservation', 'reservation.status_changed', 'reservation', String(rows[0].id), 'ed@furama.test'],
+      ['audit', 'update', 'restaurant', 'taya-house', 'a@furama.test'],
+      ['reservation', 'reservation.created', 'reservation', String(rows[0].id), 'Khách'],
+    ]);
+    expect(feed.rows[0]).toMatchObject({ before: { status: 'requested' }, after: { status: 'confirmed', changes: { note: ['a', 'b'] } } });
+    expect(feed.rows[2]).toMatchObject({ before: null, after: { status: 'requested' } });
   });
 
   it('looks up the email of staff the rows are about, skipping removed accounts', async () => {

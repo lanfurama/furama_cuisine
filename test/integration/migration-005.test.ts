@@ -14,7 +14,9 @@ const invite = (email: string, hash = HASH, extra = '') =>
   );
 
 describe.skipIf(!TEST_DATABASE_URL)('migration 005: staff sign-in and the audit trail (database)', () => {
-  beforeAll(() => resetDatabase(url));
+  // Migration 005 on its own: 006 owns audit_feed from then on, and re-running
+  // 005 on top of 006 would drop the view's reservation branch.
+  beforeAll(() => resetDatabase(url, '005_staff_auth_audit.sql'));
 
   it('creates the seven tables and the audit_feed view', async () => {
     const { rows } = await sql(

@@ -152,10 +152,19 @@ async function insertReservation(input: NewReservation, reference: string): Prom
       return { ok: false, reason: 'full' };
     }
 
-    await client.query(
+    // Bridge until submitReservation v2 (phase 4, Task 4) replaces this path:
+    // migration 006 needs the source, the meal (the active period that serves
+    // this time) and a 'created' event. $4 is text for the column and the time
+    // in the subselect, so Postgres deduces one type for it.
+    const inserted = await client.query<{ id: string }>(
       `INSERT INTO reservations
-         (reference, restaurant_id, reserved_on, reserved_at, guests, guest_name, phone, phone_e164, email, note)
-       VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8, $9, $10)`,
+         (reference, restaurant_id, reserved_on, reserved_at, guests, guest_name, phone, phone_e164, email, note, source, meal)
+       VALUES ($1, $2, $3::date, $4::text, $5, $6, $7, $8, $9, $10, 'web',
+               (SELECT meal FROM service_periods
+                 WHERE restaurant_id = $2 AND active AND $4::text::time BETWEEN first_seating AND last_seating
+                   AND extract(isodow FROM $3::date)::smallint = ANY (weekdays)
+                 ORDER BY sort_order LIMIT 1))
+       RETURNING id::text`,
       [
         reference,
         input.restaurantId,
@@ -168,6 +177,10 @@ async function insertReservation(input: NewReservation, reference: string): Prom
         input.email || null,
         input.note || null,
       ],
+    );
+    await client.query(
+      `INSERT INTO reservation_events (reservation_id, actor_kind, type, to_status) VALUES ($1, 'guest', 'created', 'requested')`,
+      [inserted.rows[0].id],
     );
 
     await client.query('COMMIT');

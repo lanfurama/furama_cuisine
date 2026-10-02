@@ -27,8 +27,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('GET /api/availability (database
 
   it('sums the covers booked on the requested date', async () => {
     await getPool().query(
-      `INSERT INTO reservations (reference, restaurant_id, reserved_on, reserved_at, guests, guest_name, phone, phone_e164)
-       VALUES ('FC-AAAAAAAA', 'taya-house', '2026-10-03', '19:00', 4, 'An', '0905000000', '+84905000000')`,
+      `INSERT INTO reservations (reference, restaurant_id, reserved_on, reserved_at, meal, guests, guest_name, phone, phone_e164, source)
+       VALUES ('FC-AAAAAAAA', 'taya-house', '2026-10-03', '19:00', 'Dinner', 4, 'An', '0905000000', '+84905000000', 'web')`,
     );
     const body = await (await get('restaurant=taya-house&date=2026-10-03')).json();
     expect(body.booked).toEqual({ '19:00': 4 });
