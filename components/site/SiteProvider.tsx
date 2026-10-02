@@ -435,7 +435,8 @@ export function SiteProvider({
   const openRestaurant = useCallback(
     (r: Restaurant) => {
       if (!r.hasDetailPage) {
-        openReserve({ restaurant: r.id });
+        // Its only action is reserving; with online booking off there is none (R14).
+        if (r.bookingEnabled) openReserve({ restaurant: r.id });
         return;
       }
       setBooking({ restaurant: r.id });

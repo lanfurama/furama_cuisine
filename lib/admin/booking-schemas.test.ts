@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EditForm, NewReservationForm, NoteForm, TransitionForm } from './booking-schemas';
+import { CancelManyForm, EditForm, NewReservationForm, NoteForm, PeriodsForm, RulesForm, TransitionForm } from './booking-schemas';
 
 /* The booking screens' action inputs (spec §7.3): FormData strings in, typed values or Vietnamese field errors out. */
 describe('booking form schemas', () => {
@@ -49,6 +49,49 @@ describe('booking form schemas', () => {
       restaurant: [expect.any(String)],
       source: ['Chọn nguồn đặt bàn.'],
       locale: ['Chọn ngôn ngữ của khách.'],
+    });
+  });
+
+  it('overrides: a blank one follows the defaults; the switch is a checkbox; the window is 1–90 days like the database', () => {
+    expect(RulesForm.parse({ restaurant: 'taya-house', token: '1759400000000000', windowDays: '', leadMinutes: '60', maxParty: '8' })).toEqual({
+      restaurant: 'taya-house',
+      token: '1759400000000000',
+      bookingEnabled: false,
+      windowDays: null,
+      leadMinutes: 60,
+      maxParty: 8,
+    });
+    expect(RulesForm.parse({ restaurant: 'taya-house', token: '1', bookingEnabled: 'on', windowDays: '90' })).toMatchObject({ bookingEnabled: true, windowDays: 90 });
+    expect(RulesForm.safeParse({ restaurant: 'taya-house', token: '1', windowDays: '91', maxParty: '51' }).error?.flatten().fieldErrors).toEqual({
+      windowDays: ['Số ngày đặt trước: từ 1 đến 90.'],
+      maxParty: ['Số khách tối đa: từ 1 đến 50.'],
+    });
+  });
+
+  it('service periods arrive as one JSON field, on the grid of their interval', () => {
+    const period = { id: null, meal: 'Dinner', weekdays: [1, 2], firstSeating: '18:00', lastSeating: '22:00', intervalMin: 30, coversPerSlot: 8, active: true };
+    expect(PeriodsForm.parse({ restaurant: 'thai-siam-kitchen', token: '1', periods: JSON.stringify([period]) }).periods).toEqual([period]);
+    const bad = [
+      { ...period, lastSeating: '17:00' },
+      { ...period, intervalMin: 25 },
+      // 18:00 + 45-minute steps never lands on 22:00 (the database CHECK service_periods_grid).
+      { ...period, intervalMin: 45 },
+      { ...period, weekdays: [] },
+    ];
+    expect(bad.map((p) => PeriodsForm.safeParse({ restaurant: 'x', token: '1', periods: JSON.stringify([p]) }).error?.issues.map((i) => i.message))).toEqual([
+      ['Giờ nhận khách cuối phải từ giờ đầu trở đi.'],
+      ['Chọn khoảng cách giữa các giờ.'],
+      ['Giờ cuối phải cách giờ đầu một số lần đúng bằng khoảng cách (ví dụ 18:00 → 21:00 với 30 phút).'],
+      ['Chọn ít nhất một ngày trong tuần.'],
+    ]);
+    expect(PeriodsForm.safeParse({ restaurant: 'x', token: '1', periods: 'not json' }).success).toBe(false);
+  });
+
+  it('a batch cancel: ticked id:version pairs and a reason', () => {
+    expect(CancelManyForm.parse({ items: ['12:3', '7:1'], reason: ' Đóng cửa ' })).toEqual({ items: ['12:3', '7:1'], reason: 'Đóng cửa' });
+    expect(CancelManyForm.safeParse({ items: [], reason: '' }).error?.flatten().fieldErrors).toEqual({
+      items: ['Chọn ít nhất một đặt bàn.'],
+      reason: ['Nhập lý do hủy.'],
     });
   });
 });

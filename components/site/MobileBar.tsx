@@ -15,8 +15,9 @@ export function MobileBar({ slug }: { slug?: string }) {
     const restaurant = restaurants.find((r) => r.slug === slug);
     const id = restaurant?.id ?? slug;
     const contact = contactFor(restaurant?.dest);
-    // One column per button shown (spec §6.4): MENU and RESERVE always, CALL and MAP when known.
-    const columns = 2 + (contact.tel ? 1 : 0) + (contact.map ? 1 : 0);
+    const canReserve = restaurant?.bookingEnabled ?? false;
+    // One column per button shown (spec §6.4): MENU always; RESERVE when it books online; CALL and MAP when known.
+    const columns = 1 + (canReserve ? 1 : 0) + (contact.tel ? 1 : 0) + (contact.map ? 1 : 0);
     return (
       <nav
         className="tabbar tabbar-detail"
@@ -32,16 +33,18 @@ export function MobileBar({ slug }: { slug?: string }) {
         <button type="button" onClick={() => openMenuPdf(() => scrollToId('dishes'))}>
           MENU
         </button>
-        <button
-          type="button"
-          className="tabbar-primary"
-          onClick={() => {
-            setBooking({ restaurant: id });
-            openReserve({ restaurant: id });
-          }}
-        >
-          RESERVE
-        </button>
+        {canReserve && (
+          <button
+            type="button"
+            className="tabbar-primary"
+            onClick={() => {
+              setBooking({ restaurant: id });
+              openReserve({ restaurant: id });
+            }}
+          >
+            RESERVE
+          </button>
+        )}
       </nav>
     );
   }

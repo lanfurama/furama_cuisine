@@ -91,9 +91,11 @@ export function SearchOverlay() {
                     <span className="search-result-name">{r.name}</span>
                     <span className="search-result-meta">{`${r.type} · ${DESTS[r.dest]}`}</span>
                   </span>
-                  <span className="search-result-action">
-                    {r.hasDetailPage ? 'View' : 'Reserve'} →
-                  </span>
+                  {(r.hasDetailPage || r.bookingEnabled) && (
+                    <span className="search-result-action">
+                      {r.hasDetailPage ? 'View' : 'Reserve'} →
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

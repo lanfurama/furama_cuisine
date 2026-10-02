@@ -15,6 +15,9 @@ export const HOLDING_STATUSES = ['requested', 'confirmed', 'seated'] as const;
 export const RESERVATION_STATUSES = ['requested', 'confirmed', 'seated', 'no_show', 'cancelled', 'declined'] as const;
 export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
 
+/** The gaps between seatings a service period may use (migration 006's CHECK on interval_min). */
+export const SLOT_INTERVALS = [15, 20, 30, 45, 60, 90, 120] as const;
+
 export type PeriodRule = {
   id: string;
   meal: Meal;

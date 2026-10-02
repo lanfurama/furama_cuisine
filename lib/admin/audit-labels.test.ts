@@ -52,4 +52,11 @@ describe('audit labels', () => {
       'Ngày đóng cửa',
     ]);
   });
+
+  it('names every configuration entity the booking screens write to audit_log', () => {
+    const config = readFileSync('lib/server/booking/config.ts', 'utf8');
+    const entities = [...new Set([...config.matchAll(/entityType: '([a-z_]+)'/g)].map((m) => m[1]))];
+    expect(entities).toContain('service_periods');
+    for (const entity of entities) expect(auditEntityLabel(entity)).not.toBe(entity);
+  });
 });

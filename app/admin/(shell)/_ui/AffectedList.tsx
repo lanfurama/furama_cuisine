@@ -1,0 +1,91 @@
+'use client';
+
+import Link from 'next/link';
+import { useActionState, useId } from 'react';
+import type { ActionResult } from '@/lib/server/action-result';
+import { cancelReservations, type CancelManyResult } from '../reservations/actions';
+import { FieldError, FormMessage } from './FormMessage';
+
+export type AffectedItem = {
+  id: string;
+  version: number;
+  reference: string;
+  restaurantName: string;
+  dayLabel: string;
+  time: string;
+  guests: number;
+  name: string;
+  statusLabel: string;
+  /** Why it is listed, in Vietnamese. */
+  why: string;
+};
+
+/*
+ * Bookings that new hours, a new capacity or a closure leave out (spec §10.1).
+ * Nothing is ticked at first, and nothing is cancelled unless staff tick it,
+ * write a reason and press the button: never automatic.
+ */
+export function AffectedList({ items, title }: { items: AffectedItem[]; title: string }) {
+  const [state, action, pending] = useActionState<ActionResult<CancelManyResult> | null, FormData>(cancelReservations, null);
+  const uid = useId();
+  const done = state?.ok ? state.data : null;
+  const notice = done ? (
+    <p className="a-notice" role="status">
+      {`Đã hủy ${done.cancelled} đặt bàn${done.skipped ? `; ${done.skipped} đặt bàn vừa thay đổi nên chưa hủy, hãy xem lại` : ''}.`}
+    </p>
+  ) : null;
+  // The cancel re-renders the page (refresh()): once nothing is left the list goes, and the outcome stays.
+  if (items.length === 0) {
+    return (
+      <div className="a-affected" role="group" aria-label={title}>
+        {notice}
+        <p className="a-muted">Không có đặt bàn nào bị ảnh hưởng.</p>
+      </div>
+    );
+  }
+  return (
+    <form className="a-affected" action={action} aria-label={title}>
+      <p className="a-warn">{`${items.length} đặt bàn bị ảnh hưởng. Hệ thống không tự hủy: chọn những đặt bàn cần hủy, ghi lý do rồi bấm Hủy.`}</p>
+      <table className="a-table a-table--compact">
+        <thead>
+          <tr>
+            <th scope="col">Chọn</th>
+            <th scope="col">Mã</th>
+            <th scope="col">Nhà hàng</th>
+            <th scope="col">Ngày giờ</th>
+            <th scope="col">Khách</th>
+            <th scope="col">Trạng thái</th>
+            <th scope="col">Lý do</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.id}>
+              <td>
+                <input type="checkbox" name="item" value={`${item.id}:${item.version}`} aria-label={`Chọn ${item.reference}`} />
+              </td>
+              <td className="a-ref">
+                <Link href={`/admin/reservations/${item.id}`}>{item.reference}</Link>
+              </td>
+              <td>{item.restaurantName}</td>
+              <td>{`${item.dayLabel} ${item.time}`}</td>
+              <td>{`${item.name} · ${item.guests}`}</td>
+              <td>{item.statusLabel}</td>
+              <td>{item.why}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="a-field">
+        <label htmlFor={`${uid}-reason`}>Lý do hủy</label>
+        <input id={`${uid}-reason`} name="reason" maxLength={500} aria-describedby={`${uid}-reason-error`} />
+        <FieldError state={state} name="reason" id={`${uid}-reason-error`} />
+        <FieldError state={state} name="items" id={`${uid}-items-error`} />
+      </div>
+      {notice ?? <FormMessage state={state && !state.ok ? state : null} />}
+      <button className="a-btn a-btn--danger" type="submit" disabled={pending}>
+        {pending ? 'Đang hủy…' : 'Hủy các đặt bàn đã chọn'}
+      </button>
+    </form>
+  );
+}

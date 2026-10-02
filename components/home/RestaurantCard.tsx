@@ -12,7 +12,8 @@ import { useReveal } from '@/lib/motion';
 export function RestaurantCard({ restaurant, hidden }: { restaurant: Restaurant; hidden?: boolean }) {
   const { openRestaurant } = useSite();
   const ref = useReveal<HTMLButtonElement>('card');
-  const isDetailLink = restaurant.hasDetailPage;
+  // A card without a page only reserves: with online booking off it has no action (R14).
+  const tag = restaurant.hasDetailPage ? 'View restaurant' : restaurant.bookingEnabled ? 'Reserve a table' : null;
 
   return (
     <button
@@ -21,6 +22,7 @@ export function RestaurantCard({ restaurant, hidden }: { restaurant: Restaurant;
       type="button"
       className="rcard"
       hidden={hidden}
+      aria-disabled={tag ? undefined : true}
       onClick={() => openRestaurant(restaurant)}
     >
       <span className="rcard-frame frame" data-reveal-img="1">
@@ -33,7 +35,7 @@ export function RestaurantCard({ restaurant, hidden }: { restaurant: Restaurant;
             className="rcard-img"
           />
         </span>
-        <span className="rcard-tag">{isDetailLink ? 'View restaurant' : 'Reserve a table'} →</span>
+        {tag && <span className="rcard-tag">{tag} →</span>}
       </span>
       <span className="rcard-name">{restaurant.name}</span>
       <span className="rcard-type">{restaurant.type}</span>

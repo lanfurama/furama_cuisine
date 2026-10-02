@@ -3,7 +3,7 @@
 import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getPool } from '@/db/client';
-import { EditForm, NewReservationForm, NoteForm, TransitionForm } from '@/lib/admin/booking-schemas';
+import { CancelManyForm, EditForm, NewReservationForm, NoteForm, TransitionForm } from '@/lib/admin/booking-schemas';
 import type { ReservationStatus } from '@/lib/booking/rules';
 import { toE164 } from '@/lib/phone';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
@@ -103,6 +103,33 @@ export async function createReservation(_prev: ActionResult | null, formData: Fo
     if (!result.ok) return result;
     // redirect() throws NEXT_REDIRECT, which actionError() rethrows (unstable_rethrow): it may sit in the try (R13).
     redirect(`/admin/reservations/${result.data.id}`);
+  } catch (err) {
+    return actionError(err);
+  }
+}
+
+export type CancelManyResult = { cancelled: number; skipped: number };
+
+/**
+ * "Hủy các đặt bàn đã chọn" under an affected list (spec §10.1): only what
+ * staff ticked, never automatic. Each booking is its own transition (its own
+ * transaction and event); one that changed since the list was drawn (its
+ * version) is skipped and counted, never forced.
+ */
+export async function cancelReservations(_prev: ActionResult<CancelManyResult> | null, formData: FormData): Promise<ActionResult<CancelManyResult>> {
+  try {
+    const staff = await requirePermission({ reservations: ['update'] });
+    const input = CancelManyForm.parse({ items: formData.getAll('item'), reason: field(formData, 'reason') });
+    const pool = getPool();
+    const actor = staffActor(staff);
+    let cancelled = 0;
+    for (const item of input.items) {
+      const [id, version] = item.split(':');
+      const result = await transitionReservation(pool, actor, { id, version: Number(version), to: 'cancelled', reason: input.reason, notifyGuest: false });
+      if (result.ok) cancelled += 1;
+    }
+    refresh();
+    return { ok: true, data: { cancelled, skipped: input.items.length - cancelled } };
   } catch (err) {
     return actionError(err);
   }

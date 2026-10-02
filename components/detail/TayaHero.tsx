@@ -47,13 +47,16 @@ export function TayaHero({ slug }: { slug: string }) {
             </p>
 
             <div className="taya-actions" data-intro="5">
-              <button
-                type="button"
-                className="btn-slab taya-reserve"
-                onClick={() => openReserve({ restaurant: restaurant?.id ?? slug })}
-              >
-                RESERVE A TABLE<span className="arrow">→</span>
-              </button>
+              {/* restaurants.booking_enabled off: no RESERVE (spec §5.2). */}
+              {restaurant?.bookingEnabled && (
+                <button
+                  type="button"
+                  className="btn-slab taya-reserve"
+                  onClick={() => openReserve({ restaurant: restaurant.id })}
+                >
+                  RESERVE A TABLE<span className="arrow">→</span>
+                </button>
+              )}
               {contact.tel && (
                 <a href={`tel:${contact.tel}`} className="taya-link">
                   CALL

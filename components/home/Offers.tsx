@@ -32,21 +32,25 @@ export function Offers() {
 }
 
 function OfferCard({ offer }: { offer: Offer }) {
-  const { openReserve } = useSite();
+  const { bookable, openReserve } = useSite();
   const ref = useReveal<HTMLDivElement>('up');
+  // An offer's only action is reserving at its restaurant: none while that restaurant books offline.
+  const canReserve = bookable.some((r) => r.id === offer.restaurant);
 
   return (
     <div ref={ref} data-reveal="up" className="offer">
       <div className="offer-venue">{offer.venue}</div>
       <div className="offer-title">{offer.title}</div>
       <div className="offer-detail">{offer.detail}</div>
-      <button
-        type="button"
-        className="offer-cta"
-        onClick={() => openReserve({ restaurant: offer.restaurant }, offer.note)}
-      >
-        VIEW OFFER<span>→</span>
-      </button>
+      {canReserve && (
+        <button
+          type="button"
+          className="offer-cta"
+          onClick={() => openReserve({ restaurant: offer.restaurant }, offer.note)}
+        >
+          VIEW OFFER<span>→</span>
+        </button>
+      )}
     </div>
   );
 }

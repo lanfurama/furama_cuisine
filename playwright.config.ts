@@ -60,7 +60,20 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 860 } } },
+    // A project's testIgnore replaces the top-level one, so the visual pattern is repeated here.
+    {
+      name: 'desktop',
+      testIgnore: [/\/visual[^/]*\.spec\.ts$/, /\.serial\.spec\.ts$/],
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 860 } },
+    },
+    // Specs that change what every guest page reads (a restaurant's booking switch) run
+    // after all the others (spec files otherwise run in parallel workers).
+    {
+      name: 'desktop-serial',
+      testMatch: /\.serial\.spec\.ts$/,
+      dependencies: ['desktop'],
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 860 } },
+    },
   ],
   webServer: external
     ? undefined

@@ -717,3 +717,47 @@ fieldset.a-field legend {
     text-decoration: none;
   }
 }
+
+.a-check--day {
+  margin-right: 8px;
+  font-size: 13px;
+}
+
+.a-periods input[type='time'],
+.a-periods input[type='number'] {
+  min-height: 34px;
+  padding: 0 6px;
+  border: 1px solid var(--a-line);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.a-periods input[type='number'] {
+  width: 80px;
+}
+
+.a-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.a-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--a-brand);
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+.a-chip--off {
+  border-color: var(--a-line);
+  color: var(--a-ink-soft);
+  text-decoration: line-through;
+}
+
+.a-affected .a-table {
+  margin-bottom: 12px;
+}

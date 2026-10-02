@@ -1,6 +1,7 @@
-import { RESERVATION_STATUSES } from '@/lib/booking/rules';
+import { RESERVATION_STATUSES, SLOT_INTERVALS } from '@/lib/booking/rules';
+import { MEALS } from '@/lib/data';
 import { toE164 } from '@/lib/phone';
-import { isValidIsoDate } from '@/lib/venue-time';
+import { isValidIsoDate, toMinutes } from '@/lib/venue-time';
 import { z } from './zod';
 
 /*
@@ -15,6 +16,9 @@ const blankToNull = (v: unknown) => (v === undefined || (typeof v === 'string' &
 
 export const Id = z.string().regex(/^\d{1,18}$/);
 export const RestaurantId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
+/** A concurrency token: updated_at in microseconds since the epoch, as the page saw it. */
+export const Token = z.string().regex(/^\d{1,17}$/);
+export const Meal = z.enum(MEALS as [string, ...string[]]);
 export const Version = z.coerce.number().int().min(1);
 export const IsoDay = z.string().refine(isValidIsoDate, { error: 'Chọn một ngày hợp lệ.' });
 export const Time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, { error: 'Chọn giờ (HH:MM).' });
@@ -59,4 +63,68 @@ export const NewReservationForm = z.object({
   source: z.enum(['phone', 'walk_in'], { error: 'Chọn nguồn đặt bàn.' }),
   locale: z.string().regex(/^[a-z]{2,3}(-[a-z0-9]{2,8})*$/, { error: 'Chọn ngôn ngữ của khách.' }),
   ...GuestFields,
+});
+
+/** "id:version" pairs ticked in an affected list, and why they are cancelled. */
+export const CancelManyForm = z.object({
+  items: z
+    .array(z.string().regex(/^\d{1,18}:\d{1,9}$/))
+    .min(1, { error: 'Chọn ít nhất một đặt bàn.' })
+    .max(200),
+  reason: z.string().trim().min(1, { error: 'Nhập lý do hủy.' }).max(500, { error: 'Lý do tối đa 500 ký tự.' }),
+});
+
+/** A per-restaurant override: blank follows "Cài đặt đặt bàn"; the bounds are migration 006's. */
+const override = (min: number, max: number, label: string) =>
+  z.preprocess(
+    blankToNull,
+    z.coerce
+      .number({ error: `${label}: nhập số.` })
+      .int({ error: `${label}: nhập số nguyên.` })
+      .min(min, { error: `${label}: từ ${min} đến ${max}.` })
+      .max(max, { error: `${label}: từ ${min} đến ${max}.` })
+      .nullable(),
+  );
+
+export const RulesForm = z.object({
+  restaurant: RestaurantId,
+  token: Token,
+  bookingEnabled: z.preprocess((v) => v === 'on', z.boolean()),
+  windowDays: override(1, 90, 'Số ngày đặt trước'),
+  leadMinutes: override(0, 1440, 'Đặt trước tối thiểu (phút)'),
+  maxParty: override(1, 50, 'Số khách tối đa'),
+});
+
+export const PeriodForm = z
+  .object({
+    id: z.preprocess(blankToNull, Id.nullable()),
+    meal: Meal,
+    weekdays: z.array(z.number().int().min(1).max(7)).min(1, { error: 'Chọn ít nhất một ngày trong tuần.' }).max(7),
+    firstSeating: Time,
+    lastSeating: Time,
+    intervalMin: z.number().refine((n) => (SLOT_INTERVALS as readonly number[]).includes(n), { error: 'Chọn khoảng cách giữa các giờ.' }),
+    coversPerSlot: z.number().int().min(0, { error: 'Sức chứa không âm.' }).max(1000, { error: 'Sức chứa tối đa 1000.' }),
+    active: z.boolean(),
+  })
+  .refine((p) => p.lastSeating >= p.firstSeating, { error: 'Giờ nhận khách cuối phải từ giờ đầu trở đi.', path: ['lastSeating'] })
+  // Without this the database's CHECK service_periods_grid would refuse the save as a db_error.
+  .refine(
+    (p) =>
+      p.lastSeating < p.firstSeating ||
+      !(SLOT_INTERVALS as readonly number[]).includes(p.intervalMin) ||
+      (toMinutes(p.lastSeating) - toMinutes(p.firstSeating)) % p.intervalMin === 0,
+    { error: 'Giờ cuối phải cách giờ đầu một số lần đúng bằng khoảng cách (ví dụ 18:00 → 21:00 với 30 phút).', path: ['lastSeating'] },
+  );
+
+/** The periods editor posts its whole list as one JSON field. At most 20 periods a restaurant. */
+export const PeriodsForm = z.object({
+  restaurant: RestaurantId,
+  token: Token,
+  periods: z.preprocess((v) => {
+    try {
+      return typeof v === 'string' ? JSON.parse(v) : v;
+    } catch {
+      return null;
+    }
+  }, z.array(PeriodForm).max(20, { error: 'Tối đa 20 ca phục vụ.' })),
 });
