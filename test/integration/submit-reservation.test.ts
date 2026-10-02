@@ -13,6 +13,7 @@ vi.mock('next/server', async (importOriginal) => ({
 
 import { submitReservation } from '@/app/actions';
 import { getPool } from '@/db/client';
+import { PRIVACY_POLICY_VERSION } from '@/lib/legal';
 import { createWebReservation } from '@/lib/server/booking/create';
 import { parseReservationInput, type ReservationRequest } from '@/lib/server/booking/input';
 
@@ -25,6 +26,8 @@ const request = {
   phone: '0905 000 000',
   email: '',
   note: '',
+  consent: true,
+  honeypot: '',
 };
 
 const sql = (text: string, values: unknown[] = []) => getPool().query(text, values);
@@ -274,5 +277,135 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('submitReservation v2 (database)
       /reservations_reference_key/,
     );
     expect((await sql('SELECT count(*)::int AS n FROM reservation_events')).rows[0].n).toBe(2);
+  });
+
+  describe('step 1: bots are refused before anything is read or written', () => {
+    const count = async () => (await sql('SELECT count(*)::int AS n FROM reservations')).rows[0].n;
+
+    it('a filled honeypot answers bot_blocked, and the log names only the check', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        expect(await submitReservation({ ...request, honeypot: 'https://cheap-pills.example' })).toEqual({ ok: false, code: 'bot_blocked' });
+        expect(warn).toHaveBeenCalledWith('[booking] refused as a bot', { by: 'honeypot' });
+        expect(JSON.stringify(warn.mock.calls)).not.toContain('0905');
+      } finally {
+        warn.mockRestore();
+      }
+      expect(await count()).toBe(0);
+      expect(afterTasks).toHaveLength(0);
+    });
+
+    it('comes before zod: a bot gets bot_blocked, never a hint about which field was wrong', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      expect(await submitReservation({ honeypot: 'x', name: 'A' })).toEqual({ ok: false, code: 'bot_blocked' });
+      warn.mockRestore();
+    });
+  });
+
+  describe('consent (spec §11)', () => {
+    it('without the box ticked nothing is booked', async () => {
+      expect(await submitReservation({ ...request, consent: false })).toEqual({ ok: false, code: 'consent_required' });
+      const { consent: _c, ...unticked } = request;
+      expect(await submitReservation(unticked)).toEqual({ ok: false, code: 'consent_required' });
+      expect((await sql('SELECT count(*)::int AS n FROM reservations')).rows[0].n).toBe(0);
+    });
+
+    it('the booking keeps which policy the guest agreed to, and when', async () => {
+      await submitReservation(request);
+      // Fake timers move Date only: the database's now() is the real time.
+      const { rows } = await sql(`SELECT consent_version, consented_at > now() - interval '1 minute' AS recent FROM reservations`);
+      expect(rows).toEqual([{ consent_version: PRIVACY_POLICY_VERSION, recent: true }]);
+    });
+
+    it('the database keeps the version and the time together (reservations_consent_check)', async () => {
+      const insert = (version: string | null, at: string | null) =>
+        sql(
+          `INSERT INTO reservations (reference, restaurant_id, reserved_on, reserved_at, meal, guests, guest_name, phone, phone_e164, source, consent_version, consented_at)
+           VALUES ('FC-CONSENT1', 'taya-house', '2026-10-02', '19:00', 'Dinner', 2, 'G', 'x', '+84905123123', 'web', $1, $2)`,
+          [version, at],
+        );
+      await expect(insert('2026-10-02', null)).rejects.toMatchObject({ code: '23514', constraint: 'reservations_consent_check' });
+      await expect(insert(null, '2026-10-02T00:00:00Z')).rejects.toMatchObject({ code: '23514' });
+      await expect(insert('', '2026-10-02T00:00:00Z')).rejects.toMatchObject({ code: '23514' });
+      await insert(null, null); // a staff-entered or older booking
+    });
+  });
+
+  describe('step 5: at most three active web requests per phone number per date', () => {
+    const DINNERS = ['taya-house', 'the-fan', 'don-ciprianis', 'danaksara', 'pho-cuon', 'hura-izakaya'];
+    const at = (restaurant: string, over: Partial<typeof request> = {}) => submitReservation({ ...request, restaurant, ...over });
+
+    it('the fourth, at any restaurant, answers too_many_requests; another date, or another number, still books', async () => {
+      for (const r of DINNERS.slice(0, 3)) expect(await at(r)).toMatchObject({ ok: true });
+      // The same number written another way is the same number (phone_e164).
+      expect(await at(DINNERS[3], { phone: '+84 905 000 000' })).toEqual({ ok: false, code: 'too_many_requests' });
+      expect(await at(DINNERS[3], { time: '12:00' })).toEqual({ ok: false, code: 'too_many_requests' }); // lunch, same date
+      expect(await at(DINNERS[3], { date: '2026-10-03' })).toMatchObject({ ok: true });
+      expect(await at(DINNERS[3], { phone: '0905 000 001' })).toMatchObject({ ok: true });
+    });
+
+    it('comes before the rule checks: a fifth request for a closed sitting still hears about the limit', async () => {
+      for (const r of DINNERS.slice(0, 3)) await at(r);
+      expect(await at(DINNERS[3], { time: '15:00' })).toEqual({ ok: false, code: 'too_many_requests' });
+    });
+
+    it('cancelling one frees a place', async () => {
+      for (const r of DINNERS.slice(0, 3)) await at(r);
+      await sql(`UPDATE reservations SET status = 'cancelled', cancelled_at = now() WHERE restaurant_id = $1`, [DINNERS[0]]);
+      expect(await at(DINNERS[3])).toMatchObject({ ok: true });
+    });
+
+    it('counts only requested and confirmed web bookings of that date and number', async () => {
+      const seed = (i: number, over: { status?: string; source?: string; day?: string; e164?: string }) =>
+        sql(
+          `INSERT INTO reservations (reference, restaurant_id, reserved_on, reserved_at, meal, guests, guest_name, phone, phone_e164, source, status, consent_version, consented_at)
+           VALUES ($1, 'yum-food-village', $2, $3, 'Dinner', 2, 'G', 'x', $4, $5, $6, CASE WHEN $5 = 'web' THEN 'v' END, CASE WHEN $5 = 'web' THEN now() END)`,
+          [`FC-LIMIT00${i}`, over.day ?? '2026-10-02', `18:${String(i * 5).padStart(2, '0')}`, over.e164 ?? '+84905000000', over.source ?? 'web', over.status ?? 'requested'],
+        );
+      await seed(1, { status: 'cancelled' });
+      await seed(2, { status: 'declined' });
+      await seed(3, { status: 'seated' });
+      await seed(4, { status: 'no_show' });
+      await seed(5, { source: 'phone', status: 'confirmed' }); // staff-entered: not a web request
+      await seed(6, { day: '2026-10-03' });
+      await seed(7, { e164: '+84905000009' });
+      await seed(8, { status: 'confirmed' }); // this one counts
+      expect(await at(DINNERS[0])).toMatchObject({ ok: true });
+      expect(await at(DINNERS[1])).toMatchObject({ ok: true });
+      expect(await at(DINNERS[2])).toEqual({ ok: false, code: 'too_many_requests' });
+    });
+
+    it('holds when one number books six restaurants at once (the guest-phone lock; the booking-day locks differ)', async () => {
+      await warmPool(5);
+      const results = await Promise.all(DINNERS.map((r) => at(r)));
+      expect(results.filter((r) => r.ok)).toHaveLength(3);
+      expect(results.filter((r) => !r.ok).map((r) => (r.ok ? '' : r.code))).toEqual(Array(3).fill('too_many_requests'));
+      const { rows } = await sql(`SELECT count(*)::int AS n FROM reservations WHERE phone_e164 = '+84905000000'`);
+      expect(rows[0].n).toBe(3);
+    });
+
+    it('a number waiting on its own lock holds up no one else at that restaurant and date', async () => {
+      // Another instance holds the guest-phone lock of +84905000000 for 2 Oct (same key format as lock.ts).
+      const { Pool } = await import('pg');
+      const other = new Pool({ connectionString: process.env.TEST_DATABASE_URL, max: 1 });
+      const holder = await other.connect();
+      try {
+        await holder.query('BEGIN');
+        await holder.query(`SELECT pg_advisory_xact_lock(hashtextextended('guest-phone:' || $1 || ':' || $2, 0))`, ['+84905000000', '2026-10-02']);
+        let settled = false;
+        const waiting = submitReservation(request).finally(() => {
+          settled = true;
+        });
+        // A different number, same restaurant, same date and time: not held up.
+        expect(await submitReservation({ ...request, phone: '0905 000 002' })).toMatchObject({ ok: true });
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        expect(settled).toBe(false);
+        await holder.query('COMMIT');
+        expect(await waiting).toMatchObject({ ok: true });
+      } finally {
+        holder.release();
+        await other.end();
+      }
+    });
   });
 });

@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWebReservation } from '@/lib/server/booking/create';
-import { parseReservationInput } from '@/lib/server/booking/input';
+import { parseReservationInput, type ReservationRequest } from '@/lib/server/booking/input';
 import { createStaffReservation, transitionReservation, type ReservationActor, type StaffBookingInput } from '@/lib/server/booking/reservations';
 import { LEASE_SECONDS, RETRY_DELAYS_MINUTES, drainOutbox, type DrainOptions } from '@/lib/server/email/drain';
 import { outboxEnv } from '@/lib/server/email/env';
@@ -23,13 +23,14 @@ const NOW = new Date('2026-10-02T10:00:00+07:00');
 let phoneSeq = 0;
 const nextPhone = () => `0905 ${String(200000 + ++phoneSeq).slice(0, 3)} ${String(200000 + phoneSeq).slice(3)}`;
 
-async function guestBooking(over: Record<string, unknown> = {}) {
+async function guestBooking(over: Record<string, unknown> = {}, stored: Partial<ReservationRequest> = {}) {
   const parsed = parseReservationInput({
     restaurant: 'taya-house', date: '2026-10-05', time: '19:00', guests: 2, name: 'Khách Web',
-    phone: nextPhone(), email: 'guest@example.com', note: '', locale: 'en', ...over,
+    phone: nextPhone(), email: 'guest@example.com', note: '', locale: 'en', consent: true, ...over,
   });
   if (!parsed.ok) throw new Error(parsed.code);
-  const result = await createWebReservation(parsed.value, { now: NOW, pool });
+  // `stored` stands for a value the form no longer lets through but an older row may hold.
+  const result = await createWebReservation({ ...parsed.value, ...stored }, { now: NOW, pool });
   if (!result.ok) throw new Error(result.code);
   return result;
 }
@@ -138,7 +139,9 @@ describe.skipIf(!TEST_DATABASE_URL)('email outbox (database + local SMTP sink)',
     });
 
     it('an address the outbox would refuse (two @) never fails the booking: it books, without a guest email (R13)', async () => {
-      const odd = await guestBooking({ email: 'an@home@example.com' });
+      // The form refuses it now (input.ts); the queue's own filter is the second line, for whatever reaches it.
+      expect(parseReservationInput({ restaurant: 'taya-house', date: '2026-10-05', time: '19:00', guests: 2, name: 'Khách Web', phone: nextPhone(), email: 'an@home@example.com', note: '', consent: true })).toEqual({ ok: false, code: 'invalid_email' });
+      const odd = await guestBooking({}, { email: 'an@home@example.com' });
       expect(odd.ok).toBe(true);
       expect((await outbox()).map((r) => r.event)).toEqual(['staff.new']);
       // A plain address full of letters a broken pattern could trip on ("s" for \s) is queued.
@@ -148,7 +151,7 @@ describe.skipIf(!TEST_DATABASE_URL)('email outbox (database + local SMTP sink)',
 
     it('a refused booking (duplicate) queues nothing', async () => {
       await guestBooking({ phone: '0905 777 777' });
-      const parsed = parseReservationInput({ restaurant: 'taya-house', date: '2026-10-05', time: '19:00', guests: 2, name: 'Khách Web', phone: '0905 777 777', email: 'x@example.com', note: '', locale: 'en' });
+      const parsed = parseReservationInput({ restaurant: 'taya-house', date: '2026-10-05', time: '19:00', guests: 2, name: 'Khách Web', phone: '0905 777 777', email: 'x@example.com', note: '', locale: 'en', consent: true });
       if (!parsed.ok) throw new Error(parsed.code);
       expect(await createWebReservation(parsed.value, { now: NOW, pool })).toEqual({ ok: false, code: 'duplicate' });
       expect((await outbox()).map((r) => r.to_email)).toEqual(['fb@furamavietnam.com', 'guest@example.com']);

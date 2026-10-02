@@ -1,12 +1,14 @@
 import 'server-only';
 import * as z from 'zod';
+import { GUEST_EMAIL } from '@/lib/booking';
 import type { BookingErrorCode } from '@/lib/booking-errors';
+import { PRIVACY_POLICY_VERSION } from '@/lib/legal';
 import { toE164 } from '@/lib/phone';
 import { isValidIsoDate, type IsoDate } from '@/lib/venue-time';
 
 /*
  * Step 2 of submitReservation (spec §10.2): the shape of what the reserve
- * drawer sends. It arrives over the wire, so nothing is trusted; a field that
+ * drawer sends, the consent box included (spec §11). It arrives over the wire, so nothing is trusted; a field that
  * fails maps to the error code the guest form already knows. Rules that need
  * the database (window, lead time, max_party, capacity) run later, in the
  * transaction, through resolveDay.
@@ -34,15 +36,19 @@ const schema = z.object({
     .trim()
     .max(40, { abort: true })
     .refine((p) => p.length <= 40 && p.replace(/\D/g, '').length >= 8),
-  // The guest form's own check (lib/booking.ts validate), so the two agree.
+  // The guest form's own check (lib/booking.ts validate), so the two agree: one "@" (R13).
   email: z
     .string()
     .trim()
     .max(254, { abort: true })
-    .refine((e) => e === '' || (e.length <= 254 && /^\S+@\S+\.\S+$/.test(e))),
+    .refine((e) => e === '' || (e.length <= 254 && GUEST_EMAIL.test(e))),
   note: z.string().trim().max(1000),
   /** The URL locale the guest booked in; unknown or disabled codes fall back to the default. */
   locale: z.string().max(35).optional(),
+  /** The privacy consent box (spec §11): only a ticked box books. */
+  consent: z.literal(true),
+  /** The drawer's hidden field; step 1 (honeypotFilled) has already refused anything but empty. */
+  honeypot: z.literal('').optional(),
 });
 
 /** First failing field → the code the drawer shows. Order follows the form, top to bottom. */
@@ -55,7 +61,9 @@ const FIELD_CODES: [field: string, code: BookingErrorCode][] = [
   ['phone', 'invalid_phone'],
   ['email', 'invalid_email'],
   ['note', 'unknown'],
+  ['consent', 'consent_required'],
   ['locale', 'unknown'],
+  ['honeypot', 'bot_blocked'],
 ];
 
 export type ReservationRequest = {
@@ -71,6 +79,8 @@ export type ReservationRequest = {
   email: string | null;
   note: string | null;
   locale: string;
+  /** The privacy policy version the guest agreed to (lib/legal.ts), stored on the booking. */
+  consentVersion: string;
 };
 
 export type ParseResult = { ok: true; value: ReservationRequest } | { ok: false; code: BookingErrorCode };
@@ -98,6 +108,20 @@ export function parseReservationInput(input: unknown): ParseResult {
       email: v.email || null,
       note: v.note || null,
       locale: v.locale ?? 'en',
+      // The version this server shows; the box links to that page.
+      consentVersion: PRIVACY_POLICY_VERSION,
     },
   };
+}
+
+/**
+ * Step 1 of submitReservation, before zod: the drawer's hidden field
+ * (components/overlays/Honeypot.tsx) came back with something in it. People
+ * never see or reach it, so any value at all (even spaces) means a script
+ * filled every field it found.
+ */
+export function honeypotFilled(input: unknown): boolean {
+  if (typeof input !== 'object' || input === null || !('honeypot' in input)) return false;
+  const value = (input as { honeypot: unknown }).honeypot;
+  return value !== undefined && value !== null && value !== '';
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseReservationInput } from './input';
+import { PRIVACY_POLICY_VERSION } from '@/lib/legal';
+import { honeypotFilled, parseReservationInput } from './input';
 
 const valid = {
   restaurant: 'taya-house',
@@ -10,6 +11,8 @@ const valid = {
   phone: '0905 000 000',
   email: '',
   note: ' window seat ',
+  consent: true,
+  honeypot: '',
 };
 
 describe('parseReservationInput', () => {
@@ -27,6 +30,7 @@ describe('parseReservationInput', () => {
         email: null,
         note: 'window seat',
         locale: 'en',
+        consentVersion: PRIVACY_POLICY_VERSION,
       },
     });
   });
@@ -42,8 +46,14 @@ describe('parseReservationInput', () => {
     [{ phone: '12 34' }, 'invalid_phone'],
     [{ phone: '0000 0000 00' }, 'invalid_phone'],
     [{ email: 'a@b' }, 'invalid_email'],
+    // One "@" only (R13): the outbox could never send to it.
+    [{ email: 'a@b@c.vn' }, 'invalid_email'],
+    [{ email: 'an@home@example.com' }, 'invalid_email'],
     [{ note: 'x'.repeat(1001) }, 'unknown'],
     [{ locale: 'x'.repeat(36) }, 'unknown'],
+    [{ consent: false }, 'consent_required'],
+    [{ consent: undefined }, 'consent_required'],
+    [{ consent: 'true' }, 'consent_required'],
   ])('%j → %s', (over, code) => {
     expect(parseReservationInput({ ...valid, ...over })).toEqual({ ok: false, code });
   });
@@ -73,5 +83,38 @@ describe('parseReservationInput', () => {
     const ms = performance.now() - started;
     expect(result).toEqual({ ok: false, code });
     expect(ms).toBeLessThan(250);
+  });
+});
+
+describe('consent (spec §11)', () => {
+  it('books only with the box ticked, and stamps the policy version this server shows', () => {
+    const { consent: _consent, ...unticked } = valid;
+    expect(parseReservationInput(unticked)).toEqual({ ok: false, code: 'consent_required' });
+    expect(parseReservationInput(valid)).toMatchObject({ ok: true, value: { consentVersion: PRIVACY_POLICY_VERSION } });
+  });
+
+  it('a field above the box still comes first (form order)', () => {
+    expect(parseReservationInput({ ...valid, phone: '12', consent: false })).toEqual({ ok: false, code: 'invalid_phone' });
+  });
+});
+
+describe('honeypotFilled (step 1)', () => {
+  it.each([
+    ['a URL', true, { ...valid, honeypot: 'http://spam.example' }],
+    ['a space', true, { ...valid, honeypot: ' ' }],
+    ['a number', true, { ...valid, honeypot: 0 }],
+    ['false', true, { ...valid, honeypot: false }],
+    ['empty', false, { ...valid, honeypot: '' }],
+    ['undefined', false, { ...valid, honeypot: undefined }],
+    ['null', false, { ...valid, honeypot: null }],
+    ['no field at all', false, (({ honeypot: _h, ...rest }) => rest)(valid)],
+    ['no object', false, null],
+    ['a string body', false, 'honeypot'],
+  ])('%s → %s', (_label, filled, input) => {
+    expect(honeypotFilled(input)).toBe(filled);
+  });
+
+  it('zod still refuses a filled one, should step 1 ever be skipped', () => {
+    expect(parseReservationInput({ ...valid, honeypot: 'x' })).toEqual({ ok: false, code: 'bot_blocked' });
   });
 });

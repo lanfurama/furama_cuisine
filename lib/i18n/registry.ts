@@ -106,6 +106,29 @@ export const REGISTRY = {
       'A closure, or a day without service, covers the chosen date, or only the chosen meal while another meal that day still takes bookings. Must read right for both.',
     screen: 'ui-text',
   },
+  'error.consent_required': {
+    en: 'Please tick the box to agree to how we use your details.',
+    maxLength: 140,
+    context:
+      'Under the consent checkbox of the reservation form, when the guest sends the request without ticking it (spec §11). Names the box, not the law.',
+    screen: 'ui-text',
+  },
+  'error.too_many_requests': {
+    en: 'This number already has {limit} table requests for that day. To book more, please call us on {phone}.',
+    maxLength: 160,
+    vars: ['limit', 'phone'],
+    context:
+      'One phone number already holds the most active online requests allowed for that date, across all restaurants (spec §10.2 step 5). {limit} is that number, {phone} the restaurant’s number; keep both.',
+    screen: 'ui-text',
+  },
+  'error.bot_blocked': {
+    en: 'We could not accept this request online. Please call us on {phone} to book.',
+    maxLength: 140,
+    vars: ['phone'],
+    context:
+      'The request looked automated (bot protection) and was refused. A real guest may see it: never accuse, always give the phone. {phone} is the restaurant’s number; keep it.',
+    screen: 'ui-text',
+  },
   'error.unknown': {
     en: 'Something went wrong with your request. Please try again.',
     maxLength: 140,

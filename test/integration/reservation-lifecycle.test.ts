@@ -94,6 +94,7 @@ function guestRequest(guests: number): ReservationRequest {
     email: '',
     note: '',
     locale: 'en',
+    consent: true,
   });
   if (!parsed.ok) throw new Error(parsed.code);
   return parsed.value;

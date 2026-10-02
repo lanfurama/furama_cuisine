@@ -12,7 +12,10 @@ import { actionPermissions, adminOnlyProblems, adminPluginCalls, adminPluginCall
  * The exceptions are public on purpose, and each says what protects it.
  */
 const PUBLIC_ACTIONS = new Map([
-  ['app/actions.ts#submitReservation', 'zod, the slot and window checks, the per-table unique index (spec §7.1)'],
+  [
+    'app/actions.ts#submitReservation',
+    'the honeypot first, then zod with consent, the per-phone daily limit, the slot and window checks, the per-table unique index (spec §7.1, §10.2)',
+  ],
   ['app/admin/(auth)/sign-in/actions.ts#signIn', 'Better Auth checks the password, rate-limited per IP in auth_rate_limit'],
   ['app/admin/(shell)/actions.ts#signOut', 'ends only the session of the cookie it is sent with'],
   ['app/admin/(auth)/accept-invite/actions.ts#acceptInvitation', 'the 256-bit, single-use, 7-day invitation token is the credential'],

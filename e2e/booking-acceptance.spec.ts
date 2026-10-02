@@ -70,6 +70,7 @@ test('A1. concurrent bookings never exceed capacity: eight replays of a guest’
   const digits = String(Date.now()).slice(-5);
   const phone = `0907 ${digits.slice(0, 3)} ${digits.slice(3)}0`; // ten digits, the last one 0
   await drawer.getByLabel('Phone *', { exact: true }).fill(phone);
+  await drawer.getByRole('checkbox', { name: 'I agree to Furama Cuisine using my details as described in the privacy policy.' }).check();
   const sent = guest.waitForRequest((r) => r.method() === 'POST' && !!r.headers()['next-action']);
   await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
   const request = await sent;

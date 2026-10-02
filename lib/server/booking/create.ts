@@ -2,22 +2,26 @@ import 'server-only';
 import type { Pool, PoolClient } from 'pg';
 import { getPool } from '@/db/client';
 import { resolveDay } from '@/lib/booking/resolve-day';
+import { PHONE_DAY_LIMIT } from '@/lib/booking/rules';
 import { slotVerdict } from '@/lib/booking/slot-code';
 import type { BookingErrorCode } from '@/lib/booking-errors';
+import { UPCOMING_STATUSES } from '@/lib/reservations/lifecycle';
 import { outboxEnv } from '@/lib/server/email/env';
 import { queueWebBookingEmails } from '@/lib/server/email/outbox';
 import { newReference } from '@/lib/server/reference';
 import { venueNow, type IsoDate } from '@/lib/venue-time';
 import type { ReservationRequest } from './input';
-import { lockBookingDay } from './lock';
+import { lockBookingDay, lockGuestPhoneDay } from './lock';
 import { loadBookedCovers, loadRestaurantRules } from './rules';
 
 /*
- * Step 6 of submitReservation (spec §10.2): one transaction that takes the
- * booking-day lock, re-reads the rules and the covers, re-runs resolveDay,
- * and inserts the booking with its 'created' event and its email_outbox rows
- * (staff.new, then guest.ack or guest.confirmed). Nothing is sent here; the
- * action drains `outboxIds` once this has committed (step 7).
+ * Steps 5 and 6 of submitReservation (spec §10.2): one transaction that
+ * counts the number's active requests for the date under the guest-phone
+ * lock, then takes the booking-day lock, re-reads the rules and the covers,
+ * re-runs resolveDay, and inserts the booking (with the policy version the
+ * guest agreed to), its 'created' event and its email_outbox rows (staff.new,
+ * then guest.ack or guest.confirmed). Nothing is sent here; the action drains
+ * `outboxIds` once this has committed (step 7).
  */
 
 export type CreateOutcome =
@@ -73,8 +77,27 @@ async function insertOnce(pool: Pool, input: ReservationRequest, now: Date, refe
   }
 }
 
+/**
+ * Step 5 (R14): the active web requests this number already holds for this
+ * date, at any restaurant. Counted under the number's own lock, because the
+ * booking-day lock is per restaurant and the same number can book two
+ * restaurants at once. Taken before the booking-day lock (lock order in
+ * lock.ts), so a burst from one number queues on its own key and is refused
+ * without holding up the restaurant's day.
+ */
+async function phoneDayFull(client: PoolClient, input: ReservationRequest): Promise<boolean> {
+  await lockGuestPhoneDay(client, input.phoneE164, input.date);
+  const { rows } = await client.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM reservations
+      WHERE phone_e164 = $1 AND reserved_on = $2::date AND source = 'web' AND status = ANY($3::text[])`,
+    [input.phoneE164, input.date, UPCOMING_STATUSES],
+  );
+  return rows[0].n >= PHONE_DAY_LIMIT;
+}
+
 async function insertInTransaction(client: PoolClient, input: ReservationRequest, now: Date, reference: string): Promise<CreateOutcome> {
-  // The lock first: the rules and the covers read below must be the ones the insert is decided on.
+  if (await phoneDayFull(client, input)) return { ok: false, code: 'too_many_requests' };
+  // Then the booking-day lock: the rules and the covers read below must be the ones the insert is decided on.
   await lockBookingDay(client, input.restaurantId, input.date);
   const loaded = await loadRestaurantRules(client, input.restaurantId, input.locale, venueNow(now).date);
   if (!loaded) return { ok: false, code: 'restaurant_unavailable' };
@@ -93,11 +116,12 @@ async function insertInTransaction(client: PoolClient, input: ReservationRequest
   const { rows } = await client.query<{ id: string }>(
     `INSERT INTO reservations
        (reference, restaurant_id, reserved_on, reserved_at, meal, guests, guest_name, phone, phone_e164,
-        email, note, status, confirmed_at, source, locale)
+        email, note, status, confirmed_at, source, locale, consent_version, consented_at)
      VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8, $9, $10, $11, $12,
              CASE WHEN $12 = 'confirmed' THEN now() END, 'web',
              COALESCE((SELECT code FROM locales WHERE code = $13 AND is_enabled),
-                      (SELECT code FROM locales WHERE is_default)))
+                      (SELECT code FROM locales WHERE is_default)),
+             $14, now())
      RETURNING id::text`,
     [
       reference,
@@ -113,6 +137,7 @@ async function insertInTransaction(client: PoolClient, input: ReservationRequest
       input.note,
       status,
       input.locale,
+      input.consentVersion,
     ],
   );
   const id = rows[0].id;

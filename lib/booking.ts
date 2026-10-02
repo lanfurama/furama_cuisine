@@ -31,11 +31,18 @@ export const fmtDay = (d: IsoDate) => formatDay(d).label;
 export const findRestaurant = (restaurants: Restaurant[], id: string) =>
   restaurants.find((r) => r.id === id);
 
+/**
+ * One "@" in an email (R13), as lib/server/booking/input.ts checks it: the
+ * outbox stores only such an address, so a guest is never told a booking went
+ * through with an address no email can reach.
+ */
+export const GUEST_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function validate(form: BookingForm) {
   return {
     name: form.name.trim().length >= 2,
     phone: form.phone.replace(/\D/g, '').length >= 8,
-    email: !form.email.trim() || /^\S+@\S+\.\S+$/.test(form.email.trim()),
+    email: !form.email.trim() || GUEST_EMAIL.test(form.email.trim()),
   };
 }
 

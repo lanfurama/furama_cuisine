@@ -390,6 +390,59 @@
   color: var(--error);
 }
 
+/* The honeypot (components/overlays/Honeypot.tsx): in the DOM for scripts, off-screen for people. */
+.hp {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.drawer-consent {
+  margin-top: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.drawer-privacy {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.drawer-privacy a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+/* The whole label toggles the box, so the tap target is the full row, not the 20px square. */
+.consent input {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  accent-color: var(--green);
+}
+
+.consent input[data-invalid='true'] {
+  outline: 1px solid var(--error);
+  outline-offset: 2px;
+}
+
 .drawer-foot {
   flex: 0 0 auto;
   display: flex;

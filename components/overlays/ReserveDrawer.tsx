@@ -11,6 +11,8 @@ import { formatDay, type IsoDate } from '@/lib/venue-time';
 import { useSite, type ClientStrings } from '@/components/site/SiteProvider';
 import { Dropdown, type Option } from '@/components/ui/Dropdown';
 import { animateSelector, useOpenAnimation } from '@/lib/motion';
+import { privacyHref } from '@/lib/legal';
+import { Honeypot } from '@/components/overlays/Honeypot';
 
 /** A message with {phone} turned into a tel: link (any other placeholder is filled as text). */
 function WithPhone({ template, params, phone }: { template: string; params: MessageParams; phone: GroupPhone }) {
@@ -165,6 +167,11 @@ export function ReserveDrawer() {
     booked,
     form,
     setFormField,
+    consent,
+    setConsent,
+    honeypot,
+    setHoneypot,
+    locale,
     errors,
     serverError,
     footLoading,
@@ -448,6 +455,29 @@ export function ReserveDrawer() {
                       maxLength={FIELD_MAX.note}
                     />
                   </label>
+                  <Honeypot value={honeypot} onChange={setHoneypot} />
+                </div>
+
+                {/* Spec §11: the notice at the point of collection, the policy one tap away (a new tab keeps this form), and a box only a person ticks. */}
+                <div className="drawer-consent">
+                  <p className="drawer-privacy" id="drawer-privacy">
+                    {strings['booking.privacy_notice']}{' '}
+                    <a href={privacyHref(locale)} target="_blank" rel="noopener">
+                      {strings['legal.link']}
+                    </a>
+                  </p>
+                  <label className="consent">
+                    <input
+                      type="checkbox"
+                      checked={consent}
+                      onChange={(e) => setConsent(e.target.checked)}
+                      aria-describedby="drawer-privacy"
+                      aria-invalid={errors.consent}
+                      data-invalid={errors.consent}
+                    />
+                    <span>{strings['booking.consent']}</span>
+                  </label>
+                  {errors.consent && <span className="field-error">{strings['error.consent_required']}</span>}
                 </div>
               </div>
             </div>

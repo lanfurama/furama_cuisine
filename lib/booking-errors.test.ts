@@ -25,6 +25,14 @@ describe('bookingErrorMessage', () => {
     expect(bookingErrorMessage('party_too_large')).toBe('For more than 12 guests, please call us on +84 236 651 9999.');
   });
 
+  it('names the per-phone limit and the number to call, never accuses a refused bot (spec §10.2 steps 1 and 5)', () => {
+    expect(bookingErrorMessage('too_many_requests', { phone: '0859 555 759' })).toBe(
+      'This number already has 3 table requests for that day. To book more, please call us on 0859 555 759.',
+    );
+    expect(bookingErrorMessage('bot_blocked')).toBe('We could not accept this request online. Please call us on +84 236 651 9999 to book.');
+    expect(bookingErrorMessage('consent_required')).toBe('Please tick the box to agree to how we use your details.');
+  });
+
   it('says the restaurant is closed at that time (a whole day, or one meal), and that a sitting can no longer be booked for either clock rule', () => {
     expect(bookingErrorMessage('closed')).toBe('The restaurant is closed at that time — please choose another time or day.');
     expect(bookingErrorMessage('past')).toBe('That time can no longer be booked online — please choose a later time or another day.');

@@ -3,6 +3,7 @@
  * codes; the browser turns them into copy. The copy lives in the content
  * registry (lib/i18n/registry.ts) as error.<code>, so the DB can override it.
  */
+import { PHONE_DAY_LIMIT } from '@/lib/booking/rules';
 import { CONTACT } from '@/lib/data';
 import { formatMessage } from '@/lib/i18n/format';
 import { REGISTRY } from '@/lib/i18n/registry';
@@ -19,6 +20,9 @@ export const BOOKING_ERROR_CODES = [
   'full',
   'closed',
   'duplicate',
+  'consent_required',
+  'too_many_requests',
+  'bot_blocked',
   'unknown',
   'network',
 ] as const;
@@ -34,8 +38,17 @@ export const DEFAULT_ERROR_STRINGS = Object.fromEntries(
   BOOKING_ERROR_CODES.map((code) => [`error.${code}`, REGISTRY[`error.${code}`].en]),
 ) as ErrorStrings;
 
-/** Used when a message arrives without its params (the server always sends them for slot_unavailable and party_too_large). */
-const DEFAULT_PARAMS: Record<string, string> = { restaurant: 'The restaurant', max: '12', phone: CONTACT.resortPhoneLabel };
+/**
+ * Used when a message arrives without its params (the server always sends them
+ * for slot_unavailable and party_too_large). The drawer passes the chosen
+ * restaurant's group phone ahead of these, so {phone} names the right desk.
+ */
+const DEFAULT_PARAMS: Record<string, string> = {
+  restaurant: 'The restaurant',
+  max: '12',
+  limit: String(PHONE_DAY_LIMIT),
+  phone: CONTACT.resortPhoneLabel,
+};
 
 export function bookingErrorMessage(
   code: BookingErrorCode,

@@ -1,15 +1,128 @@
+import type { Page } from '@playwright/test';
+import { GROUP_PHONE, mockAvailability } from './availability-mock';
 import { HOME_PATH } from './paths';
-import { expect, test } from './staff-fixtures';
+import { newReference } from './reservation-fixtures';
+import { expect, one, test } from './staff-fixtures';
 
 /*
- * Phase 5's guard on the guest side (spec §11): the privacy policy page and
- * the footer link to it. The footer link is hidden from the visual specs by
- * e2e/visual-added.css, so this spec is what checks it.
+ * Phase 5's guard on the guest form (spec §10.2 steps 1 and 5, §11): the
+ * privacy notice, the consent box and the policy page; the honeypot; the
+ * per-phone limit's message. The footer link to the policy is hidden from the
+ * visual specs by e2e/visual-added.css, so this spec is what checks it.
+ * Pho Cuon's last open day (today + 13) is this spec's own: no other spec
+ * books there.
  */
+
+const CONSENT = 'I agree to Furama Cuisine using my details as described in the privacy policy.';
+/* 10:00 on Friday 2 Oct in Da Nang. */
+const NOW = new Date('2026-10-02T03:00:00Z');
 
 test.use({ reducedMotion: 'reduce' });
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem('fc-intro-seen', '1'));
+});
+
+/** The drawer on mocked availability, a slot chosen and the details typed in. */
+async function filledDrawer(page: Page, phone = '0905 000 000') {
+  await page.clock.setFixedTime(NOW);
+  await mockAvailability(page, { today: () => '2026-10-02', now: () => NOW.toISOString() });
+  await page.goto(HOME_PATH);
+  await page.getByRole('button', { name: 'RESERVE', exact: true }).first().click();
+  const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
+  await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
+  await drawer.locator('.daystrip .day[data-state="open"]').nth(3).click();
+  await drawer.locator('.slot:not([disabled])').first().click();
+  await drawer.getByLabel('Full name *', { exact: true }).fill('Nguyễn Minh Anh');
+  await drawer.getByLabel('Phone *', { exact: true }).fill(phone);
+  return drawer;
+}
+
+/** Server Action POSTs the page sends from now on. */
+function actionPosts(page: Page) {
+  const posts: { headers: Record<string, string> }[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && r.headers()['next-action']) posts.push({ headers: r.headers() });
+  });
+  return posts;
+}
+
+test('nothing is sent until the consent box is ticked; the notice links the policy in a new tab', async ({ page }) => {
+  const drawer = await filledDrawer(page);
+  const posts = actionPosts(page);
+  const box = drawer.getByRole('checkbox', { name: CONSENT });
+  await expect(box).not.toBeChecked();
+  await expect(box).toHaveAccessibleDescription(/only to arrange this booking/);
+
+  await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
+  await expect(drawer.getByText('Please tick the box to agree to how we use your details.')).toBeVisible();
+  await expect(box).toHaveAttribute('aria-invalid', 'true');
+  expect(posts).toHaveLength(0);
+
+  await box.check();
+  await expect(drawer.getByText('Please tick the box to agree to how we use your details.')).toHaveCount(0);
+
+  const link = drawer.getByRole('link', { name: 'Privacy policy' });
+  await expect(link).toHaveAttribute('href', '/en/privacy');
+  const [policy] = await Promise.all([page.waitForEvent('popup'), link.click()]);
+  await expect(policy.getByRole('heading', { level: 1 })).toHaveText('Privacy policy');
+  // The form keeps what was typed: the policy opened beside it.
+  await expect(drawer.getByLabel('Full name *', { exact: true })).toHaveValue('Nguyễn Minh Anh');
+  await expect(box).toBeChecked();
+});
+
+test('the honeypot is invisible to people and screen readers, out of the tab order, and a filled one is refused', async ({ page }) => {
+  const digits = String(Date.now()).slice(-6);
+  const phone = `0905 ${digits.slice(0, 3)} ${digits.slice(3)}`;
+  const drawer = await filledDrawer(page, phone);
+  await drawer.getByRole('checkbox', { name: CONSENT }).check();
+
+  // Not in the accessibility tree, not on screen, not reached by Tab.
+  await expect(drawer.getByRole('textbox', { name: 'Website' })).toHaveCount(0);
+  expect(await drawer.ariaSnapshot()).not.toContain('Website');
+  const trap = drawer.locator('input[name="website"]');
+  await expect(trap).not.toBeInViewport();
+  await drawer.getByLabel('Special requests', { exact: true }).focus();
+  await page.keyboard.press('Tab');
+  expect(await page.evaluate(() => (document.activeElement as HTMLInputElement | null)?.name)).not.toBe('website');
+  await expect(drawer.getByRole('link', { name: 'Privacy policy' })).toBeFocused();
+
+  // A script that fills every field it finds.
+  const posts = actionPosts(page);
+  await trap.fill('https://spam.example', { force: true });
+  await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
+  // Never a fake success (R15): the guest is told, with the restaurant's number to call.
+  await expect(drawer.getByRole('alert')).toHaveText(`We could not accept this request online. Please call us on ${GROUP_PHONE.display} to book.`);
+  expect(posts).toHaveLength(1);
+  expect((await one<{ n: number }>(`SELECT count(*)::int AS n FROM reservations WHERE phone_e164 = $1`, [`+84905${digits}`]))!.n).toBe(0);
+});
+
+test('a fourth request for one day from one number gets the limit and the restaurant’s own number to call', async ({ page }) => {
+  // Pho Cuon (Dining House) on its last open day: three active web requests for one number are already in.
+  const digits = String(Date.now()).slice(-6);
+  const phone = `0906 ${digits.slice(0, 3)} ${digits.slice(3)}`;
+  const e164 = `+84906${digits}`;
+  const date = (await one<{ d: string }>(`SELECT to_char((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date + 13, 'YYYY-MM-DD') AS d`))!.d;
+  for (const [i, time] of ['18:00', '18:30', '20:00'].entries()) {
+    await one(
+      `INSERT INTO reservations (reference, restaurant_id, reserved_on, reserved_at, meal, guests, guest_name, phone, phone_e164, source, status, consent_version, consented_at)
+       VALUES ($1, 'pho-cuon', $2::date, $3, 'Dinner', 2, 'Khách E2E', $4, $5, 'web', $6, '2026-10-02', now())`,
+      [newReference(), date, time, phone, e164, i === 0 ? 'confirmed' : 'requested'],
+    );
+  }
+  await page.goto(HOME_PATH);
+  await page.locator('.rcard:visible', { hasText: 'Phố Cuốn' }).first().click();
+  const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
+  await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
+  await drawer.locator('.daystrip .day[data-state="open"]').last().click();
+  await drawer.locator('.slot:not([disabled])').last().click();
+  await drawer.getByLabel('Full name *', { exact: true }).fill('Khách Thứ Tư');
+  await drawer.getByLabel('Phone *', { exact: true }).fill(phone);
+  await drawer.getByRole('checkbox', { name: CONSENT }).check();
+  await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
+  await expect(drawer.getByRole('alert')).toHaveText(
+    'This number already has 3 table requests for that day. To book more, please call us on 0859 555 759.',
+  );
+  expect((await one<{ n: number }>(`SELECT count(*)::int AS n FROM reservations WHERE phone_e164 = $1`, [e164]))!.n).toBe(3);
 });
 
 test('the privacy policy page, from the footer', async ({ page }) => {

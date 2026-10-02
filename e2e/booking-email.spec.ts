@@ -48,6 +48,7 @@ async function bookCafeIndochine(page: Page, guest: string): Promise<string> {
   const digits = String(Date.now()).slice(-6);
   await drawer.getByLabel('Phone *', { exact: true }).fill(`0906 ${digits.slice(0, 3)} ${digits.slice(3)}`);
   await drawer.getByLabel('Email', { exact: true }).fill(guest);
+  await drawer.getByRole('checkbox', { name: 'I agree to Furama Cuisine using my details as described in the privacy policy.' }).check();
   await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
   await expect(drawer.locator('.drawer-ref')).toHaveText(/^FC-[0-9A-HJKMNP-TV-Z]{8}$/);
   return (await drawer.locator('.drawer-ref').textContent()) ?? '';

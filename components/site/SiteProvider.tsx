@@ -139,6 +139,12 @@ type SiteState = {
   booked: Booked | null;
   form: BookingForm;
   setFormField: (key: keyof BookingForm, value: string) => void;
+  /** The privacy consent box (spec §11); the request is not sent without it. */
+  consent: boolean;
+  setConsent: (value: boolean) => void;
+  /** The hidden honeypot field's value (components/overlays/Honeypot.tsx); people leave it empty. */
+  honeypot: string;
+  setHoneypot: (value: string) => void;
   tried: boolean;
   done: boolean;
   pending: boolean;
@@ -147,7 +153,7 @@ type SiteState = {
   serverError: string | null;
   /** REQUEST BOOKING is waiting for the dates, which are on their way (the footer's status says so). */
   footLoading: boolean;
-  errors: { name: boolean; phone: boolean; email: boolean };
+  errors: { name: boolean; phone: boolean; email: boolean; consent: boolean };
   submit: () => void;
 
   overlay: Overlay | null;
@@ -231,6 +237,8 @@ export function SiteProvider({
   const [calendar, setCalendar] = useState<CalendarResponse | null>(null);
   const [board, setBoard] = useState<DayResponse | null>(null);
   const [form, setForm] = useState<BookingForm>(EMPTY_FORM);
+  const [consent, setConsent] = useState(false);
+  const [honeypot, setHoneypot] = useState('');
   const [tried, setTried] = useState(false);
   const [done, setDone] = useState(false);
   const [pending, setPending] = useState(false);
@@ -505,6 +513,8 @@ export function SiteProvider({
       setTried(false);
       setServerError(null);
       setForm(EMPTY_FORM);
+      setConsent(false);
+      setHoneypot('');
     }
   }, [done]);
 
@@ -526,9 +536,14 @@ export function SiteProvider({
 
   const valid = useMemo(() => validate(form), [form]);
   const errors = useMemo(
-    () => ({ name: tried && !valid.name, phone: tried && !valid.phone, email: tried && !valid.email }),
-    [tried, valid],
+    () => ({ name: tried && !valid.name, phone: tried && !valid.phone, email: tried && !valid.email, consent: tried && !consent }),
+    [tried, valid, consent],
   );
+  /* The chosen restaurant's group phone fills {phone} in a refusal the server sends without one (bot_blocked, too_many_requests). */
+  const errorParams = useCallback((restaurant: string, params: Record<string, string> = {}) => {
+    const phone = calendarFor(latest.current.calendar, restaurant)?.groupPhone;
+    return phone ? { phone: phone.display, ...params } : params;
+  }, []);
 
   const submit = useCallback(() => {
     setServerError(null);
@@ -536,7 +551,7 @@ export function SiteProvider({
     const { restaurant, date } = booking;
     const at = now();
     const ctx = context(at);
-    if (!(valid.name && valid.phone && valid.email)) {
+    if (!(valid.name && valid.phone && valid.email && consent)) {
       setTried(true);
       return;
     }
@@ -595,6 +610,8 @@ export function SiteProvider({
       email: form.email,
       note: form.note,
       locale,
+      consent,
+      honeypot,
     })
       .then((result) => {
         if (result.ok) {
@@ -604,7 +621,7 @@ export function SiteProvider({
           setDone(true);
           return;
         }
-        setServerError(bookingErrorMessage(result.code, result.params, strings));
+        setServerError(bookingErrorMessage(result.code, errorParams(booking.restaurant, result.params), strings));
         setTried(true);
         // Ask again so a lost race (or a new closure) shows up at once; the
         // answers move the time off a slot that has just filled.
@@ -613,7 +630,7 @@ export function SiteProvider({
       })
       .catch(() => setServerError(bookingErrorMessage('network', {}, strings)))
       .finally(() => setPending(false));
-  }, [booking, context, failed, form, loadBoard, loadCalendar, locale, now, restaurants, strings, valid]);
+  }, [booking, consent, context, errorParams, failed, form, honeypot, loadBoard, loadCalendar, locale, now, restaurants, strings, valid]);
 
   const setFormField = useCallback((key: keyof BookingForm, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -765,6 +782,10 @@ export function SiteProvider({
       booked,
       form,
       setFormField,
+      consent,
+      setConsent,
+      honeypot,
+      setHoneypot,
       tried,
       done,
       pending,
@@ -792,8 +813,8 @@ export function SiteProvider({
     }),
     [
       applyFinder, booked, booking, bookable, chosenBoard, clearFilters, close, closeDrawer, closeDropdown,
-      confirmedDate, dateMoved, days, done, errors, filter, finder, footError, footLoading, form, goBackToRestaurants,
-      goHomeTop, groupPhone, lang, loadFailed, locale, matches, maxParty, now, open, openDropdown, openReserve,
+      confirmedDate, consent, dateMoved, days, done, errors, filter, finder, footError, footLoading, form, goBackToRestaurants,
+      goHomeTop, groupPhone, honeypot, lang, loadFailed, locale, matches, maxParty, now, open, openDropdown, openReserve,
       openRestaurant, overlay, pageRoot, pending, pickCuisine, pickDestination, query, reference, restaurants,
       retryAvailability, scrollToId, scrolled, setBooking, setFilter, setFinder, setFormField, showPage, shownCount,
       strings, submit, tab, today, toggleDropdown, tried, view,

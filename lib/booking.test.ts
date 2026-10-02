@@ -14,10 +14,15 @@ describe('validate', () => {
     expect(validate({ name: 'An', phone: '0905 000 000', email: '', note: '' })).toEqual({ name: true, phone: true, email: true });
     expect(validate({ name: ' A ', phone: '1234 567', email: 'a@b', note: '' })).toEqual({ name: false, phone: false, email: false });
   });
+
+  it('wants one "@" in an email, as the server does (R13)', () => {
+    expect(validate({ name: 'An', phone: '0905 000 000', email: 'a@b@c.vn', note: '' }).email).toBe(false);
+    expect(validate({ name: 'An', phone: '0905 000 000', email: 'an.nguyen@example.com.vn', note: '' }).email).toBe(true);
+  });
 });
 
 describe('FIELD_MAX', () => {
-  const form = { restaurant: 'taya-house', date: '2026-10-05', time: '19:00', guests: 2, name: 'An', phone: '0905 000 000', email: '', note: '' };
+  const form = { restaurant: 'taya-house', date: '2026-10-05', time: '19:00', guests: 2, name: 'An', phone: '0905 000 000', email: '', note: '', consent: true };
   // A valid value of exactly `n` characters for each field.
   const ofLength: Record<keyof BookingForm, (n: number) => string> = {
     name: (n) => 'a'.repeat(n),

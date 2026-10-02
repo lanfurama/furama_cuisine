@@ -105,6 +105,7 @@ test('the Admin turns auto-confirm on for one restaurant: a guest’s booking th
     await drawer.getByLabel('Full name *', { exact: true }).fill('Khách Tự Xác Nhận');
     const digits = String(Date.now()).slice(-6);
     await drawer.getByLabel('Phone *', { exact: true }).fill(`0906 ${digits.slice(0, 3)} ${digits.slice(3)}`);
+    await drawer.getByRole('checkbox', { name: 'I agree to Furama Cuisine using my details as described in the privacy policy.' }).check();
     await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
     const reference = (await drawer.locator('.drawer-ref').textContent()) ?? '';
     expect(reference).toMatch(/^FC-[0-9A-HJKMNP-TV-Z]{8}$/);

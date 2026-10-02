@@ -226,6 +226,7 @@ async function abortServerActions(page: Page) {
 async function fillDetails(drawer: Locator) {
   await drawer.getByLabel('Full name *', { exact: true }).fill('Nguyễn Minh Anh');
   await drawer.getByLabel('Phone *', { exact: true }).fill('0905 000 000');
+  await drawer.getByRole('checkbox', { name: 'I agree to Furama Cuisine using my details as described in the privacy policy.' }).check();
 }
 
 test('when the dates cannot load, the guest is told, REQUEST BOOKING says so, and Try again recovers', async ({ page }) => {
@@ -242,8 +243,7 @@ test('when the dates cannot load, the guest is told, REQUEST BOOKING says so, an
   await expect(drawer.locator('.daystrip')).toHaveCount(0);
 
   // Valid details and no date to book: the button answers rather than doing nothing.
-  await drawer.getByLabel('Full name *', { exact: true }).fill('Nguyễn Minh Anh');
-  await drawer.getByLabel('Phone *', { exact: true }).fill('0905 000 000');
+  await fillDetails(drawer);
   await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
   await expect(foot(drawer).getByRole('alert')).toHaveText(NETWORK);
 
@@ -376,6 +376,7 @@ test('books a table against the real availability API', async ({ page }) => {
   await drawer.getByLabel('Full name *', { exact: true }).fill('Nguyễn Minh Anh');
   const digits = String(Date.now()).slice(-6);
   await drawer.getByLabel('Phone *', { exact: true }).fill(`0905 ${digits.slice(0, 3)} ${digits.slice(3)}`);
+  await drawer.getByRole('checkbox', { name: 'I agree to Furama Cuisine using my details as described in the privacy policy.' }).check();
   await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
 
   await expect(drawer.locator('.drawer-ref')).toHaveText(/^FC-[0-9A-HJKMNP-TV-Z]{8}$/);
