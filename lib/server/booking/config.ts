@@ -22,12 +22,12 @@ import type { Db } from './rules';
 /** A timestamptz column as the concurrency token. */
 export const US = (column: string) => `(extract(epoch FROM ${column}) * 1000000)::bigint::text`;
 
-type Conflict = { ok: false; code: 'conflict'; params: { by: string; at: string } };
+export type Conflict = { ok: false; code: 'conflict'; params: { by: string; at: string } };
 type NotFound = { ok: false; code: 'not_found' };
 type Invalid = { ok: false; code: 'invalid'; fieldErrors: Record<string, string[]> };
 
 /** "Vừa được {tên} thay đổi lúc {giờ}": updated_by holds the staff id (spec §5.1.6). */
-async function conflictBy(client: PoolClient, staffId: string | null, at: Date): Promise<Conflict> {
+export async function conflictBy(client: PoolClient, staffId: string | null, at: Date): Promise<Conflict> {
   const { rows } = staffId ? await client.query<{ name: string }>('SELECT name FROM staff_user WHERE id = $1', [staffId]) : { rows: [] };
   return { ok: false, code: 'conflict', params: { by: rows[0]?.name ?? 'người khác', at: formatDateTimeVi(at) } };
 }

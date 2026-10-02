@@ -60,6 +60,7 @@ const ACTION_MESSAGES: Record<ActionCode, string> = {
   closed: 'Nhà hàng đóng cửa vào bữa này trong ngày đã chọn.',
   slot_unavailable: 'Giờ này không nằm trong ca phục vụ của ngày đã chọn.',
   duplicate: 'Số điện thoại này đã có một đặt bàn đang hoạt động cùng nhà hàng, ngày và giờ.',
+  email_failed: 'Không gửi được email thử.',
 };
 
 /** `params` fills in the codes that carry details: who saved first and when, the covers left. */
@@ -70,7 +71,28 @@ export function actionErrorMessage(code: ActionCode, params?: Record<string, str
   if (code === 'full' && params?.left !== undefined) {
     return `Khung giờ này chỉ còn ${params.left} chỗ. Muốn vẫn nhận, hãy ghi lý do vượt sức chứa.`;
   }
+  if (code === 'email_failed' && params?.error) {
+    return `Không gửi được email thử. ${emailFailureHint(params.error)} (${params.error})`;
+  }
   return ACTION_MESSAGES[code];
+}
+
+/**
+ * What an Admin can do about a stored email error ("<code>: <message>",
+ * describeEmailError; no address in it): the setup errors name the variables
+ * to set, an SMTP refusal says whose side to check (R9).
+ */
+export function emailFailureHint(stored: string): string {
+  const code = stored.split(':')[0];
+  if (code === 'missing_smtp_config') return 'Chưa cấu hình SMTP (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD) trên môi trường này.';
+  if (code === 'missing_from') return 'Chưa đặt địa chỉ gửi (EMAIL_FROM).';
+  if (code === 'missing_redirect_to') return 'Chế độ redirect cần EMAIL_REDIRECT_TO.';
+  if (code === 'missing_app_url') return 'Chưa đặt BETTER_AUTH_URL (địa chỉ của trang quản trị) cho các liên kết trong email.';
+  if (code === 'not_delivered' || code === 'invalid_delivery_mode') return 'Môi trường này chưa bật gửi email (EMAIL_DELIVERY).';
+  if (code === 'rejected') return 'Máy chủ SMTP từ chối địa chỉ người nhận.';
+  if (/SMTP EAUTH/.test(stored)) return 'Máy chủ SMTP từ chối tài khoản đăng nhập: kiểm tra SMTP_USER và SMTP_PASSWORD.';
+  if (/SMTP (ECONNECTION|ETIMEDOUT|ESOCKET|EDNS|ETLS)/.test(stored)) return 'Không kết nối được máy chủ SMTP: kiểm tra SMTP_HOST, SMTP_PORT và SMTP_SECURE.';
+  return 'Kiểm tra cấu hình gửi email rồi thử lại.';
 }
 
 /*

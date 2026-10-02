@@ -12,6 +12,7 @@ export const ADMIN_NAV: readonly NavItem[] = [
   { href: '/admin/reservations', label: 'Đặt bàn', permission: { reservations: ['read'] } },
   { href: '/admin/restaurants', label: 'Nhà hàng', permission: { schedule: ['read'] } },
   { href: '/admin/settings/booking', label: 'Cài đặt đặt bàn', permission: { settings: ['read'] } },
+  { href: '/admin/settings/notifications', label: 'Thông báo email', permission: { settings: ['read'] } },
   { href: '/admin/users', label: 'Nhân viên', permission: { user: ['list'] } },
   { href: '/admin/audit', label: 'Nhật ký', permission: { audit: ['read'] } },
 ];

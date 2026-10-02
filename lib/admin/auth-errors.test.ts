@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actionErrorMessage, authErrorMessage, inviteEmailFailedMessage } from './auth-errors';
+import { actionErrorMessage, authErrorMessage, emailFailureHint, inviteEmailFailedMessage } from './auth-errors';
 
 describe('authErrorMessage', () => {
   it.each([
@@ -54,6 +54,37 @@ describe('actionErrorMessage', () => {
     expect(actionErrorMessage('conflict', { by: 'Lan', at: '' })).toBe('Vừa được Lan thay đổi. Hãy tải lại trang rồi làm lại.');
     expect(actionErrorMessage('full', { left: '3' })).toBe('Khung giờ này chỉ còn 3 chỗ. Muốn vẫn nhận, hãy ghi lý do vượt sức chứa.');
     expect(actionErrorMessage('full', { left: '0' })).toBe('Khung giờ này chỉ còn 0 chỗ. Muốn vẫn nhận, hãy ghi lý do vượt sức chứa.');
+  });
+});
+
+describe('"Gửi email thử" failures (R9)', () => {
+  it('says what to fix for each kind of failure, and quotes the stored error', () => {
+    expect(emailFailureHint('missing_smtp_config: SMTP_HOST is required when EMAIL_DELIVERY is live or redirect')).toBe(
+      'Chưa cấu hình SMTP (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD) trên môi trường này.',
+    );
+    expect(emailFailureHint('missing_from: EMAIL_FROM with a sender address is required when EMAIL_DELIVERY=live')).toBe('Chưa đặt địa chỉ gửi (EMAIL_FROM).');
+    expect(emailFailureHint('missing_redirect_to: EMAIL_REDIRECT_TO is required')).toBe('Chế độ redirect cần EMAIL_REDIRECT_TO.');
+    expect(emailFailureHint('missing_app_url: BETTER_AUTH_URL is required')).toBe('Chưa đặt BETTER_AUTH_URL (địa chỉ của trang quản trị) cho các liên kết trong email.');
+    expect(emailFailureHint('not_delivered: EMAIL_DELIVERY is log (or unset) on a Vercel preview deployment')).toBe('Môi trường này chưa bật gửi email (EMAIL_DELIVERY).');
+    expect(emailFailureHint('provider_error: SMTP EAUTH at AUTH PLAIN: Invalid login: 535 Authentication failed')).toBe(
+      'Máy chủ SMTP từ chối tài khoản đăng nhập: kiểm tra SMTP_USER và SMTP_PASSWORD.',
+    );
+    for (const stored of [
+      'provider_error: SMTP ESOCKET at CONN: connect ECONNREFUSED 127.0.0.1:587',
+      'provider_error: SMTP ETIMEDOUT at CONN: Greeting never received',
+      'provider_error: SMTP ETLS at STARTTLS: Error upgrading connection with STARTTLS',
+    ]) {
+      expect(emailFailureHint(stored)).toBe('Không kết nối được máy chủ SMTP: kiểm tra SMTP_HOST, SMTP_PORT và SMTP_SECURE.');
+    }
+    expect(emailFailureHint("rejected: SMTP EENVELOPE at RCPT TO: Can't send mail - all recipients were rejected: 550 <redacted>")).toBe(
+      'Máy chủ SMTP từ chối địa chỉ người nhận.',
+    );
+    expect(emailFailureHint('provider_error: SMTP EMESSAGE at DATA: Message failed: 554 Message rejected')).toBe('Kiểm tra cấu hình gửi email rồi thử lại.');
+    const stored = 'provider_error: SMTP EAUTH at AUTH PLAIN: Invalid login: 535 Authentication failed';
+    expect(actionErrorMessage('email_failed', { error: stored })).toBe(
+      `Không gửi được email thử. Máy chủ SMTP từ chối tài khoản đăng nhập: kiểm tra SMTP_USER và SMTP_PASSWORD. (${stored})`,
+    );
+    expect(actionErrorMessage('email_failed')).toBe('Không gửi được email thử.');
   });
 });
 

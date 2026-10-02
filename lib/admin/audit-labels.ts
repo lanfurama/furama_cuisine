@@ -37,6 +37,9 @@ const ENTITIES: Record<string, string> = {
   restaurant_booking: 'Quy tắc đặt bàn',
   booking_settings: 'Cài đặt đặt bàn',
   closure: 'Ngày đóng cửa',
+  // Email settings (phase 5): a staff.new recipient, the shared inbox (site_settings.email).
+  notification_recipient: 'Người nhận thông báo',
+  site_settings: 'Cài đặt chung',
 };
 
 export function auditActionLabel(action: string): string {

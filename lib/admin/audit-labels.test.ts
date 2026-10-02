@@ -53,6 +53,13 @@ describe('audit labels', () => {
     ]);
   });
 
+  it('names every entity the email settings write to audit_log', () => {
+    const source = readFileSync('lib/server/email/recipients.ts', 'utf8');
+    const entities = [...new Set([...source.matchAll(/entityType: '([a-z_]+)'/g)].map((m) => m[1]))].sort();
+    expect(entities).toEqual(['notification_recipient', 'site_settings']);
+    expect(entities.map(auditEntityLabel)).toEqual(['Người nhận thông báo', 'Cài đặt chung']);
+  });
+
   it('names every configuration entity the booking screens write to audit_log', () => {
     const config = readFileSync('lib/server/booking/config.ts', 'utf8');
     const entities = [...new Set([...config.matchAll(/entityType: '([a-z_]+)'/g)].map((m) => m[1]))];

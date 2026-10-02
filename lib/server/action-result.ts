@@ -37,7 +37,10 @@ export type ActionCode =
   /** The time is not a slot of that day's services. */
   | 'slot_unavailable'
   /** Same restaurant, date, time and phone as an active booking (reservations_dedupe_v2_idx). */
-  | 'duplicate';
+  | 'duplicate'
+  // Email (spec §10.4).
+  /** "Gửi email thử" did not go out; params.error is describeEmailError's "<code>: <message>" (no address). */
+  | 'email_failed';
 
 export type ActionFailure = {
   ok: false;
