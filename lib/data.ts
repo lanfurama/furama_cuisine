@@ -12,9 +12,10 @@ export type Restaurant = {
   /** Cuisine slugs (the second column of CUISINES), never labels. */
   cuisines: string[];
   dest: DestKey;
+  /** The meals of its active service periods (spec §6.3 item 2), in MEALS order; drives the Occasion filter. */
   meals: Meal[];
-  /** Covers bookable per time slot; drives real availability. */
-  slotCapacity: number;
+  /** restaurants.booking_enabled: off hides its RESERVE entry points and drops it from the reservation form. */
+  bookingEnabled: boolean;
 };
 
 /* The restaurant catalogue lives in Neon (see db/migrations/002_seed_restaurants.sql)

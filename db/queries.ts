@@ -1,6 +1,6 @@
 import 'server-only';
 import { query } from './client';
-import { DETAIL_PAGE_IDS, cuisineSlug, type DestKey, type Meal, type Restaurant } from '@/lib/data';
+import { DETAIL_PAGE_IDS, MEALS, cuisineSlug, type DestKey, type Meal, type Restaurant } from '@/lib/data';
 
 type RestaurantRow = {
   id: string;
@@ -9,7 +9,7 @@ type RestaurantRow = {
   destination: string;
   cuisines: string[];
   meals: string[];
-  slot_capacity: number;
+  booking_enabled: boolean;
 };
 
 /**
@@ -18,10 +18,19 @@ type RestaurantRow = {
  * path reads lib/server/booking/rules.ts, never this.)
  */
 export async function listRestaurants(): Promise<Restaurant[]> {
+  // meals: the meals of the active service periods, in MEALS order (spec §6.3
+  // item 2); restaurants.meals is only the phase-1 seed source now. Period saves
+  // expire the 'restaurants' tag this catalogue is cached under.
   const rows = await query<RestaurantRow>(
-    `SELECT id, name, type, destination, cuisines, meals, slot_capacity
-       FROM restaurants
-      ORDER BY sort_order`,
+    `SELECT r.id, r.name, r.type, r.destination, r.cuisines, r.booking_enabled,
+            ARRAY(SELECT m.meal
+                    FROM unnest($1::text[]) WITH ORDINALITY AS m(meal, n)
+                   WHERE EXISTS (SELECT 1 FROM service_periods p
+                                  WHERE p.restaurant_id = r.id AND p.active AND p.meal = m.meal)
+                   ORDER BY m.n) AS meals
+       FROM restaurants r
+      ORDER BY r.sort_order`,
+    [MEALS],
   );
   return rows.map((r) => ({
     id: r.id,
@@ -32,31 +41,6 @@ export async function listRestaurants(): Promise<Restaurant[]> {
     dest: r.destination as DestKey,
     cuisines: r.cuisines.map(cuisineSlug),
     meals: r.meals as Meal[],
-    slotCapacity: r.slot_capacity,
+    bookingEnabled: r.booking_enabled,
   }));
-}
-
-/** Covers already booked per time slot for one restaurant on one date. */
-export async function bookedCovers(
-  restaurantId: string,
-  isoDate: string,
-): Promise<Record<string, number>> {
-  const rows = await query<{ reserved_at: string; covers: string }>(
-    `SELECT reserved_at, SUM(guests)::text AS covers
-       FROM reservations
-      WHERE restaurant_id = $1
-        AND reserved_on = $2::date
-        AND status <> 'cancelled'
-      GROUP BY reserved_at`,
-    [restaurantId, isoDate],
-  );
-  return Object.fromEntries(rows.map((r) => [r.reserved_at, Number(r.covers)]));
-}
-
-export async function slotCapacity(restaurantId: string): Promise<number> {
-  const rows = await query<{ slot_capacity: number }>(
-    'SELECT slot_capacity FROM restaurants WHERE id = $1',
-    [restaurantId],
-  );
-  return rows[0]?.slot_capacity ?? 0;
 }

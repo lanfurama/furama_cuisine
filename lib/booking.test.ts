@@ -28,7 +28,7 @@ const taya: Restaurant = {
   cuisines: ['vietnamese'],
   dest: 'resort',
   meals: ['Lunch', 'Dinner'],
-  slotCapacity: 16,
+  bookingEnabled: true,
 };
 
 describe('booking window', () => {
