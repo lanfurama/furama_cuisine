@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { DESTS, DEST_KEYS, MEAL_LABELS } from '@/lib/data';
 import { FIELD_MAX, findRestaurant, fmtDay, guestLabel } from '@/lib/booking';
 import { dayReason, movedReason, slotOpen, type DateMove } from '@/lib/booking/client';
@@ -8,7 +8,7 @@ import type { DayInfo } from '@/lib/booking/api';
 import type { GroupPhone } from '@/lib/booking/rules';
 import { formatMessage, type MessageParams } from '@/lib/i18n/format';
 import { formatDay, type IsoDate } from '@/lib/venue-time';
-import { useSite, type ClientStrings } from '@/components/site/SiteProvider';
+import { useSite, type ClientStrings, type LoadFailure } from '@/components/site/SiteProvider';
 import { Dropdown, type Option } from '@/components/ui/Dropdown';
 import { animateSelector, useOpenAnimation } from '@/lib/motion';
 import { privacyHref } from '@/lib/legal';
@@ -27,17 +27,36 @@ function WithPhone({ template, params, phone }: { template: string; params: Mess
   );
 }
 
-/** Availability that did not arrive: the network message and a way to ask again. */
-function LoadFailed({ count, strings, onRetry }: { count: number; strings: ClientStrings; onRetry: () => void }) {
+/**
+ * Availability that did not arrive: why, and a way to ask again when asking
+ * again can help. A 404 (the restaurant stopped taking online bookings) gets
+ * its own message and no Try again. The message describes the button, so a
+ * guest sent here by REQUEST BOOKING hears why. tabIndex -1: REQUEST BOOKING
+ * moves the focus here when there is no button to land on.
+ */
+function LoadFailed({
+  count,
+  code,
+  strings,
+  onRetry,
+}: {
+  count: number;
+  code: LoadFailure;
+  strings: ClientStrings;
+  onRetry: () => void;
+}) {
+  const messageId = useId();
   return (
-    <div className="load-failed">
+    <div className="load-failed" tabIndex={-1}>
       {/* A new alert per failure, so a Try again that fails again is read out again. */}
-      <div key={count} className="drawer-error" role="alert">
-        {strings['error.network']}
+      <div key={count} id={messageId} className="drawer-error" role="alert">
+        {strings[`error.${code}`]}
       </div>
-      <button type="button" className="load-retry" onClick={onRetry}>
-        {strings['booking.retry']}
-      </button>
+      {code === 'network' && (
+        <button type="button" className="load-retry" aria-describedby={messageId} onClick={onRetry}>
+          {strings['booking.retry']}
+        </button>
+      )}
     </div>
   );
 }
@@ -160,6 +179,7 @@ export function ReserveDrawer() {
     board,
     loadFailed,
     retryAvailability,
+    failureNudge,
     dateMoved,
     now,
     strings,
@@ -183,6 +203,37 @@ export function ReserveDrawer() {
 
   const open = overlay === 'drawer';
   const hintId = useId();
+  const drawerRef = useRef<HTMLElement>(null);
+
+  /* Try again removes itself once the answer arrives, and a removed button
+     drops the focus to <body>, outside this modal dialog. The focus moves to
+     what arrived instead: the chosen day, or the chosen time. Checked after
+     every render (no dependency list): the target appears with the answer,
+     and the check is a ref read until a Try again is pending. */
+  const retriedAt = useRef<'dates' | 'times' | null>(null);
+  const retry = () => {
+    retriedAt.current = loadFailed?.at ?? null;
+    retryAvailability();
+  };
+  useLayoutEffect(() => {
+    const at = retriedAt.current;
+    const root = drawerRef.current;
+    if (!at || !root || loadFailed?.at === at) return; // still failing: the button is still there
+    const target =
+      at === 'dates'
+        ? root.querySelector<HTMLElement>('.daystrip .day[aria-pressed="true"]')
+        : (root.querySelector<HTMLElement>('.slot[data-selected="true"]') ?? root.querySelector<HTMLElement>('.slot:not([disabled])'));
+    if (!target) return; // the times are still on their way
+    retriedAt.current = null;
+    if (!root.contains(document.activeElement)) target.focus();
+  });
+
+  /* REQUEST BOOKING stopped on a failure shown above: take the guest to it (its Try again, or the message). */
+  useEffect(() => {
+    if (!failureNudge) return;
+    const failure = drawerRef.current?.querySelector<HTMLElement>('.load-failed');
+    (failure?.querySelector<HTMLElement>('.load-retry') ?? failure)?.focus();
+  }, [failureNudge]);
 
   useOpenAnimation(open, (animate) => {
     animate('[data-anim="drawer"]', [{ transform: 'translateX(100%)' }, { transform: 'none' }], 800);
@@ -222,7 +273,7 @@ export function ReserveDrawer() {
         onClick={closeDrawer}
       />
 
-      <aside data-anim="drawer" className="drawer">
+      <aside ref={drawerRef} data-anim="drawer" className="drawer">
         <div className="drawer-head">
           <div className="drawer-head-copy">
             <div className="drawer-kicker">RESERVE A TABLE</div>
@@ -295,7 +346,7 @@ export function ReserveDrawer() {
 
               <div className="drawer-label">DATE</div>
               {loadFailed?.at === 'dates' ? (
-                <LoadFailed count={loadFailed.count} strings={strings} onRetry={retryAvailability} />
+                <LoadFailed count={loadFailed.count} code={loadFailed.code} strings={strings} onRetry={retry} />
               ) : (
                 <DayStrip
                   days={days}
@@ -353,7 +404,7 @@ export function ReserveDrawer() {
               <div className="drawer-label">TIME</div>
               {loadFailed
                 ? loadFailed.at === 'times' && (
-                    <LoadFailed count={loadFailed.count} strings={strings} onRetry={retryAvailability} />
+                    <LoadFailed count={loadFailed.count} code={loadFailed.code} strings={strings} onRetry={retry} />
                   )
                 : !board && booking.date && <div className="slot-loading">{strings['booking.loading']}</div>}
               {board?.state === 'closed' && <div className="drawer-error">{strings['error.closed']}</div>}

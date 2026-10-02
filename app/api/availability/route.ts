@@ -18,6 +18,8 @@ import { addDays, daysBetween, isValidIsoDate, venueNow } from '@/lib/venue-time
 const NO_STORE = { 'cache-control': 'no-store' };
 const fail = (status: number, error: AvailabilityErrorCode) => NextResponse.json({ error }, { status, headers: NO_STORE });
 const GUESTS = /^[1-9][0-9]?$/;
+/** The shape of restaurants.id (a slug, as lib/admin/booking-schemas.ts RestaurantId checks it); anything else cannot exist. */
+const RESTAURANT_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
@@ -35,6 +37,13 @@ export async function GET(request: Request) {
   const guestsParam = params.get('guests');
   if (guestsParam !== null && !(GUESTS.test(guestsParam) && Number(guestsParam) <= 50)) return fail(400, 'invalid_guests');
   const guests = guestsParam === null ? 1 : Number(guestsParam);
+  // The cheap answers come before any query (anti-spam, phase-4 deferral T5): a range given in
+  // full is checked here; only a range open at one end needs the restaurant's window, below.
+  if (from !== null && to !== null) {
+    const span = daysBetween(from, to);
+    if (span < 0 || span >= MAX_RANGE_DAYS) return fail(400, 'invalid_range');
+  }
+  if (!RESTAURANT_ID.test(restaurant)) return fail(404, 'restaurant_unavailable');
 
   const now = new Date();
   const today = venueNow(now).date;

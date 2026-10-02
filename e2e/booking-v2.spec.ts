@@ -185,6 +185,7 @@ test('the details stop at the lengths the server accepts', async ({ page }) => {
 });
 
 const NETWORK = 'We could not reach the reservations desk. Please try again.';
+const GONE = 'That restaurant is no longer available.';
 
 /** Puts a failing answer in front of the mock while `failing()` says so; registered last, it runs first. */
 async function failAvailability(page: Page, failing: (url: URL) => boolean, answer: (route: Route) => Promise<void>) {
@@ -229,7 +230,7 @@ async function fillDetails(drawer: Locator) {
   await drawer.getByRole('checkbox', { name: 'I agree to Furama Cuisine using my details as described in the privacy policy.' }).check();
 }
 
-test('when the dates cannot load, the guest is told, REQUEST BOOKING says so, and Try again recovers', async ({ page }) => {
+test('when the dates cannot load, the guest is told once: REQUEST BOOKING points at Try again, which recovers and keeps the focus in the dialog', async ({ page }) => {
   let failing = true;
   await page.clock.setFixedTime(NOW);
   await mockAvailability(page, clock);
@@ -242,22 +243,55 @@ test('when the dates cannot load, the guest is told, REQUEST BOOKING says so, an
   await expect(drawer.getByRole('alert')).toHaveText(NETWORK);
   await expect(drawer.locator('.daystrip')).toHaveCount(0);
 
-  // Valid details and no date to book: the button answers rather than doing nothing.
+  // Valid details and no date to book: the button answers by taking the guest to the one way
+  // forward, the Try again under the message, rather than repeating the message in the footer.
   await fillDetails(drawer);
   await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
-  await expect(foot(drawer).getByRole('alert')).toHaveText(NETWORK);
+  const retry = drawer.getByRole('button', { name: 'Try again' });
+  await expect(retry).toBeFocused();
+  await expect(retry).toHaveAccessibleDescription(NETWORK);
+  await expect(drawer.getByRole('alert')).toHaveCount(1);
+  await expect(foot(drawer).getByRole('alert')).toHaveCount(0);
 
   failing = false;
-  await drawer.getByRole('button', { name: 'Try again' }).click();
+  await retry.click();
   await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
   await expect(drawer.locator('.day[aria-pressed="true"] .day-num')).toHaveText('2');
   await expect(drawer.locator('.slot:not([disabled])')).toHaveCount(12);
-  await expect(drawer.getByRole('button', { name: 'Try again' })).toHaveCount(0);
-  // The footer's message was about those dates: it goes once they arrive.
-  await expect(foot(drawer).getByRole('alert')).toHaveCount(0);
+  await expect(retry).toHaveCount(0);
+  await expect(drawer.getByRole('alert')).toHaveCount(0);
+  // The button that had the focus is gone: the focus moves to the chosen day, not to <body> behind the modal.
+  await expect(drawer.locator('.day[aria-pressed="true"]')).toBeFocused();
 });
 
-test('when the times cannot load, the guest is told instead of waiting forever, and Try again recovers', async ({ page }) => {
+test('when the dates cannot load, the booking bar says so too', async ({ page }) => {
+  await page.clock.setFixedTime(NOW);
+  await mockAvailability(page, clock);
+  await failAvailability(page, isCalendar, (route) => route.fulfill({ status: 503, json: { error: 'unavailable' } }));
+  await page.goto(HOME_PATH);
+  await expect(said(page.locator('#reserve'))).toHaveText(NETWORK);
+});
+
+test('a restaurant that stopped taking bookings says so, with no futile Try again, and nothing is sent', async ({ page }) => {
+  await page.clock.setFixedTime(NOW);
+  await mockAvailability(page, clock);
+  // What /api/availability answers once the Admin switches the restaurant's online booking off.
+  await failAvailability(page, isCalendar, (route) => route.fulfill({ status: 404, json: { error: 'restaurant_unavailable' } }));
+  const posts = await abortServerActions(page);
+  await page.goto(HOME_PATH);
+  await expect(said(page.locator('#reserve'))).toHaveText(GONE);
+  await reserveButton(page).click();
+  const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
+
+  await expect(drawer.getByRole('alert')).toHaveText(GONE);
+  await expect(drawer.getByRole('button', { name: 'Try again' })).toHaveCount(0);
+  await fillDetails(drawer);
+  await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
+  await expect(drawer.getByRole('alert')).toHaveCount(1);
+  expect(posts.count).toBe(0);
+});
+
+test('when the times cannot load, the guest is told instead of waiting forever, and Try again recovers with the focus on the chosen time', async ({ page }) => {
   let failing = true;
   await page.clock.setFixedTime(NOW);
   await mockAvailability(page, clock);
@@ -275,6 +309,7 @@ test('when the times cannot load, the guest is told instead of waiting forever, 
   await drawer.getByRole('button', { name: 'Try again' }).click();
   await expect(drawer.locator('.slot:not([disabled])')).toHaveCount(12);
   await expect(drawer.getByRole('alert')).toHaveCount(0);
+  await expect(drawer.getByRole('button', { name: '19:00 — 16 covers left' })).toBeFocused();
 });
 
 test('while the dates are on their way the drawer says so, and REQUEST BOOKING waits for them instead of failing', async ({ page }) => {
@@ -304,7 +339,7 @@ test('while the dates are on their way the drawer says so, and REQUEST BOOKING w
   expect(posts.count).toBe(0);
 });
 
-test('when the chosen day’s times did not load, REQUEST BOOKING says so and sends nothing', async ({ page }) => {
+test('when the chosen day’s times did not load, REQUEST BOOKING points at Try again and sends nothing', async ({ page }) => {
   await page.clock.setFixedTime(NOW);
   await mockAvailability(page, clock);
   await failAvailability(page, (url) => url.searchParams.has('date'), (route) => route.fulfill({ status: 500, json: { error: 'unavailable' } }));
@@ -318,7 +353,8 @@ test('when the chosen day’s times did not load, REQUEST BOOKING says so and se
   await expect(drawer.getByRole('button', { name: 'Try again' })).toBeVisible();
   await fillDetails(drawer);
   await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
-  await expect(foot(drawer).getByRole('alert')).toHaveText(NETWORK);
+  await expect(drawer.getByRole('button', { name: 'Try again' })).toBeFocused();
+  await expect(drawer.getByRole('alert')).toHaveText(NETWORK);
   // No time the guest never saw (the default 19:00) goes to the server.
   expect(posts.count).toBe(0);
 });

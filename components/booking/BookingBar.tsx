@@ -9,7 +9,7 @@ import { useReveal } from '@/lib/motion';
 
 /** The wide "Where would you like to dine?" bar above the footer. */
 export function BookingBar() {
-  const { bookable, booking, setBooking, board, openReserve, days, maxParty, now, strings } = useSite();
+  const { bookable, booking, setBooking, board, openReserve, days, maxParty, now, strings, loadFailed } = useSite();
   const title = useReveal<HTMLHeadingElement>('title');
   const panel = useReveal<HTMLDivElement>('up');
 
@@ -108,6 +108,9 @@ export function BookingBar() {
             FIND A TABLE<span className="arrow">→</span>
           </button>
         </div>
+        {/* Without its dates or times the bar would just sit empty: say why (FIND A TABLE asks again).
+            Always mounted and empty otherwise, so it takes no space and is read out when it fills. */}
+        <div role="status">{loadFailed && <p className="booking-note">{strings[`error.${loadFailed.code}`]}</p>}</div>
       </div>
     </section>
   );

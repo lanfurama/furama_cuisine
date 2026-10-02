@@ -207,4 +207,23 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('GET /api/availability v2 (datab
     expect(res.headers.get('cache-control')).toBe('no-store');
     expect(await res.json()).toEqual({ error });
   });
+
+  // Phase-4 deferral T5: the cheap answers come first, so a stream of junk requests costs no database round trip.
+  it.each([
+    ['restaurant=taya-house&from=2026-10-05&to=2026-10-04', 400],
+    ['restaurant=taya-house&from=2026-10-01&to=2027-10-01', 400],
+    // A bad range is a 400 even for a restaurant that does not exist: the range is checked first.
+    ['restaurant=nowhere&from=2026-10-01&to=2027-10-01', 400],
+    [`restaurant=${'x'.repeat(65)}`, 404],
+    ['restaurant=%3Cscript%3E', 404],
+    ['restaurant=Taya-House', 404],
+  ])('answers %j (%i) without touching the database', async (query, status) => {
+    const spy = vi.spyOn(getPool(), 'query');
+    try {
+      expect((await get(query)).status).toBe(status);
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });

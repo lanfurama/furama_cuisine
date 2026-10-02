@@ -45,11 +45,12 @@ const EMPTY_FORM: BookingForm = { name: '', phone: '', email: '', note: '' };
 
 export type ClientStrings = Record<ClientKey, string>;
 
-type Fetched<T> = { ok: true; data: T } | { ok: false };
+/** `gone`: a 404, the restaurant takes no online bookings (any more); asking again cannot help. */
+type Fetched<T> = { ok: true; data: T } | { ok: false; gone: boolean };
 
 async function getJson<T>(url: string): Promise<Fetched<T>> {
   const r = await fetch(url);
-  return r.ok ? { ok: true, data: (await r.json()) as T } : { ok: false };
+  return r.ok ? { ok: true, data: (await r.json()) as T } : { ok: false, gone: r.status === 404 };
 }
 
 const NO_DAYS: DayInfo[] = [];
@@ -60,15 +61,23 @@ export type Booked = { status: 'requested' | 'confirmed'; time: string; guests: 
 /**
  * Availability that did not arrive (an HTTP error, or no network), and what it
  * was for: the calendar's restaurant, the board's restaurant and date.
+ * `gone`: the answer was a 404 (the restaurant stopped taking bookings).
  */
-type Failed = { calendar: string | null; board: { restaurant: string; date: IsoDate } | null; count: number };
+type Failed = {
+  calendar: { restaurant: string; gone: boolean } | null;
+  board: { restaurant: string; date: IsoDate; gone: boolean } | null;
+  count: number;
+};
+
+/** Why availability is missing, as the drawer and the booking bar say it (error.<code>). */
+export type LoadFailure = 'network' | 'restaurant_unavailable';
 
 /**
- * A footer message about an answer still to come, from a REQUEST BOOKING
- * pressed before it: 'loading' while it is on its way, 'network' when it
- * failed. `date` is '' for the calendar, else the board's date.
+ * A footer status about the dates still to come, from a REQUEST BOOKING
+ * pressed before they arrived. A failure is said once, where the dates or
+ * times would be, beside its Try again; the footer never repeats it.
  */
-type WaitNote = { kind: 'loading' | 'network'; restaurant: string; date: IsoDate | '' };
+type WaitNote = { restaurant: string };
 
 /* The two forms of GET /api/availability (lib/booking/api.ts). */
 const calendarUrl = (restaurant: string, locale: string) =>
@@ -119,10 +128,17 @@ type SiteState = {
    * network): 'dates' when there is no calendar for this restaurant, else
    * 'times' when there is no board for the chosen day; null otherwise.
    * `count` changes on every failure, so a repeated one can be read out again.
+   * `code` says why: 'restaurant_unavailable' (a 404) offers no Try again.
    */
-  loadFailed: { at: 'dates' | 'times'; count: number } | null;
+  loadFailed: { at: 'dates' | 'times'; count: number; code: LoadFailure } | null;
   /** Asks again for the chosen restaurant's calendar and day (the drawer's Try again). */
   retryAvailability: () => void;
+  /**
+   * Changes each time REQUEST BOOKING stops on a failure the drawer already
+   * shows (loadFailed): the drawer moves the focus to that message's Try again
+   * instead of saying the same thing twice.
+   */
+  failureNudge: number;
   /**
    * The chosen date a calendar's answer replaced (another restaurant does not
    * take it, or fresh availability greyed it), so the drawer can say so; null
@@ -248,6 +264,7 @@ export function SiteProvider({
      the choice is still the one it is about (footNote below), so it neither
      outlives the answer nor shows during a switch to another restaurant. */
   const [waitNote, setWaitNote] = useState<WaitNote | null>(null);
+  const [failureNudge, setFailureNudge] = useState(0);
   const [clockOffset, setClockOffset] = useState(0);
   const [confirmedDate, setConfirmedDate] = useState<IsoDate | ''>('');
   const [booked, setBooked] = useState<Booked | null>(null);
@@ -281,21 +298,19 @@ export function SiteProvider({
      the current choice (loadFailed): one restaurant's or day's failure says
      nothing about another, even while the other's answer is on its way. */
   const [failed, setFailed] = useState<Failed>({ calendar: null, board: null, count: 0 });
-  const settleCalendar = useCallback((restaurant: string, ok: boolean) => {
+  const settleCalendar = useCallback((restaurant: string, ok: boolean, gone = false) => {
     setFailed((f) =>
-      ok ? (f.calendar === null ? f : { ...f, calendar: null }) : { ...f, calendar: restaurant, count: f.count + 1 },
+      ok ? (f.calendar === null ? f : { ...f, calendar: null }) : { ...f, calendar: { restaurant, gone }, count: f.count + 1 },
     );
   }, []);
-  const settleBoard = useCallback((restaurant: string, date: IsoDate, ok: boolean) => {
+  const settleBoard = useCallback((restaurant: string, date: IsoDate, ok: boolean, gone = false) => {
     setFailed((f) =>
-      ok ? (f.board === null ? f : { ...f, board: null }) : { ...f, board: { restaurant, date }, count: f.count + 1 },
+      ok ? (f.board === null ? f : { ...f, board: null }) : { ...f, board: { restaurant, date, gone }, count: f.count + 1 },
     );
   }, []);
-  /* An answer arrived: the footer message about it goes. A 'network' one stays
-     when the answer failed again; a 'loading' one goes either way (a failure
-     shows where the dates or times would be, with its Try again). */
-  const answered = useCallback((restaurant: string, date: IsoDate | '', ok: boolean) => {
-    setWaitNote((n) => (n && n.restaurant === restaurant && n.date === date && (ok || n.kind === 'loading') ? null : n));
+  /* The dates answered (or failed, which shows where they would be, with its Try again): the footer's wait note goes. */
+  const answered = useCallback((restaurant: string) => {
+    setWaitNote((n) => (n && n.restaurant === restaurant ? null : n));
   }, []);
 
   const now = useCallback(() => new Date(Date.now() + clockOffset), [clockOffset]);
@@ -331,8 +346,8 @@ export function SiteProvider({
       getJson<CalendarResponse>(calendarUrl(restaurant, locale))
         .then((res) => {
           if (seq !== calendarSeq.current) return;
-          settleCalendar(restaurant, res.ok);
-          answered(restaurant, '', res.ok);
+          settleCalendar(restaurant, res.ok, !res.ok && res.gone);
+          answered(restaurant);
           if (!res.ok) return;
           const data = res.data;
           const serverNow = new Date(data.now);
@@ -349,7 +364,7 @@ export function SiteProvider({
         .catch(() => {
           if (seq !== calendarSeq.current) return;
           settleCalendar(restaurant, false);
-          answered(restaurant, '', false);
+          answered(restaurant);
         });
     },
     [answered, context, locale, settleCalendar],
@@ -364,7 +379,7 @@ export function SiteProvider({
       getJson<DayResponse>(dayUrl(restaurant, date, locale))
         .then((res) => {
           if (seq !== boardSeq.current) return;
-          settleBoard(restaurant, date, res.ok);
+          settleBoard(restaurant, date, res.ok, !res.ok && res.gone);
           if (!res.ok) return;
           const data = res.data;
           // The date left the window (a tab open past midnight): the calendar's answer moves it.
@@ -372,7 +387,6 @@ export function SiteProvider({
             loadCalendar(restaurant);
             return;
           }
-          answered(restaurant, date, true);
           const serverNow = new Date(data.now);
           setClockOffset(serverNow.getTime() - Date.now());
           setBoard(data);
@@ -382,7 +396,7 @@ export function SiteProvider({
           if (seq === boardSeq.current) settleBoard(restaurant, date, false);
         });
     },
-    [answered, context, loadCalendar, locale, settleBoard],
+    [context, loadCalendar, locale, settleBoard],
   );
 
   useEffect(() => {
@@ -556,12 +570,16 @@ export function SiteProvider({
       return;
     }
     if (restaurant && !calendarFor(ctx.calendar, restaurant)) {
-      // No dates for this restaurant yet, so nothing to book: they failed (say
-      // so, and ask again), or they are on their way (say so and wait; asking
-      // again would only restart the request every click). Its answer clears it.
+      // No dates for this restaurant yet, so nothing to book. They failed: the
+      // drawer already says so, so point the guest at it (one alert, not two)
+      // and ask again, unless the restaurant has stopped taking bookings. Or
+      // they are on their way: say so and wait (asking again would only
+      // restart the request every click); their answer clears the note.
       setTried(true);
-      setWaitNote({ kind: failed.calendar === restaurant ? 'network' : 'loading', restaurant, date: '' });
-      if (failed.calendar === restaurant) loadCalendar(restaurant);
+      if (failed.calendar?.restaurant === restaurant) {
+        setFailureNudge((n) => n + 1);
+        if (!failed.calendar.gone) loadCalendar(restaurant);
+      } else setWaitNote({ restaurant });
       return;
     }
     if (!date) {
@@ -571,8 +589,9 @@ export function SiteProvider({
     const day = boardFor(ctx.board, restaurant, date);
     if (!day && failed.board?.restaurant === restaurant && failed.board.date === date) {
       // The guest never saw this day's times: sending would book the default time unseen.
+      // The drawer says why beside its Try again; take the guest there.
       setTried(true);
-      setWaitNote({ kind: 'network', restaurant, date });
+      setFailureNudge((n) => n + 1);
       return;
     }
     // Without the day's board (still on its way) the server alone decides.
@@ -731,20 +750,17 @@ export function SiteProvider({
      and only for what is chosen now: the dates (no calendar for this
      restaurant), else the chosen day's times. */
   const loadFailed = useMemo<SiteState['loadFailed']>(() => {
-    if (failed.calendar === booking.restaurant && !chosenCalendar) return { at: 'dates', count: failed.count };
+    const code = (gone: boolean): LoadFailure => (gone ? 'restaurant_unavailable' : 'network');
+    const dates = failed.calendar;
+    if (dates?.restaurant === booking.restaurant && !chosenCalendar) return { at: 'dates', count: failed.count, code: code(dates.gone) };
     const day = failed.board;
     if (day && day.restaurant === booking.restaurant && day.date === booking.date && !chosenBoard) {
-      return { at: 'times', count: failed.count };
+      return { at: 'times', count: failed.count, code: code(day.gone) };
     }
     return null;
   }, [booking.date, booking.restaurant, chosenBoard, chosenCalendar, failed]);
-  /* The footer's note, while the choice is still the one it is about. */
-  const footNote =
-    waitNote && waitNote.restaurant === booking.restaurant && (!waitNote.date || waitNote.date === booking.date)
-      ? waitNote
-      : null;
-  const footError = serverError ?? (footNote?.kind === 'network' ? strings['error.network'] : null);
-  const footLoading = footNote?.kind === 'loading';
+  /* The footer's wait note, while the restaurant is still the one it is about. */
+  const footLoading = waitNote !== null && waitNote.restaurant === booking.restaurant;
 
   const value = useMemo<SiteState>(
     () => ({
@@ -775,6 +791,7 @@ export function SiteProvider({
       board: chosenBoard,
       loadFailed,
       retryAvailability,
+      failureNudge,
       dateMoved,
       now,
       strings,
@@ -790,7 +807,7 @@ export function SiteProvider({
       done,
       pending,
       reference,
-      serverError: footError,
+      serverError,
       footLoading,
       errors,
       submit,
@@ -813,10 +830,10 @@ export function SiteProvider({
     }),
     [
       applyFinder, booked, booking, bookable, chosenBoard, clearFilters, close, closeDrawer, closeDropdown,
-      confirmedDate, consent, dateMoved, days, done, errors, filter, finder, footError, footLoading, form, goBackToRestaurants,
+      confirmedDate, consent, dateMoved, days, done, errors, failureNudge, filter, finder, footLoading, form, goBackToRestaurants,
       goHomeTop, groupPhone, honeypot, lang, loadFailed, locale, matches, maxParty, now, open, openDropdown, openReserve,
       openRestaurant, overlay, pageRoot, pending, pickCuisine, pickDestination, query, reference, restaurants,
-      retryAvailability, scrollToId, scrolled, setBooking, setFilter, setFinder, setFormField, showPage, shownCount,
+      retryAvailability, scrollToId, scrolled, serverError, setBooking, setFilter, setFinder, setFormField, showPage, shownCount,
       strings, submit, tab, today, toggleDropdown, tried, view,
     ],
   );
