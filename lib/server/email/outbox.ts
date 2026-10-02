@@ -23,7 +23,8 @@ type Queue = { reservationId: string; eventId: string; env: OutboxEnv };
 /**
  * One guest row, to the address and in the language stored on the booking;
  * none when the booking has no email, or one email_outbox would refuse (the
- * guest form lets "a@b@c.vn" through; R13). `ackSetting`: only while "Cài đặt
+ * guest form refuses "a@b@c.vn" since phase 5, R13, but an older row may hold
+ * one, and it must never fail the change). `ackSetting`: only while "Cài đặt
  * đặt bàn" keeps guest_ack_email on, read in the same transaction.
  */
 export async function queueGuestEmail(

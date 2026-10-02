@@ -9,7 +9,10 @@ with reservations persisted in Neon Postgres.
 - **Neon Postgres** via the Vercel Marketplace, reached with `pg` (node-postgres)
   on Fluid Compute per Neon's own guidance
 - **Better Auth** for staff sign-in (invitation only, Admin and Editor roles)
-  and **SMTP** (nodemailer) with react-email for every email
+  and **SMTP** (nodemailer) with react-email for every email, booking emails
+  through an outbox sent after commit and by a Vercel Cron
+- **Vercel BotID**, a honeypot and a per-phone limit in front of the public
+  booking action
 - Plain CSS with design tokens — the design is built on fluid `clamp()` values
   throughout, so the tokens mirror them directly rather than round-tripping
   through a utility framework
@@ -40,7 +43,7 @@ printed to the terminal). Create your Admin with `scripts/create-admin.mjs`
 | --- | --- |
 | `npm test` | Unit tests (Vitest, process timezone pinned to UTC) |
 | `TEST_DATABASE_URL=postgres://localhost:5432/furama_cuisine_test npm test` | Unit and integration tests. The database is dropped and recreated on every run, and its name must end in `_test`. |
-| `npm run test:e2e` | Playwright against `next start` on port 3100 (or `E2E_PORT`). Set `CI`, a local `_test` `DATABASE_URL`, `EMAIL_DELIVERY=log`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL=http://localhost:<port>` and `EMAIL_LOG_FILE` (variables below), or `E2E_BASE_URL` for a server you started; otherwise it refuses to run, because `next dev` and `next start` read `.env.local`. Run `npx playwright install chromium` once first. |
+| `npm run test:e2e` | Playwright against `next start` on port 3100 (or `E2E_PORT`). Set `CI`, a local `_test` `DATABASE_URL`, `EMAIL_DELIVERY=log`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL=http://localhost:<port>`, `EMAIL_LOG_FILE` and `CRON_SECRET` (variables below), or `E2E_BASE_URL` for a server you started; otherwise it refuses to run, because `next dev` and `next start` read `.env.local`. Run `npx playwright install chromium` once first. |
 | `npm run test:visual` | Pixel-exact screenshots of the home and Tàya House pages, with and without JavaScript, against `e2e/__visual__/` (macOS baselines from before phase 2; CI skips them). Needs a running `next start`, see below. |
 | `npm run lint` | oxlint (typescript-eslint does not support TypeScript 7) |
 
@@ -48,8 +51,8 @@ CI (`.github/workflows/ci.yml`) runs typecheck, lint, unit, integration,
 build, the prerender and font check (`scripts/check-prerender.mjs`) and
 end-to-end tests against a Postgres 18 service container. The build needs no
 auth or email variable; the end-to-end step gets a fresh `BETTER_AUTH_SECRET`
-per run, `EMAIL_DELIVERY=log` and an `EMAIL_LOG_FILE` the admin specs read
-invitation and reset links from.
+and `CRON_SECRET` per run, `EMAIL_DELIVERY=log` and an `EMAIL_LOG_FILE` the
+specs read invitation and reset links and booking emails from.
 
 To run the production build locally against a throwaway database, keep
 `.env.local` out of it: process variables win over that file, and the blank
@@ -61,7 +64,7 @@ CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5
 node scripts/check-prerender.mjs
 CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
   BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3100 \
-  EMAIL_DELIVERY=log EMAIL_LOG_FILE=$TMPDIR/emails.ndjson npm run test:e2e
+  EMAIL_DELIVERY=log EMAIL_LOG_FILE=$TMPDIR/emails.ndjson CRON_SECRET=$(openssl rand -hex 16) npm run test:e2e
 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
   BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3201 EMAIL_DELIVERY=log npx next start -p 3201 &
 for i in $(seq 1 60); do curl -s -o /dev/null http://localhost:3201/ && break; sleep 1; done
@@ -79,17 +82,24 @@ its own restaurant and dates, and puts back the rules it changes:
 
 | Spec | Restaurant | Dates or rules |
 | --- | --- | --- |
-| `booking-v2` | Tàya House, Don Cipriani’s, Steakhouse The Fan | the last open day; a closure at +9; `max_party` 8 |
+| `booking-v2` | Tàya House, Don Cipriani’s, Steakhouse The Fan | the last open day; a closure at +9; `max_party` 8. The availability-error, retry and focus tests added since mock the availability API and write nothing |
 | `admin-audit` | Tàya House | 2025-12-31 (a past, confirmed booking), plus `audit_log` rows dated 2001, which it deletes afterwards |
 | `admin-reservations` | Tàya House, V-Senses Cafe, ChaoShan Hotpot, Café Indochine | +3, +4, +6 (one booking at 23:30, outside the hours), yesterday; +8; +7; +6 (picked from The Fan at +5, where nothing is written) |
 | `admin-booking-config` | Thai Siam Kitchen, Hura Izakaya | dinner hours and covers (+2, +3), `max_party` and `window_days` overrides (back to NULL); `max_party` 8 |
 | `admin-booking-settings` | Danaksara | `auto_confirm`; the last open day |
-| `admin-closures` | Phố Cuốn; the MM Supercenter (Yum Food Village, ChaoShan Hotpot) | +5; a destination closure at +11; closure edits at +60 and +61 |
+| `admin-closures` | Phố Cuốn; the MM Supercenter (Yum Food Village, ChaoShan Hotpot) | +5; a destination closure at +11; closure edits at +60 and +61; Phố Cuốn +62 (the bulk cancel that emails guests: three bookings, two with an email, and a closure it deletes afterwards) |
 | `booking-acceptance` | Yum Food Village | +3, +4, +12, +13, yesterday; dinner hours, covers and `max_party` |
 | `booking-switch.serial` | Tàya House, Hải Vân Lounge | online booking off, then on again |
+| `booking-email` | Café Indochine, Tàya House | the last open day (a guest booking: its staff email goes to the shared inbox); +3 (`seedReservation()`: a booking to confirm, and a confirmed one with an email row due for its second attempt) |
+| `admin-emails` | Hải Vân Lounge, Hura Izakaya | +40 (failed emails written straight into `email_outbox`); a restaurant recipient under a fresh address, deleted afterwards |
+| `guest-guard` | Phố Cuốn | today + 13 (three web requests seeded for a fresh number); the other tests book nothing, and the header-contrast tests write nothing |
 
 The other specs write no booking, closure or rule (the guest specs that
-submit mock the availability API and abort the Server Action POST).
+submit mock the availability API and abort the Server Action POST, or are
+refused before anything is written). No spec that runs beside the others may
+add a notification recipient for `all` or a destination: it would take
+`booking-email`'s staff email away from the shared inbox. Keep such cases in
+the integration tests or a `*.serial.spec.ts`.
 Before the tests that count covers, `admin-reservations.spec.ts` empties the
 days it owns (Tàya House +4 and +6, ChaoShan Hotpot +7), so it passes again
 on a database it has already run on; never book those days from another spec.
@@ -97,6 +107,26 @@ on a database it has already run on; never book those days from another spec.
 `booking-acceptance.spec.ts` checks every phase-4 acceptance criterion of the
 spec (§14.1 row 4) through the screens. Its tests share Yum Food Village's
 rules and run in order, so never run that file with `--repeat-each`.
+`booking-email.spec.ts` checks phase 5's (§14.1 row 5): a new booking emails
+staff (A1), confirming emails the guest (A2), a failed email is retried by
+the cron (A3), and with no recipient the staff email goes to the shared inbox
+(A4); bots are blocked (A5) in `guest-guard.spec.ts`, the integration tests
+and the BotID run below.
+
+`e2e/botid.spec.ts` walks BotID's blocked path. Off Vercel nobody can judge a
+request, so it is skipped unless the server runs with `BOTID_DEV_BYPASS=BAD-BOT`
+(BotID's own development bypass then calls every caller a bot), and every
+booking on that server is refused, so it runs on its own, after the main run:
+
+```bash
+CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
+  BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3100 \
+  EMAIL_DELIVERY=log EMAIL_LOG_FILE=$TMPDIR/emails.ndjson CRON_SECRET=$(openssl rand -hex 16) \
+  BOTID_DEV_BYPASS=BAD-BOT npx playwright test e2e/botid.spec.ts --project=desktop
+```
+
+CI does not run it; `lib/server/guard/bot.test.ts`, `lib/botid.test.ts` (the
+real BotID fetch wrapper) and the integration test cover the same path.
 
 `E2E_BASE_URL=http://localhost:<port>` points the main Playwright suite at a
 server you started yourself (for example `next dev` with the same variables)
@@ -266,6 +296,51 @@ The staff tables' columns come from `lib/server/auth/config.ts`; change that
 file, regenerate with `npx auth generate --config scripts/auth-cli.config.ts`
 against an empty local database, and write the difference as a new migration.
 
+### Migration 007 (phase 5: email and consent)
+
+`007_email_and_consent.sql` adds `site_settings` (one row, the shared inbox
+`email`, seeded `fb@furamavietnam.com`), `notification_recipients`,
+`email_outbox`, and the pair `reservations.consent_version` /
+`consented_at` with its CHECK. It only adds: the phase-4 code keeps working
+on a 007 database, and `next build` reads none of it. The phase-5 code does
+not work without it: a guest's submit writes `consent_version` and queues
+`email_outbox` rows in its transaction, so every booking fails until 007 is
+on that environment's branch. Apply 007 first, then deploy phase 5
+(production: right before the production deploy; a preview branch forked
+before 007 reached production: before using that preview).
+
+`site_settings` is created early with one column (spec §5.2 lists it under
+phase 6): phase 6 must add its other columns with `ALTER TABLE site_settings
+ADD COLUMN IF NOT EXISTS …`, never `CREATE TABLE`.
+
+Before applying 007 to a Neon branch, on that branch's own URL (read-only):
+
+```sql
+-- 1. Exactly 001–006 applied, 007 not yet.
+SELECT name FROM _migrations ORDER BY name;
+-- 2. None of 007's tables exists yet: three NULLs.
+SELECT to_regclass('site_settings'), to_regclass('notification_recipients'), to_regclass('email_outbox');
+-- 3. Postgres 13 or newer (the sender uses gen_random_uuid() for Message-IDs): t.
+SELECT current_setting('server_version_num')::int >= 130000;
+-- 4. The consent columns do not exist yet: no row.
+SELECT column_name FROM information_schema.columns
+ WHERE table_name = 'reservations' AND column_name IN ('consent_version', 'consented_at');
+```
+
+Then apply it with `DATABASE_URL_UNPOOLED=<the branch's direct URL> node
+scripts/migrate.mjs`, and check:
+
+```sql
+SELECT email FROM site_settings;                                       -- fb@furamavietnam.com
+SELECT attgenerated FROM pg_attribute
+ WHERE attrelid = 'email_outbox'::regclass AND attname = 'idempotency_key';  -- s (STORED)
+SELECT count(*) FROM notification_recipients;                          -- 0 until the Admin adds them
+SELECT conname FROM pg_constraint WHERE conname = 'reservations_consent_check';  -- one row
+```
+
+Until recipients are added, every new booking's staff email goes to the
+shared inbox, and the overview lists the restaurants that do so.
+
 ### Environment variables (admin)
 
 | Variable | Production | Preview | Local E2E / CI |
@@ -279,7 +354,9 @@ against an empty local database, and write the difference as a new migration.
 | `SMTP_PORT` | `587` (STARTTLS, the default) or `465` (TLS) | same | never set |
 | `SMTP_SECURE` | only if the port rule does not fit: `true` (TLS from the first byte) or `false` (STARTTLS); unset means `true` on 465 only | same | never set |
 | `SMTP_USER`, `SMTP_PASSWORD` | the login (both or neither) | a separate login if the provider allows | never set |
-| `CRON_SECRET` | 16+ characters (`openssl rand -hex 32`); arrives with the outbox cron | optional | a fresh random value per E2E run |
+| `CRON_SECRET` | 16+ characters (`openssl rand -hex 32`); Vercel Cron sends it to `/api/cron/outbox`, and a missing or shorter one answers every call 401 | optional (crons run on Production only) | a fresh random value per E2E run |
+| `BOTID_DEV_BYPASS` | **never** | **never** | only for the opt-in `e2e/botid.spec.ts` run (`BAD-BOT`); a deployment ignores it |
+| `VERCEL_ENV`, `NEXT_PUBLIC_VERCEL_ENV` | set by Vercel | set by Vercel | never set: they turn on BotID and the deployment rules of the email gate |
 | `EMAIL_LOG_FILE` | never | never | a scratch file; log mode appends each email as one JSON line |
 | `BOOTSTRAP_ADMIN_EMAIL` | never (only in the shell that runs `scripts/create-admin.mjs`) | never | — |
 
@@ -334,6 +411,118 @@ set up on this environment); a failed reset email is only logged. Tests reach
 SMTP only through `test/helpers/smtp-sink.ts`, an in-process server on
 `127.0.0.1`.
 
+**Booking emails** (spec §10.3–10.4) go through an outbox:
+
+- **Queued with the change.** A booking change that emails someone writes its
+  `email_outbox` rows in its own transaction (`lib/server/email/outbox.ts`),
+  one row per recipient: `staff.new` to the active recipients of the
+  restaurant, its destination and "all" (deduplicated), or to the shared inbox
+  (`site_settings.email`) when nobody matches; the guest's email in the
+  booking's language. A failed email never fails the booking.
+- **Sent after commit, at least once.** `after()` sends the new rows once the
+  response is out (at most 10 rows or 25 s), and `GET /api/cron/outbox` runs
+  every 5 minutes (`vercel.json`, Production only) for whatever is due. SMTP
+  has no idempotency key, so a row is claimed with a 120-second lease and
+  sent with a Message-ID fixed at its first claim
+  (`<outbox-<id>.<12 hex>@<EMAIL_FROM domain>>`); if a function dies between
+  the server's acceptance and the `sent` mark, the next run sends it again
+  with the same Message-ID, and the recipient may get two identical copies.
+- **Retries.** After a failure the row waits 1, 5, 15, 60, 360 and 720
+  minutes (seven attempts within about 19.4 hours), then it is `failed` and the
+  overview counts it. A recipient refused for good (5xx at `RCPT TO`) fails at
+  once. "Gửi lại" in `/admin/reservations/emails` puts a failed email back with
+  a fresh schedule.
+- **Skipped, not sent,** when the booking no longer matches the email (a
+  confirmation for a booking cancelled meanwhile), was anonymised, or the
+  guest's address changed since it was queued; `last_error` says why.
+- **Environments.** Each row records its environment (`VERCEL_ENV`), and a
+  sender only sends its own: a Preview never sends production's rows.
+
+### Bot protection
+
+The public booking action (`app/actions.ts#submitReservation`) refuses, in
+this order and before anything is written: a filled honeypot (an off-screen
+field no person sees), then a request Vercel BotID calls a bot (verified bots
+included), with "We could not accept this request online. Please call us on
+… to book."; then a request without the privacy consent; then, inside the
+booking transaction, a fourth requested or confirmed web booking for one phone
+number on one date, across all restaurants. BotID runs only on a Vercel
+deployment (`VERCEL_ENV` production or preview): the browser half installs
+from `instrumentation-client.ts` on guest pages, the server half asks Vercel,
+and when Vercel cannot answer, or has not answered within 3 seconds, or its
+API answers with an error instead of a verdict, the booking goes ahead and the
+function log says `[botid] check failed … BotIdError`. When the deployment was
+built without `NEXT_PUBLIC_VERCEL_ENV`, BotID is skipped altogether: bookings
+go through unchecked, with one `[botid] off …` warning per server instance. `next.config.ts` (`withBotId`) adds rewrites under
+`/149e9513-01fa-4fb0-aad4-566afd725d1b/` to Vercel in every build, the local
+one too: never request that prefix on a local `next start`.
+
+### Before launch A: what the owner sets up
+
+Email, the cron and BotID need these steps once; until they are done, keep
+Production on `EMAIL_DELIVERY=redirect` and nothing reaches a guest.
+
+1. **SMTP account:** host, port 587 (STARTTLS) or 465 (TLS), username, and a
+   password or app password. Microsoft 365: enable "Authenticated SMTP" for
+   that mailbox (and mind its daily recipient limit). Google Workspace: an app
+   password.
+2. **`EMAIL_FROM`:** for example `Furama Cuisine <no-reply@mail.furamavietnam.com>`,
+   an address or alias the login may send as.
+3. **DNS at the mail provider (IT Furama):** SPF includes the provider, DKIM
+   signs for the From domain, DMARC aligned (check the root domain first;
+   start at `p=none`).
+4. **Vercel → Environment Variables, Production:** `EMAIL_DELIVERY=live`,
+   `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`
+   (`SMTP_SECURE` only if the port rule does not fit), `CRON_SECRET`
+   (`openssl rand -hex 32`), `BETTER_AUTH_URL` = the production origin. Add
+   `EMAIL_DELIVERY=live` with only Production ticked: the dashboard ticks
+   every environment by default, and the code refuses `live` on Preview and
+   Development (its emails then fail with `invalid_delivery_mode`).
+5. **Preview:** `EMAIL_DELIVERY=redirect`, `EMAIL_REDIRECT_TO=<the Admin's
+   inbox>`, `EMAIL_FROM`, `SMTP_*` (a separate login if possible), and
+   `BETTER_AUTH_URL=<the preview's branch URL>` (set for that Git branch, and
+   open the preview at that URL: every emailed link, from `staff.new`'s
+   booking link to invitations and resets, needs it, and fails with
+   `missing_app_url` without it). Preview branches fork production's staff
+   and recipients, so redirect is mandatory there; a password reset on a
+   Preview changes only that branch. Remove `RESEND_API_KEY` from every
+   environment.
+6. **Cron:** after the first Production deploy, Project → Settings → Cron
+   Jobs shows `/api/cron/outbox` every 5 minutes (Vercel Pro).
+7. **BotID:** turn on "Automatically expose System Environment Variables"
+   (the browser half needs `NEXT_PUBLIC_VERCEL_ENV` at build) and OIDC
+   Federation (the server half needs its token), then **redeploy**: the
+   variable is inlined at build, so a deploy built before the setting was on
+   skips BotID (bookings let through, one `[botid] off …` warning per
+   instance). Decide on Deep Analysis (billed per check: read the current
+   price on vercel.com/docs/botid); never set `BOTID_DEV_BYPASS`.
+8. **Recipients:** in `/admin/settings/notifications`, add the notification
+   emails per restaurant or destination (spec §15 item 15), and confirm
+   `fb@furamavietnam.com` as the shared inbox (the fallback, and where guests'
+   replies go).
+9. **Migration 007** on Neon, with the checks above, in the phase-5 deploy
+   window.
+10. **First preview:** "Gửi email thử" in `/admin/settings/notifications`
+    arrives at the redirect inbox (that proves port 587/465 is reachable from
+    Vercel Functions, the login, and SPF/DKIM passing in the headers).
+11. **First preview:** book a table from a browser: the staff and guest
+    emails arrive (redirected). In the browser's network tab the booking's
+    action POST carries an `x-is-human` header, and the function logs show
+    none of `[botid] off`, `[botid] check failed` and `Possible
+    misconfiguration`; the BotID traffic view shows the check. In
+    `/admin/reservations/emails` the `staff.new` row is "Đã gửi", not
+    `missing_app_url`; an invitation from `/admin/users` arrives at the
+    redirect inbox with a link to the preview's origin, and the link opens
+    the invitation.
+
+Decisions the owner gives (the build's defaults in brackets): "Báo khách qua
+email" on a cancel, also from a closure [on]; Vietnamese email for a booking
+made in Vietnamese [yes]; guests' replies to the shared inbox and staff
+replies to the guest [yes]; the per-phone limit [3 active web requests per
+number per booking date]; BotID failing open and refusing verified bots [yes];
+the privacy policy's wording and its Vietnamese text (a lawyer's review under
+Law 91/2025/QH15) [an English draft]; which inbox Previews redirect to.
+
 ### First Admin
 
 Staff accounts exist only by invitation (spec §7.1); the one exception is the
@@ -365,13 +554,17 @@ bootstrapping production is what you mean to do.
 | `/en` | Static, `cacheLife('max')` | Home: hero, finder, cuisines, restaurants, destinations, experiences, heritage, stories, offers |
 | `/en/restaurants/[slug]` | Static for `taya-house`. Any other slug is a 404: the first visit is a soft 404 (status 200 with `noindex`), later visits get the cached 404, and without JavaScript the body is empty | Restaurant detail (Tàya House only until phase 6) |
 | `/taya-house` | Redirect | 308 to `/en/restaurants/taya-house` (`next.config.ts`) |
-| `/api/availability` | Dynamic, `no-store` | `?restaurant=&lang=[&from=&to=]`: each day's state (open, full, past, closed, too_large, outside) and public closure reason, with the clock, the party limit and the number to call; `?restaurant=&date=&lang=[&guests=]`: one day's services and slots with the covers left. 404 for an unknown restaurant or one with online booking off. `scripts/check-prerender.mjs` fails if it is ever prerendered, or missing from the build |
+| `/en/privacy` | Static, `cacheLife('max')`, tag `content:legal` | The privacy policy (`legal.*`), linked from the footer and the reserve drawer's consent box |
+| `/api/availability` | Dynamic, `no-store` | `?restaurant=&lang=[&from=&to=]`: each day's state (open, full, past, closed, too_large, outside) and public closure reason, with the clock, the party limit and the number to call; `?restaurant=&date=&lang=[&guests=]`: one day's services and slots with the covers left. 404 for an unknown restaurant or one with online booking off; a range given in full that is backwards or too long (400) and an id that cannot exist (404) are answered before any query. `scripts/check-prerender.mjs` fails if it is ever prerendered, or missing from the build |
+| `/api/cron/outbox` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, every 5 minutes: sends the due outbox rows of its environment (at most 500 or 240 s) and answers only the counts. 401 without `Authorization: Bearer $CRON_SECRET` |
 | `/admin/sign-in`, `/admin/accept-invite`, `/admin/reset-password` | Request time, nonce CSP | The only admin pages open without a session cookie |
 | `/admin`, `/admin/users`, `/admin/audit` | Request time, nonce CSP | Overview (with pending and today's bookings); staff and invitations (Admin); audit log of `audit_log` and booking events, paged with `?truoc=`/`?sau=` (Admin). Without a session cookie the proxy sends them to sign-in (307, `?next=` kept) |
-| `/admin/reservations`, `/admin/reservations/[id]`, `/admin/reservations/day` | Request time, nonce CSP | Inbox (Cần xử lý · Hôm nay · Sắp tới · Tất cả, search by reference, phone, name or email); a booking (status changes, edit, internal notes, timeline); the printable day sheet. `reservations:read` |
+| `/admin/reservations`, `/admin/reservations/[id]`, `/admin/reservations/day` | Request time, nonce CSP | Inbox (Cần xử lý · Hôm nay · Sắp tới · Tất cả, search by reference, phone, name or email: the search posts, its text waits 30 minutes in an httpOnly cookie and the URL carries only `?tim=<id>`); a booking (status changes, edit, internal notes, timeline, its emails); the printable day sheet. `reservations:read` |
+| `/admin/reservations/emails` | Request time, nonce CSP | The email log of this environment (tabs by status, guest addresses masked) and "Gửi lại". `reservations:read`; "Gửi lại" `reservations:update` |
 | `/admin/reservations/new` | Request time, nonce CSP | Phone bookings and walk-ins. `reservations:create` |
 | `/admin/reservations/closures`, `/admin/restaurants`, `/admin/restaurants/[id]/booking` | Request time, nonce CSP | Closures with the bookings each covers; the restaurants; "Giờ và sức chứa" (switch, overrides, service periods, slot preview, affected bookings; auto-confirm for Admins). `schedule:read` |
 | `/admin/settings/booking` | Request time, nonce CSP | Booking defaults. Admin (`settings:read`) |
+| `/admin/settings/notifications` | Request time, nonce CSP | Who hears about new bookings, the shared inbox, the restaurants that fall back to it, "Gửi email thử". Admin (`settings:read`; every save `settings:update`) |
 | `/api/auth/*` | Dynamic | Better Auth; `/api/auth/admin/*` is refused with 403 |
 
 Every admin page renders at request time (`app/admin/layout.tsx`: `instant =
@@ -444,6 +637,15 @@ Guarantees:
   date (`lib/server/booking/lock.ts`) and only then reads the rules and the
   covers, in the same transaction: concurrent requests for the last seats
   cannot both win
+- a guest's submit first takes a lock per phone number and date, counts that
+  number's requested and confirmed web bookings for the date (at most 3,
+  across restaurants), and only then takes the booking-day lock; staff paths
+  take the booking-day lock only, so the two never wait on each other in a
+  circle
+- a web booking stores the privacy policy version the guest agreed to and
+  when (`consent_version`, `consented_at`)
+- the emails a change sends are `email_outbox` rows written in the change's
+  own transaction (see Email (SMTP))
 - covers are held by `requested`, `confirmed` and `seated` bookings only
 - a partial unique index (`reservations_dedupe_v2_idx`) rejects a second
   `requested` or `confirmed` booking at the same restaurant, date, time and

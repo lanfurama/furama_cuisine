@@ -5,13 +5,18 @@ import { seedReservation } from './reservation-fixtures';
 import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures';
 
 /*
- * Phase 5 in a real `next start` (EMAIL_DELIVERY=log, so every email lands in
- * EMAIL_LOG_FILE): a new booking emails the staff (the general inbox when no
- * recipient is listed) and the guest, sent by after() once the action has
- * answered; confirming emails the guest; the cron endpoint wants its secret.
- * The guest books Café Indochine on its last open day, which no other spec
- * books. No spec running beside this one may add an 'all' or 'destination'
- * recipient: it would take the staff email away from the general inbox.
+ * Phase 5's acceptance (spec §14.1 row 5) in a real `next start`
+ * (EMAIL_DELIVERY=log, so every email lands in EMAIL_LOG_FILE):
+ *   A1 a new booking emails the staff, sent by after() once the action has answered;
+ *   A2 confirming emails the guest;
+ *   A3 a failed email is retried (the cron sends it again; "Gửi lại" is in admin-emails);
+ *   A4 with no recipient it goes to the general email, and the overview names the restaurant;
+ *   spec §13: the cron endpoint answers 401 without its secret.
+ * A5 (bots are blocked) is guest-guard.spec.ts, the opt-in botid.spec.ts and
+ * the integration tests. The guest books Café Indochine on its last open day,
+ * which no other spec books. No spec running beside this one may add an 'all'
+ * or 'destination' recipient: it would take the staff email away from the
+ * general inbox.
  */
 
 type Logged = { to: string; subject: string; text: string };
@@ -54,7 +59,7 @@ async function bookCafeIndochine(page: Page, guest: string): Promise<string> {
   return (await drawer.locator('.drawer-ref').textContent()) ?? '';
 }
 
-test('a guest booking emails the staff (the general inbox: nobody is listed) and the guest, after the response', async ({ page }) => {
+test('A1, A4. a guest booking emails the staff (the general inbox: nobody is listed) and the guest, after the response', async ({ page }) => {
   const guest = `guest-${Date.now()}@example.com`;
   const reference = await bookCafeIndochine(page, guest);
   await expect.poll(() => about(reference)).toEqual([
@@ -69,9 +74,14 @@ test('a guest booking emails the staff (the general inbox: nobody is listed) and
     [reference],
   );
   expect(rows).toEqual({ statuses: ['sent', 'sent'], events: ['staff.new', 'guest.ack'], fallback: [true, false] });
+
+  // A4: the Admin's overview names the restaurant whose new-booking email went to the shared inbox.
+  await seedStaff();
+  await signInAs(page, STAFF.admin);
+  await expect(page.getByRole('main').getByTestId('uncovered-restaurants')).toContainText('Café Indochine');
 });
 
-test('confirming in the admin emails the guest', async ({ page }) => {
+test('A2. confirming in the admin emails the guest', async ({ page }) => {
   await seedStaff();
   const r = await seedReservation();
   const guest = `confirm-${r.id}@example.com`;
@@ -84,7 +94,27 @@ test('confirming in the admin emails the guest', async ({ page }) => {
   expect(await one(`SELECT status, attempts FROM email_outbox WHERE reservation_id = $1`, [r.id])).toEqual({ status: 'sent', attempts: 1 });
 });
 
-test('the cron endpoint answers 401 without its secret, and drains with it', async ({ request }) => {
+test('A3. a failed email is retried: the next cron run sends a row whose first attempt failed', async ({ request }) => {
+  const r = await seedReservation({ status: 'confirmed' });
+  const guest = `retry-${r.id}@example.com`;
+  await one(`UPDATE reservations SET email = $2 WHERE id = $1`, [r.id, guest]);
+  // As the sender leaves a row after a provider error on its first attempt: queued again, and due.
+  const row = await one<{ id: string }>(
+    `INSERT INTO email_outbox (env, event, audience, reservation_id, to_email, locale, status, attempts, next_attempt_at, last_error)
+     VALUES ('development', 'guest.confirmed', 'guest', $1, $2, 'en', 'queued', 1, now() - interval '1 minute',
+             'provider_error: SMTP ETIMEDOUT at CONN: Greeting never received')
+     RETURNING id::text`,
+    [r.id, guest],
+  );
+  const res = await request.get('/api/cron/outbox', { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } });
+  expect(res.status()).toBe(200);
+  await expect
+    .poll(() => one(`SELECT status, attempts, last_error FROM email_outbox WHERE id = $1`, [row!.id]))
+    .toEqual({ status: 'sent', attempts: 2, last_error: null });
+  expect(about(r.reference)).toEqual([[guest, `Your table is confirmed (${r.reference})`]]);
+});
+
+test('spec §13: the cron endpoint answers 401 without its secret, and drains with it', async ({ request }) => {
   expect((await request.get('/api/cron/outbox')).status()).toBe(401);
   expect((await request.get('/api/cron/outbox', { headers: { authorization: 'Bearer not-the-secret-at-all' } })).status()).toBe(401);
   const res = await request.get('/api/cron/outbox', { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } });
