@@ -61,7 +61,9 @@ describe('inviteEmailFailedMessage', () => {
   const setup = 'Chưa gửi được email: chưa cấu hình gửi email trên môi trường này. Báo bộ phận kỹ thuật, rồi bấm Gửi lại.';
   it.each([
     ['not_delivered', setup],
-    ['missing_api_key', setup],
+    ['missing_smtp_config', setup],
+    ['missing_app_url', setup],
+    ['rejected', 'Chưa gửi được email, bấm Gửi lại.'],
     ['invalid_delivery_mode', setup],
     ['provider_error', 'Chưa gửi được email, bấm Gửi lại.'],
     ['unknown', 'Chưa gửi được email, bấm Gửi lại.'],

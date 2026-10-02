@@ -81,10 +81,13 @@ export function actionErrorMessage(code: ActionCode, params?: Record<string, str
  */
 const EMAIL_SETUP_ERRORS: Record<EmailErrorCode, boolean> = {
   invalid_delivery_mode: true,
-  missing_api_key: true,
+  missing_smtp_config: true,
   missing_from: true,
   missing_redirect_to: true,
+  missing_app_url: true,
   not_delivered: true,
+  // The recipient's server refused the address for good; the setup is fine.
+  rejected: false,
   provider_error: false,
 };
 

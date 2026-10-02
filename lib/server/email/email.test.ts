@@ -4,19 +4,28 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { invitationUrl, passwordResetUrl, sendPasswordReset, sendStaffInvitation } from './auth-emails';
-import { consoleLogSink, createEmailSender, renderEmail, sendEmail } from './send';
+import { INVITE_TTL } from '@/lib/server/auth/staff';
+import { INVITE_TTL_DAYS, RESET_TOKEN_SECONDS } from '@/lib/server/auth/lifetimes';
+import { appOrigin, invitationUrl, passwordResetUrl, sendPasswordReset, sendStaffInvitation } from './auth-emails';
+import { consoleLogSink, createEmailSender, messageIdFor, renderEmail, sendEmail, senderDomain } from './send';
 import { PasswordResetEmail } from './templates/password-reset';
 import { StaffInvitationEmail } from './templates/staff-invitation';
-import { EmailSendError, describeEmailError, emailErrorCode, type DeliveredEmail, type ResendLike } from './types';
+import { EmailSendError, describeEmailError, emailErrorCode, redactEmails, type DeliveredEmail, type MailTransport } from './types';
 
 const URL_INVITE = 'https://admin.example.vn/admin/accept-invite?token=abc_DEF-123';
 const sha16 = (s: string) => createHash('sha256').update(s).digest('hex').slice(0, 16);
 
-function fakeResend(result?: Awaited<ReturnType<ResendLike['emails']['send']>>) {
-  const send = vi.fn<ResendLike['emails']['send']>(async () => result ?? { data: { id: 'em_1' }, error: null });
-  return { send, client: { emails: { send } } satisfies ResendLike };
+/** A transport that records what it was handed; no network. */
+function fakeTransport(result: { messageId: string; response: string } | Error = { messageId: '<m@x>', response: '250 2.0.0 Ok: queued as AB12' }) {
+  const sendMail = vi.fn<MailTransport['sendMail']>(async () => {
+    if (result instanceof Error) throw result;
+    return result;
+  });
+  const close = vi.fn();
+  return { sendMail, close, transport: { sendMail, close } satisfies MailTransport };
 }
+
+const SMTP_ENV = { SMTP_HOST: 'smtp.furama.test', SMTP_PORT: '587', SMTP_USER: 'u', SMTP_PASSWORD: 'p w' };
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -25,7 +34,7 @@ afterEach(() => {
 
 describe('templates', () => {
   it('invitation html + text carry the link, role, inviter and 7-day expiry in Vietnamese', async () => {
-    const el = createElement(StaffInvitationEmail, { acceptUrl: URL_INVITE, role: 'editor', inviterName: 'Nguyễn Văn An' });
+    const el = createElement(StaffInvitationEmail, { acceptUrl: URL_INVITE, role: 'editor', inviterName: 'Nguyễn Văn An', expiresInDays: 7 });
     const { html, text } = await renderEmail(el);
     for (const out of [html, text]) {
       expect(out).toContain(URL_INVITE);
@@ -39,7 +48,7 @@ describe('templates', () => {
   });
 
   it('reset html + text carry the link and keep the heading as written', async () => {
-    const el = createElement(PasswordResetEmail, { resetUrl: 'https://x.vn/admin/reset-password?token=t1', userName: 'Lan' });
+    const el = createElement(PasswordResetEmail, { resetUrl: 'https://x.vn/admin/reset-password?token=t1', userName: 'Lan', expiresInMinutes: 60 });
     const { html, text } = await renderEmail(el);
     for (const out of [html, text]) {
       expect(out).toContain('https://x.vn/admin/reset-password?token=t1');
@@ -53,18 +62,54 @@ describe('templates', () => {
     expect(invitationUrl('a b', 'http://h:3200')).toBe('http://h:3200/admin/accept-invite?token=a%20b');
     expect(passwordResetUrl('tok', 'http://h:3200')).toBe('http://h:3200/admin/reset-password?token=tok');
   });
+
+  it('states the lifetimes the server enforces, not numbers of its own', async () => {
+    const logged: DeliveredEmail[] = [];
+    const send = createEmailSender({ env: {}, logSink: (e) => void logged.push(e) });
+    await sendStaffInvitation({ to: 'n@f.vn', token: 'tok', invitationId: 'i1', role: 'editor', inviterName: 'An' }, send);
+    await sendPasswordReset({ user: { email: 'u@f.vn', name: 'Lan' }, token: 'tok123' }, send);
+    expect(logged[0].text).toContain(`Liên kết có hiệu lực trong ${INVITE_TTL_DAYS} ngày`);
+    expect(logged[1].text).toContain(`Liên kết có hiệu lực trong ${RESET_TOKEN_SECONDS / 60} phút`);
+    // staff_invitation.expires_at is now() + INVITE_TTL; Better Auth's resetPasswordTokenExpiresIn is RESET_TOKEN_SECONDS.
+    expect(INVITE_TTL).toBe(`${INVITE_TTL_DAYS} days`);
+  });
+});
+
+describe('appOrigin: where emailed links point (R23)', () => {
+  it('is BETTER_AUTH_URL without its trailing slash', () => {
+    expect(appOrigin({ BETTER_AUTH_URL: 'https://cuisine.furamavietnam.com/' })).toBe('https://cuisine.furamavietnam.com');
+  });
+
+  it('falls back to localhost only in log mode off Vercel (dev, tests)', () => {
+    expect(appOrigin({})).toBe('http://localhost:3000');
+    expect(appOrigin({ EMAIL_DELIVERY: 'log', VERCEL_ENV: 'development' })).toBe('http://localhost:3000');
+  });
+
+  it('fails closed when an email could reach someone, or on a Vercel deployment', () => {
+    for (const env of [{ EMAIL_DELIVERY: 'live' }, { EMAIL_DELIVERY: 'redirect' }, { VERCEL_ENV: 'production' }, { VERCEL_ENV: 'preview', EMAIL_DELIVERY: 'log' }]) {
+      const err = (() => {
+        try {
+          return appOrigin(env);
+        } catch (e) {
+          return e;
+        }
+      })();
+      expect(err).toBeInstanceOf(EmailSendError);
+      expect(err).toMatchObject({ code: 'missing_app_url' });
+    }
+  });
 });
 
 describe('delivery modes', () => {
   const content = { html: '<p>hi</p>', text: 'hi' };
 
-  it('defaults to log when EMAIL_DELIVERY is unset and never touches Resend', async () => {
+  it('defaults to log when EMAIL_DELIVERY is unset and never opens an SMTP connection', async () => {
     const sink: DeliveredEmail[] = [];
-    const createResend = vi.fn();
-    const send = createEmailSender({ env: {}, createResend, logSink: (e) => void sink.push(e) });
+    const createTransport = vi.fn();
+    const send = createEmailSender({ env: {}, createTransport, logSink: (e) => void sink.push(e) });
     const r = await send({ to: 'a@b.vn', subject: 'S', ...content, idempotencyKey: 'k' });
     expect(r).toEqual({ mode: 'log' });
-    expect(createResend).not.toHaveBeenCalled();
+    expect(createTransport).not.toHaveBeenCalled();
     expect(sink).toHaveLength(1);
     expect(sink[0]).toMatchObject({ to: 'a@b.vn', originalTo: 'a@b.vn', subject: 'S', text: 'hi', idempotencyKey: 'k' });
   });
@@ -115,70 +160,173 @@ describe('delivery modes', () => {
     await expect(send({ to: 'a@b.vn', subject: 'S', ...content })).rejects.toMatchObject({ code: 'invalid_delivery_mode' });
   });
 
-  it('redirect rewrites "to", keeps the original in the subject, and sends through Resend', async () => {
-    const { send: resendSend, client } = fakeResend();
+  it('redirect rewrites "to", keeps the original in the subject, drops the Reply-To, and sends over SMTP with a Message-ID from the key', async () => {
+    const { sendMail, close, transport } = fakeTransport();
+    const createTransport = vi.fn(() => transport);
     const send = createEmailSender({
-      env: { EMAIL_DELIVERY: 'redirect', EMAIL_REDIRECT_TO: 'qa@furama.test', RESEND_API_KEY: 're_x', EMAIL_FROM: 'Furama <no-reply@mail.furama.test>' },
-      createResend: () => client,
+      env: { EMAIL_DELIVERY: 'redirect', EMAIL_REDIRECT_TO: 'qa@furama.test', EMAIL_FROM: 'Furama <no-reply@mail.furama.test>', ...SMTP_ENV },
+      createTransport,
     });
-    const r = await send({ to: 'real@guest.vn', subject: 'Hello', ...content, idempotencyKey: 'k1' });
-    expect(r).toEqual({ mode: 'redirect', id: 'em_1' });
-    expect(resendSend).toHaveBeenCalledWith(
-      { from: 'Furama <no-reply@mail.furama.test>', to: 'qa@furama.test', subject: '[real@guest.vn] Hello', html: '<p>hi</p>', text: 'hi' },
-      { idempotencyKey: 'k1' },
-    );
+    // As staff.new carries it (R11): the guest's address, which a reply from the redirect inbox must not reach.
+    const r = await send({ to: 'real@guest.vn', subject: 'Hello', ...content, idempotencyKey: 'invite:7:ab12', replyTo: 'guest@example.com' });
+    expect(r).toEqual({ mode: 'redirect', id: '250 2.0.0 Ok: queued as AB12', messageId: '<m@x>' });
+    expect(sendMail).toHaveBeenCalledWith({
+      from: 'Furama <no-reply@mail.furama.test>',
+      to: 'qa@furama.test',
+      subject: '[real@guest.vn] Hello',
+      html: '<p>hi</p>',
+      text: 'hi',
+      messageId: '<invite-7-ab12@mail.furama.test>',
+    });
+    expect(sendMail.mock.calls[0][0]).not.toHaveProperty('replyTo');
+    // One message, one connection: the transport is released after the send.
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('live on a Preview deployment is refused and opens no SMTP connection', async () => {
+    // A Preview runs on a fork of production's guests and staff; `vercel dev` is a developer's machine.
+    for (const VERCEL_ENV of ['preview', 'development']) {
+      const createTransport = vi.fn(() => fakeTransport().transport);
+      const send = createEmailSender({ env: { EMAIL_DELIVERY: 'live', EMAIL_FROM: 'no-reply@mail.furama.test', VERCEL_ENV, ...SMTP_ENV }, createTransport });
+      const err = await send({ to: 'real@guest.vn', subject: 'S', ...content }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(EmailSendError);
+      expect(describeEmailError(err)).toBe(`invalid_delivery_mode: EMAIL_DELIVERY=live is for Production only (VERCEL_ENV is ${VERCEL_ENV}); use redirect here`);
+      expect(createTransport).not.toHaveBeenCalled();
+    }
+    // Production sends live; a Preview sends through redirect.
+    const createTransport = vi.fn(() => fakeTransport().transport);
+    const env = { EMAIL_FROM: 'no-reply@mail.furama.test', EMAIL_REDIRECT_TO: 'qa@furama.test', ...SMTP_ENV };
+    await expect(createEmailSender({ env: { ...env, EMAIL_DELIVERY: 'live', VERCEL_ENV: 'production' }, createTransport })({ to: 'real@guest.vn', subject: 'S', ...content })).resolves.toMatchObject({ mode: 'live' });
+    await expect(createEmailSender({ env: { ...env, EMAIL_DELIVERY: 'redirect', VERCEL_ENV: 'preview' }, createTransport })({ to: 'real@guest.vn', subject: 'S', ...content })).resolves.toMatchObject({ mode: 'redirect' });
+    expect(createTransport).toHaveBeenCalledTimes(2);
+  });
+
+  it('hands Reply-To to the transport and to the log, only when there is one', async () => {
+    const { sendMail, transport } = fakeTransport();
+    const env = { EMAIL_DELIVERY: 'live', EMAIL_FROM: 'no-reply@mail.furama.test', ...SMTP_ENV };
+    await createEmailSender({ env, createTransport: () => transport })({ to: 'g@guest.vn', subject: 'S', ...content, replyTo: 'fb@furama.test' });
+    expect(sendMail.mock.calls[0][0]).toMatchObject({ to: 'g@guest.vn', replyTo: 'fb@furama.test' });
+    await createEmailSender({ env, createTransport: () => transport })({ to: 'g@guest.vn', subject: 'S', ...content });
+    expect(sendMail.mock.calls[1][0]).not.toHaveProperty('replyTo');
+    const logged: DeliveredEmail[] = [];
+    await createEmailSender({ env: {}, logSink: (e) => void logged.push(e) })({ to: 'g@guest.vn', subject: 'S', ...content, replyTo: 'fb@furama.test' });
+    expect(logged[0].replyTo).toBe('fb@furama.test');
   });
 
   it('redirect without EMAIL_REDIRECT_TO throws', async () => {
-    const send = createEmailSender({
-      env: { EMAIL_DELIVERY: 'redirect', RESEND_API_KEY: 're_x', EMAIL_FROM: 'a@b' },
-      createResend: () => fakeResend().client,
-    });
+    const send = createEmailSender({ env: { EMAIL_DELIVERY: 'redirect', EMAIL_FROM: 'a@b.vn', ...SMTP_ENV }, createTransport: () => fakeTransport().transport });
     await expect(send({ to: 'a@b.vn', subject: 'S', ...content })).rejects.toMatchObject({ code: 'missing_redirect_to' });
   });
 
-  it('live calls the Resend client with the real recipient', async () => {
-    const { send: resendSend, client } = fakeResend();
-    const createResend = vi.fn(() => client);
-    const send = createEmailSender({ env: { EMAIL_DELIVERY: 'live', RESEND_API_KEY: 're_key', EMAIL_FROM: 'no-reply@mail.furama.test' }, createResend });
-    const r = await send({ to: 'real@guest.vn', subject: 'Hello', ...content });
-    expect(r).toEqual({ mode: 'live', id: 'em_1' });
-    expect(createResend).toHaveBeenCalledWith('re_key');
-    expect(resendSend).toHaveBeenCalledWith(
-      { from: 'no-reply@mail.furama.test', to: 'real@guest.vn', subject: 'Hello', html: '<p>hi</p>', text: 'hi' },
-      undefined,
+  it('live builds the SMTP options from the env: STARTTLS required on 587, TLS from the first byte on 465, short timeouts', async () => {
+    const createTransport = vi.fn((_options: unknown) => fakeTransport().transport);
+    const live = (env: Record<string, string>) =>
+      createEmailSender({ env: { EMAIL_DELIVERY: 'live', EMAIL_FROM: 'no-reply@mail.furama.test', ...env }, createTransport })({
+        to: 'real@guest.vn',
+        subject: 'Hello',
+        ...content,
+      });
+    await live(SMTP_ENV);
+    expect(createTransport.mock.calls[0][0]).toEqual({
+      host: 'smtp.furama.test',
+      port: 587,
+      secure: false,
+      requireTLS: true,
+      auth: { user: 'u', pass: 'p w' },
+      dnsTimeout: 5_000,
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
+      tls: { minVersion: 'TLSv1.2' },
+    });
+    await live({ SMTP_HOST: 'smtp.furama.test', SMTP_PORT: '465' });
+    expect(createTransport.mock.calls[1][0]).toMatchObject({ port: 465, secure: true, requireTLS: false, auth: undefined });
+    await live({ SMTP_HOST: 'smtp.furama.test', SMTP_PORT: '2525', SMTP_SECURE: 'true' });
+    expect(createTransport.mock.calls[2][0]).toMatchObject({ port: 2525, secure: true });
+  });
+
+  it('live without SMTP settings throws a clear error at send time, not at import', async () => {
+    // Importing the module (above) with no SMTP env already succeeded; the default sender fails only when used.
+    vi.stubEnv('EMAIL_DELIVERY', 'live');
+    vi.stubEnv('EMAIL_FROM', 'no-reply@mail.furama.test');
+    vi.stubEnv('SMTP_HOST', '');
+    const err = await sendEmail({ to: 'a@b.vn', subject: 'S', ...content }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(EmailSendError);
+    expect(err).toMatchObject({ code: 'missing_smtp_config', message: 'SMTP_HOST is required when EMAIL_DELIVERY is live or redirect' });
+    const bad = (env: Record<string, string>) =>
+      createEmailSender({ env: { EMAIL_DELIVERY: 'live', EMAIL_FROM: 'a@b.vn', SMTP_HOST: 'h', ...env }, createTransport: () => fakeTransport().transport })({
+        to: 'a@b.vn',
+        subject: 'S',
+        ...content,
+      });
+    await expect(bad({ SMTP_PORT: '58x' })).rejects.toMatchObject({ code: 'missing_smtp_config' });
+    await expect(bad({ SMTP_SECURE: 'yes' })).rejects.toMatchObject({ code: 'missing_smtp_config' });
+    await expect(bad({ SMTP_USER: 'u' })).rejects.toMatchObject({ code: 'missing_smtp_config', message: 'SMTP_USER and SMTP_PASSWORD must be set together' });
+  });
+
+  it('live without EMAIL_FROM (or without an address in it) throws', async () => {
+    const send = (from?: string) =>
+      createEmailSender({ env: { EMAIL_DELIVERY: 'live', ...SMTP_ENV, ...(from ? { EMAIL_FROM: from } : {}) }, createTransport: () => fakeTransport().transport })({
+        to: 'a@b.vn',
+        subject: 'S',
+        ...content,
+      });
+    await expect(send()).rejects.toMatchObject({ code: 'missing_from' });
+    await expect(send('Furama Cuisine')).rejects.toMatchObject({ code: 'missing_from' });
+  });
+
+  it('a refused recipient (5xx at RCPT TO) is rejected for good; anything else is a provider_error, without the address', async () => {
+    const env = { EMAIL_DELIVERY: 'live', EMAIL_FROM: 'a@b.vn', ...SMTP_ENV };
+    const failing = (error: Error) => createEmailSender({ env, createTransport: () => fakeTransport(error).transport });
+    const rcpt = Object.assign(new Error('Can\'t send mail - all recipients were rejected: 550 5.1.1 <real@guest.vn>: unknown'), {
+      code: 'EENVELOPE',
+      command: 'RCPT TO',
+      responseCode: 550,
+    });
+    const err = await failing(rcpt)({ to: 'real@guest.vn', subject: 'S', ...content }).catch((e: unknown) => e);
+    expect(err).toMatchObject({ code: 'rejected' });
+    expect(describeEmailError(err)).toBe("rejected: SMTP EENVELOPE at RCPT TO: Can't send mail - all recipients were rejected: 550 5.1.1 <<redacted>>: unknown");
+    const busy = Object.assign(new Error('451 Try again later'), { code: 'EENVELOPE', command: 'RCPT TO', responseCode: 451 });
+    await expect(failing(busy)({ to: 'a@b.vn', subject: 'S', ...content })).rejects.toMatchObject({ code: 'provider_error' });
+    const auth = Object.assign(new Error('Invalid login: 535 Authentication failed'), { code: 'EAUTH', command: 'AUTH PLAIN', responseCode: 535 });
+    await expect(failing(auth)({ to: 'a@b.vn', subject: 'S', ...content })).rejects.toMatchObject({ code: 'provider_error' });
+    await expect(failing(new Error('ECONNRESET'))({ to: 'a@b.vn', subject: 'S', ...content })).rejects.toMatchObject({ code: 'provider_error' });
+  });
+
+  it('a stored SMTP error names neither the SMTP host nor its address (Editors read it in the email log)', async () => {
+    const env = { EMAIL_DELIVERY: 'live', EMAIL_FROM: 'a@b.vn', ...SMTP_ENV };
+    const stored = (error: Error) =>
+      createEmailSender({ env, createTransport: () => fakeTransport(error).transport })({ to: 'a@b.vn', subject: 'S', ...content }).catch((e: unknown) =>
+        describeEmailError(e),
+      );
+    const dns = Object.assign(new Error('getaddrinfo ENOTFOUND smtp.furama.test'), { code: 'EDNS', command: 'CONN', hostname: 'smtp.furama.test' });
+    expect(await stored(dns)).toBe('provider_error: SMTP EDNS at CONN: getaddrinfo ENOTFOUND <smtp-host>');
+    const refused = Object.assign(new Error('connect ECONNREFUSED 10.1.2.3:587'), { code: 'ESOCKET', command: 'CONN', address: '10.1.2.3', port: 587 });
+    expect(await stored(refused)).toBe('provider_error: SMTP ESOCKET at CONN: connect ECONNREFUSED <smtp-host>:587');
+    const v6 = Object.assign(new Error('connect ETIMEDOUT 2001:db8::25:465'), { code: 'ESOCKET', command: 'CONN', address: '2001:db8::25', port: 465 });
+    expect(await stored(v6)).toBe('provider_error: SMTP ESOCKET at CONN: connect ETIMEDOUT <smtp-host>:465');
+    // An IPv4 address only in the text goes too.
+    expect(await stored(Object.assign(new Error('Connection closed by 192.0.2.7'), { code: 'ECONNECTION' }))).toBe(
+      'provider_error: SMTP ECONNECTION: Connection closed by <smtp-host>',
     );
   });
 
-  it('live without RESEND_API_KEY throws a clear error at send time, not at import', async () => {
-    // Importing the module (above) with no key already succeeded; the default sender fails only when used.
-    vi.stubEnv('EMAIL_DELIVERY', 'live');
-    vi.stubEnv('RESEND_API_KEY', '');
-    const err = await sendEmail({ to: 'a@b.vn', subject: 'S', ...content }).catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(EmailSendError);
-    expect(err).toMatchObject({ code: 'missing_api_key', message: 'RESEND_API_KEY is required when EMAIL_DELIVERY=live' });
-  });
-
-  it('live without EMAIL_FROM throws', async () => {
-    const send = createEmailSender({ env: { EMAIL_DELIVERY: 'live', RESEND_API_KEY: 're_x' }, createResend: () => fakeResend().client });
-    await expect(send({ to: 'a@b.vn', subject: 'S', ...content })).rejects.toMatchObject({ code: 'missing_from' });
-  });
-
-  it('turns Resend {error} results and thrown errors into EmailSendError(provider_error)', async () => {
-    const env = { EMAIL_DELIVERY: 'live', RESEND_API_KEY: 're_x', EMAIL_FROM: 'a@b' };
-    const rejected = createEmailSender({ env, createResend: () => fakeResend({ data: null, error: { message: 'domain not verified' } }).client });
-    await expect(rejected({ to: 'a@b.vn', subject: 'S', ...content })).rejects.toThrow(/domain not verified/);
-    const boom = createEmailSender({
-      env,
-      createResend: () => ({
-        emails: {
-          send: async () => {
-            throw new Error('ECONNRESET');
-          },
-        },
-      }),
+  it('gives up on a send that does not finish within the cap', async () => {
+    const hanging: MailTransport = { sendMail: () => new Promise(() => {}), close: () => {} };
+    const send = createEmailSender({ env: { EMAIL_DELIVERY: 'live', EMAIL_FROM: 'a@b.vn', ...SMTP_ENV }, createTransport: () => hanging, sendTimeoutMs: 50 });
+    await expect(send({ to: 'a@b.vn', subject: 'S', ...content })).rejects.toMatchObject({
+      code: 'provider_error',
+      message: 'SMTP ETIMEDOUT: no answer within 50 ms',
     });
-    await expect(boom({ to: 'a@b.vn', subject: 'S', ...content })).rejects.toMatchObject({ code: 'provider_error' });
+  });
+
+  it('derives the Message-ID domain from EMAIL_FROM and keeps only safe characters of the key', () => {
+    expect(senderDomain('Furama Cuisine <no-reply@Mail.FuramaVietnam.com>')).toBe('mail.furamavietnam.com');
+    expect(senderDomain('no-reply@mail.furama.test')).toBe('mail.furama.test');
+    expect(senderDomain('Furama')).toBeNull();
+    expect(senderDomain(undefined)).toBeNull();
+    expect(messageIdFor('outbox:12', 'mail.furama.test')).toBe('<outbox-12@mail.furama.test>');
+    expect(messageIdFor('reset:ab/cd ef', 'd.vn')).toBe('<reset-ab-cd-ef@d.vn>');
   });
 
   it('password reset ignores Better Auth’s url and links to /admin/reset-password', async () => {
@@ -230,9 +378,10 @@ describe('the log sink', () => {
 
 describe('describeEmailError', () => {
   it('keeps the code and message of an EmailSendError, short and token-free, for staff_invitation.email_error', () => {
-    expect(describeEmailError(new EmailSendError('provider_error', 'Resend rejected the email: rate limited'))).toBe(
-      'provider_error: Resend rejected the email: rate limited',
+    expect(describeEmailError(new EmailSendError('provider_error', 'SMTP EAUTH at AUTH PLAIN: Invalid login: 535 Authentication failed'))).toBe(
+      'provider_error: SMTP EAUTH at AUTH PLAIN: Invalid login: 535 Authentication failed',
     );
+    expect(redactEmails('550 5.1.1 <An.Nguyen+x@guest.vn>: no such user; cc lan@furama.test')).toBe('550 5.1.1 <<redacted>>: no such user; cc <redacted>');
     expect(describeEmailError(new Error('socket hang up'))).toBe('unknown: socket hang up');
     expect(describeEmailError('x'.repeat(400))).toHaveLength(300);
   });

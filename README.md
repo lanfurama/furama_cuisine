@@ -9,7 +9,7 @@ with reservations persisted in Neon Postgres.
 - **Neon Postgres** via the Vercel Marketplace, reached with `pg` (node-postgres)
   on Fluid Compute per Neon's own guidance
 - **Better Auth** for staff sign-in (invitation only, Admin and Editor roles)
-  and **Resend** with react-email for the staff emails
+  and **SMTP** (nodemailer) with react-email for every email
 - Plain CSS with design tokens — the design is built on fluid `clamp()` values
   throughout, so the tokens mirror them directly rather than round-tripping
   through a utility framework
@@ -271,33 +271,68 @@ against an empty local database, and write the difference as a new migration.
 | Variable | Production | Preview | Local E2E / CI |
 | --- | --- | --- | --- |
 | `BETTER_AUTH_SECRET` | its own, 32+ random bytes | its own | a fresh `openssl rand -base64 32` |
-| `BETTER_AUTH_URL` | `https://<production domain>`, the origin of emailed links | the preview's own URL | `http://localhost:<port>` |
-| `EMAIL_DELIVERY` | `live` | `redirect` | `log` (also the default when unset) |
-| `EMAIL_REDIRECT_TO` | — | the team inbox that receives every preview email | — |
-| `EMAIL_FROM` | `Furama Cuisine <no-reply@mail.furamavietnam.com>` | same | — |
-| `RESEND_API_KEY` | the production key | a separate key | — |
+| `BETTER_AUTH_URL` | `https://<production domain>`, the origin of emailed links (required outside log mode) | the preview's own URL | `http://localhost:<port>` |
+| `EMAIL_DELIVERY` | `live` (Production only: the sender refuses it on a Preview and under `vercel dev`) | `redirect` | `log` (also the default when unset) |
+| `EMAIL_REDIRECT_TO` | — | the Admin's inbox, which receives every preview email | — |
+| `EMAIL_FROM` | `Furama Cuisine <no-reply@…>`, an address the SMTP login may send as | same | unset (log mode) |
+| `SMTP_HOST` | the provider's submission host | same | never set |
+| `SMTP_PORT` | `587` (STARTTLS, the default) or `465` (TLS) | same | never set |
+| `SMTP_SECURE` | only if the port rule does not fit: `true` (TLS from the first byte) or `false` (STARTTLS); unset means `true` on 465 only | same | never set |
+| `SMTP_USER`, `SMTP_PASSWORD` | the login (both or neither) | a separate login if the provider allows | never set |
+| `CRON_SECRET` | 16+ characters (`openssl rand -hex 32`); arrives with the outbox cron | optional | a fresh random value per E2E run |
 | `EMAIL_LOG_FILE` | never | never | a scratch file; log mode appends each email as one JSON line |
 | `BOOTSTRAP_ADMIN_EMAIL` | never (only in the shell that runs `scripts/create-admin.mjs`) | never | — |
 
-`EMAIL_DELIVERY` is read when an email is sent, never at build time; an
-unknown value throws instead of sending. On a Vercel deployment
-(`VERCEL_ENV=production` or `preview`) the log mode prints neither addresses
-nor links and writes no `EMAIL_LOG_FILE`, so the email reached no one: the
-send fails with `not_delivered`, and the staff screen says email is not set
-up on that environment instead of "Đã gửi lời mời.".
+`EMAIL_DELIVERY` and the `SMTP_*` settings are read when an email is sent,
+never at build time; an unknown value throws instead of sending, and so does
+`live` where `VERCEL_ENV` is `preview` or `development`: a Preview runs on data
+forked from production, so only redirect may send there.
+`RESEND_API_KEY` is no longer read: remove it from every environment.
 
-### Resend
+On a Vercel deployment (`VERCEL_ENV=production` or `preview`) the log mode
+prints neither addresses nor links and writes no `EMAIL_LOG_FILE`, so the
+email reached no one: the send fails with `not_delivered`, and the staff
+screen says email is not set up on that environment instead of "Đã gửi lời
+mời.".
 
-Invitation and reset emails go straight to Resend (spec §10.4), from a
-subdomain of furamavietnam.com verified in Resend: IT adds the MX, SPF, DKIM
-and DMARC records Resend lists for `mail.furamavietnam.com` (check first
-whether the root domain already has a DMARC record), then `EMAIL_FROM` uses
-that subdomain. Until it is verified, keep `EMAIL_DELIVERY=redirect` (on a
-deployment, `log` sends nothing and every invitation is marked unsent).
-A failed invitation email leaves the invitation in place and the staff
-screen says "Chưa gửi được email, bấm Gửi lại" (or, for a setup problem such
-as `not_delivered` or a missing key, that email is not set up on this
-environment); a failed reset email is only logged.
+### Email (SMTP)
+
+Every email goes through one gate, `lib/server/email/send.ts` (spec §10.4),
+and from there over a traditional SMTP account with nodemailer: port 587 with
+a mandatory STARTTLS upgrade (the client refuses to go on in clear), or 465
+with TLS from the first byte; TLS 1.2 or newer; each message on its own
+connection; per-step timeouts and a 30-second cap on a whole send. Only
+`lib/server/email/` may import nodemailer (a guard test checks it).
+
+- **Message-ID.** SMTP has no idempotency key. A staff email's Message-ID is
+  made from its key (`<invite-<id>-<hash>@<EMAIL_FROM domain>>`, never the
+  token), so a retry of the same send is recognisably the same message.
+- **Errors.** A recipient the server refuses for good (5xx at `RCPT TO`) is
+  `rejected`; anything else on the way (network, TLS, login, 4xx, a 5xx after
+  the message such as a sending quota, a timeout) is `provider_error`.
+  Addresses are removed from every stored error and log line, and the SMTP
+  server's host and IP address from every stored error (Editors read them in
+  the email log).
+- **Redirect.** `EMAIL_DELIVERY=redirect` sends every email to
+  `EMAIL_REDIRECT_TO`, with the real address in the subject and no Reply-To,
+  so answering a redirected email reaches neither a guest of the forked data
+  nor production's shared inbox.
+- **Links.** Emailed links use `BETTER_AUTH_URL`. Without it, a live or
+  redirected email, or any email on a Vercel deployment, fails with
+  `missing_app_url` instead of carrying a localhost link.
+- **Deliverability** (IT Furama): `EMAIL_FROM` must be an address the SMTP
+  login may send as; SPF must include the provider, DKIM must sign for the
+  From domain, and DMARC must align (check first whether the root domain
+  already has a DMARC record; start at `p=none`). Until that is done keep
+  `EMAIL_DELIVERY=redirect` (on a deployment, `log` sends nothing and every
+  invitation is marked unsent).
+
+A failed invitation email leaves the invitation in place and the staff screen
+says "Chưa gửi được email, bấm Gửi lại" (or, for a setup problem such as
+`not_delivered`, `missing_smtp_config` or `missing_app_url`, that email is not
+set up on this environment); a failed reset email is only logged. Tests reach
+SMTP only through `test/helpers/smtp-sink.ts`, an in-process server on
+`127.0.0.1`.
 
 ### First Admin
 

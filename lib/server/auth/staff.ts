@@ -5,6 +5,7 @@ import type { Pool, PoolClient } from 'pg';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
 import { describeEmailError, emailErrorCode } from '@/lib/server/email/types';
 import { INVITATION_REQUIRED, type Auth } from './config';
+import { INVITE_TTL_DAYS } from './lifetimes';
 import type { StaffRole } from './permissions';
 import { normalizeEmail } from './signup-gate';
 
@@ -32,7 +33,8 @@ type Fail<C extends string> = { ok: false; code: C };
  */
 export type InviteDelivery = { emailSent: true } | { emailSent: false; emailError: string };
 
-export const INVITE_TTL = '7 days';
+/** The SQL interval of staff_invitation.expires_at; the invitation email states the same days. */
+export const INVITE_TTL = `${INVITE_TTL_DAYS} days`;
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
 
 export function hashToken(token: string): string {
@@ -45,7 +47,11 @@ export function newInviteToken(): { token: string; hash: string } {
   return { token, hash: hashToken(token) };
 }
 
-/** Sends after the commit; a failure is stored in email_error, never thrown (spec §7.1 step 5). */
+/**
+ * Sends after the commit; a failure is stored in email_error, never thrown (spec §7.1 step 5).
+ * Only the send sits in the try: once the email has gone out, a database error while clearing
+ * an earlier email_error is logged, not reported as "Chưa gửi được email" (phase-3 ledger).
+ */
 async function deliverInvite(
   deps: StaffDeps,
   invitation: { id: string; email: string; role: StaffRole },
@@ -60,8 +66,6 @@ async function deliverInvite(
       role: invitation.role,
       inviterName: actor.name ?? actor.email,
     });
-    await deps.pool.query('UPDATE staff_invitation SET email_error = NULL WHERE id = $1', [invitation.id]);
-    return { emailSent: true };
   } catch (err) {
     const stored = describeEmailError(err);
     const code = emailErrorCode(stored) ?? 'unknown';
@@ -69,6 +73,12 @@ async function deliverInvite(
     await deps.pool.query('UPDATE staff_invitation SET email_error = $2 WHERE id = $1', [invitation.id, stored]);
     return { emailSent: false, emailError: code };
   }
+  try {
+    await deps.pool.query('UPDATE staff_invitation SET email_error = NULL WHERE id = $1', [invitation.id]);
+  } catch (err) {
+    console.error('[staff] invite bookkeeping failed', { id: invitation.id, code: (err as { code?: string } | null)?.code ?? 'unknown' });
+  }
+  return { emailSent: true };
 }
 
 export async function createInvitation(

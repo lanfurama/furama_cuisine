@@ -115,11 +115,11 @@ describe.skipIf(!TEST_DATABASE_URL)('staff management on migration 005', () => {
     it('a failed send keeps the invitation and records the error; a resend that works clears it', async () => {
       const admin = await owner();
       const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
-      failNext = new EmailSendError('provider_error', 'Resend rejected the email: rate limited');
+      failNext = new EmailSendError('provider_error', 'SMTP EAUTH at AUTH PLAIN: Invalid login: 535 Authentication failed');
       const invited = await createInvitation(deps(), admin, { email: 'ed@furama.test', role: 'editor' });
       expect(invited).toMatchObject({ ok: true, emailSent: false, emailError: 'provider_error' });
       expect(await rows('SELECT email_error FROM staff_invitation')).toEqual([
-        { email_error: 'provider_error: Resend rejected the email: rate limited' },
+        { email_error: 'provider_error: SMTP EAUTH at AUTH PLAIN: Invalid login: 535 Authentication failed' },
       ]);
       expect(errors).toHaveBeenCalledWith('[staff] invite email failed', { id: invited.ok ? invited.id : '', code: 'provider_error' });
       errors.mockRestore();
@@ -127,6 +127,27 @@ describe.skipIf(!TEST_DATABASE_URL)('staff management on migration 005', () => {
       if (!invited.ok) throw new Error('unreachable');
       expect(await resendInvitation(deps(), admin, invited.id)).toEqual({ ok: true, emailSent: true });
       expect(await rows('SELECT email_error FROM staff_invitation')).toEqual([{ email_error: null }]);
+    });
+
+    it('an email that went out stays sent when recording it fails afterwards (the send and the bookkeeping are apart)', async () => {
+      const admin = await owner();
+      const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+      // A database that fails only the bookkeeping write after a successful send.
+      const flaky = new Proxy(pool, {
+        get: (target, prop, receiver) =>
+          prop === 'query'
+            ? (text: unknown, values?: unknown) =>
+                typeof text === 'string' && text.startsWith('UPDATE staff_invitation SET email_error = NULL')
+                  ? Promise.reject(Object.assign(new Error('connection terminated'), { code: '57P01' }))
+                  : target.query(text as string, values as unknown[])
+            : Reflect.get(target, prop, receiver),
+      });
+      const invited = await createInvitation({ ...deps(), pool: flaky }, admin, { email: 'ed@furama.test', role: 'editor' });
+      expect(invited).toMatchObject({ ok: true, emailSent: true });
+      expect(invites).toHaveLength(1);
+      expect(errors).toHaveBeenCalledWith('[staff] invite bookkeeping failed', { id: invited.ok ? invited.id : '', code: '57P01' });
+      expect(errors).not.toHaveBeenCalledWith('[staff] invite email failed', expect.anything());
+      errors.mockRestore();
     });
 
     it('log mode on a Vercel deployment is not a sent invitation: email_error records not_delivered', async () => {

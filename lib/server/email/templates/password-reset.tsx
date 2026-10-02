@@ -5,12 +5,13 @@ export type PasswordResetProps = {
   /** Full link to /admin/reset-password?token=… */
   resetUrl: string;
   userName?: string;
-  expiresInMinutes?: number;
+  /** From RESET_TOKEN_SECONDS (lib/server/auth/lifetimes.ts), the lifetime Better Auth enforces. */
+  expiresInMinutes: number;
 };
 
 export const passwordResetSubject = 'Đặt lại mật khẩu quản trị Furama Cuisine';
 
-export function PasswordResetEmail({ resetUrl, userName, expiresInMinutes = 60 }: PasswordResetProps) {
+export function PasswordResetEmail({ resetUrl, userName, expiresInMinutes }: PasswordResetProps) {
   return (
     <EmailLayout preview="Đặt lại mật khẩu quản trị Furama Cuisine">
       <Heading as="h1" style={emailStyles.heading}>Đặt lại mật khẩu</Heading>

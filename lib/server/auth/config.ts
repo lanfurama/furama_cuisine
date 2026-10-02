@@ -3,6 +3,7 @@ import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { nextCookies } from 'better-auth/next-js';
 import { admin as adminPlugin } from 'better-auth/plugins/admin';
 import type { Pool } from 'pg';
+import { RESET_TOKEN_SECONDS } from './lifetimes';
 import { ac, roles } from './permissions';
 import { decideSignup } from './signup-gate';
 
@@ -111,7 +112,7 @@ export function createAuth(deps: AuthDeps) {
       minPasswordLength: 12,
       maxPasswordLength: 128,
       revokeSessionsOnPasswordReset: true,
-      resetPasswordTokenExpiresIn: 60 * 60, // the email says 60 minutes
+      resetPasswordTokenExpiresIn: RESET_TOKEN_SECONDS, // the reset email states the same lifetime
       // Better Auth answers 200 for any email; with deps.backgroundTask this
       // runs after that answer (runInBackgroundOrAwait), so a staff address
       // answers as fast as an unknown one. A throw here must neither change the

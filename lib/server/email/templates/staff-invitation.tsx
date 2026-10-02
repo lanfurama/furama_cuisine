@@ -6,14 +6,15 @@ export type StaffInvitationProps = {
   acceptUrl: string;
   role: 'admin' | 'editor';
   inviterName: string;
-  expiresInDays?: number;
+  /** From INVITE_TTL_DAYS (lib/server/auth/lifetimes.ts), the lifetime staff_invitation enforces. */
+  expiresInDays: number;
 };
 
 export const roleLabelVi = { admin: 'Quản trị viên', editor: 'Biên tập viên' } as const;
 
 export const staffInvitationSubject = 'Lời mời tham gia quản trị Furama Cuisine';
 
-export function StaffInvitationEmail({ acceptUrl, role, inviterName, expiresInDays = 7 }: StaffInvitationProps) {
+export function StaffInvitationEmail({ acceptUrl, role, inviterName, expiresInDays }: StaffInvitationProps) {
   const roleLabel = roleLabelVi[role];
   return (
     <EmailLayout preview={`${inviterName} mời bạn tham gia quản trị Furama Cuisine với vai trò ${roleLabel}`}>

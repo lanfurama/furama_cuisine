@@ -10,11 +10,18 @@ export type EmailContent =
 export type SendEmailInput = EmailContent & {
   to: string;
   subject: string;
-  /** Sent as Resend's Idempotency-Key (live and redirect only; Resend keeps keys for 24 hours). */
+  /**
+   * What makes a repeat of this send recognisable. SMTP has no idempotency key, so it becomes
+   * the Message-ID header (`<invite-12-ab34@sending-domain>`) unless `messageId` is given.
+   */
   idempotencyKey?: string;
+  /** A ready Message-ID, `<…@…>`; the outbox passes the one it fixed at the first attempt. */
+  messageId?: string;
+  /** Where a reply goes: the guest for staff.new, the shared inbox for guest emails (R11). */
+  replyTo?: string;
 };
 
-/** What a sink / the provider actually received, after redirect and rendering. */
+/** What a sink / the SMTP server actually received, after redirect and rendering. */
 export type DeliveredEmail = {
   mode: EmailDeliveryMode;
   to: string;
@@ -24,17 +31,26 @@ export type DeliveredEmail = {
   html: string;
   text: string;
   idempotencyKey?: string;
+  messageId?: string;
+  replyTo?: string;
 };
 
-export type SendEmailResult = { mode: EmailDeliveryMode; id?: string };
+/** `id`: the SMTP server's reply to the message ("250 2.0.0 Ok: queued as …"); none in log mode. */
+export type SendEmailResult = { mode: EmailDeliveryMode; id?: string; messageId?: string };
 
 export type EmailErrorCode =
   | 'invalid_delivery_mode'
-  | 'missing_api_key'
+  /** EMAIL_DELIVERY is live or redirect but SMTP_HOST, SMTP_PORT or the SMTP_USER/SMTP_PASSWORD pair is missing or wrong. */
+  | 'missing_smtp_config'
   | 'missing_from'
   | 'missing_redirect_to'
+  /** BETTER_AUTH_URL is unset where an emailed link could reach someone (live, redirect, or a Vercel deployment). */
+  | 'missing_app_url'
   /** Log mode on a Vercel Production or Preview deployment: logged without its link, so it reached no one. */
   | 'not_delivered'
+  /** The SMTP server refused the recipient for good (5xx at RCPT TO): retrying cannot help. */
+  | 'rejected'
+  /** Anything else on the way to the SMTP server: network, TLS, auth, 4xx, a timeout. Retried. */
   | 'provider_error';
 
 /** Thrown by sendEmail. The invite flow stores describeEmailError(err) in staff_invitation.email_error. */
@@ -49,23 +65,35 @@ export class EmailSendError extends Error {
 
 export type EmailLogSink = (email: DeliveredEmail) => void | Promise<void>;
 
-/** The slice of the Resend SDK we use; tests inject a fake. */
-export type ResendLike = {
-  emails: {
-    send(
-      payload: { from: string; to: string; subject: string; html: string; text: string },
-      options?: { idempotencyKey?: string },
-    ): Promise<{ data: { id: string } | null; error: { name?: string; message: string } | null }>;
-  };
+/** The message we hand the transport (nodemailer's SendMailOptions, narrowed to what we use). */
+export type TransportMessage = {
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  messageId?: string;
+  replyTo?: string;
 };
 
-/** What goes in staff_invitation.email_error: "<code>: <message>", at most 300 characters, safe to show an Admin. */
+/** The slice of a nodemailer transporter we use; tests inject a fake or the real one aimed at a local sink. */
+export type MailTransport = {
+  sendMail(message: TransportMessage): Promise<{ messageId: string; response: string }>;
+  close(): void;
+};
+
+/** Addresses in an SMTP reply ("550 5.1.1 <guest@x.vn>: unknown") never reach a stored error or a log line. */
+export function redactEmails(text: string): string {
+  return text.replace(/[^\s<>()"',;:]+@[^\s<>()"',;:]+/g, '<redacted>');
+}
+
+/** What goes in staff_invitation.email_error and email_outbox.last_error: "<code>: <message>", at most 300 characters, no addresses. */
 export function describeEmailError(error: unknown): string {
   const text =
     error instanceof EmailSendError
       ? `${error.code}: ${error.message}`
       : `unknown: ${error instanceof Error ? error.message : String(error)}`;
-  return text.slice(0, 300);
+  return redactEmails(text).slice(0, 300);
 }
 
 /** The code at the front of a stored email_error (an EmailErrorCode or "unknown"), or null when there is none. */
