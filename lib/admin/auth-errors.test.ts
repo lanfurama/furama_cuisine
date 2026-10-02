@@ -37,7 +37,24 @@ describe('actionErrorMessage', () => {
     ['last_admin', 'Không thể hạ quyền, khóa hoặc xóa Admin cuối cùng.'],
     ['self', 'Bạn không thể tự khóa hoặc tự xóa tài khoản của mình.'],
     ['invalid_token', 'Lời mời không hợp lệ, đã hết hạn hoặc đã bị thu hồi.'],
+    ['conflict', 'Vừa có người khác thay đổi mục này. Hãy tải lại trang rồi làm lại.'],
+    ['not_allowed', 'Không thể chuyển sang trạng thái này từ trạng thái hiện tại. Hãy tải lại trang.'],
+    ['too_early', 'Chưa đến lúc thực hiện thao tác này.'],
+    ['too_late', 'Đã quá thời gian cho phép (chỉ sửa được trong ngày phục vụ).'],
+    ['full', 'Khung giờ này đã hết chỗ. Muốn vẫn nhận, hãy ghi lý do vượt sức chứa.'],
+    ['closed', 'Nhà hàng đóng cửa vào bữa này trong ngày đã chọn.'],
+    ['slot_unavailable', 'Giờ này không nằm trong ca phục vụ của ngày đã chọn.'],
+    ['duplicate', 'Số điện thoại này đã có một đặt bàn đang hoạt động cùng nhà hàng, ngày và giờ.'],
   ] as const)('%s', (code, message) => expect(actionErrorMessage(code)).toBe(message));
+
+  it('says who saved first, and how many covers are left, when the action sends them', () => {
+    expect(actionErrorMessage('conflict', { by: 'Lan (lan@furama.test)', at: '19:05 02/10/2026' })).toBe(
+      'Vừa được Lan (lan@furama.test) thay đổi lúc 19:05 02/10/2026. Hãy tải lại trang rồi làm lại.',
+    );
+    expect(actionErrorMessage('conflict', { by: 'Lan', at: '' })).toBe('Vừa được Lan thay đổi. Hãy tải lại trang rồi làm lại.');
+    expect(actionErrorMessage('full', { left: '3' })).toBe('Khung giờ này chỉ còn 3 chỗ. Muốn vẫn nhận, hãy ghi lý do vượt sức chứa.');
+    expect(actionErrorMessage('full', { left: '0' })).toBe('Khung giờ này chỉ còn 0 chỗ. Muốn vẫn nhận, hãy ghi lý do vượt sức chứa.');
+  });
 });
 
 describe('inviteEmailFailedMessage', () => {

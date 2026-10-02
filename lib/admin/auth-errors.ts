@@ -52,9 +52,24 @@ const ACTION_MESSAGES: Record<ActionCode, string> = {
   last_admin: 'Không thể hạ quyền, khóa hoặc xóa Admin cuối cùng.',
   self: 'Bạn không thể tự khóa hoặc tự xóa tài khoản của mình.',
   invalid_token: 'Lời mời không hợp lệ, đã hết hạn hoặc đã bị thu hồi.',
+  conflict: 'Vừa có người khác thay đổi mục này. Hãy tải lại trang rồi làm lại.',
+  not_allowed: 'Không thể chuyển sang trạng thái này từ trạng thái hiện tại. Hãy tải lại trang.',
+  too_early: 'Chưa đến lúc thực hiện thao tác này.',
+  too_late: 'Đã quá thời gian cho phép (chỉ sửa được trong ngày phục vụ).',
+  full: 'Khung giờ này đã hết chỗ. Muốn vẫn nhận, hãy ghi lý do vượt sức chứa.',
+  closed: 'Nhà hàng đóng cửa vào bữa này trong ngày đã chọn.',
+  slot_unavailable: 'Giờ này không nằm trong ca phục vụ của ngày đã chọn.',
+  duplicate: 'Số điện thoại này đã có một đặt bàn đang hoạt động cùng nhà hàng, ngày và giờ.',
 };
 
-export function actionErrorMessage(code: ActionCode): string {
+/** `params` fills in the codes that carry details: who saved first and when, the covers left. */
+export function actionErrorMessage(code: ActionCode, params?: Record<string, string>): string {
+  if (code === 'conflict' && params?.by) {
+    return `Vừa được ${params.by} thay đổi${params.at ? ` lúc ${params.at}` : ''}. Hãy tải lại trang rồi làm lại.`;
+  }
+  if (code === 'full' && params?.left !== undefined) {
+    return `Khung giờ này chỉ còn ${params.left} chỗ. Muốn vẫn nhận, hãy ghi lý do vượt sức chứa.`;
+  }
   return ACTION_MESSAGES[code];
 }
 

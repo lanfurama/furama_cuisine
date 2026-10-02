@@ -6,6 +6,7 @@ import { cache } from 'react';
 import { ADMIN_SIGN_IN } from '@/lib/admin/paths';
 import type { AuditActor } from '@/lib/server/audit';
 import { getAuth } from '@/lib/server/auth/auth';
+import { clientIp } from '@/lib/server/client-ip';
 import { isStaffRole, roleCan, type Permissions, type StaffRole } from '@/lib/server/auth/permissions';
 
 /*
@@ -20,7 +21,7 @@ export type StaffSession = {
   email: string;
   name: string;
   role: StaffRole;
-  /** For audit_log.ip: the first X-Forwarded-For address (Vercel sets one, the client's). */
+  /** For audit_log.ip: see clientIp(). */
   ip: string | null;
 };
 
@@ -52,7 +53,7 @@ export const getStaffSession = cache(async (): Promise<StaffSession | null> => {
     email: user.email,
     name: user.name,
     role: user.role,
-    ip: requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim() || null,
+    ip: clientIp(requestHeaders),
   };
 });
 

@@ -5,6 +5,7 @@ import { PermissionError } from './dal/session';
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe('actionError', () => {
@@ -26,5 +27,25 @@ describe('actionError', () => {
     expect(actionError(new TypeError('secret detail owner@furama.test'))).toEqual({ ok: false, code: 'db_error' });
     expect(logged).toHaveBeenCalledWith('[admin] action failed', { code: 'db_error', name: 'TypeError' });
     expect(JSON.stringify(logged.mock.calls)).not.toContain('secret');
+  });
+});
+
+describe('actionError and Next’s control flow (unstable_rethrow)', () => {
+  it('rethrows redirect(), notFound() and forbidden() instead of turning them into db_error', async () => {
+    const { forbidden, notFound, redirect } = await import('next/navigation');
+    // next.config.ts sets experimental.authInterrupts, which Next exposes to forbidden() as this variable.
+    vi.stubEnv('__NEXT_EXPERIMENTAL_AUTH_INTERRUPTS', '1');
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    for (const interrupt of [() => redirect('/admin/reservations/1'), () => notFound(), () => forbidden()]) {
+      let thrown: unknown;
+      try {
+        interrupt();
+      } catch (err) {
+        thrown = err;
+      }
+      expect(thrown).toBeDefined();
+      expect(() => actionError(thrown)).toThrow(thrown as Error);
+    }
+    expect(logged).not.toHaveBeenCalled();
   });
 });

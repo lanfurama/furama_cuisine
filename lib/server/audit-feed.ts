@@ -2,10 +2,12 @@ import 'server-only';
 import type { Pool } from 'pg';
 
 /*
- * /admin/audit reads the audit_feed view (spec §5.2): audit_log now, joined by
- * reservation_events in phase 4 with the same columns. Newest first; rows
- * written in one transaction share `at`, so the tie-break is the source and
- * then the id as a number (ids are text in the view, hence the lpad).
+ * /admin/audit reads the audit_feed view (spec §5.2, §7.4): audit_log and
+ * reservation_events on one timeline, newest first. Keyset paging on
+ * (at, source, id::bigint): rows written in one transaction share `at`, so
+ * the source and then the numeric id break the tie. The cursor carries `at` in
+ * microseconds since the epoch, exactly: a JS Date keeps only milliseconds and
+ * would skip or repeat rows that share one.
  */
 
 export const AUDIT_PAGE_SIZE = 50;
@@ -22,25 +24,84 @@ export type AuditFeedRow = {
   locale: string | null;
   before: unknown;
   after: unknown;
+  /** This row's position, `<µs>_<source>_<id>`, for the links to the next page. */
+  cursor: string;
 };
 
-/** One page (1-based) of the feed, and whether another page follows. */
-export async function listAuditFeed(pool: Pool, page: number): Promise<{ rows: AuditFeedRow[]; hasNext: boolean }> {
-  const { rows } = await pool.query<AuditFeedRow>(
-    `SELECT source, id, at, actor_id, actor_label, action, entity_type, entity_id, locale, before, after
-       FROM audit_feed
-      ORDER BY at DESC, source DESC, lpad(id, 20, '0') DESC
-      LIMIT $1 OFFSET $2`,
-    [AUDIT_PAGE_SIZE + 1, (page - 1) * AUDIT_PAGE_SIZE],
-  );
-  return { rows: rows.slice(0, AUDIT_PAGE_SIZE), hasNext: rows.length > AUDIT_PAGE_SIZE };
+export type AuditPage = {
+  rows: AuditFeedRow[];
+  /** Cursor for the page of older rows, or null at the end. */
+  older: string | null;
+  /** Cursor for the page of newer rows, or null on the newest page. */
+  newer: string | null;
+};
+
+const CURSOR = /^(\d{1,17})_(audit|reservation)_(\d{1,18})$/;
+
+export function isAuditCursor(value: unknown): value is string {
+  return typeof value === 'string' && CURSOR.test(value);
 }
 
-/** id → email for the staff accounts that still exist; the feed shows the id of a removed one. */
-export async function staffEmails(pool: Pool, ids: readonly string[]): Promise<Map<string, string>> {
-  if (ids.length === 0) return new Map();
-  const { rows } = await pool.query<{ id: string; email: string }>('SELECT id, email FROM staff_user WHERE id = ANY($1)', [
-    [...new Set(ids)],
-  ]);
-  return new Map(rows.map((r) => [r.id, r.email]));
+const SELECT = `SELECT source, id, at, actor_id, actor_label, action, entity_type, entity_id, locale, before, after,
+       (extract(epoch FROM at) * 1000000)::bigint::text || '_' || source || '_' || id AS cursor
+  FROM audit_feed`;
+const KEY = `(at, source, id::bigint)`;
+const AT = (p: string) => `timestamptz 'epoch' + ${p}::bigint * interval '1 microsecond'`;
+
+/**
+ * One page. `before`: the rows older than that cursor (the "Cũ hơn" link);
+ * `after`: the rows newer than it ("Mới hơn"); neither, or a malformed
+ * cursor: the newest page.
+ */
+export async function listAuditFeed(pool: Pool, options: { before?: string | null; after?: string | null } = {}): Promise<AuditPage> {
+  const before = options.before ? CURSOR.exec(options.before) : null;
+  const after = !before && options.after ? CURSOR.exec(options.after) : null;
+  const limit = AUDIT_PAGE_SIZE + 1;
+
+  if (after) {
+    // Read upwards from the cursor, then show newest first like every other page.
+    const { rows } = await pool.query<AuditFeedRow>(
+      `${SELECT} WHERE ${KEY} > (${AT('$1')}, $2, $3::bigint) ORDER BY at, source, id::bigint LIMIT ${limit}`,
+      [after[1], after[2], after[3]],
+    );
+    const page = rows.slice(0, AUDIT_PAGE_SIZE).reverse();
+    return { rows: page, older: page.at(-1)?.cursor ?? null, newer: rows.length > AUDIT_PAGE_SIZE ? page[0].cursor : null };
+  }
+
+  const { rows } = before
+    ? await pool.query<AuditFeedRow>(
+        `${SELECT} WHERE ${KEY} < (${AT('$1')}, $2, $3::bigint) ORDER BY at DESC, source DESC, id::bigint DESC LIMIT ${limit}`,
+        [before[1], before[2], before[3]],
+      )
+    : await pool.query<AuditFeedRow>(`${SELECT} ORDER BY at DESC, source DESC, id::bigint DESC LIMIT ${limit}`);
+  const page = rows.slice(0, AUDIT_PAGE_SIZE);
+  return {
+    rows: page,
+    older: rows.length > AUDIT_PAGE_SIZE ? page[page.length - 1].cursor : null,
+    newer: before && page.length > 0 ? page[0].cursor : null,
+  };
+}
+
+/**
+ * What to show for each row's entity instead of a raw id: a staff member's
+ * or an invitation's email, a booking's reference. A removed account keeps
+ * its id (the log outlives the account).
+ */
+export async function entityLabels(
+  pool: Pool,
+  rows: readonly Pick<AuditFeedRow, 'entity_type' | 'entity_id'>[],
+): Promise<Map<string, string>> {
+  const ids = (type: string) => [...new Set(rows.filter((r) => r.entity_type === type && r.entity_id).map((r) => r.entity_id as string))];
+  const numeric = (list: string[]) => list.filter((id) => /^\d{1,18}$/.test(id));
+  const staff = ids('staff_user');
+  const invitations = numeric(ids('staff_invitation'));
+  const reservations = numeric(ids('reservation'));
+  if (staff.length + invitations.length + reservations.length === 0) return new Map();
+  const { rows: labels } = await pool.query<{ key: string; label: string }>(
+    `SELECT 'staff_user:' || id AS key, email AS label FROM staff_user WHERE id = ANY($1::text[])
+     UNION ALL SELECT 'staff_invitation:' || id, email FROM staff_invitation WHERE id = ANY($2::bigint[])
+     UNION ALL SELECT 'reservation:' || id, reference FROM reservations WHERE id = ANY($3::bigint[])`,
+    [staff, invitations, reservations],
+  );
+  return new Map(labels.map((l) => [l.key, l.label]));
 }

@@ -7,6 +7,7 @@ import { z } from '@/lib/admin/zod';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
 import { getAuth, staffDeps } from '@/lib/server/auth/auth';
 import { acceptInvitation as accept } from '@/lib/server/auth/staff';
+import { clientIp } from '@/lib/server/client-ip';
 
 const AcceptInput = z.object({
   token: z.string(),
@@ -39,8 +40,7 @@ async function createAccount(formData: FormData): Promise<ActionResult> {
       password: formData.get('password'),
     });
     const requestHeaders = await headers();
-    const ip = requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
-    const result = await accept(staffDeps(), input, ip);
+    const result = await accept(staffDeps(), input, clientIp(requestHeaders));
     if (!result.ok) return result;
     // The one auth.api sign-in in the app: the account was created a moment ago
     // with this password. nextCookies() puts the session cookie on this response.
