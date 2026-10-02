@@ -41,9 +41,11 @@ export const REGISTRY = {
     screen: 'ui-text',
   },
   'error.party_too_large': {
-    en: 'Please choose between 1 and 12 guests.',
+    en: 'For more than {max} guests, please call us on {phone}.',
     maxLength: 140,
-    context: 'Party size above the online limit. The numbers will become variables once the limit is configurable.',
+    vars: ['max', 'phone'],
+    context:
+      'Party size above the online limit. {max} is the largest party bookable online (booking rules), {phone} the restaurant’s number for larger groups; keep both as is.',
     screen: 'ui-text',
   },
   'error.outside_window': {
@@ -60,9 +62,10 @@ export const REGISTRY = {
     screen: 'ui-text',
   },
   'error.past': {
-    en: 'That sitting has already started — please pick a later time.',
+    en: 'That time can no longer be booked online — please choose a later time or another day.',
     maxLength: 140,
-    context: 'The chosen sitting has started or ended.',
+    context:
+      'The chosen sitting is too close to book online (the lead time before it), or online booking for today has closed (the same-day cut-off). Must read right for both.',
     screen: 'ui-text',
   },
   'error.invalid_name': {
@@ -93,6 +96,12 @@ export const REGISTRY = {
     en: 'We already have a request for this table under your number.',
     maxLength: 140,
     context: 'The same phone number already has an active request for this restaurant, date and time.',
+    screen: 'ui-text',
+  },
+  'error.closed': {
+    en: 'The restaurant is closed on that date — please choose another day.',
+    maxLength: 140,
+    context: 'A closure, or a day without service, covers the chosen date or meal.',
     screen: 'ui-text',
   },
   'error.unknown': {

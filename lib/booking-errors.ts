@@ -3,6 +3,7 @@
  * codes; the browser turns them into copy. The copy lives in the content
  * registry (lib/i18n/registry.ts) as error.<code>, so the DB can override it.
  */
+import { CONTACT } from '@/lib/data';
 import { formatMessage } from '@/lib/i18n/format';
 import { REGISTRY } from '@/lib/i18n/registry';
 
@@ -16,6 +17,7 @@ export const BOOKING_ERROR_CODES = [
   'invalid_phone',
   'invalid_email',
   'full',
+  'closed',
   'duplicate',
   'unknown',
   'network',
@@ -32,7 +34,8 @@ export const DEFAULT_ERROR_STRINGS = Object.fromEntries(
   BOOKING_ERROR_CODES.map((code) => [`error.${code}`, REGISTRY[`error.${code}`].en]),
 ) as ErrorStrings;
 
-const DEFAULT_PARAMS: Record<string, string> = { restaurant: 'The restaurant' };
+/** Used when a message arrives without its params (the server always sends them for slot_unavailable and party_too_large). */
+const DEFAULT_PARAMS: Record<string, string> = { restaurant: 'The restaurant', max: '12', phone: CONTACT.resortPhoneLabel };
 
 export function bookingErrorMessage(
   code: BookingErrorCode,

@@ -142,7 +142,7 @@ test('submitting after the chosen sitting has closed explains why and moves the 
   await page.getByRole('button', { name: 'REQUEST BOOKING' }).click();
 
   await expect(page.locator('.drawer-error[role="alert"]')).toHaveText(
-    'That sitting has already started — please pick a later time.',
+    'That time can no longer be booked online — please choose a later time or another day.',
   );
   await expect(page.locator('.drawer-done')).toHaveCount(0);
   expect(reachedServer).toBe(false);

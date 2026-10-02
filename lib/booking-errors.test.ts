@@ -17,6 +17,18 @@ describe('bookingErrorMessage', () => {
   it('falls back to a generic subject when the restaurant is not given', () => {
     expect(bookingErrorMessage('slot_unavailable')).toBe('The restaurant does not serve at that time.');
   });
+
+  it('gives the party limit and the number to call, with defaults when the server sent none', () => {
+    expect(bookingErrorMessage('party_too_large', { max: '8', phone: '0859 555 759' })).toBe(
+      'For more than 8 guests, please call us on 0859 555 759.',
+    );
+    expect(bookingErrorMessage('party_too_large')).toBe('For more than 12 guests, please call us on +84 236 651 9999.');
+  });
+
+  it('says the restaurant is closed, and that a sitting can no longer be booked for either clock rule', () => {
+    expect(bookingErrorMessage('closed')).toBe('The restaurant is closed on that date — please choose another day.');
+    expect(bookingErrorMessage('past')).toBe('That time can no longer be booked online — please choose a later time or another day.');
+  });
 });
 
 describe('bookingErrorMessage with resolved strings', () => {

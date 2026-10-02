@@ -36,7 +36,7 @@ describe('resolveStrings', () => {
   it('uses the default-language row, else the registry', () => {
     const out = resolveStrings([{ key: 'error.full', locale: 'en', value: 'Sold out.' }], keys, 'en', 'en');
     expect(out['error.full']).toBe('Sold out.');
-    expect(out['error.past']).toContain('already started');
+    expect(out['error.past']).toContain('can no longer be booked online');
   });
   it('falls back per key: a missing vi row shows the English row, not an empty string', () => {
     const rows = [
