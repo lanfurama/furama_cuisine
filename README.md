@@ -465,11 +465,16 @@ deployment (`VERCEL_ENV` production or preview): the browser half installs
 from `instrumentation-client.ts` on guest pages, the server half asks Vercel,
 and when Vercel cannot answer, or has not answered within 3 seconds, or its
 API answers with an error instead of a verdict, the booking goes ahead and the
-function log says `[botid] check failed … BotIdError`. When the deployment was
-built without `NEXT_PUBLIC_VERCEL_ENV`, BotID is skipped altogether: bookings
-go through unchecked, with one `[botid] off …` warning per server instance. `next.config.ts` (`withBotId`) adds rewrites under
-`/149e9513-01fa-4fb0-aad4-566afd725d1b/` to Vercel in every build, the local
-one too: never request that prefix on a local `next start`.
+function log says `[botid] check failed … BotIdError`. The browser waits at
+most 15 seconds for BotID's challenge; then the guest sees the copy with the
+restaurant's number, and a new tap starts a fresh challenge. When the
+deployment was built without `NEXT_PUBLIC_VERCEL_ENV`, BotID is skipped
+altogether: bookings go through unchecked, with one `[botid] off …` warning
+per server instance (`next.config.ts` inlines the variable into both halves,
+empty when the build had none, so they always agree; `check-prerender.mjs`
+fails a build where it was not). `next.config.ts` (`withBotId`) adds
+rewrites under `/149e9513-01fa-4fb0-aad4-566afd725d1b/` to Vercel in every
+build, the local one too: never request that prefix on a local `next start`.
 
 ### Before launch A: what the owner sets up
 

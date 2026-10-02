@@ -35,9 +35,11 @@ export type StringDef = {
 // `satisfies` keeps the literal key names, so StringKey is a real union.
 export const REGISTRY = {
   'error.restaurant_unavailable': {
-    en: 'That restaurant is no longer available.',
+    en: 'This restaurant is not taking online bookings right now. Please call us on {phone}.',
     maxLength: 140,
-    context: 'Shown under the reservation form when the chosen restaurant stopped taking online bookings.',
+    vars: ['phone'],
+    context:
+      'Reservation form and booking bar, when the chosen restaurant does not take online bookings at the moment (staff switched it off); there is no Try again. Must not suggest the restaurant has closed. {phone} is the restaurant’s number, shown as a link to call; keep it.',
     screen: 'ui-text',
   },
   'error.party_too_large': {
@@ -136,10 +138,11 @@ export const REGISTRY = {
     screen: 'ui-text',
   },
   'error.network': {
-    en: 'We could not reach the reservations desk. Please try again.',
+    en: 'We could not reach the reservations desk. Please try again, or call us on {phone}.',
     maxLength: 140,
+    vars: ['phone'],
     context:
-      'The browser could not reach the server, or it could not answer (client side only): on sending the form, and in place of the dates or times when they could not be loaded, above booking.retry.',
+      'The browser could not reach the server, or it could not answer (client side only): on sending the form (also when the bot check could not run), and in place of the dates or times when they could not be loaded, above Try again (booking.retry). {phone} is the restaurant’s number, shown as a link to call (spec §12); keep it.',
     screen: 'ui-text',
   },
   'booking.day_closed': {
@@ -172,6 +175,13 @@ export const REGISTRY = {
     en: 'Not available on this date.',
     maxLength: 80,
     context: 'Under a meal heading (Lunch, Dinner…) when a closure takes out that meal only. The public reason, if any, follows on its own line.',
+    screen: 'booking',
+  },
+  'booking.no_tables': {
+    en: 'No tables left on this date — please choose another day.',
+    maxLength: 120,
+    context:
+      'Reservation form, under TIME, when every time of the chosen date is taken for this party size (the slots show struck through). Read out by screen readers when it appears.',
     screen: 'booking',
   },
   'booking.no_dates': {
@@ -230,10 +240,10 @@ export const REGISTRY = {
   // Vietnamese text exists (R17); lib/legal.test.ts pins a hash of these texts to PRIVACY_POLICY_VERSION.
   // booking.* so they reach the reservation form; legal.link reaches the browser too (form and footer).
   'booking.privacy_notice': {
-    en: 'We use your name, phone number and email only to arrange this booking and to contact you about it.',
+    en: 'We use your name, phone number and email to arrange this booking and to contact you about it. To stop abuse, we also check how many online requests your phone number has made for the same day, and run an automated bot check.',
     maxLength: 240,
     context:
-      'Reservation form, above the consent checkbox: the short privacy notice at the point of collection (spec §11, Law 91/2025/QH15). Must stay true to legal.* on the policy page.',
+      'Reservation form, above the consent checkbox: the short privacy notice at the point of collection (spec §11, Law 91/2025/QH15). Must stay true to legal.* on the policy page, the anti-abuse checks included (the per-phone daily limit and the bot check).',
     screen: 'legal',
   },
   'booking.consent': {
@@ -275,9 +285,10 @@ export const REGISTRY = {
     screen: 'legal',
   },
   'legal.collect_body': {
-    en: 'Your name and phone number; your email address and any special request, if you give them; the restaurant, date, time and party size you chose; and the time you sent the request and agreed to this policy.',
+    en: 'Your name and phone number; your email address and any special request, if you give them; the restaurant, date, time and party size you chose; the time you sent the request and agreed to this policy; and technical signals your browser sends, used only for the bot check.',
     maxLength: 1200,
-    context: 'Privacy policy page, the body of “What we collect”. Must match the fields of the reservation form.',
+    context:
+      'Privacy policy page, the body of “What we collect”. Must match the fields of the reservation form, and the signals the bot check reads in the browser (Vercel BotID).',
     screen: 'legal',
   },
   'legal.use_heading': {
@@ -287,9 +298,10 @@ export const REGISTRY = {
     screen: 'legal',
   },
   'legal.use_body': {
-    en: 'Only to arrange your booking: to hold your table, to confirm, change or cancel it with you by phone or email, and to welcome you on the day. We do not use your details for marketing and we do not sell them.',
+    en: 'To arrange your booking: to hold your table, to confirm, change or cancel it with you by phone or email, and to welcome you on the day. To protect online booking from abuse: we count the online requests made with one phone number for the same day, and the website runs an automated check, provided by our hosting company, that tells people from bots. We do not use your details for marketing and we do not sell them.',
     maxLength: 1200,
-    context: 'Privacy policy page, the body of “How we use it”.',
+    context:
+      'Privacy policy page, the body of “How we use it”: the booking, and the two anti-abuse checks (the per-phone daily limit, spec §10.2 step 5; the bot check, step 1). Keep the no-marketing sentence.',
     screen: 'legal',
   },
   'legal.share_heading': {
@@ -299,9 +311,9 @@ export const REGISTRY = {
     screen: 'legal',
   },
   'legal.share_body': {
-    en: 'Our reservations staff. The companies that host this website and its database and send our emails process your details on our behalf and only on our instructions.',
+    en: 'Our reservations staff. The companies that host this website and its database, protect it against automated requests, and send our emails process your details on our behalf and only on our instructions.',
     maxLength: 1200,
-    context: 'Privacy policy page, the body of “Who sees it”: staff and processors (hosting, database, email).',
+    context: 'Privacy policy page, the body of “Who sees it”: staff and processors (hosting, database, bot protection, email).',
     screen: 'legal',
   },
   'legal.keep_heading': {

@@ -2,7 +2,7 @@ import type { Locator, Page, Request, Route } from '@playwright/test';
 import { addDays, formatDay, venueNow } from '../lib/venue-time';
 import { GROUP_PHONE, mockAvailability, type MockDay, type MockOptions } from './availability-mock';
 import { HOME_PATH } from './paths';
-import { expect, one, test } from './staff-fixtures';
+import { exclusive, expect, one, test } from './staff-fixtures';
 
 /*
  * The guest form on server availability (spec §10.2, phase-4 acceptance
@@ -184,8 +184,12 @@ test('the details stop at the lengths the server accepts', async ({ page }) => {
   await expect(drawer.getByLabel('Special requests', { exact: true })).toHaveAttribute('maxlength', '1000');
 });
 
-const NETWORK = 'We could not reach the reservations desk. Please try again.';
-const GONE = 'That restaurant is no longer available.';
+/* Every booking failure names the number to call (spec §12); the mock's is the resort's. */
+const NETWORK = `We could not reach the reservations desk. Please try again, or call us on ${GROUP_PHONE.display}.`;
+const GONE = `This restaurant is not taking online bookings right now. Please call us on ${GROUP_PHONE.display}.`;
+
+/** The number in a message, as a link that calls it. */
+const telLink = (scope: Locator) => scope.getByRole('link', { name: GROUP_PHONE.display });
 
 /** Puts a failing answer in front of the mock while `failing()` says so; registered last, it runs first. */
 async function failAvailability(page: Page, failing: (url: URL) => boolean, answer: (route: Route) => Promise<void>) {
@@ -243,8 +247,9 @@ test('when the dates cannot load, the guest is told once: REQUEST BOOKING points
   await reserveButton(page).click();
   const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
 
-  // In place of an empty strip.
+  // In place of an empty strip, with the number to call.
   await expect(drawer.getByRole('alert')).toHaveText(NETWORK);
+  await expect(telLink(drawer.getByRole('alert'))).toHaveAttribute('href', `tel:${GROUP_PHONE.tel}`);
   await expect(drawer.locator('.daystrip')).toHaveCount(0);
 
   // Valid details and no date to book: the button answers by taking the guest to the one way
@@ -284,10 +289,12 @@ test('a restaurant that stopped taking bookings says so, with no futile Try agai
   const posts = await abortServerActions(page);
   await page.goto(HOME_PATH);
   await expect(said(page.locator('#reserve'))).toHaveText(GONE);
+  await expect(telLink(said(page.locator('#reserve')))).toHaveAttribute('href', `tel:${GROUP_PHONE.tel}`);
   await reserveButton(page).click();
   const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
 
   await expect(drawer.getByRole('alert')).toHaveText(GONE);
+  await expect(telLink(drawer.getByRole('alert'))).toHaveAttribute('href', `tel:${GROUP_PHONE.tel}`);
   await expect(drawer.getByRole('button', { name: 'Try again' })).toHaveCount(0);
   await fillDetails(drawer);
   await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
@@ -448,7 +455,8 @@ test('when the chosen day turns out closed, REQUEST BOOKING says so and asks for
   // The calendar still offers today; the day's own answer says a closure took it since.
   const drawer = await openDrawer(page, { dayAnswers: { '2026-10-02': { state: 'closed' } } });
   await expect(drawer.locator('.day[aria-pressed="true"] .day-num')).toHaveText('2');
-  await expect(drawer.getByText('The restaurant is closed at that time — please choose another time or day.')).toBeVisible();
+  // Under TIME, in a live region: a screen reader hears it when the day's answer brings it (F17).
+  await expect(drawer.getByRole('status').filter({ hasText: 'The restaurant is closed at that time — please choose another time or day.' })).toBeVisible();
   await fillDetails(drawer);
 
   const asked = calendars.count;
@@ -456,6 +464,35 @@ test('when the chosen day turns out closed, REQUEST BOOKING says so and asks for
   await expect(foot(drawer).getByRole('alert')).toHaveText('The restaurant is closed at that time — please choose another time or day.');
   await expect.poll(() => calendars.count).toBeGreaterThan(asked);
   expect(posts.count).toBe(0);
+});
+
+test('when every time of the chosen day is taken, the drawer says so in a live region, from the registry', async ({ page }) => {
+  // The calendar still offers today; the day's own answer has every slot taken.
+  const drawer = await openDrawer(page, { dayAnswers: { '2026-10-02': { state: 'full' } } });
+  await expect(drawer.locator('.slot')).toHaveCount(12);
+  await expect(drawer.locator('.slot:not([disabled])')).toHaveCount(0);
+  await expect(drawer.getByRole('status').filter({ hasText: 'No tables left on this date — please choose another day.' })).toBeVisible();
+
+  // Another day with free tables: the region empties, and stays mounted for the next message.
+  await drawer.locator('.daystrip .day').nth(1).click();
+  await expect(drawer.locator('.slot:not([disabled])')).toHaveCount(12);
+  await expect(drawer.getByText('No tables left on this date')).toHaveCount(0);
+});
+
+test('when the booking cannot reach the server, the footer gives the number to call as a link, and REQUEST BOOKING works again', async ({ page }) => {
+  const drawer = await openDrawer(page);
+  // Nothing is written: the action's POST fails on its way out, as with no network.
+  const posts = await abortServerActions(page);
+  await fillDetails(drawer);
+  const button = drawer.getByRole('button', { name: 'REQUEST BOOKING' });
+  await button.click();
+
+  const alert = foot(drawer).getByRole('alert');
+  await expect(alert).toHaveText(NETWORK);
+  await expect(alert.locator('a[href^="tel:"]')).toHaveAttribute('href', `tel:${GROUP_PHONE.tel}`);
+  await expect(button).toBeEnabled();
+  await expect(button).toHaveText('REQUEST BOOKING');
+  expect(posts.count).toBe(1);
 });
 
 test('a failed calendar for one restaurant does not show while the next one’s is on its way', async ({ page }) => {
@@ -535,28 +572,31 @@ test('a closure written to the database greys the day on the next calendar fetch
 });
 
 test('a max_party of 8 in the database stops the stepper at 8 and names the destination’s number', async ({ page }) => {
-  await one(`UPDATE restaurants SET max_party = 8 WHERE id = 'the-fan'`);
-  try {
-    const drawer = await openFromCard(page, 'Steakhouse The Fan');
-    const more = drawer.getByRole('button', { name: 'More guests' });
-    const hint = 'For more than 8 guests, please call us on 0859 555 759.';
-    // From the keyboard: at the limit the button keeps the focus, and the hint is read out.
-    // The strip can still show the previous calendar's days: the stepper waits for The Fan's own.
-    await expect(more).toBeEnabled();
-    await more.focus();
-    for (let i = 2; i < 8; i++) await page.keyboard.press('Enter');
-    await expect(drawer.locator('.guests-value')).toHaveText('8 guests');
-    await expect(more).toBeDisabled();
-    // Chrome moves the focus off a button that turned `disabled` at its next rendering update, not at once.
-    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(null)))));
-    await expect(more).toBeFocused();
-    await page.keyboard.press('Enter');
-    await expect(drawer.locator('.guests-value')).toHaveText('8 guests');
-    await expect(said(drawer)).toHaveText(hint);
-    await expect(more).toHaveAccessibleDescription(hint);
-    await expect(drawer.locator('.guests-hint')).toHaveText(hint);
-    await expect(drawer.locator('.guests-hint a')).toHaveAttribute('href', 'tel:+84859555759');
-  } finally {
-    await one(`UPDATE restaurants SET max_party = NULL WHERE id = 'the-fan'`);
-  }
+  // The Fan's row is shared: under --repeat-each another copy of this test would put it back half-way.
+  await exclusive('the-fan:max_party', async () => {
+    await one(`UPDATE restaurants SET max_party = 8 WHERE id = 'the-fan'`);
+    try {
+      const drawer = await openFromCard(page, 'Steakhouse The Fan');
+      const more = drawer.getByRole('button', { name: 'More guests' });
+      const hint = 'For more than 8 guests, please call us on 0859 555 759.';
+      // From the keyboard: at the limit the button keeps the focus, and the hint is read out.
+      // The strip can still show the previous calendar's days: the stepper waits for The Fan's own.
+      await expect(more).toBeEnabled();
+      await more.focus();
+      for (let i = 2; i < 8; i++) await page.keyboard.press('Enter');
+      await expect(drawer.locator('.guests-value')).toHaveText('8 guests');
+      await expect(more).toBeDisabled();
+      // Chrome moves the focus off a button that turned `disabled` at its next rendering update, not at once.
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(null)))));
+      await expect(more).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(drawer.locator('.guests-value')).toHaveText('8 guests');
+      await expect(said(drawer)).toHaveText(hint);
+      await expect(more).toHaveAccessibleDescription(hint);
+      await expect(drawer.locator('.guests-hint')).toHaveText(hint);
+      await expect(drawer.locator('.guests-hint a')).toHaveAttribute('href', 'tel:+84859555759');
+    } finally {
+      await one(`UPDATE restaurants SET max_party = NULL WHERE id = 'the-fan'`);
+    }
+  });
 });

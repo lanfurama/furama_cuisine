@@ -11,7 +11,7 @@ const AGREED_KEYS: readonly StringKey[] = [...PRIVACY_KEYS, 'booking.privacy_not
  * test fails, the policy text changed: move PRIVACY_POLICY_VERSION to today's
  * date and record the new pair below, in the same commit.
  */
-const RECORDED = { version: '2026-10-02', sha256: 'e4cc25f651459137b706db6b8d538d7c69404d4af0e1eccea41fff8c51dfc5e9' };
+const RECORDED = { version: '2026-10-03', sha256: 'f49aa3f58723d14d6491c1801466c411fe9439acab85b4da5272d4c7676e10d2' };
 
 describe('privacy policy version', () => {
   it('moves whenever the English text of the policy, the notice or the consent label changes', () => {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Run after `next build`. Exits 1 and lists the problems if either check fails.
+ * Run after `next build`. Exits 1 and lists the problems if any check fails.
  *
  * 1. The guest pages must be fully prerendered with cacheLife('max') and carry
  *    every cache tag their data readers declare, or a write that refreshes one
@@ -17,6 +17,11 @@
  *    CSS is checked here: every expected @font-face, under the one family the
  *    CSS variable names, with Google's unicode-range per subset, in Google's
  *    order, its file present, and its stylesheet linked from the pages.
+ * 3. NEXT_PUBLIC_VERCEL_ENV must be inlined everywhere (next.config.ts `env`):
+ *    BotID's browser half (instrumentation-client.ts) and server half
+ *    (lib/server/guard/bot.ts) decide by it, and a bundle still reading it at
+ *    runtime could check bookings the browser never sent through BotID, and
+ *    refuse every guest.
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
@@ -114,6 +119,19 @@ for (const route of UNCACHED) {
 /* 2. Fonts */
 const fontSummary = checkFonts();
 
+/*
+ * 3. BotID's switch. A read left in a bundle is `process.env.NEXT_PUBLIC_VERCEL_ENV`
+ * on the server, and in the browser Turbopack's process polyfill (for example
+ * `r.default.env.NEXT_PUBLIC_VERCEL_ENV`), so the pattern starts at `.env.`.
+ * Only what runs is checked: the server's source maps carry the original
+ * source (sourcesContent), where the expression rightly stays.
+ */
+const RUNTIME_ENV = /\.env\.NEXT_PUBLIC_VERCEL_ENV\b/;
+const bundles = ['server', 'static'].flatMap((d) => listFiles(join(dir, d))).filter((f) => !f.endsWith('.map'));
+for (const file of bundles.filter((f) => RUNTIME_ENV.test(readFileSync(f, 'utf8')))) {
+  problems.push(`${relative(process.cwd(), file)} reads NEXT_PUBLIC_VERCEL_ENV at runtime; next.config.ts must inline it (env)`);
+}
+
 if (problems.length) {
   console.error(`Prerender and font check failed:\n- ${problems.join('\n- ')}`);
   process.exit(1);
@@ -124,6 +142,7 @@ console.log(
 console.log(`Admin check passed: ${adminRoutes.map(([route]) => route).join(', ')} have no static shell.`);
 console.log(`Uncached check passed: ${UNCACHED.join(', ')} built as a route handler, not prerendered.`);
 console.log(`Font check passed: ${fontSummary}.`);
+console.log(`Inlined env check passed: none of ${bundles.length} files under .next/server and .next/static reads NEXT_PUBLIC_VERCEL_ENV at runtime.`);
 
 function checkFonts() {
   const sheets = listFiles(join(dir, 'static'))

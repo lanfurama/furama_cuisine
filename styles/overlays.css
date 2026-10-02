@@ -310,6 +310,14 @@
   color: var(--error);
 }
 
+/* The number to call in a failure: one tap, never broken across lines in the footer's narrow column. */
+.drawer-error a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
 /* Availability that did not arrive: under the message, a button to ask again
    (the stepper's 44px box, so it is easy to hit on a phone). */
 .load-retry {

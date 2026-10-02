@@ -3,7 +3,7 @@
  * codes; the browser turns them into copy. The copy lives in the content
  * registry (lib/i18n/registry.ts) as error.<code>, so the DB can override it.
  */
-import { PHONE_DAY_LIMIT } from '@/lib/booking/rules';
+import { PHONE_DAY_LIMIT, type GroupPhone } from '@/lib/booking/rules';
 import { CONTACT } from '@/lib/data';
 import { formatMessage } from '@/lib/i18n/format';
 import { REGISTRY } from '@/lib/i18n/registry';
@@ -39,6 +39,12 @@ export const DEFAULT_ERROR_STRINGS = Object.fromEntries(
 ) as ErrorStrings;
 
 /**
+ * The number a failure names when the chosen restaurant's own is not known yet
+ * (its availability never arrived): the resort's switchboard.
+ */
+export const DEFAULT_PHONE: GroupPhone = { display: CONTACT.resortPhoneLabel, tel: CONTACT.resortPhone };
+
+/**
  * Used when a message arrives without its params (the server always sends them
  * for slot_unavailable and party_too_large). The drawer passes the chosen
  * restaurant's group phone ahead of these, so {phone} names the right desk.
@@ -47,13 +53,18 @@ const DEFAULT_PARAMS: Record<string, string> = {
   restaurant: 'The restaurant',
   max: '12',
   limit: String(PHONE_DAY_LIMIT),
-  phone: CONTACT.resortPhoneLabel,
+  phone: DEFAULT_PHONE.display,
 };
+
+/** A message's params over the defaults, so no placeholder is left showing. */
+export function bookingErrorParams(params: Record<string, string> = {}): Record<string, string> {
+  return { ...DEFAULT_PARAMS, ...params };
+}
 
 export function bookingErrorMessage(
   code: BookingErrorCode,
   params: Record<string, string> = {},
   strings: ErrorStrings = DEFAULT_ERROR_STRINGS,
 ): string {
-  return formatMessage(strings[`error.${code}`], { ...DEFAULT_PARAMS, ...params });
+  return formatMessage(strings[`error.${code}`], bookingErrorParams(params));
 }

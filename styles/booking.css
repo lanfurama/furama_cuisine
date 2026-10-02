@@ -77,6 +77,13 @@
   color: var(--on-dark);
 }
 
+.booking-note a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
 @media (min-width: 760px) {
   .booking-fields {
     grid-template-columns: repeat(3, minmax(0, 1fr));

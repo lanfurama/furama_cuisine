@@ -25,16 +25,23 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem('fc-intro-seen', '1'));
 });
 
-/** The drawer on mocked availability, a slot chosen and the details typed in. */
-async function filledDrawer(page: Page, phone = '0905 000 000') {
+/** The drawer on mocked availability, with a slot chosen. */
+async function openDrawer(page: Page) {
   await page.clock.setFixedTime(NOW);
   await mockAvailability(page, { today: () => '2026-10-02', now: () => NOW.toISOString() });
   await page.goto(HOME_PATH);
-  await page.getByRole('button', { name: 'RESERVE', exact: true }).first().click();
+  // The visible header's RESERVE: on a phone the full header's is hidden.
+  await page.getByRole('button', { name: 'RESERVE', exact: true }).filter({ visible: true }).first().click();
   const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
   await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
   await drawer.locator('.daystrip .day[data-state="open"]').nth(3).click();
   await drawer.locator('.slot:not([disabled])').first().click();
+  return drawer;
+}
+
+/** The drawer on mocked availability, a slot chosen and the details typed in. */
+async function filledDrawer(page: Page, phone = '0905 000 000') {
+  const drawer = await openDrawer(page);
   await drawer.getByLabel('Full name *', { exact: true }).fill('Nguyễn Minh Anh');
   await drawer.getByLabel('Phone *', { exact: true }).fill(phone);
   return drawer;
@@ -54,19 +61,23 @@ test('nothing is sent until the consent box is ticked; the notice links the poli
   const posts = actionPosts(page);
   const box = drawer.getByRole('checkbox', { name: CONSENT });
   await expect(box).not.toBeChecked();
-  await expect(box).toHaveAccessibleDescription(/only to arrange this booking/);
+  // The notice names every use of the details, the anti-abuse checks included (F18).
+  await expect(box).toHaveAccessibleDescription(/to arrange this booking.*an automated bot check\./);
 
   await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
   await expect(drawer.getByText('Please tick the box to agree to how we use your details.')).toBeVisible();
   await expect(box).toHaveAttribute('aria-invalid', 'true');
+  // The box sits below the fold: the button takes the guest to it, so the screen visibly answers (F15).
+  await expect(box).toBeFocused();
+  await expect(box).toBeInViewport();
   // The box's description carries the error, so a screen reader says what is wrong, not only "invalid".
-  await expect(box).toHaveAccessibleDescription(/only to arrange this booking.*Please tick the box to agree to how we use your details\.$/);
+  await expect(box).toHaveAccessibleDescription(/bot check\..*Please tick the box to agree to how we use your details\.$/);
   expect(posts).toHaveLength(0);
 
   await box.check();
   await expect(drawer.getByText('Please tick the box to agree to how we use your details.')).toHaveCount(0);
   await expect(box).not.toHaveAccessibleDescription(/Please tick the box/);
-  await expect(box).toHaveAccessibleDescription(/only to arrange this booking/);
+  await expect(box).toHaveAccessibleDescription(/bot check/);
 
   const link = drawer.getByRole('link', { name: 'Privacy policy' });
   await expect(link).toHaveAttribute('href', '/en/privacy');
@@ -75,6 +86,39 @@ test('nothing is sent until the consent box is ticked; the notice links the poli
   // The form keeps what was typed: the policy opened beside it.
   await expect(drawer.getByLabel('Full name *', { exact: true })).toHaveValue('Nguyễn Minh Anh');
   await expect(box).toBeChecked();
+});
+
+test('on a phone, REQUEST BOOKING takes the guest down to the unticked consent box', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const drawer = await filledDrawer(page);
+  const posts = actionPosts(page);
+  const box = drawer.getByRole('checkbox', { name: CONSENT });
+  await expect(box).not.toBeInViewport();
+
+  await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
+  await expect(box).toBeFocused();
+  await expect(box).toBeInViewport();
+  await expect(drawer.getByText('Please tick the box to agree to how we use your details.')).toBeInViewport();
+  expect(posts).toHaveLength(0);
+});
+
+test('with no name or phone, REQUEST BOOKING takes the guest to the name, the first field that blocks it', async ({ page }) => {
+  const drawer = await openDrawer(page);
+  const posts = actionPosts(page);
+  // By role and the start of the name: once the error shows inside the label, it joins the field's name.
+  const name = drawer.getByRole('textbox', { name: /^Full name \*/ });
+  await expect(name).not.toBeInViewport();
+
+  await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
+  await expect(name).toHaveAttribute('aria-invalid', 'true');
+  await expect(drawer.getByRole('textbox', { name: /^Phone \*/ })).toHaveAttribute('aria-invalid', 'true');
+  await expect(name).toBeFocused();
+  await expect(name).toBeInViewport();
+  // A second press, with nothing changed, takes the guest there again (a counter, not a flag that is already set).
+  await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).focus();
+  await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
+  await expect(name).toBeFocused();
+  expect(posts).toHaveLength(0);
 });
 
 test('the honeypot is invisible to people and screen readers, out of the tab order, and a filled one is refused', async ({ page }) => {
@@ -99,6 +143,7 @@ test('the honeypot is invisible to people and screen readers, out of the tab ord
   await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
   // Never a fake success (R15): the guest is told, with the restaurant's number to call.
   await expect(drawer.getByRole('alert')).toHaveText(`We could not accept this request online. Please call us on ${GROUP_PHONE.display} to book.`);
+  await expect(drawer.getByRole('alert').getByRole('link', { name: GROUP_PHONE.display })).toHaveAttribute('href', `tel:${GROUP_PHONE.tel}`);
   expect(posts).toHaveLength(1);
   // Off Vercel, BotID is not installed (lib/botid.ts botIdEnabled): no challenge rides on the action.
   expect(posts[0].headers['x-is-human']).toBeUndefined();
@@ -131,6 +176,8 @@ test('a fourth request for one day from one number gets the limit and the restau
   await expect(drawer.getByRole('alert')).toHaveText(
     'This number already has 3 table requests for that day. To book more, please call us on 0859 555 759.',
   );
+  // One tap calls the restaurant: the number is a link, not text wrapped across the narrow footer (F16).
+  await expect(drawer.getByRole('alert').getByRole('link', { name: '0859 555 759' })).toHaveAttribute('href', 'tel:+84859555759');
   expect((await one<{ n: number }>(`SELECT count(*)::int AS n FROM reservations WHERE phone_e164 = $1`, [e164]))!.n).toBe(3);
 });
 
@@ -140,7 +187,7 @@ test('the privacy policy page, from the footer', async ({ page }) => {
   await expect(page).toHaveURL(/\/en\/privacy$/);
   await expect(page).toHaveTitle('Privacy policy — Furama Cuisine');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Privacy policy');
-  await expect(page.getByText('Last updated 2 October 2026')).toBeVisible();
+  await expect(page.getByText('Last updated 3 October 2026')).toBeVisible();
   // Scoped to main: the chrome's booking bar has a heading of its own on every guest page.
   await expect(page.getByRole('main').getByRole('heading', { level: 2 })).toHaveText([
     'What we collect',
@@ -237,7 +284,7 @@ test('reached from the footer without a page load, the policy page’s header is
 
 test('the policy page sets its date line small, and a shared link previews the policy, not the home page', async ({ page }) => {
   await page.goto(`${HOME_PATH}/privacy`);
-  const updated = page.getByText('Last updated 2 October 2026');
+  const updated = page.getByText('Last updated 3 October 2026');
   await expect(updated).toHaveCSS('font-size', '12px');
   await expect(updated).toHaveCSS('margin-top', '12px');
   await expect(updated).toHaveCSS('margin-bottom', '32px');

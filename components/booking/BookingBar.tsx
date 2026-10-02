@@ -5,11 +5,12 @@ import { fmtDay, guestLabel } from '@/lib/booking';
 import { dayReason, slotOpen } from '@/lib/booking/client';
 import { useSite } from '@/components/site/SiteProvider';
 import { Dropdown, type Option } from '@/components/ui/Dropdown';
+import { BookingError } from '@/components/booking/WithPhone';
 import { useReveal } from '@/lib/motion';
 
 /** The wide "Where would you like to dine?" bar above the footer. */
 export function BookingBar() {
-  const { bookable, booking, setBooking, board, openReserve, days, maxParty, now, strings, loadFailed } = useSite();
+  const { bookable, booking, setBooking, board, openReserve, days, maxParty, groupPhone, now, strings, loadFailed } = useSite();
   const title = useReveal<HTMLHeadingElement>('title');
   const panel = useReveal<HTMLDivElement>('up');
 
@@ -108,9 +109,16 @@ export function BookingBar() {
             FIND A TABLE<span className="arrow">→</span>
           </button>
         </div>
-        {/* Without its dates or times the bar would just sit empty: say why (FIND A TABLE asks again).
-            Always mounted and empty otherwise, so it takes no space and is read out when it fills. */}
-        <div role="status">{loadFailed && <p className="booking-note">{strings[`error.${loadFailed.code}`]}</p>}</div>
+        {/* Without its dates or times the bar would just sit empty: say why, with the number to call
+            (FIND A TABLE asks again). Always mounted and empty otherwise, so it takes no space and is
+            read out when it fills. */}
+        <div role="status">
+          {loadFailed && (
+            <p className="booking-note">
+              <BookingError code={loadFailed.code} strings={strings} phone={groupPhone} />
+            </p>
+          )}
+        </div>
       </div>
     </section>
   );

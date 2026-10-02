@@ -25,7 +25,7 @@ import {
 import type { CalendarResponse, DayInfo, DayResponse } from '@/lib/booking/api';
 import { clockBlock } from '@/lib/booking/resolve-day';
 import type { GroupPhone } from '@/lib/booking/rules';
-import { bookingErrorMessage } from '@/lib/booking-errors';
+import type { BookingErrorCode } from '@/lib/booking-errors';
 import type { ClientKey } from '@/lib/i18n/registry';
 import type { IsoDate } from '@/lib/venue-time';
 import { submitReservation } from '@/app/actions';
@@ -78,6 +78,9 @@ export type LoadFailure = 'network' | 'restaurant_unavailable';
  * times would be, beside its Try again; the footer never repeats it.
  */
 type WaitNote = { restaurant: string };
+
+/** A failure the footer says: its error.<code> and the params that fill it. */
+export type ServerError = { code: BookingErrorCode; params: Record<string, string> };
 
 /* The two forms of GET /api/availability (lib/booking/api.ts). */
 const calendarUrl = (restaurant: string, locale: string) =>
@@ -140,6 +143,13 @@ type SiteState = {
    */
   failureNudge: number;
   /**
+   * Changes each time REQUEST BOOKING stops on the form's own check (a name,
+   * phone, email or the consent box): the drawer takes the guest to the first
+   * field that blocks it, which may be below the fold. A counter, not a flag:
+   * `tried` is already true on the second press.
+   */
+  invalidNudge: number;
+  /**
    * The chosen date a calendar's answer replaced (another restaurant does not
    * take it, or fresh availability greyed it), so the drawer can say so; null
    * once the guest picks a date or closes the drawer.
@@ -165,8 +175,11 @@ type SiteState = {
   done: boolean;
   pending: boolean;
   reference: string;
-  /** The footer's alert: why REQUEST BOOKING did not book. */
-  serverError: string | null;
+  /**
+   * The footer's alert: why REQUEST BOOKING did not book, as error.<code> and
+   * its params; the drawer renders it with the number to call as a link.
+   */
+  serverError: ServerError | null;
   /** REQUEST BOOKING is waiting for the dates, which are on their way (the footer's status says so). */
   footLoading: boolean;
   errors: { name: boolean; phone: boolean; email: boolean; consent: boolean };
@@ -259,12 +272,13 @@ export function SiteProvider({
   const [done, setDone] = useState(false);
   const [pending, setPending] = useState(false);
   const [reference, setReference] = useState('');
-  const [serverError, setServerError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<ServerError | null>(null);
   /* Cleared when the answer it is about arrives (answered); shown only while
      the choice is still the one it is about (footNote below), so it neither
      outlives the answer nor shows during a switch to another restaurant. */
   const [waitNote, setWaitNote] = useState<WaitNote | null>(null);
   const [failureNudge, setFailureNudge] = useState(0);
+  const [invalidNudge, setInvalidNudge] = useState(0);
   const [clockOffset, setClockOffset] = useState(0);
   const [confirmedDate, setConfirmedDate] = useState<IsoDate | ''>('');
   const [booked, setBooked] = useState<Booked | null>(null);
@@ -567,6 +581,8 @@ export function SiteProvider({
     const ctx = context(at);
     if (!(valid.name && valid.phone && valid.email && consent)) {
       setTried(true);
+      // The field at fault may be below the fold (the consent box always is): the drawer goes there.
+      setInvalidNudge((n) => n + 1);
       return;
     }
     if (restaurant && !calendarFor(ctx.calendar, restaurant)) {
@@ -600,13 +616,13 @@ export function SiteProvider({
       if (day.state === 'closed') {
         // A closure came after the calendar: say so, and fetch the calendar
         // again, which greys the day and moves the date off it.
-        setServerError(bookingErrorMessage('closed', {}, strings));
+        setServerError({ code: 'closed', params: {} });
         loadCalendar(restaurant);
       } else {
         // The form is fine, so the slot is the problem (it closed or filled
         // while the drawer sat open): say so and slide to the nearest open one.
         const past = clockBlock(date, booking.time, at, day) !== null;
-        setServerError(bookingErrorMessage(past ? 'past' : 'full', {}, strings));
+        setServerError({ code: past ? 'past' : 'full', params: {} });
         setBookingState((b) => reconcileBooking(b, {}, context(at)));
       }
       return;
@@ -640,16 +656,18 @@ export function SiteProvider({
           setDone(true);
           return;
         }
-        setServerError(bookingErrorMessage(result.code, errorParams(booking.restaurant, result.params), strings));
+        setServerError({ code: result.code, params: errorParams(booking.restaurant, result.params) });
         setTried(true);
         // Ask again so a lost race (or a new closure) shows up at once; the
         // answers move the time off a slot that has just filled.
         loadCalendar(booking.restaurant);
         loadBoard(booking.restaurant, date);
       })
-      .catch(() => setServerError(bookingErrorMessage('network', {}, strings)))
+      // No answer: the network, the 5 s phone lock timing out (risk 16), or BotID's challenge
+      // failing or passing its deadline (lib/botid.ts). Every one names the number to call.
+      .catch(() => setServerError({ code: 'network', params: errorParams(booking.restaurant) }))
       .finally(() => setPending(false));
-  }, [booking, consent, context, errorParams, failed, form, honeypot, loadBoard, loadCalendar, locale, now, restaurants, strings, valid]);
+  }, [booking, consent, context, errorParams, failed, form, honeypot, loadBoard, loadCalendar, locale, now, restaurants, valid]);
 
   const setFormField = useCallback((key: keyof BookingForm, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -792,6 +810,7 @@ export function SiteProvider({
       loadFailed,
       retryAvailability,
       failureNudge,
+      invalidNudge,
       dateMoved,
       now,
       strings,
@@ -831,7 +850,7 @@ export function SiteProvider({
     [
       applyFinder, booked, booking, bookable, chosenBoard, clearFilters, close, closeDrawer, closeDropdown,
       confirmedDate, consent, dateMoved, days, done, errors, failureNudge, filter, finder, footLoading, form, goBackToRestaurants,
-      goHomeTop, groupPhone, honeypot, lang, loadFailed, locale, matches, maxParty, now, open, openDropdown, openReserve,
+      goHomeTop, groupPhone, honeypot, invalidNudge, lang, loadFailed, locale, matches, maxParty, now, open, openDropdown, openReserve,
       openRestaurant, overlay, pageRoot, pending, pickCuisine, pickDestination, query, reference, restaurants,
       retryAvailability, scrollToId, scrolled, serverError, setBooking, setFilter, setFinder, setFormField, showPage, shownCount,
       strings, submit, tab, today, toggleDropdown, tried, view,

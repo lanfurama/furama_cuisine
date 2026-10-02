@@ -3,6 +3,14 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // BotID's two halves decide by this one value (lib/botid.ts botIdEnabled, lib/server/guard/bot.ts).
+  // Next inlines a NEXT_PUBLIC_* variable only when it exists at build time; a build without it (say
+  // `vercel deploy --prebuilt` from a machine without Vercel's system variables) would leave the
+  // server reading the runtime value while browsers never got BotID, and every booking would be
+  // refused as a bot. Set here, it is always inlined into the browser and server bundles alike
+  // (node_modules/next/dist/docs/01-app/03-api-reference/05-config/01-next-config-js/env.md:23),
+  // empty when absent; scripts/check-prerender.mjs fails a build where it was not.
+  env: { NEXT_PUBLIC_VERCEL_ENV: process.env.NEXT_PUBLIC_VERCEL_ENV ?? '' },
   cacheComponents: true,
   partialPrefetching: true,
   experimental: {

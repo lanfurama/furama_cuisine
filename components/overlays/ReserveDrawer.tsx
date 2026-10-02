@@ -6,26 +6,14 @@ import { FIELD_MAX, findRestaurant, fmtDay, guestLabel } from '@/lib/booking';
 import { dayReason, movedReason, slotOpen, type DateMove } from '@/lib/booking/client';
 import type { DayInfo } from '@/lib/booking/api';
 import type { GroupPhone } from '@/lib/booking/rules';
-import { formatMessage, type MessageParams } from '@/lib/i18n/format';
+import { formatMessage } from '@/lib/i18n/format';
 import { formatDay, type IsoDate } from '@/lib/venue-time';
 import { useSite, type ClientStrings, type LoadFailure } from '@/components/site/SiteProvider';
 import { Dropdown, type Option } from '@/components/ui/Dropdown';
 import { animateSelector, useOpenAnimation } from '@/lib/motion';
 import { privacyHref } from '@/lib/legal';
 import { Honeypot } from '@/components/overlays/Honeypot';
-
-/** A message with {phone} turned into a tel: link (any other placeholder is filled as text). */
-function WithPhone({ template, params, phone }: { template: string; params: MessageParams; phone: GroupPhone }) {
-  const parts = template.split('{phone}');
-  if (parts.length < 2 || !phone.tel) return <>{formatMessage(template, { ...params, phone: phone.display })}</>;
-  return (
-    <>
-      {formatMessage(parts[0], params)}
-      <a href={`tel:${phone.tel}`}>{phone.display}</a>
-      {formatMessage(parts.slice(1).join(phone.display), params)}
-    </>
-  );
-}
+import { BookingError, WithPhone } from '@/components/booking/WithPhone';
 
 /**
  * Availability that did not arrive: why, and a way to ask again when asking
@@ -40,12 +28,14 @@ function LoadFailed({
   count,
   code,
   strings,
+  phone,
   onRetry,
   onFocus,
 }: {
   count: number;
   code: LoadFailure;
   strings: ClientStrings;
+  phone: GroupPhone | null;
   onRetry: () => void;
   onFocus: () => void;
 }) {
@@ -54,7 +44,7 @@ function LoadFailed({
     <div className="load-failed" tabIndex={-1} onFocus={onFocus}>
       {/* A new alert per failure, so a Try again that fails again is read out again. */}
       <div key={count} id={messageId} className="drawer-error" role="alert">
-        {strings[`error.${code}`]}
+        <BookingError code={code} strings={strings} phone={phone} />
       </div>
       {code === 'network' && (
         <button type="button" className="load-retry" aria-describedby={messageId} onClick={onRetry}>
@@ -184,6 +174,7 @@ export function ReserveDrawer() {
     loadFailed,
     retryAvailability,
     failureNudge,
+    invalidNudge,
     dateMoved,
     now,
     strings,
@@ -274,6 +265,17 @@ export function ReserveDrawer() {
     const failure = drawerRef.current?.querySelector<HTMLElement>('.load-failed');
     (failure?.querySelector<HTMLElement>('.load-retry') ?? failure)?.focus();
   }, [failureNudge]);
+
+  /* REQUEST BOOKING stopped on the form's own check: the first field at fault, in the order the
+     guest fills them (name, phone, email, then the consent box, which always sits below the fold),
+     gets the focus and comes into view, so the screen visibly answers the press. Its error is in
+     its name or its description, so a screen reader says what is wrong; no second alert (risk 27). */
+  useEffect(() => {
+    if (!invalidNudge) return;
+    const field = drawerRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+    field?.focus();
+    field?.scrollIntoView({ block: 'center' });
+  }, [invalidNudge]);
 
   useOpenAnimation(open, (animate) => {
     animate('[data-anim="drawer"]', [{ transform: 'translateX(100%)' }, { transform: 'none' }], 800);
@@ -395,6 +397,7 @@ export function ReserveDrawer() {
                   count={loadFailed.count}
                   code={loadFailed.code}
                   strings={strings}
+                  phone={groupPhone}
                   onRetry={retry}
                   onFocus={() => arm('dates')}
                 />
@@ -461,12 +464,21 @@ export function ReserveDrawer() {
                       count={loadFailed.count}
                       code={loadFailed.code}
                       strings={strings}
+                      phone={groupPhone}
                       onRetry={retry}
                       onFocus={() => arm('times')}
                     />
                   )
                 : !board && booking.date && <div className="slot-loading">{strings['booking.loading']}</div>}
-              {board?.state === 'closed' && <div className="drawer-error">{strings['error.closed']}</div>}
+              {/* Why there is no time to choose: the day closed, or every time is taken. Always mounted,
+                  empty otherwise, so a screen reader hears the news when the day's answer brings it. */}
+              <div role="status">
+                {board?.state === 'closed' ? (
+                  <div className="drawer-error">{strings['error.closed']}</div>
+                ) : (
+                  !anyAvailable && <div className="drawer-error">{strings['booking.no_tables']}</div>
+                )}
+              </div>
               {board?.periods.map((p) => (
                 <div key={p.meal} className="slotgroup" data-closed={p.closed || undefined}>
                   <div className="slotgroup-meal">{MEAL_LABELS[p.meal]}</div>
@@ -498,11 +510,6 @@ export function ReserveDrawer() {
                   )}
                 </div>
               ))}
-              {!anyAvailable && board?.state !== 'closed' && (
-                <div className="drawer-error">
-                  No tables left on this date — please choose another day.
-                </div>
-              )}
 
               <div className="drawer-details">
                 <div className="drawer-label">YOUR DETAILS</div>
@@ -603,7 +610,7 @@ export function ReserveDrawer() {
                 <div className="drawer-foot-summary">{summary}</div>
                 {serverError && (
                   <div className="drawer-error" role="alert">
-                    {serverError}
+                    <BookingError code={serverError.code} params={serverError.params} strings={strings} phone={groupPhone} />
                   </div>
                 )}
                 {/* REQUEST BOOKING waiting for the dates: news, not an error. Always mounted, so it is read out. */}

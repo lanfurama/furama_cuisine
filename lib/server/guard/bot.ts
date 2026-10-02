@@ -35,10 +35,14 @@ export const BOTID_TIMEOUT_MS = 3_000;
 /**
  * What isBotRequest decides by, read at each call. NEXT_PUBLIC_VERCEL_ENV is written out in full
  * on purpose: `next build` replaces that exact expression with its build-time value in server
- * code just as in the browser bundle (node_modules/next/dist/docs/01-app/02-guides/
- * environment-variables.md:164; define-env.js gives every NEXT_PUBLIC_* to the client, nodejs and
- * edge builds alike), so this is the value instrumentation-client.ts saw. A lookup through a
- * variable is not inlined (same file, :182-191) and would read the runtime environment instead.
+ * code just as in the browser bundle (node_modules/next/dist/build/define-env.js gives the client,
+ * nodejs and edge builds the same values), so this is the value instrumentation-client.ts saw. Next
+ * inlines a NEXT_PUBLIC_* variable from the environment only when it exists at build time
+ * (node_modules/next/dist/docs/01-app/02-guides/environment-variables.md:164), so next.config.ts
+ * also sets it under `env`, which is always inlined, as '' when the build had none: a build
+ * without it can never leave this half reading the runtime value while browsers have no BotID.
+ * scripts/check-prerender.mjs fails a build where the expression survived. A lookup through a
+ * variable is not inlined (same guide, :182-191) and would read the runtime environment instead.
  */
 const processEnv = (): Record<string, string | undefined> => ({
   VERCEL_ENV: process.env.VERCEL_ENV,

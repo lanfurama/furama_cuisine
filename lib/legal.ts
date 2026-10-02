@@ -11,7 +11,7 @@ import type { IsoDate } from '@/lib/venue-time';
  * From phase 7 editors change the text in the database, and the version
  * becomes the time of that save instead of this constant.
  */
-export const PRIVACY_POLICY_VERSION: IsoDate = '2026-10-02';
+export const PRIVACY_POLICY_VERSION: IsoDate = '2026-10-03';
 
 /** The sections of the policy page, in order: [heading, body]. */
 export const PRIVACY_SECTIONS = [

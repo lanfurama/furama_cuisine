@@ -173,6 +173,28 @@ export async function withAdminCountLock<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * Runs `fn` while no other test, in any worker, holds the lock `name`: for a
+ * test that changes a shared row and puts it back (another copy of it under
+ * --repeat-each would read the row half-way). A dedicated client holds a
+ * session advisory lock for the whole of `fn`; db() refuses any database but
+ * a local _test/_ci one.
+ */
+export async function exclusive<T>(name: string, fn: () => Promise<T>): Promise<T> {
+  const client = db();
+  await client.connect();
+  try {
+    await client.query(`SELECT pg_advisory_lock(hashtextextended('e2e:' || $1, 0))`, [name]);
+    try {
+      return await fn();
+    } finally {
+      await client.query(`SELECT pg_advisory_unlock(hashtextextended('e2e:' || $1, 0))`, [name]);
+    }
+  } finally {
+    await client.end(); // ends the session too, which would release the lock if the unlock failed
+  }
+}
+
 /** One row of a query, for assertions on what the database holds. */
 export async function one<T extends Record<string, unknown>>(sql: string, values: unknown[] = []): Promise<T | undefined> {
   const client = db();
