@@ -27,6 +27,12 @@ describe('registry', () => {
   it('sends the privacy notice, the consent label and the policy link to the browser (the drawer and the footer read them)', () => {
     expect(CLIENT_KEYS).toEqual(expect.arrayContaining(['booking.privacy_notice', 'booking.consent', 'legal.link']));
   });
+
+  it('sends "Gọi để đặt bàn" to the browser: the drawer’s all-offline message and the call labels of cards and search (R20)', () => {
+    expect(CLIENT_KEYS).toEqual(expect.arrayContaining(['booking.all_offline', 'booking.call_tag', 'booking.call_action']));
+    expect(REGISTRY['booking.all_offline'].vars).toEqual(['phone']);
+    expect(REGISTRY['booking.call_tag'].vars).toEqual(['phone']);
+  });
 });
 
 describe('formatMessage', () => {

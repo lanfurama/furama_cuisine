@@ -1,6 +1,7 @@
 'use client';
 
 import type { Restaurant } from '@/lib/data';
+import { formatMessage } from '@/lib/i18n/format';
 import { CmsImage } from '@/components/ui/CmsImage';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
@@ -10,10 +11,17 @@ import { useReveal } from '@/lib/motion';
  * whole grid does not re-render on pointer move.
  */
 export function RestaurantCard({ restaurant, hidden }: { restaurant: Restaurant; hidden?: boolean }) {
-  const { openRestaurant } = useSite();
+  const { openRestaurant, strings } = useSite();
   const ref = useReveal<HTMLButtonElement>('card');
-  // A card without a page only reserves: with online booking off it has no action (R14).
-  const tag = restaurant.hasDetailPage ? 'View restaurant' : restaurant.bookingEnabled ? 'Reserve a table' : null;
+  // A card without a page reserves; with online booking off (R14) it calls instead (R20), and with
+  // no number either it has no action (GX-6).
+  const tag = restaurant.hasDetailPage
+    ? 'View restaurant'
+    : restaurant.bookingEnabled
+      ? 'Reserve a table'
+      : restaurant.phone
+        ? formatMessage(strings['booking.call_tag'], { phone: restaurant.phone.display })
+        : null;
 
   return (
     <button

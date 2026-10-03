@@ -6,7 +6,7 @@ import { useSite } from '@/components/site/SiteProvider';
 import { useOpenAnimation } from '@/lib/motion';
 
 export function SearchOverlay() {
-  const { site, destName, restaurants, overlay, close, query, setQuery, openRestaurant } = useSite();
+  const { site, destName, restaurants, overlay, close, query, setQuery, openRestaurant, strings } = useSite();
   const inputRef = useRef<HTMLInputElement>(null);
   const open = overlay === 'search';
 
@@ -87,9 +87,10 @@ export function SearchOverlay() {
                     <span className="search-result-name">{r.name}</span>
                     <span className="search-result-meta">{`${r.type} · ${destName(r.dest)}`}</span>
                   </span>
-                  {(r.hasDetailPage || r.bookingEnabled) && (
+                  {/* With online booking off, a restaurant with a number is called (R20); one without has no action. */}
+                  {(r.hasDetailPage || r.bookingEnabled || r.phone) && (
                     <span className="search-result-action">
-                      {r.hasDetailPage ? 'View' : 'Reserve'} →
+                      {r.hasDetailPage ? 'View' : r.bookingEnabled ? 'Reserve' : strings['booking.call_action']} →
                     </span>
                   )}
                 </button>

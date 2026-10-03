@@ -191,6 +191,30 @@ export const REGISTRY = {
     context: 'Reservation form, when no date in the booking window takes bookings. {phone} is the restaurant’s number; keep it.',
     screen: 'booking',
   },
+  // ── "Gọi để đặt bàn" (R20, phase 6): when online booking is off, the number to call instead. ──
+  'booking.all_offline': {
+    en: 'Online booking is not available right now. Please call us on {phone} to book a table.',
+    maxLength: 140,
+    vars: ['phone'],
+    context:
+      'Reservation form, in place of the whole form when staff have switched online booking off for every restaurant. {phone} is the resort’s number, shown as a link to call; keep it.',
+    screen: 'booking',
+  },
+  'booking.call_tag': {
+    en: 'Call {phone}',
+    maxLength: 40,
+    vars: ['phone'],
+    context:
+      'Restaurant card on the home page, the tag shown on hover (in capitals by CSS; "→" follows), for a restaurant with no page of its own whose online booking staff have switched off: a tap calls it. {phone} is the restaurant’s number, else its destination’s, as printed; keep it.',
+    screen: 'booking',
+  },
+  'booking.call_action': {
+    en: 'Call',
+    maxLength: 20,
+    context:
+      'Search results, the action at the end of a row ("→" follows), for a restaurant with no page of its own whose online booking staff have switched off: a tap calls it. Short: the row is narrow on a phone.',
+    screen: 'booking',
+  },
   'booking.day_outside': {
     en: 'Not open for booking yet',
     maxLength: 40,

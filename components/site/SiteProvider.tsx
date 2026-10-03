@@ -566,8 +566,9 @@ export function SiteProvider({
   const openRestaurant = useCallback(
     (r: Restaurant) => {
       if (!r.hasDetailPage) {
-        // Its only action is reserving; with online booking off there is none (R14).
+        // Its action is reserving; with online booking off (R14) it is calling, when there is a number (R20).
         if (r.bookingEnabled) openReserve({ restaurant: r.id });
+        else if (r.phone) window.location.assign(`tel:${r.phone.tel}`);
         return;
       }
       setBooking({ restaurant: r.id });

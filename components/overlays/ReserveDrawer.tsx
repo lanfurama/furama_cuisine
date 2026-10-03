@@ -15,6 +15,7 @@ import { animateSelector, useOpenAnimation } from '@/lib/motion';
 import { privacyHref } from '@/lib/legal';
 import { Honeypot } from '@/components/overlays/Honeypot';
 import { BookingError, WithPhone } from '@/components/booking/WithPhone';
+import { DEFAULT_PHONE } from '@/lib/booking-errors';
 
 /**
  * Availability that did not arrive: why, and a way to ask again when asking
@@ -333,7 +334,15 @@ export function ReserveDrawer() {
           </button>
         </div>
 
-        {done ? (
+        {bookable.length === 0 && !done ? (
+          // Every restaurant books offline (R14): there is nothing to choose and no availability to wait
+          // for, so no form, only whom to call (R20; before, "Checking tables…" stayed for good).
+          <div className="drawer-body">
+            <p className="drawer-error" role="alert">
+              <WithPhone template={strings['booking.all_offline']} params={{}} phone={DEFAULT_PHONE} />
+            </p>
+          </div>
+        ) : done ? (
           <div className="drawer-done">
             <div className="drawer-tick" aria-hidden="true">
               ✓
