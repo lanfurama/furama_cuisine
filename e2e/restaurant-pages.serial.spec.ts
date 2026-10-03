@@ -11,7 +11,11 @@ import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures'
  * calls updateTag('restaurants') (the booking rules form) expires the cached
  * pages, as the editor's save will (R21: the restore goes through the same
  * save). The Fan has no map link and no menu PDF: MAP hides, and MENU scrolls
- * to the highlights; CALL is its destination's number.
+ * to the highlights; CALL is its destination's number. Off is the switch
+ * alone: the portrait, the copy and the highlights stay, so the 404 that
+ * follows can only come from has_detail_page (a loader that ignored it would
+ * still draw the page). The rest goes after the test; with the page off, no
+ * guest page reads it.
  *
  * It changes what every guest page reads (the catalogue), so it runs in the
  * desktop-serial project, one file at a time, after every other spec.
@@ -20,6 +24,7 @@ import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures'
 const FAN_PATH = '/en/restaurants/the-fan';
 
 test.beforeAll(() => seedStaff());
+test.afterAll(() => closeTheFan());
 
 async function openTheFan() {
   await one(
@@ -60,6 +65,17 @@ async function refreshGuestPages(page: Page) {
   await expect(page.getByRole('form', { name: 'Quy tắc đặt bàn' }).getByRole('status')).toHaveText('Đã lưu.');
 }
 
+/**
+ * The site's 404, seen in a browser. Not the response's text: every page's RSC
+ * payload carries the not-found boundary, "Page not found" included, so a
+ * page that rendered would match that too.
+ */
+async function expectNotFound(visitor: Page) {
+  await expect(visitor.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible();
+  await expect(visitor).toHaveTitle('Page not found — Furama Cuisine');
+  await expect(visitor.locator('.taya-hero-copy')).toHaveCount(0);
+}
+
 /** A guest with no staff cookie, past the intro. */
 async function guest(browser: Browser, viewport = { width: 1280, height: 860 }) {
   const context = await browser.newContext({ viewport, reducedMotion: 'reduce' });
@@ -70,8 +86,8 @@ async function guest(browser: Browser, viewport = { width: 1280, height: 860 }) 
 test('switching has_detail_page on opens a working page for another restaurant, and off closes it again', async ({ page, browser }) => {
   const visitor = await guest(browser);
   // Before: no page (a cached 404 from here on, tagged restaurants), and the card only reserves.
-  const before = await visitor.request.get(FAN_PATH);
-  expect(await before.text()).toContain('Page not found');
+  await visitor.goto(FAN_PATH);
+  await expectNotFound(visitor);
   await visitor.goto(HOME_PATH);
   await expect(visitor.locator('.rcard:visible', { hasText: 'Steakhouse The Fan' }).locator('.rcard-tag')).toHaveText('Reserve a table →');
 
@@ -130,13 +146,13 @@ test('switching has_detail_page on opens a working page for another restaurant, 
     await expect(phone.getByRole('navigation', { name: 'Restaurant actions' })).toHaveAttribute('style', /repeat\(4, minmax\(0, 1fr\)\)/);
     await phone.context().close();
   } finally {
-    await closeTheFan();
+    await one(`UPDATE restaurants SET has_detail_page = false WHERE id = 'the-fan'`);
     await refreshGuestPages(page);
   }
 
-  // Off again: the page 404s and the card reserves.
-  const after = await visitor.request.get(FAN_PATH);
-  expect(await after.text()).toContain('Page not found');
+  // Off again, with its portrait, copy and highlights still there: the page 404s and the card reserves.
+  await visitor.goto(FAN_PATH);
+  await expectNotFound(visitor);
   await visitor.goto(HOME_PATH);
   await expect(visitor.locator('.rcard:visible', { hasText: 'Steakhouse The Fan' }).locator('.rcard-tag')).toHaveText('Reserve a table →');
   await visitor.context().close();
