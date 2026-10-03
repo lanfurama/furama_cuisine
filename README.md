@@ -658,17 +658,16 @@ any change to these variables (switching redirect → live, adding or fixing
 `CRON_SECRET`), Deployments → … → Redeploy: Vercel applies a change only to
 a new deployment.
 
-1. **Migrations 007 and 008, before any deploy:** the site has never been
-   deployed, so launch A's first deploy is phase-6 code. It builds only on
-   a Neon branch that has 008 (without it, the build fails before it
-   prerenders anything: `column "slug" does not exist`), and 008 needs 007.
-   Apply 007 to production Neon now, with the checks in "Migration 007"
-   above, so every preview branch forks with it. Then follow the runbook in
-   "Migration 008" above: 008 goes to the dev branch now (its step 1), to
-   the first preview's branch at step 9 here, and to production at step 11,
-   each time before the deploy that builds on it. With Vercel's Git
-   integration, pushing or merging `main` is the Production deploy, so
-   migrate production before that merge.
+1. **Migrations 007 and 008, before any deploy:** done on production Neon
+   on 2026-10-03, with the checks in "Migration 007" and "Migration 008"
+   above (008 at sha256 `8f0869…d755`). The site has never been deployed,
+   so launch A's first deploy is phase-6 code, and it builds only on a Neon
+   branch that has 008 (without it, the build fails before it prerenders
+   anything: `column "slug" does not exist`). Every preview branch now forks
+   from production with 007 and 008. Any later migration follows the same
+   order: dev branch, then the preview's branch, then production, each time
+   before the deploy that builds on it; with Vercel's Git integration,
+   pushing or merging `main` is the Production deploy.
 2. **Neon plan:** the 5-minute cron queries the production branch around the
    clock, so its compute never scales to zero: about 183 CU-hours a month at
    the 0.25 CU minimum, roughly $19 a month on Launch at $0.106 per CU-hour.
@@ -725,14 +724,9 @@ a new deployment.
    and recipients, so redirect is mandatory there; a password reset on a
    Preview changes only that branch. Remove `RESEND_API_KEY` from every
    environment.
-9. **First preview:** push a branch other than `main`. Pushed after step 1,
-   its Neon branch forks from production with 007 but without 008, which
-   production gets only at step 11, so its first build fails: pre-flight,
-   apply and post-check 008 on that branch, then redeploy the preview and
-   run its checks ("Migration 008", step 2). A branch forked before step 1
-   lacks 007 too: give it 007 first, with the checks in "Migration 007" and
-   `DATABASE_URL_UNPOOLED=<its direct URL> node scripts/migrate.mjs --until
-   007_email_and_consent.sql`. On the preview, "Gửi email thử" in
+9. **First preview:** push a branch other than `main`. Its Neon branch
+   forks from production, which already has 007 and 008 (step 1), so it
+   builds as is; run the post-check of "Migration 008" on it once. On the preview, "Gửi email thử" in
    `/admin/settings/notifications` arrives at the redirect inbox (that proves
    port 587/465 is reachable from Vercel Functions, the login, and SPF/DKIM
    passing in the headers).
@@ -759,9 +753,8 @@ a new deployment.
     - **Autofill does not trip the honeypot.** On an iPhone (Safari) and an
       Android phone (Chrome), fill the form with the browser's autofill and
       book. Neither gets "We could not accept this request online".
-11. **Production deploy and crons:** pre-flight, apply and post-check 008
-    on production ("Migration 008", step 3), then merge into `main`
-    (Production starts on redirect). After that deploy, Project → Settings →
+11. **Production deploy and crons:** 008 is already on production (step 1);
+    merge into `main` (Production starts on redirect). After that deploy, Project → Settings →
     Cron Jobs shows both crons: `/api/cron/outbox` every 5 minutes (Vercel
     Pro), and `/api/cron/daily` at `5 17 * * *`, 00:05 in Da Nang.
 12. **Recipients:** in `/admin/settings/notifications`, add the notification
