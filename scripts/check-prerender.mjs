@@ -45,8 +45,11 @@ const TAGS = [
   'content:contact',
   'media',
 ];
-/** Tags a page carries beyond the layout's: the privacy policy's own reader (lib/server/content/legal.ts). */
-const PAGE_TAGS = { '/en/privacy': ['content:legal'] };
+/** Tags a page carries beyond the layout's: the home page's lists (lib/server/content/home.ts), the privacy policy's text (legal.ts). */
+const PAGE_TAGS = {
+  '/en': ['content:hero', 'content:experiences', 'content:stories'],
+  '/en/privacy': ['content:legal'],
+};
 const REVALIDATE = 2_592_000; // cacheLife('max'): 30 days
 const EXPIRE = 31_536_000; // 1 year
 

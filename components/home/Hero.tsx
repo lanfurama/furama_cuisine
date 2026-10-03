@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { HERO_SLIDES } from '@/lib/data';
+import { homeSections } from '@/lib/content/home-sections';
+import type { HeroSlide } from '@/lib/content/types';
 import { useSite } from '@/components/site/SiteProvider';
 import { readMotionLevel } from '@/lib/motion';
 
@@ -9,12 +10,17 @@ import { readMotionLevel } from '@/lib/motion';
  * One hero serves every width: the three cross-fading slides run on desktop,
  * while a phone gets a single art-directed crop, the shorter two-line headline
  * and the sheet trigger. Rendering one element keeps a single <h1> and a single
- * #top anchor instead of duplicating the section per breakpoint.
+ * #top anchor instead of duplicating the section per breakpoint. The slides
+ * (hero_slides) come from the page; the pace (site_settings.hero_autoplay_ms)
+ * and which buttons show (the film and finder sections, homeSections) from the chrome.
+ * Pictures stay plain <img> (R3; components/ui/CmsImage.tsx).
  */
-export function Hero() {
+export function Hero({ slides }: { slides: HeroSlide[] }) {
   const { site, open, overlay, scrollToId } = useSite();
   const [slide, setSlide] = useState(0);
-  const count = HERO_SLIDES.length;
+  const count = slides.length;
+  const autoplayMs = site.settings.heroAutoplayMs;
+  const shown = homeSections(site.sections);
 
   /* Slideshow: desktop only, paused behind an overlay or a hidden tab. It lives
      in the hero, so it stops whenever the home page is not on screen. */
@@ -23,14 +29,14 @@ export function Hero() {
     const timer = window.setInterval(() => {
       if (document.hidden || window.innerWidth < 760) return;
       setSlide((s) => (s + 1) % count);
-    }, 7000);
+    }, autoplayMs);
     return () => window.clearInterval(timer);
-  }, [count, overlay]);
+  }, [autoplayMs, count, overlay]);
 
   return (
     <section id="top" className="hero">
       <div className="hero-slides">
-        {HERO_SLIDES.map((s, i) => (
+        {slides.map((s, i) => (
           <div
             key={s.id}
             className="hero-slide"
@@ -40,18 +46,13 @@ export function Hero() {
           >
             <div className="hero-slide-zoom">
               {i === 0 ? (
+                // Phones show only this slide, in its own crop (spec §6.5).
                 <picture>
-                  <source media="(max-width: 759px)" srcSet="/assets/hero-hall-m.jpg" />
-                  <img
-                    src={`/assets/${s.img}.jpg`}
-                    alt="Dining at Furama Cuisine"
-                    className="fill"
-                    fetchPriority="high"
-                    decoding="async"
-                  />
+                  {s.mobile && <source media="(max-width: 759px)" srcSet={s.mobile.url} />}
+                  <img src={s.image.url} alt={s.image.alt} className="fill" fetchPriority="high" decoding="async" />
                 </picture>
               ) : (
-                <img src={`/assets/${s.img}.jpg`} alt="" className="fill" loading="lazy" decoding="async" />
+                <img src={s.image.url} alt={s.image.alt} className="fill" loading="lazy" decoding="async" />
               )}
             </div>
           </div>
@@ -94,7 +95,7 @@ export function Hero() {
               EXPLORE OUR RESTAURANTS<span className="hero-arrow">→</span>
             </button>
 
-            {site.sections.film.visible && (
+            {shown.has('film') && (
               <button type="button" className="hero-film" onClick={() => open('film')}>
                 <span className="hero-play">
                   <span className="hero-play-tri" />
@@ -103,14 +104,16 @@ export function Hero() {
               </button>
             )}
 
-            <button type="button" className="hero-find" onClick={() => open('sheet')}>
-              FIND A RESTAURANT<span>→</span>
-            </button>
+            {shown.has('finder') && (
+              <button type="button" className="hero-find" onClick={() => open('sheet')}>
+                FIND A RESTAURANT<span>→</span>
+              </button>
+            )}
           </div>
 
           {count > 1 && (
             <div className="hero-dots" data-intro="6">
-              {HERO_SLIDES.map((s, i) => (
+              {slides.map((s, i) => (
                 <button
                   key={s.id}
                   type="button"

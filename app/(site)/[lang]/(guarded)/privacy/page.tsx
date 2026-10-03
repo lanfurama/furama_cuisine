@@ -5,6 +5,7 @@ import { formatMessage } from '@/lib/i18n/format';
 import { DEFAULT_LOCALE, toBcp47 } from '@/lib/i18n/locales';
 import { PRIVACY_POLICY_VERSION, PRIVACY_SECTIONS } from '@/lib/legal';
 import { getPrivacyStrings } from '@/lib/server/content/legal';
+import { requireEnabledLocale } from '@/lib/server/content/locales';
 import { getSiteSettings } from '@/lib/server/content/site';
 
 /*
@@ -12,8 +13,9 @@ import { getSiteSettings } from '@/lib/server/content/site';
  * reserve drawer's consent box and the footer. Text from legal.* (registry
  * now, content_strings from phase 7); {email} is the shared inbox
  * (site_settings.email, tagged content:contact), the address the footer
- * shows. Prerendered and cached like every guest page: the (guarded) layout
- * has already checked the language.
+ * shows. Prerendered and cached like every guest page. The page checks the
+ * language itself before it reads (requireEnabledLocale): the layout's check
+ * runs in parallel, and Intl throws on a segment such as "favicon.ico".
  */
 
 async function strings() {
@@ -46,7 +48,7 @@ function WithEmail({ template, email }: { template: string; email: string }) {
 }
 
 export default async function PrivacyPage() {
-  const locale = (await lang()) ?? DEFAULT_LOCALE;
+  const locale = await requireEnabledLocale(await lang());
   const [t, settings] = await Promise.all([getPrivacyStrings(locale), getSiteSettings()]);
   // A calendar date: format it in UTC so the server's zone cannot move it. English reads day first, as the
   // booking form does ("Thu, 1 Oct"); other languages take their own order (phase 8).

@@ -11,6 +11,7 @@ import { MenuOverlay } from '@/components/overlays/MenuOverlay';
 import { FilmModal } from '@/components/overlays/FilmModal';
 import { FinderSheet } from '@/components/overlays/FinderSheet';
 import { BookingBar } from '@/components/booking/BookingBar';
+import { homeSections } from '@/lib/content/home-sections';
 import { useScrollMotion } from '@/lib/motion';
 
 /**
@@ -33,7 +34,7 @@ export function Chrome({ children }: { children: React.ReactNode }) {
         {children}
 
         {/* The phone detail view hands reservations to its bottom bar instead (styles/booking.css). Staff can switch it off (sections.booking_bar). */}
-        {site.sections.booking_bar.visible && (
+        {homeSections(site.sections).has('booking_bar') && (
           <div className="booking-slot">
             <BookingBar />
           </div>

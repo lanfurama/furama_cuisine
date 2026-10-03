@@ -115,6 +115,9 @@ export const LOADERS = {
     ],
     tags: [TAGS.restaurants, TAGS.media, TAGS.contentCuisines, TAGS.contentDestinations],
   },
+  heroSlides: { reads: ['locales', 'hero_slides', 'media', 'media_i18n'], tags: [TAGS.contentHero, TAGS.media] },
+  experiences: { reads: ['locales', 'experiences', 'experience_i18n'], tags: [TAGS.contentExperiences] },
+  stories: { reads: ['locales', 'stories', 'story_i18n', 'media', 'media_i18n'], tags: [TAGS.contentStories, TAGS.media] },
 } as const satisfies Record<string, Loader>;
 
 export type LoaderName = keyof typeof LOADERS;

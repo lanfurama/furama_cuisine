@@ -1,10 +1,11 @@
 'use client';
 
-import Image from 'next/image';
-import { STORIES } from '@/lib/data';
+import type { Media, Story } from '@/lib/content/types';
+import { CmsImage } from '@/components/ui/CmsImage';
 import { useReveal } from '@/lib/motion';
 
-export function Stories() {
+/** The cards (stories) come from the page, their kicker already formatted on the server. */
+export function Stories({ items }: { items: Story[] }) {
   const title = useReveal<HTMLHeadingElement>('title');
   const lede = useReveal<HTMLParagraphElement>('up');
 
@@ -21,8 +22,8 @@ export function Stories() {
         </div>
 
         <div className="stories-rail">
-          {STORIES.map((s) => (
-            <StoryCard key={s.slot} {...s} />
+          {items.map((s) => (
+            <StoryCard key={s.id} image={s.image} kicker={s.kicker} title={s.title} href={s.href} />
           ))}
         </div>
       </div>
@@ -31,12 +32,12 @@ export function Stories() {
 }
 
 function StoryCard({
-  img,
+  image,
   kicker,
   title,
   href,
 }: {
-  img: string;
+  image: Media | null;
   kicker: string;
   title: string;
   href: string;
@@ -47,13 +48,8 @@ function StoryCard({
     <a ref={ref} data-reveal="card" href={href} target="_blank" rel="noopener" className="story">
       <span className="story-frame frame" data-reveal-img="1">
         <span className="story-zoom" data-reveal-zoom="1">
-          <Image
-            src={`/assets/${img}.jpg`}
-            alt=""
-            fill
-            sizes="(max-width: 759px) 72vw, 302px"
-            className="story-img"
-          />
+          {/* Decorative by role: the title below says what the story is. */}
+          {image && <CmsImage media={image} decorative fill sizes="(max-width: 759px) 72vw, 302px" className="story-img" />}
         </span>
       </span>
       <span className="story-kicker">{kicker}</span>

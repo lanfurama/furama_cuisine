@@ -87,21 +87,11 @@ describe('the snapshot is the content of 8fe98f5 (delete with the constants and 
   });
 
   it('matches the copy written into the components', () => {
-    const hero = source('components/home/Hero.tsx');
-    expect(hero).toContain(`srcSet="${HERO_SLIDES_AT_8FE98F5[0].mobile}"`);
-    expect(hero).toContain(`alt="${HERO_SLIDES_AT_8FE98F5[0].alt}"`);
-    expect(hero).toContain(`}, ${HERO_AUTOPLAY_MS_AT_8FE98F5});`);
     const taya = DETAIL_PAGES_AT_8FE98F5['taya-house'];
     const tayaHero = source('components/detail/TayaHero.tsx');
     expect(tayaHero.split(taya.kicker)).toHaveLength(3); // desktop and phone copies
     expect(tayaHero.split(taya.story)).toHaveLength(3);
     expect(tayaHero).toContain(`<img src="${taya.portrait}" alt="${taya.portraitAlt}"`);
-    const experiences = source('components/home/Experiences.tsx');
-    expect(experiences).toContain(`src="${SECTIONS_AT_8FE98F5.experiences.image}" alt="${SECTIONS_AT_8FE98F5.experiences.alt}"`);
-    expect(source('components/home/Heritage.tsx')).toContain(`src="${SECTIONS_AT_8FE98F5.heritage.image}" alt=""`);
-    // Destination and story images are drawn with alt="".
-    expect(source('components/home/Destinations.tsx')).toContain('src={`/assets/${card.slot}.jpg`} alt=""');
-    expect(source('components/home/Stories.tsx')).toContain('src={`/assets/${img}.jpg`} alt=""');
   });
 });
 

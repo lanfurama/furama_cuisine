@@ -84,6 +84,16 @@ test.describe('pages that do not exist', () => {
     expect(tags).toContain('locales');
   });
 
+  test('a file a crawler asks for is a 404, not a server error, though its name lands where a language goes', async ({
+    request,
+  }) => {
+    // A path with a dot skips the proxy (proxy.ts), so /favicon.ico is the home page of a language
+    // "favicon.ico": the page checks the language before it reads (requireEnabledLocale).
+    for (const path of ['/favicon.ico', '/apple-touch-icon.png', '/wp-login.php', '/favicon.ico/privacy']) {
+      expect((await request.get(path, { maxRedirects: 0 })).status(), path).toBe(404);
+    }
+  });
+
   test('an unknown restaurant says so and is not indexed', async ({ request }) => {
     const res = await request.get('/en/restaurants/nope');
     // The first request streams its answer (200); later ones get the cached 404 (spec deviation 8).

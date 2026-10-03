@@ -64,6 +64,15 @@ export type SiteSettings = {
   heroAutoplayMs: number;
 };
 
+/** A hero slide: its picture (alt "" when decorative) and, for the first, the phone crop. */
+export type HeroSlide = { id: number; image: Media; mobile: Media | null };
+
+/** An Experiences row; href null links to the section itself, as before phase 6. */
+export type Experience = { id: number; title: string; blurb: string; href: string | null };
+
+/** A story card: the kicker is already "Category · 9 Sep 2026" (lib/content/format.ts). */
+export type Story = { id: number; image: Media | null; kicker: string; title: string; href: string };
+
 /** Everything the chrome (header, menu, footer, finder, search, booking bar) needs, on every guest page. */
 export type SiteContent = {
   cuisines: Cuisine[];

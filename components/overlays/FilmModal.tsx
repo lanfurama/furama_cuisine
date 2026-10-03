@@ -1,6 +1,7 @@
 'use client';
 
 import { useSite } from '@/components/site/SiteProvider';
+import { homeSections } from '@/lib/content/home-sections';
 import { useOpenAnimation } from '@/lib/motion';
 
 export function FilmModal() {
@@ -8,7 +9,7 @@ export function FilmModal() {
   // The poster is the film section's picture, decorative here whatever its alt (the dialog is named); the
   // video itself (sections.link_url, YouTube or Vimeo) is phase 7's embed. Switched off, the hero hides WATCH THE FILM.
   const poster = site.sections.film.image;
-  const open = overlay === 'film' && site.sections.film.visible;
+  const open = overlay === 'film' && homeSections(site.sections).has('film');
 
   useOpenAnimation(open, (animate) => {
     animate(

@@ -1,17 +1,19 @@
 'use client';
 
-import Image from 'next/image';
-import { DESTINATION_CARDS, type DestKey, type DestinationCard } from '@/lib/data';
+import type { Destination } from '@/lib/content/types';
 import { journeyStops } from '@/lib/journey';
+import { CmsImage } from '@/components/ui/CmsImage';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 
 export function Destinations() {
-  const { restaurants, pickDestination } = useSite();
+  const { site, restaurants, pickDestination } = useSite();
+  // destinations and destination_i18n: the venues, then the teaser ("Future Locations"), which is not a link.
+  const cards = site.destinations;
   const title = useReveal<HTMLHeadingElement>('title');
   const lede = useReveal<HTMLParagraphElement>('up');
   const journey = useReveal<HTMLDivElement>('journey');
-  const { inset, stops } = journeyStops(DESTINATION_CARDS.length);
+  const { inset, stops } = journeyStops(cards.length);
 
   return (
     <section id="destinations" className="destinations">
@@ -34,16 +36,16 @@ export function Destinations() {
         </div>
 
         <div className="dest-rail">
-          {DESTINATION_CARDS.map((card) => (
+          {cards.map((card) => (
             <DestCard
-              key={card.key}
+              key={card.id}
               card={card}
               count={
-                card.key === 'future'
+                card.kind === 'teaser'
                   ? 'Coming soon'
-                  : `${restaurants.filter((r) => r.dest === card.key).length} restaurants →`
+                  : `${restaurants.filter((r) => r.dest === card.id).length} restaurants →`
               }
-              onPick={card.key === 'future' ? undefined : () => pickDestination(card.key as DestKey)}
+              onPick={card.kind === 'teaser' ? undefined : () => pickDestination(card.id)}
             />
           ))}
         </div>
@@ -57,7 +59,7 @@ function DestCard({
   count,
   onPick,
 }: {
-  card: DestinationCard;
+  card: Destination;
   count: string;
   onPick?: () => void;
 }) {
@@ -66,25 +68,20 @@ function DestCard({
   const body = (
     <>
       <span className="dest-zoom" data-reveal-zoom="1">
-        <Image
-          src={`/assets/${card.slot}.jpg`}
-          alt=""
-          fill
-          sizes="(max-width: 759px) 76vw, 308px"
-          className="dest-img"
-        />
+        {/* Decorative by role: the card's own lines name the place. */}
+        {card.image && <CmsImage media={card.image} decorative fill sizes="(max-width: 759px) 76vw, 308px" className="dest-img" />}
       </span>
       <span className="dest-scrim" aria-hidden="true" />
       <span className="dest-copy">
         <span className="dest-title">
-          {card.title[0]}
+          {card.cardTitle[0]}
           <br />
-          {card.title[1]}
+          {card.cardTitle[1]}
         </span>
         <span className="dest-blurb">
-          {card.blurb[0]}
+          {card.cardBlurb[0]}
           <br />
-          {card.blurb[1]}
+          {card.cardBlurb[1]}
         </span>
         <span className="dest-count">{count}</span>
       </span>
@@ -96,7 +93,7 @@ function DestCard({
       {onPick ? (
         <button type="button" className="dest-hit" onClick={onPick}>
           {body}
-          <span className="sr-only">{`${card.title.join(' ')} — ${count}`}</span>
+          <span className="sr-only">{`${card.cardTitle.join(' ')} — ${count}`}</span>
         </button>
       ) : (
         <div className="dest-hit dest-hit-static">{body}</div>

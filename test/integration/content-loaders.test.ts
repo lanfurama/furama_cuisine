@@ -1,16 +1,20 @@
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { getPool } from '@/db/client';
 import { FALLBACK_PHONE } from '@/lib/data';
+import { loadExperiences, loadHeroSlides, loadStories } from '@/lib/server/content/home.queries';
 import { loadSiteSettings } from '@/lib/server/content/settings.queries';
 import { loadCuisines, loadDestinations, loadNav, loadSections, loadSocials } from '@/lib/server/content/site.queries';
 import {
   CUISINES_AT_8FE98F5,
   DESTINATIONS_AT_8FE98F5,
+  EXPERIENCES_AT_8FE98F5,
   HERO_AUTOPLAY_MS_AT_8FE98F5,
+  HERO_SLIDES_AT_8FE98F5,
   NAV_AT_8FE98F5,
   SECTIONS_AT_8FE98F5,
   SETTINGS_AT_8FE98F5,
   SOCIALS_AT_8FE98F5,
+  STORIES_AT_8FE98F5,
 } from '../fixtures/phase5-content';
 
 /*
@@ -26,13 +30,18 @@ const sql = (text: string, values: unknown[] = []) => getPool().query(text, valu
 
 describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', () => {
   afterEach(async () => {
-    for (const table of ['cuisine_i18n', 'destination_i18n', 'media_i18n', 'nav_item_i18n']) await sql(`DELETE FROM ${table} WHERE locale <> 'en'`);
+    for (const table of ['cuisine_i18n', 'destination_i18n', 'media_i18n', 'nav_item_i18n', 'experience_i18n', 'story_i18n']) {
+      await sql(`DELETE FROM ${table} WHERE locale <> 'en'`);
+    }
     await sql(`UPDATE locales SET serve_machine = false WHERE code = 'vi'`);
     await sql(`UPDATE sections SET is_visible = true`);
     await sql(`UPDATE cuisines SET is_published = true`);
     await sql(`UPDATE destinations SET is_published = true`);
     await sql(`UPDATE nav_items SET is_published = true`);
     await sql(`UPDATE social_links SET is_published = true, visible_locales = NULL`);
+    await sql(`UPDATE experiences SET is_published = true`);
+    await sql(`UPDATE stories SET is_published = true`);
+    await sql(`UPDATE hero_slides SET is_published = true`);
   });
   afterAll(() => getPool().end());
 
@@ -83,9 +92,39 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
       expect(s.film).toMatchObject({ image: { url: SECTIONS_AT_8FE98F5.film.image }, link: null });
       expect(s.hero).toEqual({ visible: true, image: null, link: null });
     });
+
+    it('hero slides: the three pictures in order, the first with its phone crop and the only alt text', async () => {
+      const slides = await loadHeroSlides('en');
+      expect(slides.map((h) => ({ image: h.image.url, mobile: h.mobile?.url ?? null, alt: h.image.alt }))).toEqual(HERO_SLIDES_AT_8FE98F5);
+      expect(slides[0].image).toMatchObject({ width: 906, height: 515 });
+    });
+
+    it('experiences: the three rows, linking nowhere yet (spec §15 item 16)', async () => {
+      expect((await loadExperiences('en')).map(({ title, blurb, href }) => ({ title, blurb, href }))).toEqual(
+        EXPERIENCES_AT_8FE98F5.map((e) => ({ ...e, href: null })),
+      );
+    });
+
+    it('stories: picture, kicker rebuilt from the category and the date ("9 Sep 2026"), title and link', async () => {
+      expect((await loadStories('en')).map((s) => ({ image: s.image?.url, kicker: s.kicker, title: s.title, href: s.href }))).toEqual(
+        STORIES_AT_8FE98F5,
+      );
+      for (const s of await loadStories('en')) expect(s.image?.alt).toBe('');
+    });
   });
 
   describe('languages (spec §5.1 item 5)', () => {
+    it('a story or an experience translated in part keeps the default language’s other fields', async () => {
+      await sql(`INSERT INTO experience_i18n (experience_id, locale, title, status) VALUES (1, 'vi', 'Trải nghiệm ẩm thực', 'reviewed')`);
+      await sql(`INSERT INTO story_i18n (story_id, locale, category, status) VALUES (1, 'vi', 'Tin nhà hàng', 'reviewed')`);
+      const [experience] = await loadExperiences('vi');
+      expect(experience).toMatchObject({ title: 'Trải nghiệm ẩm thực', blurb: EXPERIENCES_AT_8FE98F5[0].blurb });
+      const [story] = await loadStories('vi');
+      // The date follows the language (phase 8 gives each its template); the title stays English.
+      expect(story.kicker).toMatch(/^Tin nhà hàng · /);
+      expect(story.title).toBe(STORIES_AT_8FE98F5[0].title);
+    });
+
     it('shows a reviewed translation, and the default language for each field it lacks', async () => {
       await sql(`INSERT INTO destination_i18n (destination_id, locale, name, status) VALUES ('mm', 'vi', 'Furama MM Siêu thị', 'reviewed')`);
       const mm = (await loadDestinations('vi')).find((d) => d.id === 'mm');
@@ -118,6 +157,15 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
   });
 
   describe('what the guest does not see', () => {
+    it('an unpublished slide, experience or story', async () => {
+      await sql(`UPDATE hero_slides SET is_published = false WHERE id = 2`);
+      await sql(`UPDATE experiences SET is_published = false WHERE id = 2`);
+      await sql(`UPDATE stories SET is_published = false WHERE id = 4`);
+      expect((await loadHeroSlides('en')).map((h) => h.id)).toEqual([1, 3]);
+      expect((await loadExperiences('en')).map((e) => e.id)).toEqual([1, 3]);
+      expect((await loadStories('en')).map((s) => s.id)).toEqual([1, 2, 3]);
+    });
+
     it('an unpublished cuisine, destination, nav item or social link', async () => {
       await sql(`UPDATE cuisines SET is_published = false WHERE id = 'hotpot'`);
       await sql(`UPDATE destinations SET is_published = false WHERE id = 'future'`);

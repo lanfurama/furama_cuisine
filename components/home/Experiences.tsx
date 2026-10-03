@@ -1,9 +1,13 @@
 'use client';
 
-import { EXPERIENCES } from '@/lib/data';
+import type { Experience } from '@/lib/content/types';
+import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 
-export function Experiences() {
+/** The rows (experiences) come from the page; the picture is the section's own (sections.image_id), a plain <img> (R3). */
+export function Experiences({ items }: { items: Experience[] }) {
+  const { site } = useSite();
+  const image = site.sections.experiences.image;
   const media = useReveal<HTMLDivElement>('wipe');
   const kicker = useReveal<HTMLDivElement>('fade');
   const title = useReveal<HTMLHeadingElement>('title');
@@ -11,7 +15,7 @@ export function Experiences() {
   return (
     <section id="experiences" className="experiences">
       <div ref={media} data-reveal="wipe" className="experiences-media">
-        <img src="/assets/chef.jpg" alt="A Furama chef at work" className="fill" loading="lazy" />
+        {image && <img src={image.url} alt={image.alt} className="fill" loading="lazy" />}
       </div>
 
       <div className="experiences-body">
@@ -25,8 +29,8 @@ export function Experiences() {
         </h2>
 
         <div className="experiences-list">
-          {EXPERIENCES.map((e) => (
-            <ExperienceRow key={e.title} title={e.title} blurb={e.blurb} />
+          {items.map((e) => (
+            <ExperienceRow key={e.id} title={e.title} blurb={e.blurb} href={e.href} />
           ))}
         </div>
       </div>
@@ -34,11 +38,18 @@ export function Experiences() {
   );
 }
 
-function ExperienceRow({ title, blurb }: { title: string; blurb: string }) {
+/** A row without its own link points at its section, as before phase 6 (spec §15 item 16: the owner supplies the links). */
+function ExperienceRow({ title, blurb, href }: { title: string; blurb: string; href: string | null }) {
   const ref = useReveal<HTMLAnchorElement>('right');
 
   return (
-    <a ref={ref} data-reveal="right" href="#experiences" className="experience-row">
+    <a
+      ref={ref}
+      data-reveal="right"
+      href={href ?? '#experiences'}
+      {...(href ? { target: '_blank', rel: 'noopener' } : {})}
+      className="experience-row"
+    >
       <span className="experience-copy">
         <span className="experience-name">{title}</span>
         <span className="experience-blurb">{blurb}</span>
