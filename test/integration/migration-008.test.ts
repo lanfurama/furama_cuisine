@@ -52,6 +52,39 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 008: content tables (database)', 
       expect(await one(`SELECT version FROM reservations WHERE id = $1`, [existing])).toEqual({ version: 1 });
     });
 
+    it('passes the runbook post-check, whose sequence row fails for any seeded sequence left behind', async () => {
+      // The file the controller runs on Neon after applying 008 (README, Deploying). One statement today;
+      // pg answers a file of several with one result each, so both shapes are read.
+      const postcheck = readFileSync('db/checks/postcheck-008.sql', 'utf8');
+      const rows = async () => {
+        const res = (await sql(postcheck)) as unknown;
+        return (Array.isArray(res) ? res : [res]).flatMap((r) => (r as { rows: { check: string; ok: boolean }[] }).rows);
+      };
+      const failing = async () => (await rows()).filter((r) => r.ok !== true).map((r) => r.check);
+      const SEQUENCES = 'identity sequences are past the seeded ids';
+
+      expect((await rows()).map((r) => r.check)).toContain(SEQUENCES);
+      expect(await failing()).toEqual([]);
+
+      // A sequence behind its seeded ids: phase 7's first insert would collide with a seeded row.
+      const tables = ['restaurant_highlights', 'hero_slides', 'experiences', 'stories', 'offers', 'nav_items', 'social_links'];
+      const failed: Record<string, string[]> = {};
+      for (const table of tables) {
+        const seq = `${table}_id_seq`;
+        const { last_value, is_called } = await one(`SELECT last_value::text, is_called FROM ${seq}`);
+        try {
+          await sql(`SELECT setval($1, 1)`, [seq]);
+          failed[seq] = await failing();
+        } finally {
+          // setval is not transactional, so the value is put back by hand: later tests count on nextval.
+          await sql(`SELECT setval($1, $2::bigint, $3)`, [seq, last_value, is_called]);
+        }
+      }
+      // Only the sequence row turns false, once for each of the seven.
+      expect(failed).toEqual(Object.fromEntries(tables.map((t) => [`${t}_id_seq`, [SEQUENCES]])));
+      expect(await failing()).toEqual([]);
+    });
+
     it('gives every restaurant a slug, a destination_id and a card picture, and only Tàya House a page', async () => {
       expect(
         await one(`SELECT count(*) FILTER (WHERE slug = id AND destination_id = destination AND card_image_id IS NOT NULL)::int AS ok,
@@ -252,13 +285,27 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 008: content tables (database)', 
       await expect(sql(`UPDATE sections SET link_url = 'javascript:alert(1)' WHERE key = 'heritage'`)).rejects.toThrow(/sections_link_url_check/);
     });
 
-    it('navigation: labels of at most 18 characters, one item per section, never to the film or the finder', async () => {
+    it('navigation: labels of at most 18 characters, one item per section, only to a section with an anchor of its own name', async () => {
       await expect(sql(`UPDATE nav_item_i18n SET label = $1 WHERE nav_item_id = 1`, ['Nhà hàng của chúng tôi'])).rejects.toThrow(
         /nav_item_i18n_label_check/,
       );
       await sql(`UPDATE nav_item_i18n SET label = $1 WHERE nav_item_id = 1`, ['x'.repeat(18)]);
       await expect(sql(`INSERT INTO nav_items (target_section) VALUES ('offers')`)).rejects.toThrow(/nav_items_target_section_key/);
-      await expect(sql(`INSERT INTO nav_items (target_section) VALUES ('film')`)).rejects.toThrow(/nav_items_target_section_check/);
+      // The hero's anchor is #top and the booking bar's #reserve: an item for either would scroll nowhere
+      // (test/guards/nav-anchors.guard.test.ts). The logo reaches the top, RESERVE opens the drawer.
+      const refused: Record<string, string> = {};
+      for (const key of ['film', 'finder', 'hero', 'booking_bar']) {
+        refused[key] = await sql(`INSERT INTO nav_items (target_section) VALUES ($1)`, [key]).then(
+          () => 'inserted',
+          (e: Error) => e.message,
+        );
+      }
+      expect(refused).toEqual({
+        film: expect.stringMatching(/nav_items_target_section_check/),
+        finder: expect.stringMatching(/nav_items_target_section_check/),
+        hero: expect.stringMatching(/nav_items_target_section_check/),
+        booking_bar: expect.stringMatching(/nav_items_target_section_check/),
+      });
       await expect(sql(`INSERT INTO nav_items (target_section) VALUES ('blog')`)).rejects.toThrow(/nav_items_target_section_fkey/);
       await sql(`INSERT INTO nav_items (target_section) VALUES ('cuisines')`);
     });

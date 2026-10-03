@@ -17,13 +17,22 @@
 -- UI text are NOT seeded: they are registry keys (lib/i18n/registry.ts), whose
 -- defaults apply while content_strings has no row (spec §8).
 --
--- Seeds: every INSERT is ON CONFLICT DO NOTHING (spec §5.1 item 7), so a re-run
--- never overwrites an edit. List tables take fixed ids (OVERRIDING SYSTEM VALUE)
--- so their *_i18n rows can name them; the identity sequences are moved past
--- them at the end. A list is seeded only while it is empty, and a translation
--- only for a parent row that exists: fixed ids alone would bring back, on a
--- manual re-run, a seeded row an editor deleted. Seeded translations are status
--- 'reviewed', origin 'seed'.
+-- Seeds: every INSERT is ON CONFLICT DO NOTHING (spec §5.1 item 7). List tables
+-- take fixed ids (OVERRIDING SYSTEM VALUE) so their *_i18n rows can name them;
+-- the identity sequences are moved past them at the end, never back. Seeded
+-- translations are status 'reviewed', origin 'seed'.
+-- Re-running: scripts/migrate.mjs records each file it applies, by name, and
+-- never runs one again; only a manual `psql -f` repeats this file. Such a run
+-- keeps every value an editor set: no INSERT replaces a row, and each UPDATE
+-- fills only columns that are still NULL, except Tàya House's page switch (see
+-- there). A list (cuisines, highlights, hero slides, experiences, stories,
+-- offers, nav items, social links) is seeded only while it is empty, so a
+-- seeded row an editor deleted stays deleted with its translations, unless the
+-- whole list was emptied. Any other seeded row an editor deleted does come
+-- back: a translation or alt text whose parent row is still there, a static
+-- file's media row, and a restaurant's cuisine links once it has none (read
+-- again from restaurants.cuisines). So does a picture an editor emptied, and
+-- Tàya House's page text if all five of its fields were emptied.
 -- Translatable text is never blank (CHECK btrim(x) <> ''): NULL means "fall back
 -- to the default language" (spec §5.1 item 5), so blank must not mean "shown".
 -- Text CHECKs are generous backstops; the design limits (spec §6.5) are the
@@ -299,8 +308,9 @@ UPDATE restaurants r
  WHERE r.card_image_id IS NULL
    AND m.pathname = '/assets/r-' || r.id || '.jpg';
 
--- DETAIL_PAGE_IDS: only Tàya House has a page today. Guarded on the image, so a
--- re-run never switches a page back on that an editor switched off.
+-- DETAIL_PAGE_IDS: only Tàya House has a page today. Guarded on the portrait: a
+-- re-run leaves the switch as an editor set it while the portrait is there, but
+-- switches the page back on if the portrait was removed as well.
 UPDATE restaurants r
    SET detail_image_id = m.id, has_detail_page = true
   FROM media m
@@ -730,11 +740,15 @@ CREATE INDEX IF NOT EXISTS reservations_offer_idx ON reservations (offer_id) WHE
 -- ── nav_items → nav_item_i18n ─────────────────────────────────────────────
 -- One label per language, in natural case: the header uppercases it with CSS,
 -- the menu overlay shows it as it is (spec §6.3 item 6). An item hides itself
--- when its section is hidden (spec §6.5). film and finder have no anchor.
+-- when its section is hidden (spec §6.5). An item scrolls to the element whose
+-- id is its target_section, and these four have no anchor of their own name:
+-- film and finder none at all, the hero #top, the booking bar #reserve. The
+-- header's logo already reaches the top, and RESERVE already opens the booking
+-- drawer. test/guards/nav-anchors.guard.test.ts checks every other section.
 CREATE TABLE IF NOT EXISTS nav_items (
   id             bigint      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   target_section text        NOT NULL REFERENCES sections (key) ON UPDATE CASCADE
-                             CHECK (target_section NOT IN ('film', 'finder')),
+                             CHECK (target_section NOT IN ('film', 'finder', 'hero', 'booking_bar')),
   sort_order     integer     NOT NULL DEFAULT 0,
   is_published   boolean     NOT NULL DEFAULT true,
   created_at     timestamptz NOT NULL DEFAULT now(),
@@ -791,7 +805,8 @@ CREATE TABLE IF NOT EXISTS social_links (
   updated_by      text
 );
 
--- SOCIALS (lib/data.ts). The TikTok handle awaits the owner (spec §15 item 14).
+-- SOCIALS (lib/data.ts). The owner confirmed the TikTok handle on 2026-10-03
+-- (spec §15 item 14).
 INSERT INTO social_links (id, platform, href, sort_order) OVERRIDING SYSTEM VALUE
 SELECT v.id, v.platform, v.href, v.sort_order
   FROM (VALUES

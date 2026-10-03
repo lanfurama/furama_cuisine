@@ -74,7 +74,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
         DESTINATIONS_AT_8FE98F5.map((d) => [d.id, d.name, d.title, d.blurb, d.image, '']),
       );
       expect(ds.map((d) => d.kind)).toEqual(['venue', 'venue', 'venue', 'teaser']);
-      // Printed as the site printed it; the Dining House now dials in E.164 (R18; the owner confirms the number, spec §15 item 14).
+      // Printed as the site printed it; the Dining House now dials in E.164 (R18; the owner confirmed the number on 2026-10-03, spec §15 item 14).
       expect(ds.filter((d) => d.showInFooter).map((d) => `${d.name} · ${d.address} · ${d.phone?.display}`)).toEqual(
         DESTINATIONS_AT_8FE98F5.flatMap((d) => (d.footer ? [d.footer] : [])),
       );

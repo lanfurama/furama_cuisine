@@ -59,4 +59,6 @@ SELECT 'every seeded translation is en, reviewed, seed',
 UNION ALL
 SELECT 'identity sequences are past the seeded ids',
        (SELECT last_value FROM offers_id_seq) >= 3 AND (SELECT last_value FROM stories_id_seq) >= 4
-       AND (SELECT last_value FROM nav_items_id_seq) >= 6 AND (SELECT last_value FROM restaurant_highlights_id_seq) >= 4;
+       AND (SELECT last_value FROM nav_items_id_seq) >= 6 AND (SELECT last_value FROM restaurant_highlights_id_seq) >= 4
+       AND (SELECT last_value FROM hero_slides_id_seq) >= 3 AND (SELECT last_value FROM experiences_id_seq) >= 3
+       AND (SELECT last_value FROM social_links_id_seq) >= 4;
