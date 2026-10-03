@@ -20,7 +20,7 @@ type Duplicate = { ok: false; code: 'duplicate' };
 /**
  * SQL: notification_recipients row `n` reaches a booking at the restaurant
  * whose id and destination are the given SQL expressions: a row for that
- * restaurant, for its destination (restaurants.destination), or for 'all'
+ * restaurant, for its destination (restaurants.destination_id), or for 'all'
  * (spec §10.4, R4). The one definition: the queue (outbox.ts queueStaffNew)
  * and the overview's "Nhà hàng chưa có người nhận thông báo" both use it, so
  * they can never disagree about who hears about a booking. Callers add
@@ -36,7 +36,7 @@ export async function restaurantsWithoutRecipient(db: Db): Promise<{ id: string;
     `SELECT r.id, r.name FROM restaurants r
       WHERE r.booking_enabled
         AND NOT EXISTS (SELECT 1 FROM notification_recipients n
-                         WHERE n.active AND 'staff.new' = ANY (n.events) AND ${reachesSql('n', 'r.id', 'r.destination')})
+                         WHERE n.active AND 'staff.new' = ANY (n.events) AND ${reachesSql('n', 'r.id', 'r.destination_id')})
       ORDER BY r.sort_order, r.id`,
   );
   return rows;

@@ -53,14 +53,14 @@ export async function queueGuestEmail(
 export async function queueStaffNew(client: PoolClient, { reservationId, eventId, env }: Queue): Promise<string[]> {
   const { rows } = await client.query<{ id: string }>(
     `WITH booking AS (
-       SELECT r.id, r.restaurant_id, rest.destination
+       SELECT r.id, r.restaurant_id, rest.destination_id
          FROM reservations r JOIN restaurants rest ON rest.id = r.restaurant_id
         WHERE r.id = $2
      ),
      matched AS (
        SELECT DISTINCT ON (lower(n.email)) n.email, n.locale
          FROM notification_recipients n, booking b
-        WHERE n.active AND 'staff.new' = ANY (n.events) AND ${reachesSql('n', 'b.restaurant_id', 'b.destination')}
+        WHERE n.active AND 'staff.new' = ANY (n.events) AND ${reachesSql('n', 'b.restaurant_id', 'b.destination_id')}
         ORDER BY lower(n.email), CASE n.scope WHEN 'restaurant' THEN 0 WHEN 'destination' THEN 1 ELSE 2 END, n.id
      ),
      chosen AS (

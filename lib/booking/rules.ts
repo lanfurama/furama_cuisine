@@ -68,7 +68,7 @@ export type BookingRules = {
   closures: ClosureRule[];
 };
 
-/** The number guests call for a larger group (spec §10.2): a destination's phone until phase 6 adds restaurants.phone_*. */
+/** The number guests call for a larger group (spec §10.2): the restaurant's own, else its destination's (lib/server/booking/rules.ts groupPhoneSql). */
 export type GroupPhone = { display: string; tel: string };
 
 /** Covers held per "HH:MM" on one date. */

@@ -153,7 +153,7 @@ async function recipientStillWanted(pool: Pool, row: ClaimedRow): Promise<boolea
         `SELECT EXISTS (
            SELECT 1 FROM reservations r JOIN restaurants t ON t.id = r.restaurant_id, notification_recipients n
             WHERE r.id = $1 AND n.active AND 'staff.new' = ANY (n.events) AND lower(n.email) = lower($2)
-              AND ${reachesSql('n', 'r.restaurant_id', 't.destination')}
+              AND ${reachesSql('n', 'r.restaurant_id', 't.destination_id')}
          ) AS ok`,
         [row.reservation_id, row.to_email],
       );

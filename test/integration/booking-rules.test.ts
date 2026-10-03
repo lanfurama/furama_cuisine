@@ -107,6 +107,51 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('booking rule loaders (database)
     });
   });
 
+  it('prefers the restaurant’s own number, then its destination’s; none only when no number exists at all (phase-4 ledger T3)', async () => {
+    await sql(`UPDATE restaurants SET phone_e164 = '+842363847333', phone_display = '0236 3847 333' WHERE id = 'the-fan'`);
+    try {
+      const own = await loadBookingRules(getPool(), ['the-fan', 'pho-cuon'], 'en', '2026-10-01');
+      expect(own.get('the-fan')?.groupPhone).toEqual({ display: '0236 3847 333', tel: '+842363847333' });
+      expect(own.get('pho-cuon')?.groupPhone).toEqual({ display: '0859 555 759', tel: '+84859555759' });
+      await sql(`UPDATE restaurants SET phone_e164 = NULL, phone_display = NULL WHERE id = 'the-fan'`);
+      await sql(`UPDATE destinations SET phone_e164 = NULL, phone_display = NULL`);
+      // The drawer and the emails then say nothing about a number (no "call us on" with a blank).
+      expect((await loadRestaurantRules(getPool(), 'taya-house', 'en', '2026-10-01'))!.groupPhone).toBeNull();
+    } finally {
+      await sql(`UPDATE restaurants SET phone_e164 = NULL, phone_display = NULL WHERE id = 'the-fan'`);
+      await sql(`UPDATE destinations SET phone_e164 = '+842366519999', phone_display = '+84 236 651 9999' WHERE id = 'resort'`);
+      await sql(`UPDATE destinations SET phone_e164 = '+84859555759', phone_display = '0859 555 759' WHERE id = 'dining-house'`);
+    }
+  });
+
+  it('orders restaurants with the same sort_order by id (phase-4 ledger T3)', async () => {
+    const { rows } = await sql(`SELECT id, sort_order FROM restaurants WHERE id IN ('taya-house', 'danaksara', 'cafe-indochine')`);
+    // One by one, in reverse id order: each update moves its row to the end of the table, so an order
+    // on sort_order alone hands them back as taya-house, danaksara, cafe-indochine.
+    for (const id of ['taya-house', 'danaksara', 'cafe-indochine']) await sql(`UPDATE restaurants SET sort_order = 1 WHERE id = $1`, [id]);
+    try {
+      const loaded = await loadBookingRules(getPool(), ['taya-house', 'danaksara', 'cafe-indochine'], 'en', '2026-10-01');
+      expect([...loaded.keys()]).toEqual(['cafe-indochine', 'danaksara', 'taya-house']);
+    } finally {
+      for (const r of rows) await sql(`UPDATE restaurants SET sort_order = $2 WHERE id = $1`, [r.id, r.sort_order]);
+    }
+  });
+
+  it('an unpublished or archived restaurant does not book online, whatever its switch says (R10)', async () => {
+    try {
+      await sql(`UPDATE restaurants SET is_published = false WHERE id = 'the-fan'`);
+      await sql(`UPDATE restaurants SET archived_at = now() WHERE id = 'pho-cuon'`);
+      const loaded = await loadBookingRules(getPool(), ['the-fan', 'pho-cuon', 'taya-house'], 'en', '2026-10-01');
+      expect([...loaded].map(([id, l]) => [id, l.rules.bookingEnabled])).toEqual([
+        ['taya-house', true],
+        ['the-fan', false],
+        ['pho-cuon', false],
+      ]);
+    } finally {
+      await sql(`UPDATE restaurants SET is_published = true, archived_at = NULL WHERE id IN ('the-fan', 'pho-cuon')`);
+    }
+  });
+
   it('counts covers per date and time over the holding statuses only', async () => {
     await book('taya-house', '2026-10-05', '19:00', 2, 'requested', '+84905000001');
     await book('taya-house', '2026-10-05', '19:00', 3, 'confirmed', '+84905000002');

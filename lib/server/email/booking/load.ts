@@ -28,7 +28,7 @@ export type BookingEmailData = {
   email: string | null;
   /** The guest's own request from the form. */
   note: string | null;
-  /** The destination's number, which guests call (lib/server/booking/rules.ts groupPhoneSql). */
+  /** The restaurant's number, else its destination's, which guests call (lib/server/booking/rules.ts groupPhoneSql). */
   groupPhone: GroupPhone | null;
   /** Phase 10's anonymiser ran: nothing is sent about it any more. */
   anonymized: boolean;

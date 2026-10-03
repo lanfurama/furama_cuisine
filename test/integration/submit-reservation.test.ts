@@ -178,6 +178,18 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('submitReservation v2 (database)
     expect(await submitReservation(request)).toEqual({ ok: false, code: 'restaurant_unavailable' });
   });
 
+  it('refuses a restaurant that is unpublished or archived, though its online booking is on (R10)', async () => {
+    try {
+      await sql(`UPDATE restaurants SET is_published = false WHERE id = 'taya-house'`);
+      expect(await submitReservation(request)).toEqual({ ok: false, code: 'restaurant_unavailable' });
+      await sql(`UPDATE restaurants SET is_published = true, archived_at = now() WHERE id = 'taya-house'`);
+      expect(await submitReservation(request)).toEqual({ ok: false, code: 'restaurant_unavailable' });
+      expect((await sql('SELECT count(*)::int AS n FROM reservations')).rows[0].n).toBe(0);
+    } finally {
+      await sql(`UPDATE restaurants SET is_published = true, archived_at = NULL WHERE id = 'taya-house'`);
+    }
+  });
+
   it('refuses a closed service and keeps the others open', async () => {
     await sql(
       `INSERT INTO closures (scope, destination_id, starts_on, ends_on, meals) VALUES ('destination', 'resort', '2026-10-02', '2026-10-02', '{Dinner}')`,

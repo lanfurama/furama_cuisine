@@ -81,7 +81,7 @@ export type RestaurantBooking = {
   token: string;
 };
 
-const RESTAURANT_COLUMNS = `id, name, destination AS "destinationId", booking_enabled AS "bookingEnabled",
+const RESTAURANT_COLUMNS = `id, name, destination_id AS "destinationId", booking_enabled AS "bookingEnabled",
   window_days AS "windowDays", lead_minutes AS "leadMinutes", max_party AS "maxParty",
   auto_confirm AS "autoConfirm", ${US('updated_at')} AS token`;
 
@@ -386,7 +386,7 @@ export async function deleteClosure(
 export async function restaurantsInScope(db: Db, scope: ClosureScope): Promise<string[]> {
   const { rows } = await db.query<{ id: string }>(
     `SELECT id FROM restaurants
-      WHERE $1 = 'all' OR ($1 = 'destination' AND destination = $2) OR ($1 = 'restaurant' AND id = $3)
+      WHERE $1 = 'all' OR ($1 = 'destination' AND destination_id = $2) OR ($1 = 'restaurant' AND id = $3)
       ORDER BY sort_order, id`,
     [scope.scope, scope.destinationId, scope.restaurantId],
   );
