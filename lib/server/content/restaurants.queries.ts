@@ -1,0 +1,97 @@
+import 'server-only';
+import { query } from '@/db/client';
+import { fold } from '@/lib/booking';
+import type { Media } from '@/lib/content/types';
+import { MEALS, type Meal, type Restaurant } from '@/lib/data';
+import { LOCALE_CTE, i18nJoin, mediaJson, tr } from './sql';
+
+/* Restaurants as the guest site shows them, uncached (lib/server/content/restaurants.ts wraps them). */
+
+type RestaurantRow = {
+  id: string;
+  slug: string;
+  name: string;
+  type: string | null;
+  type_default: string | null;
+  destination_id: string;
+  destination_name: string | null;
+  destination_name_default: string | null;
+  cuisines: string[];
+  cuisine_labels: string[];
+  cuisine_labels_default: string[];
+  meals: string[];
+  booking_enabled: boolean;
+  has_detail_page: boolean;
+  image: Media | null;
+  phone_e164: string | null;
+  phone_display: string | null;
+};
+
+/**
+ * The catalogue in the order staff set (ties broken by id, so the order is
+ * total: phase-4 ledger T3), published and not archived. type: the
+ * restaurant's type line in `locale`, else the default language's. cuisines:
+ * restaurant_cuisines ids (slugs) of published cuisines, in their own order.
+ * meals: the meals of the active service periods, in MEALS order (spec §6.3
+ * item 2). phone: the restaurant's own number, else its destination's (spec
+ * §6.4). search: name, type, cuisine labels and destination name, in `locale`
+ * and in the default language, folded once here (spec §6.3 item 9). The
+ * booking path reads lib/server/booking/rules.ts, never this.
+ */
+export async function loadRestaurants(locale: string): Promise<Restaurant[]> {
+  const rows = await query<RestaurantRow>(
+    `WITH ${LOCALE_CTE}
+     SELECT r.id, r.slug, r.name, ${tr('rt', 'type_label')} AS type, rt_d.type_label AS type_default,
+            r.destination_id, ${tr('dt', 'name')} AS destination_name, dt_d.name AS destination_name_default,
+            r.booking_enabled, r.has_detail_page, img.j AS image,
+            CASE WHEN r.phone_e164 IS NOT NULL THEN r.phone_e164 ELSE d.phone_e164 END AS phone_e164,
+            CASE WHEN r.phone_e164 IS NOT NULL THEN r.phone_display ELSE d.phone_display END AS phone_display,
+            ARRAY(SELECT rc.cuisine_id
+                    FROM restaurant_cuisines rc JOIN cuisines c ON c.id = rc.cuisine_id AND c.is_published
+                   WHERE rc.restaurant_id = r.id
+                   ORDER BY rc.sort_order, rc.cuisine_id) AS cuisines,
+            ARRAY(SELECT ${tr('ct', 'label')}
+                    FROM restaurant_cuisines rc JOIN cuisines c ON c.id = rc.cuisine_id AND c.is_published
+                    ${i18nJoin('cuisine_i18n', 'ct', 'cuisine_id', 'c.id')}
+                   WHERE rc.restaurant_id = r.id AND ${tr('ct', 'label')} IS NOT NULL
+                   ORDER BY rc.sort_order, rc.cuisine_id) AS cuisine_labels,
+            ARRAY(SELECT ct_d.label
+                    FROM restaurant_cuisines rc JOIN cuisines c ON c.id = rc.cuisine_id AND c.is_published
+                    JOIN cuisine_i18n ct_d ON ct_d.cuisine_id = c.id AND ct_d.locale = lc.def
+                   WHERE rc.restaurant_id = r.id
+                   ORDER BY rc.sort_order, rc.cuisine_id) AS cuisine_labels_default,
+            ARRAY(SELECT m.meal
+                    FROM unnest($2::text[]) WITH ORDINALITY AS m(meal, n)
+                   WHERE EXISTS (SELECT 1 FROM service_periods p
+                                  WHERE p.restaurant_id = r.id AND p.active AND p.meal = m.meal)
+                   ORDER BY m.n) AS meals
+       FROM restaurants r CROSS JOIN lc
+       JOIN destinations d ON d.id = r.destination_id
+       ${i18nJoin('restaurant_i18n', 'rt', 'restaurant_id', 'r.id')}
+       ${i18nJoin('destination_i18n', 'dt', 'destination_id', 'd.id')}
+       LEFT JOIN LATERAL ${mediaJson('r.card_image_id')} AS img ON true
+      WHERE r.is_published AND r.archived_at IS NULL
+      ORDER BY r.sort_order, r.id`,
+    [locale, MEALS],
+  );
+  return rows.map((r) => {
+    // What the card says, in the order the search overlay joined it before phase 6; then the default
+    // language's words where they differ, so a guest can search in either (in English nothing is added).
+    const shown = [r.name, r.type, ...r.cuisine_labels, r.destination_name];
+    const fallback = [r.type_default, ...r.cuisine_labels_default, r.destination_name_default].filter((w) => !shown.includes(w));
+    return {
+      id: r.id,
+      slug: r.slug,
+      hasDetailPage: r.has_detail_page,
+      name: r.name,
+      type: r.type ?? '',
+      cuisines: r.cuisines,
+      dest: r.destination_id,
+      meals: r.meals as Meal[],
+      bookingEnabled: r.booking_enabled,
+      image: r.image,
+      phone: r.phone_e164 && r.phone_display ? { tel: r.phone_e164, display: r.phone_display } : null,
+      search: fold([...shown, ...fallback].filter(Boolean).join(' ')),
+    };
+  });
+}

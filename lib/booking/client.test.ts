@@ -22,6 +22,9 @@ const restaurant = (id: string, dest: Restaurant['dest'], bookingEnabled = true)
   dest,
   meals: ['Dinner'],
   bookingEnabled,
+  image: null,
+  phone: null,
+  search: id,
 });
 
 const all = [

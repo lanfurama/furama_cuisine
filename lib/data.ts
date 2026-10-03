@@ -1,25 +1,36 @@
+import type { Media, Phone } from '@/lib/content/types';
+
 export type Meal = 'Breakfast' | 'Lunch' | 'Dinner' | 'Drinks';
-export type DestKey = 'resort' | 'dining-house' | 'mm';
+/** destinations.id: rows since migration 004, so any string (DESTS below names the three of phase 5 until it goes). */
+export type DestKey = string;
 
 export type Restaurant = {
   id: string;
-  /** URL segment of /[lang]/restaurants/[slug]. Phase 2: the id. Phase 6: restaurants.slug. */
+  /** URL segment of /[lang]/restaurants/[slug] (restaurants.slug). */
   slug: string;
-  /** Phase 2: DETAIL_PAGE_IDS below. Phase 6: restaurants.has_detail_page. */
+  /** restaurants.has_detail_page: the card opens the page instead of the reservation form. */
   hasDetailPage: boolean;
   name: string;
+  /** restaurant_i18n.type_label in the page's language, else the default language's. */
   type: string;
-  /** Cuisine slugs (the second column of CUISINES), never labels. */
+  /** Cuisine ids (slugs, via restaurant_cuisines), never labels. */
   cuisines: string[];
+  /** destinations.id (restaurants.destination_id). */
   dest: DestKey;
   /** The meals of its active service periods (spec §6.3 item 2), in MEALS order; drives the Occasion filter. */
   meals: Meal[];
   /** restaurants.booking_enabled: off hides its RESERVE entry points and drops it from the reservation form. */
   bookingEnabled: boolean;
+  /** The card picture (restaurants.card_image_id; alt: a copy of the name, R19); null draws the frame alone. */
+  image: Media | null;
+  /** The restaurant's own number, else its destination's (spec §6.4); null when neither has one. */
+  phone: Phone | null;
+  /** Name, type, cuisine labels and destination name, in the page's language and the default one, fold()ed: what search matches. */
+  search: string;
 };
 
-/* The restaurant catalogue lives in Neon (see db/migrations/002_seed_restaurants.sql)
-   and is loaded by db/queries.ts#listRestaurants. */
+/* The restaurant catalogue lives in the database (migrations 002, 008) and is
+   loaded by lib/server/content/restaurants.queries.ts#loadRestaurants. */
 
 /** Restaurants with their own page. Phase 6 replaces this with restaurants.has_detail_page. */
 export const DETAIL_PAGE_IDS: ReadonlySet<string> = new Set(['taya-house']);

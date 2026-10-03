@@ -1,6 +1,6 @@
 import 'server-only';
 import { cacheLife, cacheTag } from 'next/cache';
-import { TAGS } from '@/lib/cache-tags';
+import { LOADERS } from '@/lib/cache-plan';
 import { loadEnabledLocales, type SiteLocale } from './locales.queries';
 
 export type { SiteLocale };
@@ -9,6 +9,6 @@ export type { SiteLocale };
 export async function getEnabledLocales(): Promise<SiteLocale[]> {
   'use cache';
   cacheLife('max');
-  cacheTag(TAGS.locales);
+  cacheTag(...LOADERS.locales.tags);
   return loadEnabledLocales();
 }

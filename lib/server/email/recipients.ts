@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import type { StaffEmailEventName } from '@/lib/email/events';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
 import { US, conflictBy, type Conflict } from '@/lib/server/booking/config';
+import { loadSiteSettings } from '@/lib/server/content/settings.queries';
 
 /*
  * Who receives staff notifications (spec §5.2 notification_recipients, §10.4),
@@ -159,8 +160,9 @@ export async function deleteRecipient(pool: Pool, actor: AuditActor, input: { id
 // ── the shared inbox (site_settings.email) ─────────────────────────────────
 
 export async function getSharedInbox(db: Db): Promise<{ email: string; token: string }> {
-  const { rows } = await db.query<{ email: string; token: string }>(`SELECT email, ${US('updated_at')} AS token FROM site_settings WHERE id`);
-  return rows[0];
+  const settings = await loadSiteSettings(db);
+  if (!settings) throw new Error('site_settings has no row (migration 007 seeds it)');
+  return { email: settings.email, token: settings.token };
 }
 
 /** R3: the same address is the general email of the site footer from phase 6/7; the screen says so. */

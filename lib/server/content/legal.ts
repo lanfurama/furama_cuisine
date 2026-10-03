@@ -1,5 +1,6 @@
 import 'server-only';
 import { cacheLife, cacheTag } from 'next/cache';
+import { LOADERS } from '@/lib/cache-plan';
 import { TAGS } from '@/lib/cache-tags';
 import { resolveStrings } from '@/lib/i18n/resolve';
 import { PRIVACY_KEYS } from '@/lib/legal';
@@ -14,7 +15,7 @@ import { loadStringRows } from './strings.queries';
 export async function getPrivacyStrings(locale: string) {
   'use cache';
   cacheLife('max');
-  cacheTag(TAGS.contentLegal, TAGS.i18n(locale));
+  cacheTag(...LOADERS.legal.tags, TAGS.i18n(locale));
 
   const { defaultLocale, rows } = await loadStringRows(locale, PRIVACY_KEYS);
   return resolveStrings(rows, PRIVACY_KEYS, locale, defaultLocale);

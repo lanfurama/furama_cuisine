@@ -1,5 +1,6 @@
 import 'server-only';
 import { cacheLife, cacheTag } from 'next/cache';
+import { LOADERS } from '@/lib/cache-plan';
 import { TAGS } from '@/lib/cache-tags';
 import type { StringKey } from '@/lib/i18n/registry';
 import { resolveStrings } from '@/lib/i18n/resolve';
@@ -18,7 +19,7 @@ export async function getStrings<K extends StringKey>(
 ): Promise<Record<K, string>> {
   'use cache';
   cacheLife('max');
-  cacheTag(TAGS.contentUi, TAGS.i18n(locale));
+  cacheTag(...LOADERS.strings.tags, TAGS.i18n(locale));
 
   const { defaultLocale, rows } = await loadStringRows(locale, keys);
   return resolveStrings(rows, keys, locale, defaultLocale);

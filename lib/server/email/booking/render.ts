@@ -5,6 +5,7 @@ import { audienceOf, type EmailAudience, type EmailEvent } from '@/lib/email/eve
 import { formatMessage } from '@/lib/i18n/format';
 import { registryLocaleDefault, type StringKey } from '@/lib/i18n/registry';
 import { resolveStrings } from '@/lib/i18n/resolve';
+import { loadSiteSettings } from '@/lib/server/content/settings.queries';
 import { loadStringRows } from '@/lib/server/content/strings.queries';
 import { appOrigin } from '../auth-emails';
 import { renderEmail } from '../send';
@@ -192,8 +193,7 @@ export async function loadEmailStrings(db: Db, event: EmailEvent, locale: string
 
 /** Where a guest's reply lands: the shared inbox (site_settings.email). */
 export async function sharedInbox(db: Db): Promise<string | null> {
-  const { rows } = await db.query<{ email: string }>('SELECT email FROM site_settings WHERE id');
-  return rows[0]?.email ?? null;
+  return (await loadSiteSettings(db))?.email ?? null;
 }
 
 export type RenderedEmail = { subject: string; html: string; text: string; replyTo?: string; locale: string };
