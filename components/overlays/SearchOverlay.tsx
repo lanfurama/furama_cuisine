@@ -1,13 +1,12 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { CUISINES, DESTS, cuisineLabel, restaurantImage } from '@/lib/data';
 import { fold } from '@/lib/booking';
 import { useSite } from '@/components/site/SiteProvider';
 import { useOpenAnimation } from '@/lib/motion';
 
 export function SearchOverlay() {
-  const { restaurants, overlay, close, query, setQuery, openRestaurant } = useSite();
+  const { site, destName, restaurants, overlay, close, query, setQuery, openRestaurant } = useSite();
   const inputRef = useRef<HTMLInputElement>(null);
   const open = overlay === 'search';
 
@@ -29,12 +28,9 @@ export function SearchOverlay() {
 
   if (!open) return null;
 
+  // r.search is folded on the server: name, type, cuisines and destination in this language and the default one (spec §6.3 item 9).
   const q = fold(query.trim());
-  const results = !q
-    ? []
-    : restaurants.filter((r) =>
-        fold([r.name, r.type, r.cuisines.map(cuisineLabel).join(' '), DESTS[r.dest]].join(' ')).includes(q),
-      );
+  const results = !q ? [] : restaurants.filter((r) => r.search.includes(q));
 
   return (
     <div data-anim="search" className="search-root" role="dialog" aria-modal="true" aria-label="Search">
@@ -60,9 +56,9 @@ export function SearchOverlay() {
           <>
             <div className="search-label">POPULAR CUISINES</div>
             <div className="search-chips">
-              {CUISINES.map(([label]) => (
-                <button key={label} type="button" className="search-chip" onClick={() => setQuery(label)}>
-                  {label}
+              {site.cuisines.map((c) => (
+                <button key={c.id} type="button" className="search-chip" onClick={() => setQuery(c.label)}>
+                  {c.label}
                 </button>
               ))}
             </div>
@@ -84,12 +80,12 @@ export function SearchOverlay() {
                 >
                   <span
                     className="search-thumb"
-                    style={{ backgroundImage: `url('${restaurantImage(r.id)}')` }}
+                    style={r.image ? { backgroundImage: `url('${r.image.url}')` } : undefined}
                     aria-hidden="true"
                   />
                   <span className="search-result-copy">
                     <span className="search-result-name">{r.name}</span>
-                    <span className="search-result-meta">{`${r.type} · ${DESTS[r.dest]}`}</span>
+                    <span className="search-result-meta">{`${r.type} · ${destName(r.dest)}`}</span>
                   </span>
                   {(r.hasDetailPage || r.bookingEnabled) && (
                     <span className="search-result-action">

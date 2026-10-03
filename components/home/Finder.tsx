@@ -1,27 +1,12 @@
 'use client';
 
-import { CUISINES, DESTS, DEST_KEYS, MEALS, MEAL_LABELS } from '@/lib/data';
+import { cuisineOptions, destinationOptions, occasionOptions } from '@/lib/content/options';
 import { useSite } from '@/components/site/SiteProvider';
-import { Dropdown, type Option } from '@/components/ui/Dropdown';
-
-export const cuisineOptions = (): Option<string>[] => [
-  { value: 'all', label: 'All cuisines' },
-  ...CUISINES.map(([label, slug]) => ({ value: slug, label })),
-];
-
-export const occasionOptions = (): Option<string>[] => [
-  { value: 'all', label: 'Any occasion' },
-  ...MEALS.map((m) => ({ value: m, label: MEAL_LABELS[m] })),
-];
-
-export const destinationOptions = (): Option<string>[] => [
-  { value: 'all', label: 'Any destination' },
-  ...DEST_KEYS.map((k) => ({ value: k, label: DESTS[k] })),
-];
+import { Dropdown } from '@/components/ui/Dropdown';
 
 /** The desktop booking finder that sits under the hero. */
 export function Finder() {
-  const { finder, setFinder, applyFinder } = useSite();
+  const { site, finder, setFinder, applyFinder } = useSite();
 
   return (
     <section className="finder" aria-label="Find a restaurant">
@@ -42,7 +27,7 @@ export function Finder() {
             label="Cuisine"
             value={finder.cuisine}
             onPick={(cuisine) => setFinder({ cuisine })}
-            options={cuisineOptions()}
+            options={cuisineOptions(site.cuisines)}
           />
           <Dropdown
             id="fOccasion"
@@ -56,7 +41,7 @@ export function Finder() {
             label="Destination"
             value={finder.destination}
             onPick={(destination) => setFinder({ destination })}
-            options={destinationOptions()}
+            options={destinationOptions(site.destinations)}
           />
         </div>
 

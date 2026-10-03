@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { DESTS, DEST_KEYS, MEAL_LABELS } from '@/lib/data';
+import { bookableDestinationOptions } from '@/lib/content/options';
+import { MEAL_LABELS } from '@/lib/data';
 import { FIELD_MAX, findRestaurant, fmtDay, guestLabel } from '@/lib/booking';
 import { dayReason, movedReason, slotOpen, type DateMove } from '@/lib/booking/client';
 import type { DayInfo } from '@/lib/booking/api';
@@ -161,6 +162,8 @@ function DayStrip({
 
 export function ReserveDrawer() {
   const {
+    site,
+    destName,
     restaurants,
     bookable,
     overlay,
@@ -294,9 +297,7 @@ export function ReserveDrawer() {
   const hint = atLimit && groupPhone;
 
   // Only places and restaurants that take bookings online (booking_enabled).
-  const destinationOptions: Option<string>[] = DEST_KEYS.filter((k) => bookable.some((r) => r.dest === k)).map(
-    (k) => ({ value: k, label: DESTS[k] }),
-  );
+  const destinationOptions: Option<string>[] = bookableDestinationOptions(site.destinations, bookable);
   const restaurantOptions: Option<string>[] = bookable
     .filter((r) => r.dest === booking.destination)
     .map((r) => ({ value: r.id, label: r.name }));
@@ -324,7 +325,7 @@ export function ReserveDrawer() {
             </div>
             <div className="drawer-name">{restaurant?.name}</div>
             <div className="drawer-meta">
-              {restaurant ? `${restaurant.type} · ${DESTS[restaurant.dest]}` : ''}
+              {restaurant ? `${restaurant.type} · ${destName(restaurant.dest)}` : ''}
             </div>
           </div>
           <button type="button" className="drawer-close" aria-label="Close" onClick={closeDrawer}>

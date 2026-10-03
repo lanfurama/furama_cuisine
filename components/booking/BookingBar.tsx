@@ -1,6 +1,7 @@
 'use client';
 
-import { DESTS, DEST_KEYS, MEAL_LABELS } from '@/lib/data';
+import { bookableDestinationOptions } from '@/lib/content/options';
+import { MEAL_LABELS } from '@/lib/data';
 import { fmtDay, guestLabel } from '@/lib/booking';
 import { dayReason, slotOpen } from '@/lib/booking/client';
 import { useSite } from '@/components/site/SiteProvider';
@@ -10,7 +11,7 @@ import { useReveal } from '@/lib/motion';
 
 /** The wide "Where would you like to dine?" bar above the footer. */
 export function BookingBar() {
-  const { bookable, booking, setBooking, board, openReserve, days, maxParty, groupPhone, now, strings, loadFailed } = useSite();
+  const { site, bookable, booking, setBooking, board, openReserve, days, maxParty, groupPhone, now, strings, loadFailed } = useSite();
   const title = useReveal<HTMLHeadingElement>('title');
   const panel = useReveal<HTMLDivElement>('up');
 
@@ -18,9 +19,7 @@ export function BookingBar() {
   const at = board ? now() : undefined;
 
   // Only places and restaurants that take bookings online (booking_enabled).
-  const destinationOptions: Option<string>[] = DEST_KEYS.filter((k) => bookable.some((r) => r.dest === k)).map(
-    (k) => ({ value: k, label: DESTS[k] }),
-  );
+  const destinationOptions: Option<string>[] = bookableDestinationOptions(site.destinations, bookable);
 
   const restaurantOptions: Option<string>[] = bookable
     .filter((r) => r.dest === booking.destination)

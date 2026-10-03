@@ -99,11 +99,9 @@ describe('the snapshot is the content of 8fe98f5 (delete with the constants and 
     const experiences = source('components/home/Experiences.tsx');
     expect(experiences).toContain(`src="${SECTIONS_AT_8FE98F5.experiences.image}" alt="${SECTIONS_AT_8FE98F5.experiences.alt}"`);
     expect(source('components/home/Heritage.tsx')).toContain(`src="${SECTIONS_AT_8FE98F5.heritage.image}" alt=""`);
-    // Cuisine, destination and story images are drawn with alt="".
-    expect(source('components/home/Cuisines.tsx')).toContain('src={cuisineImage(slug)} alt=""');
+    // Destination and story images are drawn with alt="".
     expect(source('components/home/Destinations.tsx')).toContain('src={`/assets/${card.slot}.jpg`} alt=""');
     expect(source('components/home/Stories.tsx')).toContain('src={`/assets/${img}.jpg`} alt=""');
-    expect(source('components/home/RestaurantCard.tsx')).toContain('alt={restaurant.name}');
   });
 });
 

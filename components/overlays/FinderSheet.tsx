@@ -3,11 +3,11 @@
 import { useSite } from '@/components/site/SiteProvider';
 import { ChipGroup } from '@/components/ui/Dropdown';
 import { useOpenAnimation } from '@/lib/motion';
-import { cuisineOptions, destinationOptions, occasionOptions } from '@/components/home/Finder';
+import { cuisineOptions, destinationOptions, occasionOptions } from '@/lib/content/options';
 
 /** The phone equivalent of the desktop finder. */
 export function FinderSheet() {
-  const { overlay, close, finder, setFinder, applyFinder } = useSite();
+  const { site, overlay, close, finder, setFinder, applyFinder } = useSite();
   const open = overlay === 'sheet';
 
   useOpenAnimation(open, (animate) => {
@@ -39,7 +39,7 @@ export function FinderSheet() {
         <ChipGroup
           label="Cuisine"
           value={finder.cuisine}
-          options={cuisineOptions()}
+          options={cuisineOptions(site.cuisines)}
           onPick={(cuisine) => setFinder({ cuisine })}
         />
         <ChipGroup
@@ -51,7 +51,7 @@ export function FinderSheet() {
         <ChipGroup
           label="Destination"
           value={finder.destination}
-          options={destinationOptions()}
+          options={destinationOptions(site.destinations)}
           onPick={(destination) => setFinder({ destination })}
         />
 

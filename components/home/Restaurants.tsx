@@ -1,25 +1,27 @@
 'use client';
 
-import { DESTS, MEAL_LABELS, cuisineLabel, type DestKey, type Meal } from '@/lib/data';
+import { MEAL_LABELS, type Meal } from '@/lib/data';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 import { RestaurantCard } from './RestaurantCard';
 
 export function Restaurants() {
-  const { restaurants, filter, matches, shownCount, setFilter, clearFilters } = useSite();
+  const { site, destName, restaurants, filter, matches, shownCount, setFilter, clearFilters } = useSite();
   const title = useReveal<HTMLHeadingElement>('title');
   const link = useReveal<HTMLButtonElement>('fade');
 
   const chips: { label: string; clear: () => void }[] = [];
   if (filter.cuisine !== 'all') {
-    chips.push({ label: cuisineLabel(filter.cuisine), clear: () => setFilter({ cuisine: 'all' }) });
+    // A cuisine no longer listed (unpublished since the filter was set) still names itself rather than nothing.
+    const label = site.cuisines.find((c) => c.id === filter.cuisine)?.label ?? filter.cuisine;
+    chips.push({ label, clear: () => setFilter({ cuisine: 'all' }) });
   }
   if (filter.occasion !== 'all') {
     chips.push({ label: MEAL_LABELS[filter.occasion as Meal], clear: () => setFilter({ occasion: 'all' }) });
   }
   if (filter.destination !== 'all') {
     chips.push({
-      label: DESTS[filter.destination as DestKey],
+      label: destName(filter.destination),
       clear: () => setFilter({ destination: 'all' }),
     });
   }

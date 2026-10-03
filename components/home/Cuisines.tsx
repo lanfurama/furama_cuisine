@@ -1,12 +1,12 @@
 'use client';
 
-import Image from 'next/image';
-import { CUISINES, cuisineImage } from '@/lib/data';
+import type { Media } from '@/lib/content/types';
+import { CmsImage } from '@/components/ui/CmsImage';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 
 export function Cuisines() {
-  const { filter, pickCuisine, setFilter, scrollToId } = useSite();
+  const { site, filter, pickCuisine, setFilter, scrollToId } = useSite();
   const title = useReveal<HTMLHeadingElement>('title');
   const link = useReveal<HTMLButtonElement>('fade');
 
@@ -32,13 +32,13 @@ export function Cuisines() {
         </div>
 
         <div className="cuisine-rail">
-          {CUISINES.map(([label, slug]) => (
+          {site.cuisines.map((c) => (
             <CuisineChip
-              key={slug}
-              label={label}
-              slug={slug}
-              selected={filter.cuisine === slug}
-              onPick={() => pickCuisine(slug)}
+              key={c.id}
+              label={c.label}
+              image={c.image}
+              selected={filter.cuisine === c.id}
+              onPick={() => pickCuisine(c.id)}
             />
           ))}
         </div>
@@ -49,12 +49,12 @@ export function Cuisines() {
 
 function CuisineChip({
   label,
-  slug,
+  image,
   selected,
   onPick,
 }: {
   label: string;
-  slug: string;
+  image: Media | null;
   selected: boolean;
   onPick: () => void;
 }) {
@@ -70,7 +70,8 @@ function CuisineChip({
       onClick={onPick}
     >
       <span className="cuisine-ring" data-selected={selected}>
-        <Image src={cuisineImage(slug)} alt="" width={80} height={80} className="cuisine-img" />
+        {/* Decorative by role: the label beside it names the cuisine. */}
+        {image && <CmsImage media={image} decorative width={80} height={80} className="cuisine-img" />}
       </span>
       <span className="cuisine-label" data-selected={selected}>
         {label}

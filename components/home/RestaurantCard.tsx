@@ -1,7 +1,7 @@
 'use client';
 
-import Image from 'next/image';
-import { restaurantImage, type Restaurant } from '@/lib/data';
+import type { Restaurant } from '@/lib/data';
+import { CmsImage } from '@/components/ui/CmsImage';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 
@@ -27,13 +27,15 @@ export function RestaurantCard({ restaurant, hidden }: { restaurant: Restaurant;
     >
       <span className="rcard-frame frame" data-reveal-img="1">
         <span className="rcard-zoom" data-reveal-zoom="1">
-          <Image
-            src={restaurantImage(restaurant.id)}
-            alt={restaurant.name}
-            fill
-            sizes="(max-width: 759px) 50vw, (max-width: 1079px) 33vw, 240px"
-            className="rcard-img"
-          />
+          {/* alt: the card picture's own (media_i18n; seeded as the restaurant's name, R19). */}
+          {restaurant.image && (
+            <CmsImage
+              media={restaurant.image}
+              fill
+              sizes="(max-width: 759px) 50vw, (max-width: 1079px) 33vw, 240px"
+              className="rcard-img"
+            />
+          )}
         </span>
         {tag && <span className="rcard-tag">{tag} →</span>}
       </span>
