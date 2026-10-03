@@ -69,11 +69,7 @@ CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV=
   EMAIL_FROM= EMAIL_REDIRECT_TO= SMTP_HOST= SMTP_USER= SMTP_PASSWORD= BOTID_DEV_BYPASS= \
   DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test npm run build
 node scripts/check-prerender.mjs
-CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
-  EMAIL_FROM= EMAIL_REDIRECT_TO= SMTP_HOST= SMTP_USER= SMTP_PASSWORD= BOTID_DEV_BYPASS= \
-  DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
-  BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3100 \
-  EMAIL_DELIVERY=log EMAIL_LOG_FILE=$TMPDIR/emails.ndjson CRON_SECRET=$(openssl rand -hex 16) npm run test:e2e
+# Visual first, on the fresh build (see below).
 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
   EMAIL_FROM= EMAIL_REDIRECT_TO= SMTP_HOST= SMTP_USER= SMTP_PASSWORD= BOTID_DEV_BYPASS= \
   DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
@@ -81,18 +77,47 @@ PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERC
 for i in $(seq 1 60); do curl -s -o /dev/null http://localhost:3201/ && break; sleep 1; done
 VISUAL_BASE_URL=http://localhost:3201 npm run test:visual
 kill %1   # stop the server (or: lsof -ti tcp:3201 | xargs kill)
+# Then end to end, with an empty email log.
+rm -f "$TMPDIR/emails.ndjson"
+CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
+  EMAIL_FROM= EMAIL_REDIRECT_TO= SMTP_HOST= SMTP_USER= SMTP_PASSWORD= BOTID_DEV_BYPASS= \
+  DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
+  BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3100 \
+  EMAIL_DELIVERY=log EMAIL_LOG_FILE=$TMPDIR/emails.ndjson CRON_SECRET=$(openssl rand -hex 16) npm run test:e2e
 ```
+
+Run the visual step on a fresh build, before the end-to-end tests, or build
+again before it. The end-to-end tests re-render guest pages with the data of
+a spec halfway through, and a cache tag's expiry lives only in the running
+server's memory: a server started afterwards serves whatever HTML the last
+render left on disk, which after a failed spec can be a page from its middle.
+Empty the email log before every end-to-end run: each reset starts the
+booking ids again, and an email an earlier run sent to
+`started-<id>@example.com` fails `admin-closures`' check that a guest whose
+sitting has started gets no email.
 
 Playwright runs two projects. `desktop` holds every spec file, in parallel
 workers; `desktop-serial` holds the `*.serial.spec.ts` files and runs after
 `desktop` has finished (`dependencies`), one file at a time (`workers: 1`),
 because they change what every guest page reads (a restaurant's
-online-booking switch, the shared inbox, a restaurant's page, an offer's
-dates). Each puts the data back through the same kind of save (or the daily
-cron), which expires the same cache tags, never with a bare SQL update.
-Running one serial file also runs the whole `desktop` project first; add
-`--project=desktop-serial --no-deps` to run it alone. Spec files run at the same time, so each one books
-its own restaurant and dates, and puts back the rules it changes:
+online-booking switch or phone number, the shared inbox, a restaurant's
+page, the offers' dates). A serial spec may write with SQL, where no admin
+form exists yet or to change many rows at once (The Fan's page, eleven
+restaurants' switches, a phone number, the offers' dates). What a guest page
+shows is then always put back through a save that expires the same cache
+tags (the shared inbox's form, or a rules form in "Giờ và sức chứa", which
+expires `restaurants`) or through the daily cron (`content:offers`), never
+by SQL alone. The spec then visits again every guest page it re-rendered:
+a tag's expiry lives in the server's memory and a server started later
+serves the file on disk, so the visit writes the restored page back. The
+SQL in an `afterAll` only removes what no guest page reads once the page is
+off (`closeTheFan`), or is a safety net after a failed test
+(booking-switch's "every restaurant bookable"). Running one serial file
+also runs the whole `desktop` project first; add
+`--project=desktop-serial --no-deps` to run it alone.
+
+Spec files run at the same time, so each one books its own restaurant and
+dates, and puts back the rules it changes:
 
 | Spec | Restaurant | Dates or rules |
 | --- | --- | --- |
@@ -103,10 +128,10 @@ its own restaurant and dates, and puts back the rules it changes:
 | `admin-booking-settings` | Danaksara | `auto_confirm`; the last open day |
 | `admin-closures` | Phố Cuốn; the MM Supercenter (Yum Food Village, ChaoShan Hotpot) | +5; a destination closure at +11; closure edits at +60 and +61; Phố Cuốn +62 (the bulk cancel that emails guests: three bookings, two with an email, and a closure it deletes afterwards); Phố Cuốn +63 (two bookings with an email under a closure it deletes afterwards; one is moved to yesterday while the list is open) |
 | `booking-acceptance` | Yum Food Village | +3, +4, +12, +13, yesterday; dinner hours, covers and `max_party` |
-| `booking-switch.serial` | Tàya House, Hải Vân Lounge, Yum Food Village; then all twelve | online booking off, then on again |
+| `booking-switch.serial` | Tàya House, Hải Vân Lounge, Yum Food Village; then all twelve; then Hải Vân Lounge | online booking off, then on again; Hải Vân Lounge's own phone number (by SQL, saved with its rules form), then NULL again |
 | `shared-inbox.serial` | — | the shared inbox (`site_settings.email`), then `fb@furamavietnam.com` again |
 | `restaurant-pages.serial` | Steakhouse The Fan | its page on (portrait, copy, two highlights), then off; its booking rules saved unchanged |
-| `offers-expiry.serial` | Hải Vân Lounge | offer 3's `valid_until` set to yesterday, then NULL again, each time with the daily cron |
+| `offers-expiry.serial` | Hải Vân Lounge; then Café Indochine and Tàya House too | offer 3's `valid_until` set to yesterday, then all three offers' (Offers leaves the nav on every page); NULL again, each time with the daily cron |
 | `booking-email` | Café Indochine, Tàya House | the last open day (a guest booking: its staff email goes to the shared inbox); +3 (`seedReservation()`: a booking to confirm, and a confirmed one with an email row due for its second attempt) |
 | `admin-emails` | Hải Vân Lounge, Hura Izakaya | +40 (failed emails written straight into `email_outbox`); yesterday (a failed email whose sitting has passed); a restaurant recipient under a fresh address, deleted afterwards |
 | `guest-guard` | Phố Cuốn | today + 13 (three web requests seeded for a fresh number); the other tests book nothing, and the header-contrast tests write nothing |
@@ -388,55 +413,76 @@ that `migrate.mjs` sends as one query (about 80 ms on a local database).
 
 **008 goes first, then the phase-6 deploy.** The phase-5 code was built and
 tested on a 008 database (its E2E run and the visual baselines pass
-unchanged), and the phase-6 code needs 008 to build: `next build` prerenders
-the guest pages from its tables, so a build on a branch without it fails
-(safely: the previous deployment stays live). Until it commits, 008 holds an
-ACCESS EXCLUSIVE lock on `restaurants` and `site_settings` and a SHARE ROW
-EXCLUSIVE lock on `reservations`, so new bookings wait for it: apply it in
-the deploy window.
+unchanged), and the phase-6 code needs 008 to build: `next build` reads its
+tables and columns, so a build on a branch without it fails before it
+prerenders anything (measured locally on a database at 007: `column "slug"
+does not exist`, while it collects the restaurant pages' data). That failure
+is safe: nothing new goes live. Until it commits, 008 holds an ACCESS
+EXCLUSIVE lock on `restaurants` and `site_settings` and a SHARE ROW
+EXCLUSIVE lock on `reservations`, so new bookings wait for it: on
+production, apply it in the deploy window.
 
-1. **Pre-flight**, read-only, on the target branch's own direct URL (not
-   `npm run db:psql`, which reads `.env.local`):
+`scripts/migrate.mjs` records only a file's name, so never edit a migration
+once it has been applied to any shared database (Neon production, dev or a
+preview branch): a database that already has the file never sees the edit.
+Every later change goes into 009 or later.
 
-   ```bash
-   psql "<the branch's direct URL>" -v ON_ERROR_STOP=1 -f db/checks/preflight-008.sql
-   ```
+Each branch goes through the same three steps, on its own direct URL (not
+`npm run db:psql`, which reads `.env.local`):
 
-   Every row must say `ok` = `t`: 001–007 applied and 008 not; none of the
-   20 tables 008 creates exists yet; no booking has an `offer_id` (008
-   stops on one); every label in `restaurants.cuisines` is one of the 8
-   cuisines (008 stops on another and names it; the row's `detail` lists
-   the labels found); the 12 restaurants of 002, each with its
-   `public/assets/r-<id>.jpg`; every restaurant has a type and a destination
-   that exists; the 4 destinations of 004, none with a card picture yet; one
-   `site_settings` row; `en` the default language; `gen_random_uuid()`
-   available. Any `f`: stop and fix the data first (008 would roll back).
-2. **Apply**, the dev branch first, then production, in the deploy window:
-   `DATABASE_URL_UNPOOLED=<the branch's direct URL> node scripts/migrate.mjs`
-   (it prints `✓ 008_content.sql`).
-3. **Post-check**, read-only:
-   `psql "<the branch's direct URL>" -v ON_ERROR_STOP=1 -f db/checks/postcheck-008.sql`.
-   Every row `t`: the row counts; each restaurant's slug, destination, type
-   label, cuisines and card picture equal to its phase-1 columns; only Tàya
-   House has a page, with its portrait, story and 4 highlights; every
-   destination's picture; the offer FK, and no booking linked to an offer
-   yet; the settings (Tàya House, Dinner, 7 s slides); every seeded
-   translation `en`, `reviewed`, `seed`; the sequences past the seeded ids.
-4. **Deploy phase 6.** A preview branch forked before 008 reached production
-   must be migrated (steps 1–3 on its URL) before its preview builds.
-5. **Vercel:** after the production deploy, Settings → Cron Jobs lists
+- **Pre-flight**, read-only:
+
+  ```bash
+  psql "<the branch's direct URL>" -v ON_ERROR_STOP=1 -f db/checks/preflight-008.sql
+  ```
+
+  Every row must say `ok` = `t`: 001–007 applied and 008 not; none of the
+  20 tables 008 creates exists yet; no booking has an `offer_id` (008
+  stops on one); every label in `restaurants.cuisines` is one of the 8
+  cuisines (008 stops on another and names it; the row's `detail` lists
+  the labels found); the 12 restaurants of 002, each with its
+  `public/assets/r-<id>.jpg`; every restaurant has a type and a destination
+  that exists; the 4 destinations of 004, none with a card picture yet; one
+  `site_settings` row; `en` the default language; `gen_random_uuid()`
+  available. Any `f`: stop and fix the data first (008 would roll back).
+- **Apply:**
+  `DATABASE_URL_UNPOOLED=<the branch's direct URL> node scripts/migrate.mjs`
+  (it prints `✓ 008_content.sql`).
+- **Post-check**, read-only:
+  `psql "<the branch's direct URL>" -v ON_ERROR_STOP=1 -f db/checks/postcheck-008.sql`.
+  Every row `t`: the row counts; each restaurant's slug, destination, type
+  label, cuisines and card picture equal to its phase-1 columns; only Tàya
+  House has a page, with its portrait, story and 4 highlights; every
+  destination's picture; the offer FK, and no booking linked to an offer
+  yet; the settings (Tàya House, Dinner, 7 s slides); every seeded
+  translation `en`, `reviewed`, `seed`; the sequences past the seeded ids.
+
+In this order (launch A's steps 1, 9 and 11 below follow it):
+
+1. **The dev branch:** pre-flight, apply, post-check.
+2. **First preview, before production gets 008:** push a branch other than
+   `main`. Its Neon branch forks from production, which has no 008 yet, so
+   the preview's first build fails (as above). Pre-flight, apply and
+   post-check that preview branch (on a copy of production's data, which
+   also rehearses step 3), then redeploy the preview. On it, switch a
+   restaurant's online booking off in "Giờ và sức chứa", then open the home
+   page several times: every response drops its RESERVE (each instance
+   caches the pages; `updateTag` must reach them all); switch it back on and
+   check the same way. Do the same with "Hộp thư chung" and the footer's
+   address. Open `/en/restaurants/<a made-up word>`: the site's "Page not
+   found", with `noindex`. If the preview's Neon branch can be suspended,
+   see what a guest gets right after a save while the database is
+   unreachable (measured locally: a plain 500 on the home page and a
+   restaurant page that never finishes loading), then resume it.
+3. **Production:** pre-flight, apply, post-check, in the deploy window.
+4. **Production deploy:** merge into `main`. A preview branch forked before
+   step 3 must still be migrated (the three steps on its URL) before its
+   preview builds.
+5. **Cron:** after the production deploy, Settings → Cron Jobs lists
    `/api/cron/daily` at `5 17 * * *` (00:05 in Da Nang) beside the outbox
-   cron. It uses the `CRON_SECRET` set for launch A and reads no database.
-6. **First preview:** switch a restaurant's online booking off in "Giờ và
-   sức chứa", then open the home page several times: every response drops
-   its RESERVE (each instance caches the pages; `updateTag` must reach them
-   all); switch it back on and check the same way. Do the same with "Hộp thư
-   chung" and the footer's address. Open `/en/restaurants/<a made-up word>`:
-   the site's "Page not found", with `noindex`. If the preview's Neon branch
-   can be suspended, see what a guest gets right after a save while the
-   database is unreachable (measured locally: a plain 500 on the home page
-   and a restaurant page that never finishes loading), then resume it.
-7. **Rollback:** leave 008 in place (the phase-5 code runs on it) and roll
+   cron. It uses the `CRON_SECRET` set for launch A and reads no database;
+   after its first run, its log shows 200, not 401.
+6. **Rollback:** leave 008 in place (the phase-5 code runs on it) and roll
    back the deployment only.
 
 Confirmed by the owner (2026-10-03): the Dining House number prints as
@@ -464,7 +510,7 @@ optional menu PDF (spec §15 item 17). Until a page's content exists, its
 | `SMTP_PORT` | `587` (STARTTLS, the default) or `465` (TLS) | same | never set |
 | `SMTP_SECURE` | only if the port rule does not fit: `true` (TLS from the first byte) or `false` (STARTTLS); unset means `true` on 465 only | same | never set |
 | `SMTP_USER`, `SMTP_PASSWORD` | the login (both or neither) | a separate login if the provider allows | never set |
-| `CRON_SECRET` | 16+ characters (`openssl rand -hex 32`); Vercel Cron sends it to `/api/cron/outbox`, and a missing or shorter one answers every call 401 | optional (crons run on Production only) | a fresh random value per E2E run |
+| `CRON_SECRET` | 16+ characters (`openssl rand -hex 32`); Vercel Cron sends it to `/api/cron/outbox` and `/api/cron/daily`, and a missing or shorter one answers every call to either 401 | optional (crons run on Production only) | a fresh random value per E2E run |
 | `BOTID_DEV_BYPASS` | **never** | **never** | only for the opt-in `e2e/botid.spec.ts` run (`BAD-BOT`); a deployment ignores it |
 | `VERCEL_ENV`, `NEXT_PUBLIC_VERCEL_ENV` | set by Vercel | set by Vercel | never set: they turn on BotID and the deployment rules of the email gate |
 | `EMAIL_LOG_FILE` | never | never | a scratch file; log mode appends each email as one JSON line |
@@ -553,8 +599,9 @@ in-process server on `127.0.0.1`.
   once; a refusal that blames the sender, a relay or the login is retried
   like any provider error. An enhanced code about the recipient's address
   (5.1.1, 5.1.2, 5.1.3, 5.1.4, 5.1.6, 5.1.10) decides first: Postfix's
-  "5.1.1 … User unknown in relay recipient table" fails at once. The overview counts the failed emails and those
-  retrying after a failure, only for bookings whose sitting is still ahead
+  "5.1.1 … User unknown in relay recipient table" fails at once. The overview
+  counts the failed emails and those retrying after a failure, only for
+  bookings whose sitting is still ahead
   (the "Lỗi" tab lists every failed one). "Gửi lại" in
   `/admin/reservations/emails` puts a failed email back with a fresh
   schedule; it is not offered once the sitting has passed.
@@ -599,10 +646,11 @@ build, the local one too: never request that prefix on a local `next start`.
 
 ### Before launch A: what the owner sets up
 
-Email, the cron and BotID need these steps once, in this order. Until the
-last one, keep Production on `EMAIL_DELIVERY=redirect`, and nothing reaches
-a guest. Running Production on redirect also needs `EMAIL_REDIRECT_TO`,
-`EMAIL_FROM` and `SMTP_*`. Redirect sends every email to that inbox, staff's
+Migrations 007 and 008, email, the two crons and BotID need these steps
+once, in this order. Until the last one, keep Production on
+`EMAIL_DELIVERY=redirect`, and nothing reaches a guest. Running Production
+on redirect also needs `EMAIL_REDIRECT_TO`, `EMAIL_FROM` and `SMTP_*`.
+Redirect sends every email to that inbox, staff's
 `staff.new` included, so restaurant staff get no new-booking email until
 go-live: they must watch "Cần xử lý" in `/admin/reservations`. Until an SMTP
 account exists, no email leaves a deployment, invitations included. After
@@ -610,11 +658,17 @@ any change to these variables (switching redirect → live, adding or fixing
 `CRON_SECRET`), Deployments → … → Redeploy: Vercel applies a change only to
 a new deployment.
 
-1. **Migration 007, before any deploy:** apply 007 to production Neon, with
-   the checks in "Migration 007" above, before the first phase-5 deploy,
-   Preview or Production. With Vercel's Git integration, pushing or merging
-   `main` is the Production deploy, so migrate before that merge. Unlike 004
-   and 006, a build without 007 succeeds, and every booking then fails.
+1. **Migrations 007 and 008, before any deploy:** the site has never been
+   deployed, so launch A's first deploy is phase-6 code. It builds only on
+   a Neon branch that has 008 (without it, the build fails before it
+   prerenders anything: `column "slug" does not exist`), and 008 needs 007.
+   Apply 007 to production Neon now, with the checks in "Migration 007"
+   above, so every preview branch forks with it. Then follow the runbook in
+   "Migration 008" above: 008 goes to the dev branch now (its step 1), to
+   the first preview's branch at step 9 here, and to production at step 11,
+   each time before the deploy that builds on it. With Vercel's Git
+   integration, pushing or merging `main` is the Production deploy, so
+   migrate production before that merge.
 2. **Neon plan:** the 5-minute cron queries the production branch around the
    clock, so its compute never scales to zero: about 183 CU-hours a month at
    the 0.25 CU minimum, roughly $19 a month on Launch at $0.106 per CU-hour.
@@ -671,9 +725,14 @@ a new deployment.
    and recipients, so redirect is mandatory there; a password reset on a
    Preview changes only that branch. Remove `RESEND_API_KEY` from every
    environment.
-9. **First preview:** push a branch other than `main` and open its preview
-   (pushed after step 1, its Neon branch forks with 007; a branch forked
-   earlier must be migrated first). "Gửi email thử" in
+9. **First preview:** push a branch other than `main`. Pushed after step 1,
+   its Neon branch forks from production with 007 but without 008, which
+   production gets only at step 11, so its first build fails: pre-flight,
+   apply and post-check 008 on that branch, then redeploy the preview and
+   run its checks ("Migration 008", step 2). A branch forked before step 1
+   lacks 007 too: give it 007 first, with the checks in "Migration 007" and
+   `DATABASE_URL_UNPOOLED=<its direct URL> node scripts/migrate.mjs --until
+   007_email_and_consent.sql`. On the preview, "Gửi email thử" in
    `/admin/settings/notifications` arrives at the redirect inbox (that proves
    port 587/465 is reachable from Vercel Functions, the login, and SPF/DKIM
    passing in the headers).
@@ -700,9 +759,11 @@ a new deployment.
     - **Autofill does not trip the honeypot.** On an iPhone (Safari) and an
       Android phone (Chrome), fill the form with the browser's autofill and
       book. Neither gets "We could not accept this request online".
-11. **Production deploy and cron:** merge into `main` (Production starts on
-    redirect). After that deploy, Project → Settings → Cron Jobs shows
-    `/api/cron/outbox` every 5 minutes (Vercel Pro).
+11. **Production deploy and crons:** pre-flight, apply and post-check 008
+    on production ("Migration 008", step 3), then merge into `main`
+    (Production starts on redirect). After that deploy, Project → Settings →
+    Cron Jobs shows both crons: `/api/cron/outbox` every 5 minutes (Vercel
+    Pro), and `/api/cron/daily` at `5 17 * * *`, 00:05 in Da Nang.
 12. **Recipients:** in `/admin/settings/notifications`, add the notification
     emails per restaurant or destination (spec §15 item 15), and confirm
     `fb@furamavietnam.com` as the shared inbox (the fallback, and where
@@ -717,8 +778,9 @@ a new deployment.
     - "Gửi email thử" to an outside inbox says "Đã gửi email thử tới …"
       (not "chuyển hướng tới hộp thư thử nghiệm"), and the email arrives
       there;
-    - within 5 minutes, Vercel → Settings → Cron Jobs → `/api/cron/outbox`
-      logs show 200, not 401;
+    - both crons log 200, not 401, in Vercel → Settings → Cron Jobs:
+      `/api/cron/outbox` within 5 minutes, and `/api/cron/daily` after its
+      next run at 00:05 in Da Nang;
     - a test booking made with an address you read: its `guest.ack` (or
       `guest.confirmed`, where the restaurant confirms automatically) reads
       "Đã gửi" in `/admin/reservations/emails` and arrives at that address.
@@ -763,12 +825,12 @@ bootstrapping production is what you mean to do.
 | --- | --- | --- |
 | `/` and other unprefixed paths | Proxy (`proxy.ts`) | 307 to `/<locale>…` by the `NEXT_LOCALE` cookie, then `Accept-Language`, then `en` (only `en` is enabled in phase 2); the query is kept |
 | `/en` | Static, revalidated hourly (`cacheLife('hours')`, for today's offers) | Home: hero, finder, cuisines, restaurants, destinations, experiences, heritage, stories, offers, read from the database; a section switched off or with nothing to show is left out |
-| `/en/restaurants/[slug]` | Static for each restaurant with `has_detail_page` at build time (`_none` when there is none), revalidated hourly (the layout reads today's offers for the nav); a page switched on later renders on its first visit. Any other slug is a 404: the first visit is a soft 404 (status 200 with `noindex`), later visits get the cached 404, and without JavaScript the body is empty | Restaurant detail, read from the database (`taya-house` today). The cached 404 carries `restaurants`, so a save that expires the catalogue opens a page that was just switched on |
+| `/en/restaurants/[slug]` | Static for each restaurant with `has_detail_page` at build time (`_none` when there is none), revalidated hourly (the layout reads today's offers for the nav); a page switched on later renders on its first visit. Any other slug is a 404, and one no restaurant can have (outside the pattern and length of 008's `restaurants.slug` CHECK, `lib/content/slug.ts`) is refused before any database read: the first visit is a soft 404 (status 200 with `noindex`), later visits get the cached 404, and without JavaScript the body is empty | Restaurant detail, read from the database (`taya-house` today). The cached 404 carries `restaurants`, so a save that expires the catalogue opens a page that was just switched on |
 | `/taya-house` | Redirect | 308 to `/en/restaurants/taya-house` (`next.config.ts`) |
 | `/en/privacy` | Static, revalidated hourly (the layout reads today's offers for the nav), tag `content:legal` | The privacy policy (`legal.*`), linked from the footer and the reserve drawer's consent box |
 | `/api/availability` | Dynamic, `no-store` | `?restaurant=&lang=[&from=&to=]`: each day's state (open, full, past, closed, too_large, outside) and public closure reason, with the clock, the party limit and the number to call; `?restaurant=&date=&lang=[&guests=]`: one day's services and slots with the covers left. 404 for an unknown restaurant or one with online booking off; a range given in full that is backwards or too long (400) and an id that cannot exist (404) are answered before any query. `scripts/check-prerender.mjs` fails if it is ever prerendered, or missing from the build |
 | `/api/cron/outbox` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, every 5 minutes: sends the due outbox rows of its environment (at most 500 or 240 s) and answers only the counts. 401 without `Authorization: Bearer $CRON_SECRET` |
-| `/api/cron/daily` | Dynamic, `no-store`, `maxDuration` 60 | Vercel Cron, daily at 17:05 UTC (00:05 in Da Nang): `revalidateTag('content:offers', 'max')`, so the home page drops an offer past its `valid_until` and shows one whose `valid_from` has come. The first visit after it may still get yesterday's offers once; in exchange, a database that is down then cannot break the home page. 401 without `Authorization: Bearer $CRON_SECRET` |
+| `/api/cron/daily` | Dynamic, `no-store`, `maxDuration` 60 | Vercel Cron, daily at 17:05 UTC (00:05 in Da Nang): `revalidateTag('content:offers', 'max')`, so the home page drops an offer past its `valid_until` and shows one whose `valid_from` has come, and on a day with no offer every guest page's header and menu drop Offers. The first visit to each page after it may still get yesterday's offers and nav once; in exchange, a database that is down then cannot break a guest page. 401 without `Authorization: Bearer $CRON_SECRET` |
 | `/admin/sign-in`, `/admin/accept-invite`, `/admin/reset-password` | Request time, nonce CSP | The only admin pages open without a session cookie |
 | `/admin`, `/admin/users`, `/admin/audit` | Request time, nonce CSP | Overview (with pending and today's bookings); staff and invitations (Admin); audit log of `audit_log` and booking events, paged with `?truoc=`/`?sau=` (Admin). Without a session cookie the proxy sends them to sign-in (307, `?next=` kept) |
 | `/admin/reservations`, `/admin/reservations/[id]`, `/admin/reservations/day` | Request time, nonce CSP | Inbox (Cần xử lý · Hôm nay · Sắp tới · Tất cả, search by reference, phone, name or email: the search posts, its text waits 30 minutes in an httpOnly cookie and the URL carries only `?tim=<id>`); a booking (status changes, edit, internal notes, timeline, its emails); the printable day sheet. `reservations:read` |
@@ -829,8 +891,8 @@ page's `<main>` (`lib/page-scope.guard.test.ts` enforces it).
 The restaurant catalogue is the database's job, not the code's — `restaurants`
 is seeded by `db/migrations/002_seed_restaurants.sql` (and its content by
 008) and read by `lib/server/content/restaurants.queries.ts#loadRestaurants`,
-then handed to the client through `SiteProvider`. Editing the catalogue means
-editing a migration until the phase-7 editors.
+then handed to the client through `SiteProvider`. Until the phase-7
+editors, changing the catalogue means a new migration and a redeploy (below).
 
 The rest of the guest site's content is in the database too since phase 6
 (migration 008): `media` (every file in `public/assets`, served from there;
@@ -842,12 +904,25 @@ alt text per language in `media_i18n`, empty for a decorative file),
 `*_i18n` row shows in its language when `reviewed` (or `machine`, where the
 language serves machine translations), and a field it lacks falls back to
 the default language's (`lib/server/content/sql.ts`). Phase 6 has no editor:
-until phase 7, content changes are migrations. `lib/data.ts` holds code
-only (the meal enum, phase 1's slots, the number the error pages print
-without the database); `test/fixtures/phase5-content.ts` keeps what its
-constants held, and `test/integration/content-seed.test.ts` checks the seed
-against it. `db/checks/preflight-008.sql` and `postcheck-008.sql` are the
-read-only checks of the 008 runbook (Deploying).
+until phase 7, content changes are new migrations, and each needs a
+redeploy. Every guest page is cached and tagged, and a migration expires no
+tag: in phase 6 only the shared inbox's save (`content:contact`), the daily
+cron (`content:offers`) and a save in "Giờ và sức chứa" (`restaurants`)
+expire the guest pages' tags. So a migration that switches on another
+restaurant's page, say, looks as if it failed: the card keeps opening the
+booking form, and a 404 cached earlier stays. Apply the migration, then
+redeploy: a new build prerenders every page again, and no `'use cache'`
+entry carries over to a new deployment
+(`node_modules/next/dist/docs/01-app/01-getting-started/08-caching.md:597`).
+For a change only the restaurant catalogue and pages show (the loaders
+tagged `restaurants` in `lib/cache-plan.ts`), saving any restaurant's
+"Giờ và sức chứa" form also works, because it expires `restaurants`. Phase
+7's saves will make this unnecessary. `lib/data.ts` holds code only (the
+meal enum, phase 1's slots, the number the error pages print without the
+database); `test/fixtures/phase5-content.ts` keeps what its constants held,
+and `test/integration/content-seed.test.ts` checks the seed against it.
+`db/checks/preflight-008.sql` and `postcheck-008.sql` are the read-only
+checks of the 008 runbook (Deploying).
 
 `locales`, `content_strings` and `destinations` (migration 004) are the
 shared foundations of the CMS. Which UI strings exist is decided by
