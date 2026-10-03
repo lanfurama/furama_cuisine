@@ -73,6 +73,38 @@ export type Experience = { id: number; title: string; blurb: string; href: strin
 /** A story card: the kicker is already "Category · 9 Sep 2026" (lib/content/format.ts). */
 export type Story = { id: number; image: Media | null; kicker: string; title: string; href: string };
 
+/** A card of a restaurant page's highlights (restaurant_highlights). */
+export type Highlight = { id: number; image: Media; title: string; detail: string };
+
+/** What a restaurant page's MENU does: open the menu PDF (this language's, else the default language's), or scroll to the highlights. */
+export type MenuAction = { kind: 'pdf'; url: string } | { kind: 'scroll' };
+
+/** One restaurant's page (spec §6.4), resolved for one language; CALL and MAP already fall back to the destination's. */
+export type RestaurantDetail = {
+  id: string;
+  slug: string;
+  name: string;
+  /** "More at …": the destination's name in this language. */
+  destinationName: string;
+  kicker: string | null;
+  /** null: the default label ("Brand Story"). */
+  storyLabel: string | null;
+  story: string | null;
+  /** null: "At {name}". */
+  highlightsTitle: string | null;
+  portrait: Media;
+  /** restaurants.booking_enabled: RESERVE shows only when it books online. */
+  bookingEnabled: boolean;
+  /** The restaurant's number, else its destination's; null hides CALL. */
+  phone: Phone | null;
+  /** The restaurant's map link, else its destination's; null hides MAP. */
+  map: string | null;
+  /** null hides MENU: no PDF in either language and no highlights to scroll to. */
+  menu: MenuAction | null;
+  highlights: Highlight[];
+  seo: { title: string | null; description: string | null };
+};
+
 /** Everything the chrome (header, menu, footer, finder, search, booking bar) needs, on every guest page. */
 export type SiteContent = {
   cuisines: Cuisine[];

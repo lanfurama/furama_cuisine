@@ -1,7 +1,7 @@
 import 'server-only';
 import { query } from '@/db/client';
 import { fold } from '@/lib/booking';
-import type { Media } from '@/lib/content/types';
+import type { Highlight, Media, RestaurantDetail } from '@/lib/content/types';
 import { MEALS, type Meal, type Restaurant } from '@/lib/data';
 import { LOCALE_CTE, i18nJoin, mediaJson, tr } from './sql';
 
@@ -94,4 +94,98 @@ export async function loadRestaurants(locale: string): Promise<Restaurant[]> {
       search: fold([...shown, ...fallback].filter(Boolean).join(' ')),
     };
   });
+}
+
+/** Slugs with a page (generateStaticParams); unpublished or archived restaurants have none. */
+export async function loadDetailSlugs(): Promise<string[]> {
+  const rows = await query<{ slug: string }>(
+    `SELECT slug FROM restaurants
+      WHERE has_detail_page AND is_published AND archived_at IS NULL
+      ORDER BY sort_order, id`,
+  );
+  return rows.map((r) => r.slug);
+}
+
+type DetailRow = {
+  id: string;
+  slug: string;
+  name: string;
+  destination_name: string | null;
+  kicker: string | null;
+  story_label: string | null;
+  story: string | null;
+  highlights_title: string | null;
+  menu_pdf: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  booking_enabled: boolean;
+  phone_e164: string | null;
+  phone_display: string | null;
+  map_url: string | null;
+  portrait: Media | null;
+};
+
+/**
+ * One restaurant's page, or null when it has none (no such slug, page off,
+ * unpublished, archived, or its portrait gone). CALL and MAP take the
+ * restaurant's own number and map, else its destination's (spec §6.4). MENU
+ * opens the PDF of this language, else the default language's (an uploaded
+ * file before a link), else scrolls to the highlights; with neither, no MENU.
+ */
+export async function loadRestaurantDetail(slug: string, locale: string): Promise<RestaurantDetail | null> {
+  const [row] = await query<DetailRow>(
+    `WITH ${LOCALE_CTE}
+     SELECT r.id, r.slug, r.name, ${tr('dt', 'name')} AS destination_name,
+            ${tr('rt', 'detail_kicker')} AS kicker, ${tr('rt', 'story_label')} AS story_label,
+            ${tr('rt', 'story')} AS story, ${tr('rt', 'highlights_title')} AS highlights_title,
+            coalesce((SELECT m.url FROM media m WHERE m.id = rt.menu_pdf_media_id AND m.deleted_at IS NULL), rt.menu_pdf_url,
+                     (SELECT m.url FROM media m WHERE m.id = rt_d.menu_pdf_media_id AND m.deleted_at IS NULL), rt_d.menu_pdf_url) AS menu_pdf,
+            ${tr('rt', 'seo_title')} AS seo_title, ${tr('rt', 'seo_description')} AS seo_description,
+            r.booking_enabled,
+            CASE WHEN r.phone_e164 IS NOT NULL THEN r.phone_e164 ELSE d.phone_e164 END AS phone_e164,
+            CASE WHEN r.phone_e164 IS NOT NULL THEN r.phone_display ELSE d.phone_display END AS phone_display,
+            coalesce(r.map_url, d.map_url) AS map_url,
+            img.j AS portrait
+       FROM restaurants r CROSS JOIN lc
+       JOIN destinations d ON d.id = r.destination_id
+       ${i18nJoin('restaurant_i18n', 'rt', 'restaurant_id', 'r.id')}
+       ${i18nJoin('destination_i18n', 'dt', 'destination_id', 'd.id')}
+       LEFT JOIN LATERAL ${mediaJson('r.detail_image_id')} AS img ON true
+      WHERE r.slug = $2 AND r.has_detail_page AND r.is_published AND r.archived_at IS NULL`,
+    [locale, slug],
+  );
+  if (!row || !row.portrait) return null;
+
+  const highlights = await query<{ id: string; title: string; detail: string | null; image: Media | null }>(
+    `WITH ${LOCALE_CTE}
+     SELECT h.id::text, ${tr('ht', 'title')} AS title, ${tr('ht', 'detail')} AS detail, img.j AS image
+       FROM restaurant_highlights h CROSS JOIN lc
+       ${i18nJoin('restaurant_highlight_i18n', 'ht', 'highlight_id', 'h.id')}
+       LEFT JOIN LATERAL ${mediaJson('h.image_id')} AS img ON true
+      WHERE h.restaurant_id = $2 AND h.is_published AND ${tr('ht', 'title')} IS NOT NULL
+      ORDER BY h.sort_order, h.id`,
+    [locale, row.id],
+  );
+  // A highlight whose picture was soft-deleted has nothing to show.
+  const cards = highlights.flatMap((h): Highlight[] =>
+    h.image ? [{ id: Number(h.id), title: h.title, detail: h.detail ?? '', image: h.image }] : [],
+  );
+
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    destinationName: row.destination_name ?? '',
+    kicker: row.kicker,
+    storyLabel: row.story_label,
+    story: row.story,
+    highlightsTitle: row.highlights_title,
+    portrait: row.portrait,
+    bookingEnabled: row.booking_enabled,
+    phone: row.phone_e164 && row.phone_display ? { tel: row.phone_e164, display: row.phone_display } : null,
+    map: row.map_url,
+    menu: row.menu_pdf ? { kind: 'pdf', url: row.menu_pdf } : cards.length > 0 ? { kind: 'scroll' } : null,
+    highlights: cards,
+    seo: { title: row.seo_title, description: row.seo_description },
+  };
 }

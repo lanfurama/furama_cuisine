@@ -1,12 +1,16 @@
 'use client';
 
-import { DESTS } from '@/lib/data';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 import { RestaurantCard } from '@/components/home/RestaurantCard';
 
-/** The other restaurants at the same destination; hidden when there are none (spec §6.4). */
-export function MoreRestaurants({ slug }: { slug: string }) {
+/**
+ * The other restaurants at the same destination; hidden when there are none
+ * (spec §6.4). The list is the catalogue every page already has; the
+ * destination's name comes with the page. e2e/page-scope.spec.ts injects its
+ * fault through the restaurants.find() below, so keep that call.
+ */
+export function MoreRestaurants({ slug, destinationName }: { slug: string; destinationName: string }) {
   const { restaurants, clearFilters, scrollToId } = useSite();
   const title = useReveal<HTMLHeadingElement>('title');
   const link = useReveal<HTMLButtonElement>('fade');
@@ -20,7 +24,7 @@ export function MoreRestaurants({ slug }: { slug: string }) {
       <div className="shell">
         <div className="section-head">
           <h2 ref={title} data-reveal="title" className="section-title more-title">
-            More at {DESTS[current.dest]}
+            More at {destinationName}
           </h2>
           <button
             ref={link}

@@ -45,9 +45,10 @@ const TAGS = [
   'content:contact',
   'media',
 ];
-/** Tags a page carries beyond the layout's: the home page's lists (lib/server/content/home.ts), the privacy policy's text (legal.ts). */
+/** Tags a page carries beyond the layout's: the home page's lists (lib/server/content/home.ts), a restaurant page's own (restaurants.ts), the privacy policy's text (legal.ts). */
 const PAGE_TAGS = {
   '/en': ['content:hero', 'content:experiences', 'content:stories'],
+  '/en/restaurants/taya-house': ['restaurant:taya-house'],
   '/en/privacy': ['content:legal'],
 };
 const REVALIDATE = 2_592_000; // cacheLife('max'): 30 days

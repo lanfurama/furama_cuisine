@@ -2,11 +2,13 @@ import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { getPool } from '@/db/client';
 import { FALLBACK_PHONE } from '@/lib/data';
 import { loadExperiences, loadHeroSlides, loadStories } from '@/lib/server/content/home.queries';
+import { loadDetailSlugs, loadRestaurantDetail } from '@/lib/server/content/restaurants.queries';
 import { loadSiteSettings } from '@/lib/server/content/settings.queries';
 import { loadCuisines, loadDestinations, loadNav, loadSections, loadSocials } from '@/lib/server/content/site.queries';
 import {
   CUISINES_AT_8FE98F5,
   DESTINATIONS_AT_8FE98F5,
+  DETAIL_PAGES_AT_8FE98F5,
   EXPERIENCES_AT_8FE98F5,
   HERO_AUTOPLAY_MS_AT_8FE98F5,
   HERO_SLIDES_AT_8FE98F5,
@@ -42,6 +44,13 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
     await sql(`UPDATE experiences SET is_published = true`);
     await sql(`UPDATE stories SET is_published = true`);
     await sql(`UPDATE hero_slides SET is_published = true`);
+    await sql(`UPDATE restaurants SET is_published = true, archived_at = NULL, phone_e164 = NULL, phone_display = NULL, map_url = NULL`);
+    await sql(`DELETE FROM restaurant_highlights WHERE restaurant_id <> 'taya-house'`);
+    await sql(`UPDATE restaurants SET has_detail_page = false, detail_image_id = NULL WHERE id <> 'taya-house'`);
+    await sql(`DELETE FROM restaurant_i18n WHERE locale <> 'en'`);
+    await sql(
+      `UPDATE restaurant_i18n SET detail_kicker = NULL, story = NULL, menu_pdf_url = NULL WHERE restaurant_id <> 'taya-house'`,
+    );
   });
   afterAll(() => getPool().end());
 
@@ -110,6 +119,99 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
         STORIES_AT_8FE98F5,
       );
       for (const s of await loadStories('en')) expect(s.image?.alt).toBe('');
+    });
+  });
+
+  describe('restaurant pages (spec §6.4, §14.1 row 6)', () => {
+    /** Switches a restaurant's page on as the acceptance spec does: a portrait, a kicker, an English story. */
+    async function openPage(id: string, portrait: string) {
+      await sql(`UPDATE restaurants SET has_detail_page = true, detail_image_id = (SELECT id FROM media WHERE pathname = $2) WHERE id = $1`, [
+        id,
+        portrait,
+      ]);
+      await sql(`UPDATE restaurant_i18n SET detail_kicker = 'A kicker', story = 'A story.' WHERE restaurant_id = $1 AND locale = 'en'`, [id]);
+    }
+
+    it('Tàya House’s page is the one the site drew: copy, portrait, SEO, menu, the resort’s CALL and MAP, the four highlights', async () => {
+      const taya = DETAIL_PAGES_AT_8FE98F5['taya-house'];
+      const d = await loadRestaurantDetail('taya-house', 'en');
+      expect(d).toMatchObject({
+        id: 'taya-house',
+        slug: 'taya-house',
+        name: 'Tàya House',
+        destinationName: 'Furama Resort Danang',
+        kicker: taya.kicker,
+        story: taya.story,
+        storyLabel: null,
+        highlightsTitle: null,
+        portrait: { url: taya.portrait, alt: taya.portraitAlt },
+        bookingEnabled: true,
+        menu: { kind: 'pdf', url: taya.menuPdf },
+        phone: { tel: taya.call, display: '+84 236 651 9999' },
+        map: taya.map,
+        seo: taya.seo,
+      });
+      expect(d?.highlights.map((h) => ({ image: h.image.url, alt: h.image.alt, title: h.title, detail: h.detail }))).toEqual(taya.highlights);
+      expect(await loadDetailSlugs()).toEqual(['taya-house']);
+    });
+
+    it('none for a restaurant without has_detail_page, an unknown slug, an unpublished or an archived one', async () => {
+      expect(await loadRestaurantDetail('danaksara', 'en')).toBeNull();
+      expect(await loadRestaurantDetail('nope', 'en')).toBeNull();
+      await sql(`UPDATE restaurants SET is_published = false WHERE id = 'taya-house'`);
+      expect(await loadRestaurantDetail('taya-house', 'en')).toBeNull();
+      expect(await loadDetailSlugs()).toEqual([]);
+      await sql(`UPDATE restaurants SET is_published = true, archived_at = now() WHERE id = 'taya-house'`);
+      expect(await loadRestaurantDetail('taya-house', 'en')).toBeNull();
+    });
+
+    it('switching has_detail_page on for another restaurant gives it a page: its destination’s CALL, no MAP, MENU to its highlights or none', async () => {
+      await openPage('the-fan', '/assets/r-the-fan.jpg');
+      expect(await loadDetailSlugs()).toEqual(['taya-house', 'the-fan']);
+      expect(await loadRestaurantDetail('the-fan', 'en')).toMatchObject({
+        name: 'Steakhouse The Fan',
+        destinationName: 'Furama Dining House',
+        kicker: 'A kicker',
+        story: 'A story.',
+        portrait: { url: '/assets/r-the-fan.jpg', alt: 'Steakhouse The Fan' },
+        phone: { tel: '+84859555759', display: '0859 555 759' },
+        map: null,
+        menu: null,
+        highlights: [],
+        seo: { title: null, description: null },
+      });
+      await sql(
+        `INSERT INTO restaurant_highlights (restaurant_id, image_id) SELECT 'the-fan', id FROM media WHERE pathname = '/assets/story-the-fan.jpg'`,
+      );
+      // A highlight without its English title shows nothing, so it is left out.
+      expect((await loadRestaurantDetail('the-fan', 'en'))?.highlights).toEqual([]);
+      await sql(
+        `INSERT INTO restaurant_highlight_i18n (highlight_id, locale, title, detail)
+         SELECT id, 'en', 'The Art Floor', 'Dinner among the paintings' FROM restaurant_highlights WHERE restaurant_id = 'the-fan'`,
+      );
+      expect(await loadRestaurantDetail('the-fan', 'en')).toMatchObject({
+        menu: { kind: 'scroll' },
+        highlights: [{ title: 'The Art Floor', detail: 'Dinner among the paintings', image: { url: '/assets/story-the-fan.jpg', alt: '' } }],
+      });
+    });
+
+    it('a restaurant’s own number and map beat its destination’s; a destination without them hides the buttons', async () => {
+      await sql(`UPDATE restaurants SET phone_e164 = '+842363847333', phone_display = '0236 3847 333', map_url = 'https://maps.example/taya' WHERE id = 'taya-house'`);
+      expect(await loadRestaurantDetail('taya-house', 'en')).toMatchObject({
+        phone: { tel: '+842363847333', display: '0236 3847 333' },
+        map: 'https://maps.example/taya',
+      });
+      await openPage('chaoshan-hotpot', '/assets/r-chaoshan-hotpot.jpg');
+      expect(await loadRestaurantDetail('chaoshan-hotpot', 'en')).toMatchObject({ phone: null, map: null, destinationName: 'Furama MM Supercenter' });
+    });
+
+    it('the menu PDF of the page’s language, else the default language’s', async () => {
+      await sql(`INSERT INTO restaurant_i18n (restaurant_id, locale, story, status) VALUES ('taya-house', 'vi', 'Câu chuyện.', 'reviewed')`);
+      const vi = await loadRestaurantDetail('taya-house', 'vi');
+      expect(vi).toMatchObject({ story: 'Câu chuyện.', kicker: DETAIL_PAGES_AT_8FE98F5['taya-house'].kicker });
+      expect(vi?.menu).toEqual({ kind: 'pdf', url: DETAIL_PAGES_AT_8FE98F5['taya-house'].menuPdf });
+      await sql(`UPDATE restaurant_i18n SET menu_pdf_url = 'https://furamavietnam.com/menu-vi.pdf' WHERE restaurant_id = 'taya-house' AND locale = 'vi'`);
+      expect((await loadRestaurantDetail('taya-house', 'vi'))?.menu).toEqual({ kind: 'pdf', url: 'https://furamavietnam.com/menu-vi.pdf' });
     });
   });
 

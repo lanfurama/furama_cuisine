@@ -1,39 +1,40 @@
 'use client';
 
-import { CONTACT, contactFor } from '@/lib/data';
+import type { MenuAction, RestaurantDetail } from '@/lib/content/types';
 import { useSite } from '@/components/site/SiteProvider';
 
 /**
  * The phone tab bar. Each page renders its own (inside its <ViewMarker>), so the
  * right variant is in the server HTML and a page hidden by <Activity> hides its
- * bar with it. The home page passes nothing, a restaurant page passes its slug.
+ * bar with it. The home page passes nothing, a restaurant page passes its page.
  */
-export function MobileBar({ slug }: { slug?: string }) {
-  const { restaurants, tab, openReserve, scrollToId, setBooking, close } = useSite();
+export function MobileBar({ detail }: { detail?: RestaurantDetail }) {
+  const { tab, openReserve, scrollToId, setBooking, close } = useSite();
 
-  if (slug) {
-    const restaurant = restaurants.find((r) => r.slug === slug);
-    const id = restaurant?.id ?? slug;
-    const contact = contactFor(restaurant?.dest);
-    const canReserve = restaurant?.bookingEnabled ?? false;
-    // One column per button shown (spec §6.4): MENU always; RESERVE when it books online; CALL and MAP when known.
-    const columns = 1 + (canReserve ? 1 : 0) + (contact.tel ? 1 : 0) + (contact.map ? 1 : 0);
+  if (detail) {
+    const id = detail.id;
+    const menu = detail.menu;
+    // One column per button shown (spec §6.4): RESERVE when it books online; CALL, MAP and MENU when they lead somewhere.
+    const columns = [detail.bookingEnabled, detail.phone, detail.map, menu].filter(Boolean).length;
+    if (columns === 0) return null;
     return (
       <nav
         className="tabbar tabbar-detail"
         aria-label="Restaurant actions"
         style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
       >
-        {contact.tel && <a href={`tel:${contact.tel}`}>CALL</a>}
-        {contact.map && (
-          <a href={contact.map} target="_blank" rel="noopener">
+        {detail.phone && <a href={`tel:${detail.phone.tel}`}>CALL</a>}
+        {detail.map && (
+          <a href={detail.map} target="_blank" rel="noopener">
             MAP
           </a>
         )}
-        <button type="button" onClick={() => openMenuPdf(() => scrollToId('dishes'))}>
-          MENU
-        </button>
-        {canReserve && (
+        {menu && (
+          <button type="button" onClick={() => openMenu(menu, () => scrollToId('dishes'))}>
+            MENU
+          </button>
+        )}
+        {detail.bookingEnabled && (
           <button
             type="button"
             className="tabbar-primary"
@@ -71,8 +72,19 @@ export function MobileBar({ slug }: { slug?: string }) {
   );
 }
 
-/** Opens the tariff PDF, falling back to the on-page section if popups are blocked. */
-export function openMenuPdf(fallback: () => void) {
-  const w = window.open(CONTACT.tariffPdf, '_blank', 'noopener');
-  if (!w) fallback();
+/**
+ * MENU (spec §6.4): the PDF in a new tab, falling back to the page's
+ * highlights when there is no PDF or the browser blocks the popup. Not
+ * window.open(url, '_blank', 'noopener'): with that feature it always returns
+ * null, so a blocked popup could not be told from an opened one and the page
+ * scrolled away under every PDF. The opener is cut by hand instead.
+ */
+export function openMenu(menu: MenuAction, scrollToHighlights: () => void) {
+  if (menu.kind === 'scroll') {
+    scrollToHighlights();
+    return;
+  }
+  const w = window.open(menu.url, '_blank');
+  if (w) w.opener = null;
+  else scrollToHighlights();
 }

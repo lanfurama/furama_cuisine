@@ -129,7 +129,7 @@ test('a second visit to the restaurant page plays its entrance again', async ({ 
 
 test('navigation still works after the error page replaces a page the curtain was covering', async ({ page }) => {
   await page.goto(HOME_PATH);
-  // Test-only fault: while armed, TayaHero's restaurants.find(r => r.slug === slug) throws,
+  // Test-only fault: while armed, MoreRestaurants' restaurants.find(r => r.slug === slug) throws,
   // so the restaurant page fails to render under the covering curtain and [lang]/error.tsx
   // takes over (and unmounts the curtain mid-cover). No production code is involved.
   await page.evaluate(() => {

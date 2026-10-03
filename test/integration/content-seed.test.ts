@@ -53,8 +53,6 @@ function price(amount: string, currency: string, basis: string): string {
   return `${currency} ${new Intl.NumberFormat('en').format(Number(amount))}${basis === 'plus_plus' ? '++' : ' net'} per guest`;
 }
 
-const collapse = (s: string) => s.replace(/\s+/g, ' ');
-const source = (path: string) => collapse(readFileSync(path, 'utf8'));
 
 describe('the snapshot is the content of 8fe98f5 (delete with the constants and literals it mirrors)', () => {
   it('matches lib/data.ts', () => {
@@ -84,14 +82,6 @@ describe('the snapshot is the content of 8fe98f5 (delete with the constants and 
     expect(SECTIONS_AT_8FE98F5.heritage.link).toBe(DATA.CONTACT.story);
     expect(DESTINATIONS_AT_8FE98F5[0].footer.endsWith(DATA.CONTACT.resortPhoneLabel)).toBe(true);
     expect(DESTINATIONS_AT_8FE98F5[1].footer.endsWith(DATA.CONTACT.diningHousePhoneLabel)).toBe(true);
-  });
-
-  it('matches the copy written into the components', () => {
-    const taya = DETAIL_PAGES_AT_8FE98F5['taya-house'];
-    const tayaHero = source('components/detail/TayaHero.tsx');
-    expect(tayaHero.split(taya.kicker)).toHaveLength(3); // desktop and phone copies
-    expect(tayaHero.split(taya.story)).toHaveLength(3);
-    expect(tayaHero).toContain(`<img src="${taya.portrait}" alt="${taya.portraitAlt}"`);
   });
 });
 

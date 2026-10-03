@@ -118,6 +118,22 @@ export const LOADERS = {
   heroSlides: { reads: ['locales', 'hero_slides', 'media', 'media_i18n'], tags: [TAGS.contentHero, TAGS.media] },
   experiences: { reads: ['locales', 'experiences', 'experience_i18n'], tags: [TAGS.contentExperiences] },
   stories: { reads: ['locales', 'stories', 'story_i18n', 'media', 'media_i18n'], tags: [TAGS.contentStories, TAGS.media] },
+  // Plus restaurant:<id>, added once the query has found the restaurant.
+  detail: {
+    reads: [
+      'locales',
+      'restaurants',
+      'restaurant_i18n',
+      'restaurant_highlights',
+      'restaurant_highlight_i18n',
+      'destinations',
+      'destination_i18n',
+      'media',
+      'media_i18n',
+    ],
+    tags: [TAGS.restaurants, TAGS.contentDestinations, TAGS.media],
+  },
+  detailSlugs: { reads: ['restaurants'], tags: [TAGS.restaurants] },
 } as const satisfies Record<string, Loader>;
 
 export type LoaderName = keyof typeof LOADERS;
