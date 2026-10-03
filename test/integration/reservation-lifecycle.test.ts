@@ -171,7 +171,8 @@ describe.skipIf(!TEST_DATABASE_URL)('reservation lifecycle (database)', () => {
   describe('transitions', () => {
     it('confirms: one UPDATE (version bumped by the trigger) and one event, in the same transaction', async () => {
       const r = await seed();
-      expect(await move(r.id, r.version, 'confirmed')).toEqual({ ok: true, data: { status: 'confirmed', version: r.version + 1 } });
+      // With the sitting it was checked against: the admin asks it whether the guest email will still go (F5).
+      expect(await move(r.id, r.version, 'confirmed')).toEqual({ ok: true, data: { status: 'confirmed', version: r.version + 1, date: '2026-10-05', time: '19:00' } });
       expect(await row(r.id)).toMatchObject({ status: 'confirmed', version: r.version + 1, confirmed: true, updated_by: LAN.id });
       expect(await events(r.id)).toEqual([
         { actor_kind: 'staff', actor_id: LAN.id, actor_label: LAN.label, type: 'status_changed', from_status: 'requested', to_status: 'confirmed', changes: null, reason: null },

@@ -2,7 +2,7 @@ import 'server-only';
 import type { Pool } from 'pg';
 import { getPool } from '@/db/client';
 import { EVENT_STATUSES, type EmailEvent } from '@/lib/email/events';
-import { minutesUntil } from '@/lib/venue-time';
+import { minutesUntil, type IsoDate } from '@/lib/venue-time';
 import { loadBookingEmailData, type BookingEmailData } from './booking/load';
 import { renderOutboxEmail } from './booking/render';
 import { outboxEnv } from './env';
@@ -115,10 +115,18 @@ async function reapExhausted(pool: Pool, env: string): Promise<number> {
 }
 
 /**
+ * Whether a booking email may still go out (R7, F5): only while its sitting is still ahead. Measured on
+ * Da Nang's clock (minutesUntil), so a sitting is still sendable during its own minute. The one rule for
+ * the drain and for the admin's notices, which must not promise an email the drain will skip.
+ */
+export function sittingAhead(sitting: { date: IsoDate; time: string }, now: Date = new Date()): boolean {
+  return minutesUntil(sitting.date, sitting.time, now) >= 0;
+}
+
+/**
  * Why a claimed row must not be sent any more (R7), or null when it still holds. Once the sitting has
  * started, no booking email is true any more: a confirmation, an acknowledgement or a "new booking,
  * please confirm" after the meal only confuses (a retry 6 or 12 hours on, or "Gửi lại" on an old row).
- * Measured on Da Nang's clock (minutesUntil), so a sitting is still sendable during its own minute.
  */
 export function staleReason(row: ClaimedRow, booking: BookingEmailData | null, now: Date): string | null {
   if (!booking) return 'skipped: the booking no longer exists';
@@ -128,7 +136,7 @@ export function staleReason(row: ClaimedRow, booking: BookingEmailData | null, n
   if (row.event.startsWith('guest.') && booking.email?.trim().toLowerCase() !== row.to_email.trim().toLowerCase()) {
     return 'skipped: the guest email changed';
   }
-  if (minutesUntil(booking.date, booking.time, now) < 0) return 'skipped: the sitting has passed';
+  if (!sittingAhead(booking, now)) return 'skipped: the sitting has passed';
   return null;
 }
 

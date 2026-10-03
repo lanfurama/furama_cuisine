@@ -109,8 +109,12 @@ function constraintOf(err: unknown): string | null {
 // ── status transitions ──────────────────────────────────────────────────────
 
 export type TransitionInput = { id: string; version: number; to: ReservationStatus; reason: string | null; notifyGuest: boolean };
+/**
+ * `date` and `time`: the sitting the change was checked against. The admin asks it whether the change's
+ * guest email will still be sent (lib/server/email/drain.ts sittingAhead): none is once the sitting has started.
+ */
 export type TransitionResult =
-  | { ok: true; data: { status: ReservationStatus; version: number } }
+  | { ok: true; data: { status: ReservationStatus; version: number; date: IsoDate; time: string } }
   | Conflict
   | Failure<'not_found' | 'not_allowed' | 'too_early' | 'too_late' | 'invalid' | 'duplicate'>;
 
@@ -164,7 +168,7 @@ export async function transitionReservation(
         reason: input.reason,
       });
       await options.effects?.afterTransition?.(client, { reservationId: input.id, transition, eventId, notifyGuest: input.notifyGuest });
-      return { ok: true, data: updated.rows[0] };
+      return { ok: true, data: { ...updated.rows[0], date: current.date, time: current.time } };
     });
   } catch (err) {
     // seated → confirmed puts a row back under the dedupe index.

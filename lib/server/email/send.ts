@@ -176,7 +176,8 @@ function scrubHost(text: string, names: unknown[]): string {
  * TLS, login, 4xx, timeout) may pass later. A 5xx at RCPT TO that blames the sender, a relay or the
  * login (a 5.7.x code, or such wording: Postfix and Exim report them there) is retried too: it fails
  * every email until someone fixes EMAIL_FROM or the account, and then they go through by themselves.
- * With neither a 5.7.x code nor such wording, a 5xx at RCPT TO stays final, as before.
+ * With neither a 5.7.x code nor such wording, a 5xx at RCPT TO stays final, as before; so does one with
+ * a 5.1.x code about the recipient's address, whatever its words ("5.1.1 … relay recipient table").
  */
 function smtpError(cause: unknown, host: string): EmailSendError {
   const e = (cause ?? {}) as SmtpFailure;

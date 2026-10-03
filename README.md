@@ -95,10 +95,10 @@ its own restaurant and dates, and puts back the rules it changes:
 | --- | --- | --- |
 | `booking-v2` | Tàya House, Don Cipriani’s, Steakhouse The Fan | the last open day; a closure at +9; `max_party` 8. The availability-error, retry and focus tests added since mock the availability API and write nothing |
 | `admin-audit` | Tàya House | 2025-12-31 (a past, confirmed booking), plus `audit_log` rows dated 2001, which it deletes afterwards |
-| `admin-reservations` | Tàya House, V-Senses Cafe, ChaoShan Hotpot, Café Indochine | +3, +4, +6 (one booking at 23:30, outside the hours), yesterday (confirmed bookings: one marked no-show, one with an email that Enter in “Lý do” must leave alone); +8; +7; +6 (picked from The Fan at +5, where nothing is written; a phone booking with an email, confirmed to the guest) |
+| `admin-reservations` | Tàya House, V-Senses Cafe, ChaoShan Hotpot, Café Indochine | +3, +4, +6 (one booking at 23:30, outside the hours), yesterday (confirmed bookings: one marked no-show, one with an email that Enter in “Lý do” must leave alone, one with an email cancelled after its sitting); +8; +7; +6 (picked from The Fan at +5, where nothing is written; a phone booking with an email, confirmed to the guest) |
 | `admin-booking-config` | Thai Siam Kitchen, Hura Izakaya | dinner hours and covers (+2, +3), `max_party` and `window_days` overrides (back to NULL); `max_party` 8 |
 | `admin-booking-settings` | Danaksara | `auto_confirm`; the last open day |
-| `admin-closures` | Phố Cuốn; the MM Supercenter (Yum Food Village, ChaoShan Hotpot) | +5; a destination closure at +11; closure edits at +60 and +61; Phố Cuốn +62 (the bulk cancel that emails guests: three bookings, two with an email, and a closure it deletes afterwards) |
+| `admin-closures` | Phố Cuốn; the MM Supercenter (Yum Food Village, ChaoShan Hotpot) | +5; a destination closure at +11; closure edits at +60 and +61; Phố Cuốn +62 (the bulk cancel that emails guests: three bookings, two with an email, and a closure it deletes afterwards); Phố Cuốn +63 (two bookings with an email under a closure it deletes afterwards; one is moved to yesterday while the list is open) |
 | `booking-acceptance` | Yum Food Village | +3, +4, +12, +13, yesterday; dinner hours, covers and `max_party` |
 | `booking-switch.serial` | Tàya House, Hải Vân Lounge | online booking off, then on again |
 | `booking-email` | Café Indochine, Tàya House | the last open day (a guest booking: its staff email goes to the shared inbox); +3 (`seedReservation()`: a booking to confirm, and a confirmed one with an email row due for its second attempt) |
@@ -458,7 +458,9 @@ in-process server on `127.0.0.1`.
   minutes (seven attempts within about 19.4 hours), then it is `failed`. A
   recipient refused for good (a 5xx at `RCPT TO` about the mailbox) fails at
   once; a refusal that blames the sender, a relay or the login is retried
-  like any provider error. The overview counts the failed emails and those
+  like any provider error. An enhanced code about the recipient's address
+  (5.1.1, 5.1.2, 5.1.3, 5.1.4, 5.1.6, 5.1.10) decides first: Postfix's
+  "5.1.1 … User unknown in relay recipient table" fails at once. The overview counts the failed emails and those
   retrying after a failure, only for bookings whose sitting is still ahead
   (the "Lỗi" tab lists every failed one). "Gửi lại" in
   `/admin/reservations/emails` puts a failed email back with a fresh
@@ -468,7 +470,10 @@ in-process server on `127.0.0.1`.
   guest's address changed since it was queued, or its sitting has started; a
   staff email also when its recipient was removed or switched off, or (sent
   to the shared inbox) when that address changed. `last_error` says why, and
-  the email log says it in Vietnamese.
+  the email log says it in Vietnamese. Staff are told the same: the notice
+  after a status change promises a guest email only while the sitting is
+  still ahead, and a bulk cancel lists a guest whose sitting has started
+  among those to phone.
 - **Environments.** Each row records its environment (`VERCEL_ENV`), and a
   sender only sends its own: a Preview never sends production's rows.
 

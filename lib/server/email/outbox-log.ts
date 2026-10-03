@@ -50,7 +50,7 @@ export type EmailLogRow = {
 /**
  * SQL: the sitting of reservation `r` has not started yet, on Da Nang's clock. The one definition for
  * the overview's counts and the log. It agrees with the drain's rule (lib/server/email/drain.ts
- * staleReason: minutesUntil(date, time, now) < 0 skips, lib/venue-time.ts, VENUE_TZ): minutesUntil
+ * sittingAhead: minutesUntil(date, time, now) >= 0, lib/venue-time.ts, VENUE_TZ): minutesUntil
  * counts whole minutes of the venue's clock, so the sitting minute itself is still ahead.
  */
 const SITTING_AHEAD = `(r.reserved_on + r.reserved_at::time) >= date_trunc('minute', now() AT TIME ZONE '${VENUE_TZ}')`;

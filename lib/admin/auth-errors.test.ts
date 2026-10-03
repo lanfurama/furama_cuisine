@@ -114,6 +114,18 @@ describe('SMTP refusals: whose side to check (F9)', () => {
     );
     expect(emailFailureHint('provider_error: SMTP EMESSAGE at DATA: Message failed: 554 5.7.1 Message rejected as spam')).toBe('Kiểm tra cấu hình gửi email rồi thử lại.');
   });
+
+  it('a 5.1.x code about the recipient is the mailbox, whatever the words: Postfix’s relay recipient table does not name EMAIL_FROM', () => {
+    expect(
+      emailFailureHint(
+        "rejected: SMTP EENVELOPE at RCPT TO: Can't send mail - all recipients were rejected: 550 5.1.1 <<redacted>>: Recipient address rejected: User unknown in relay recipient table",
+      ),
+    ).toBe(REJECTED);
+    // The sender's own 5.1.x (RFC 3463 5.1.8, Postfix's unknown sender domain) still names EMAIL_FROM.
+    expect(
+      emailFailureHint("provider_error: SMTP EENVELOPE at RCPT TO: Can't send mail - all recipients were rejected: 550 5.1.8 <<redacted>>: Sender address rejected: Domain not found"),
+    ).toBe(SENDER);
+  });
 });
 
 describe('inviteEmailFailedMessage', () => {

@@ -10,11 +10,12 @@ import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures'
  * Closures (spec §10.1, §14.1 phase 4): a closure made in the admin lists the
  * bookings it takes out and cancels only what staff tick, skipping one that
  * changed since the page was drawn, and emails the guests only while "Báo
- * khách qua email" is ticked, naming those it could not email, with their
- * number to call; the guest sees the day greyed out with the
- * public reason. Phố Cuốn at +5 and the MM Supercenter (Yum Food Village,
- * ChaoShan Hotpot) at +11: dates no other spec books there; Phố Cuốn at
- * +60 to +62, past every booking window. Each test deletes its closure.
+ * khách qua email" is ticked, naming those it could not email (a sitting
+ * that started counts), with their number to call; the guest sees the day
+ * greyed out with the public reason. Phố Cuốn at +5 and the MM Supercenter
+ * (Yum Food Village, ChaoShan Hotpot) at +11: dates no other spec books
+ * there; Phố Cuốn at +60 to +63, past every booking window. Each test
+ * deletes its closure.
  */
 
 test.beforeAll(() => seedStaff());
@@ -158,6 +159,54 @@ test('a cancel from the list emails each guest the reason only while “Báo kh�
     await expect(pick(untold.reference)).toHaveCount(0);
     expect(await reservationRow(untold.id)).toMatchObject({ status: 'cancelled', status_reason: 'Bếp sửa chữa' });
     expect(await one(`SELECT count(*)::int AS n FROM email_outbox WHERE reservation_id = $1`, [untold.id])).toEqual({ n: 0 });
+  } finally {
+    await one(`DELETE FROM closures WHERE internal_note = $1`, [note]);
+  }
+});
+
+test('a booking whose sitting starts while the list is open is named to phone, though its guest gave an email and “Báo khách qua email” is ticked (F5)', async ({ page }) => {
+  // Phố Cuốn at +63, past every booking window like the tests around it.
+  const date = venueDay(63);
+  const note = `E2E started ${Date.now().toString(36)}`;
+  const ahead = await seedReservation({ restaurant: 'pho-cuon', date, time: '19:00' });
+  const started = await seedReservation({ restaurant: 'pho-cuon', date, time: '19:30', status: 'confirmed' });
+  await one(`UPDATE reservations SET email = 'started-' || id || '@example.com' WHERE id = ANY ($1::bigint[])`, [[ahead.id, started.id]]);
+  try {
+    await one(`INSERT INTO closures (scope, restaurant_id, starts_on, ends_on, internal_note) VALUES ('restaurant', 'pho-cuon', $1, $1, $2)`, [date, note]);
+    await signInAs(page, STAFF.editor);
+    await page.goto('/admin/reservations/closures');
+    await expectHydrated(page);
+    const card = page.getByRole('region').filter({ hasText: note });
+    const affected = card.getByRole('form', { name: /^Đặt bàn bị ảnh hưởng/ });
+    const pick = (reference: string) => affected.getByRole('checkbox', { name: `Chọn ${reference}` });
+    await expect(affected.getByRole('checkbox', { name: 'Báo khách qua email (khách có email)', exact: true })).toBeChecked();
+    await pick(ahead.reference).check();
+    await pick(started.reference).check();
+    await affected.getByLabel('Lý do hủy', { exact: true }).fill('Bếp sửa chữa');
+
+    // The sitting starts while the list is open. A test cannot move the server's clock, so the sitting
+    // moves instead, to yesterday. The trigger counts that as a change (version + 1), which a sitting
+    // starting is not, so the ticked row gets the version the booking now has, as if drawn just before.
+    // Last thing before the click: any re-render (typing the reason) puts React's value back.
+    await one(`UPDATE reservations SET reserved_on = $2::date WHERE id = $1`, [started.id, venueDay(-1)]);
+    const { version } = await reservationRow(started.id);
+    await pick(started.reference).evaluate((box, value) => {
+      (box as HTMLInputElement).value = value;
+    }, `${started.id}:${version}`);
+    await expect(pick(started.reference)).toHaveAttribute('value', `${started.id}:${version}`);
+    await affected.getByRole('button', { name: 'Hủy các đặt bàn đã chọn' }).click();
+    const outcome = card.getByRole('status');
+    await expect(outcome.getByText('Đã hủy 2 đặt bàn.', { exact: true })).toBeVisible();
+    await expect(outcome).toContainText('1 khách chưa được báo qua email, hãy gọi điện:');
+    await expect(outcome.getByRole('listitem')).toHaveCount(1);
+    await expect(outcome.getByRole('listitem')).toContainText(started.reference);
+    await expect(outcome.getByRole('link', { name: started.phone, exact: true })).toHaveAttribute('href', `tel:${started.phone}`);
+    // Both guests had a row queued; the drain sends the one whose sitting is ahead and skips the other.
+    await expect.poll(() => emailsTo(`started-${ahead.id}@example.com`).map((e) => e.subject)).toContain(`Your reservation has been cancelled (${ahead.reference})`);
+    await expect
+      .poll(() => one(`SELECT status, last_error FROM email_outbox WHERE reservation_id = $1`, [started.id]))
+      .toEqual({ status: 'skipped', last_error: 'skipped: the sitting has passed' });
+    expect(emailsTo(`started-${started.id}@example.com`)).toEqual([]);
   } finally {
     await one(`DELETE FROM closures WHERE internal_note = $1`, [note]);
   }

@@ -128,6 +128,25 @@ describe('SMTP on the wire (local sink)', () => {
     expect(sink.received).toEqual([]);
   });
 
+  it('a 5.1.x code about the recipient decides it: Postfix’s "User unknown in relay recipient table" fails at once, though it says relay; the sender’s own 5.1.8 is still retried', async () => {
+    const replies: Record<string, { code: number; message: string }> = {
+      'gone@guest.vn': { code: 550, message: '5.1.1 <gone@guest.vn>: Recipient address rejected: User unknown in relay recipient table' },
+      // RFC 3463's 5.1.8 is the sender's system: Postfix's reject_unknown_sender_domain, reported at RCPT TO.
+      'nodomain@guest.vn': { code: 550, message: '5.1.8 <bounce@nowhere.invalid>: Sender address rejected: Domain not found' },
+      'owned@guest.vn': { code: 553, message: '5.7.1 <owned@guest.vn>: Sender address rejected: not owned by user' },
+    };
+    const sink = track(await startSmtpSink({ refuseRecipient: (a) => replies[a] ?? null }));
+    const send = (to: string) => senderFor(sink)({ to, subject: 'S', ...content }).catch((e: unknown) => e);
+    const gone = await send('gone@guest.vn');
+    expect(gone).toMatchObject({ code: 'rejected' });
+    expect(describeEmailError(gone)).toBe(
+      "rejected: SMTP EENVELOPE at RCPT TO: Can't send mail - all recipients were rejected: 550 5.1.1 <<redacted>>: Recipient address rejected: User unknown in relay recipient table",
+    );
+    expect(await send('nodomain@guest.vn')).toMatchObject({ code: 'provider_error' });
+    expect(await send('owned@guest.vn')).toMatchObject({ code: 'provider_error' });
+    expect(sink.received).toEqual([]);
+  });
+
   it('every email says it was sent automatically (Auto-Submitted, RFC 3834): a booking email and an invitation (F10)', async () => {
     const sink = track(await startSmtpSink());
     await senderFor(sink)({ to: 'khach@guest.vn', subject: 'S', ...content, replyTo: 'fb@furama.test', idempotencyKey: 'outbox:7' });

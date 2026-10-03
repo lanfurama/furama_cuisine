@@ -10,6 +10,7 @@ import { actionError, type ActionResult } from '@/lib/server/action-result';
 import { saveInboxSearch, searchText } from '@/lib/server/booking/inbox-search';
 import { listGuestContacts, listLocales, type GuestContact } from '@/lib/server/booking/queries';
 import { drainAfterCommit } from '@/lib/server/email/after-commit';
+import { sittingAhead } from '@/lib/server/email/drain';
 import { outboxEffects } from '@/lib/server/email/outbox';
 import {
   addReservationNote,
@@ -27,12 +28,14 @@ import { requirePermission } from '@/lib/server/dal/session';
  * are never cached, so there is no tag to expire; refresh() re-renders the
  * page in the same response. A change that emails the guest queues its
  * email_outbox rows in the same transaction (outboxEffects, spec §10.3–10.4),
- * and drainAfterCommit sends them once it has committed (R20).
+ * and drainAfterCommit sends them once it has committed (R20). What staff are
+ * told about that email follows the sender, not the queue: a row queued for a
+ * sitting that has started is skipped, never sent (F5, sittingAhead).
  */
 
 const field = (formData: FormData, name: string) => formData.get(name) ?? undefined;
 
-/** The status a change reached, and whether it queued a guest email: the panel's notice says both. */
+/** The status a change reached, and whether a guest email is on its way: the panel's notice says both. */
 export type StatusChange = { status: ReservationStatus; emailed: boolean };
 
 export async function changeStatus(_prev: ActionResult<StatusChange> | null, formData: FormData): Promise<ActionResult<StatusChange>> {
@@ -50,7 +53,9 @@ export async function changeStatus(_prev: ActionResult<StatusChange> | null, for
     if (!result.ok) return result;
     drainAfterCommit(effects.queued);
     refresh();
-    return { ok: true, data: { status: result.data.status, emailed: effects.queued.length > 0 } };
+    // Queued is not enough: the sender skips a booking email once its sitting has started (F5), so the
+    // notice promises one only while the sitting is still ahead, by the sender's own rule.
+    return { ok: true, data: { status: result.data.status, emailed: effects.queued.length > 0 && sittingAhead(result.data) } };
   } catch (err) {
     return actionError(err);
   }
@@ -123,7 +128,10 @@ export async function createReservation(_prev: ActionResult | null, formData: Fo
   }
 }
 
-/** `notTold`: the cancelled guests no email went to (none on file, an unusable one, or the box unticked): staff phone them. */
+/**
+ * `notTold`: the cancelled guests no email goes to (none on file, an unusable one, the box unticked, or
+ * a sitting that started after the list was drawn): staff phone them.
+ */
 export type CancelManyResult = { cancelled: number; skipped: number; notTold: GuestContact[] };
 
 /**
@@ -156,8 +164,9 @@ export async function cancelReservations(_prev: ActionResult<CancelManyResult> |
         if (!result.ok) continue;
         cancelled += 1;
         // What was queued, not whether an email is on file: the outbox also drops an address it cannot use,
-        // and an unticked box queues nothing for anyone.
-        if (effects.queued.length === queuedBefore) untold.push(id);
+        // and an unticked box queues nothing for anyone. A row queued once the sitting has started is skipped
+        // by the sender (F5), so that guest is not told either.
+        if (effects.queued.length === queuedBefore || !sittingAhead(result.data)) untold.push(id);
       }
     } finally {
       // Each cancel commits on its own: a throw halfway still sends the emails of those that did (R20).
