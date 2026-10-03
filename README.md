@@ -85,10 +85,13 @@ kill %1   # stop the server (or: lsof -ti tcp:3201 | xargs kill)
 
 Playwright runs two projects. `desktop` holds every spec file, in parallel
 workers; `desktop-serial` holds the `*.serial.spec.ts` files and runs after
-`desktop` has finished (`dependencies`), because they change what every guest
-page reads (a restaurant's online-booking switch). Running one serial file
-also runs the whole `desktop` project first; add `--project=desktop-serial
---no-deps` to run it alone. Spec files run at the same time, so each one books
+`desktop` has finished (`dependencies`), one file at a time (`workers: 1`),
+because they change what every guest page reads (a restaurant's
+online-booking switch, the shared inbox, a restaurant's page, an offer's
+dates). Each puts the data back through the same kind of save (or the daily
+cron), which expires the same cache tags, never with a bare SQL update.
+Running one serial file also runs the whole `desktop` project first; add
+`--project=desktop-serial --no-deps` to run it alone. Spec files run at the same time, so each one books
 its own restaurant and dates, and puts back the rules it changes:
 
 | Spec | Restaurant | Dates or rules |
@@ -100,7 +103,10 @@ its own restaurant and dates, and puts back the rules it changes:
 | `admin-booking-settings` | Danaksara | `auto_confirm`; the last open day |
 | `admin-closures` | Phố Cuốn; the MM Supercenter (Yum Food Village, ChaoShan Hotpot) | +5; a destination closure at +11; closure edits at +60 and +61; Phố Cuốn +62 (the bulk cancel that emails guests: three bookings, two with an email, and a closure it deletes afterwards); Phố Cuốn +63 (two bookings with an email under a closure it deletes afterwards; one is moved to yesterday while the list is open) |
 | `booking-acceptance` | Yum Food Village | +3, +4, +12, +13, yesterday; dinner hours, covers and `max_party` |
-| `booking-switch.serial` | Tàya House, Hải Vân Lounge | online booking off, then on again |
+| `booking-switch.serial` | Tàya House, Hải Vân Lounge, Yum Food Village; then all twelve | online booking off, then on again |
+| `shared-inbox.serial` | — | the shared inbox (`site_settings.email`), then `fb@furamavietnam.com` again |
+| `restaurant-pages.serial` | Steakhouse The Fan | its page on (portrait, copy, two highlights), then off; its booking rules saved unchanged |
+| `offers-expiry.serial` | Hải Vân Lounge | offer 3's `valid_until` set to yesterday, then NULL again, each time with the daily cron |
 | `booking-email` | Café Indochine, Tàya House | the last open day (a guest booking: its staff email goes to the shared inbox); +3 (`seedReservation()`: a booking to confirm, and a confirmed one with an email row due for its second attempt) |
 | `admin-emails` | Hải Vân Lounge, Hura Izakaya | +40 (failed emails written straight into `email_outbox`); yesterday (a failed email whose sitting has passed); a restaurant recipient under a fresh address, deleted afterwards |
 | `guest-guard` | Phố Cuốn | today + 13 (three web requests seeded for a fresh number); the other tests book nothing, and the header-contrast tests write nothing |
@@ -123,6 +129,12 @@ staff (A1), confirming emails the guest (A2), a failed email is retried by
 the cron (A3), and with no recipient the staff email goes to the shared inbox
 (A4); bots are blocked (A5) in `guest-guard.spec.ts`, the integration tests
 and the BotID run below.
+`restaurant-pages.serial.spec.ts` checks phase 6's (§14.1 row 6): switching
+`has_detail_page` on for Steakhouse The Fan opens a working page, read from
+the database, after one admin save, and switching it off closes it again.
+The other half, "the site is identical", is the visual baselines: they have
+not changed since before phase 2, and every page they shoot now reads the
+database (a changed row turns them red).
 
 `e2e/botid.spec.ts` walks BotID's blocked path. Off Vercel nobody can judge a
 request, so it is skipped unless the server runs with `BOTID_DEV_BYPASS=BAD-BOT`
@@ -359,6 +371,85 @@ SELECT conname FROM pg_constraint WHERE conname = 'reservations_consent_check'; 
 
 Until recipients are added, every new booking's staff email goes to the
 shared inbox, and the overview lists the restaurants that do so.
+
+### Migration 008 (phase 6: content)
+
+`008_content.sql` moves the guest site's content into the database: `media`
+(one row per file in `public/assets`, served from there), the translation
+tables, `cuisines`, `restaurant_cuisines`, `restaurant_highlights`,
+`sections`, `hero_slides`, `experiences`, `stories`, `offers`, `nav_items`,
+`social_links`, the restaurants' content columns (`slug`, `destination_id`,
+pictures, phone, map, `has_detail_page`, `is_published`, `archived_at`), the
+rest of `site_settings`, and the foreign key of `reservations.offer_id`. It
+seeds exactly what the site showed at the end of phase 5. It only adds (the
+phase-1 columns `type`, `destination`, `cuisines`, `meals` and
+`slot_capacity` stay, unread, until phase 10 drops them), in one transaction
+that `migrate.mjs` sends as one query (about 80 ms on a local database).
+
+**008 goes first, then the phase-6 deploy.** The phase-5 code was built and
+tested on a 008 database (its E2E run and the visual baselines pass
+unchanged), and the phase-6 code needs 008 to build: `next build` prerenders
+the guest pages from its tables, so a build on a branch without it fails
+(safely: the previous deployment stays live). Until it commits, 008 holds an
+ACCESS EXCLUSIVE lock on `restaurants` and `site_settings` and a SHARE ROW
+EXCLUSIVE lock on `reservations`, so new bookings wait for it: apply it in
+the deploy window.
+
+1. **Pre-flight**, read-only, on the target branch's own direct URL (not
+   `npm run db:psql`, which reads `.env.local`):
+
+   ```bash
+   psql "<the branch's direct URL>" -v ON_ERROR_STOP=1 -f db/checks/preflight-008.sql
+   ```
+
+   Every row must say `ok` = `t`: 001–007 applied and 008 not; none of the
+   20 tables 008 creates exists yet; no booking has an `offer_id` (008
+   stops on one); every label in `restaurants.cuisines` is one of the 8
+   cuisines (008 stops on another and names it; the row's `detail` lists
+   the labels found); the 12 restaurants of 002, each with its
+   `public/assets/r-<id>.jpg`; every restaurant has a type and a destination
+   that exists; the 4 destinations of 004, none with a card picture yet; one
+   `site_settings` row; `en` the default language; `gen_random_uuid()`
+   available. Any `f`: stop and fix the data first (008 would roll back).
+2. **Apply**, the dev branch first, then production, in the deploy window:
+   `DATABASE_URL_UNPOOLED=<the branch's direct URL> node scripts/migrate.mjs`
+   (it prints `✓ 008_content.sql`).
+3. **Post-check**, read-only:
+   `psql "<the branch's direct URL>" -v ON_ERROR_STOP=1 -f db/checks/postcheck-008.sql`.
+   Every row `t`: the row counts; each restaurant's slug, destination, type
+   label, cuisines and card picture equal to its phase-1 columns; only Tàya
+   House has a page, with its portrait, story and 4 highlights; every
+   destination's picture; the offer FK, and no booking linked to an offer
+   yet; the settings (Tàya House, Dinner, 7 s slides); every seeded
+   translation `en`, `reviewed`, `seed`; the sequences past the seeded ids.
+4. **Deploy phase 6.** A preview branch forked before 008 reached production
+   must be migrated (steps 1–3 on its URL) before its preview builds.
+5. **Vercel:** after the production deploy, Settings → Cron Jobs lists
+   `/api/cron/daily` at `5 17 * * *` (00:05 in Da Nang) beside the outbox
+   cron. It uses the `CRON_SECRET` set for launch A and reads no database.
+6. **First preview:** switch a restaurant's online booking off in "Giờ và
+   sức chứa", then open the home page several times: every response drops
+   its RESERVE (each instance caches the pages; `updateTag` must reach them
+   all); switch it back on and check the same way. Do the same with "Hộp thư
+   chung" and the footer's address. Open `/en/restaurants/<a made-up word>`:
+   the site's "Page not found", with `noindex`. If the preview's Neon branch
+   can be suspended, see what a guest gets right after a save while the
+   database is unreachable (measured locally: a plain 500 on the home page
+   and a restaurant page that never finishes loading), then resume it.
+7. **Rollback:** leave 008 in place (the phase-5 code runs on it) and roll
+   back the deployment only.
+
+Confirmed by the owner (2026-10-03): the Dining House number prints as
+"0859 555 759" and dials `+84859555759`, and the TikTok handle
+`@furama.dining.hous` is correct (spec §15 item 14); both stay as seeded.
+
+What the owner still gives for phase 6: whether the three offers end on 31
+December 2026 (they are seeded without dates, so they show until someone sets
+one; the phase-7 editor does it); the Experiences links and a film URL (spec
+§15 item 16); for each further restaurant that should get a page, a 4:5
+portrait, a kicker, an English story, 2–5 highlights with photos and an
+optional menu PDF (spec §15 item 17). Until a page's content exists, its
+`has_detail_page` stays off.
 
 ### Environment variables (admin)
 
@@ -671,12 +762,13 @@ bootstrapping production is what you mean to do.
 | Route | Rendering | Notes |
 | --- | --- | --- |
 | `/` and other unprefixed paths | Proxy (`proxy.ts`) | 307 to `/<locale>…` by the `NEXT_LOCALE` cookie, then `Accept-Language`, then `en` (only `en` is enabled in phase 2); the query is kept |
-| `/en` | Static, `cacheLife('max')` | Home: hero, finder, cuisines, restaurants, destinations, experiences, heritage, stories, offers |
-| `/en/restaurants/[slug]` | Static for `taya-house`. Any other slug is a 404: the first visit is a soft 404 (status 200 with `noindex`), later visits get the cached 404, and without JavaScript the body is empty | Restaurant detail (Tàya House only until phase 6) |
+| `/en` | Static, revalidated hourly (`cacheLife('hours')`, for today's offers) | Home: hero, finder, cuisines, restaurants, destinations, experiences, heritage, stories, offers, read from the database; a section switched off or with nothing to show is left out |
+| `/en/restaurants/[slug]` | Static for each restaurant with `has_detail_page` at build time (`_none` when there is none); a page switched on later renders on its first visit. Any other slug is a 404: the first visit is a soft 404 (status 200 with `noindex`), later visits get the cached 404, and without JavaScript the body is empty | Restaurant detail, read from the database (`taya-house` today). The cached 404 carries `restaurants`, so a save that expires the catalogue opens a page that was just switched on |
 | `/taya-house` | Redirect | 308 to `/en/restaurants/taya-house` (`next.config.ts`) |
 | `/en/privacy` | Static, `cacheLife('max')`, tag `content:legal` | The privacy policy (`legal.*`), linked from the footer and the reserve drawer's consent box |
 | `/api/availability` | Dynamic, `no-store` | `?restaurant=&lang=[&from=&to=]`: each day's state (open, full, past, closed, too_large, outside) and public closure reason, with the clock, the party limit and the number to call; `?restaurant=&date=&lang=[&guests=]`: one day's services and slots with the covers left. 404 for an unknown restaurant or one with online booking off; a range given in full that is backwards or too long (400) and an id that cannot exist (404) are answered before any query. `scripts/check-prerender.mjs` fails if it is ever prerendered, or missing from the build |
 | `/api/cron/outbox` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, every 5 minutes: sends the due outbox rows of its environment (at most 500 or 240 s) and answers only the counts. 401 without `Authorization: Bearer $CRON_SECRET` |
+| `/api/cron/daily` | Dynamic, `no-store`, `maxDuration` 60 | Vercel Cron, daily at 17:05 UTC (00:05 in Da Nang): `revalidateTag('content:offers', 'max')`, so the home page drops an offer past its `valid_until` and shows one whose `valid_from` has come. The first visit after it may still get yesterday's offers once; in exchange, a database that is down then cannot break the home page. 401 without `Authorization: Bearer $CRON_SECRET` |
 | `/admin/sign-in`, `/admin/accept-invite`, `/admin/reset-password` | Request time, nonce CSP | The only admin pages open without a session cookie |
 | `/admin`, `/admin/users`, `/admin/audit` | Request time, nonce CSP | Overview (with pending and today's bookings); staff and invitations (Admin); audit log of `audit_log` and booking events, paged with `?truoc=`/`?sau=` (Admin). Without a session cookie the proxy sends them to sign-in (307, `?next=` kept) |
 | `/admin/reservations`, `/admin/reservations/[id]`, `/admin/reservations/day` | Request time, nonce CSP | Inbox (Cần xử lý · Hôm nay · Sắp tới · Tất cả, search by reference, phone, name or email: the search posts, its text waits 30 minutes in an httpOnly cookie and the URL carries only `?tim=<id>`); a booking (status changes, edit, internal notes, timeline, its emails); the printable day sheet. `reservations:read` |
@@ -709,11 +801,20 @@ disabled language gets the site's 404 and a database error gets
 `[lang]/error.tsx`, but only for request-time renders with JavaScript on.
 An expired static route that fails to re-render, or a disabled-locale 404, gets
 a plain 500 or an empty shell instead. Guest pages are cached with
-`cacheLife('max')` (30 days) rather than hourly ISR, so a catalogue edit made
-directly on Neon needs a redeploy (or a tag purge) to appear; the uncached
-booking action reads the database directly. Pages carry the cache tags `restaurants`, `i18n:<code>`,
-`locales` and `content:ui`; `lib/cache-tags.ts` names every tag of the CMS
-(spec §6.2), so later phases never spell a tag by hand. Each page wraps its
+`cacheLife('max')` (30 days; the home page `'hours'`, for today's offers),
+so content edited directly on Neon needs a redeploy (or a tag purge) to
+appear; the uncached booking action reads the database directly.
+`lib/cache-tags.ts` names every tag of the CMS (spec §6.2), so no code spells
+a tag by hand, and `lib/cache-plan.ts` says which tables each cached loader
+reads and which tags it carries (`LOADERS`), and what a save to each table
+expires (`SAVE_TAGS`, `tagsForSave`); `lib/cache-plan.test.ts` holds the two
+together, and `scripts/check-prerender.mjs` checks each prerendered guest
+page carries its loaders' tags. Every guest page checks the language again
+before it reads (`requireEnabledLocale`): layouts and pages render in
+parallel, and a path with a dot such as `/favicon.ico` reaches `[lang]`, so
+without it a crawler's request would query the database as a language of its
+own, and an error in the page would win over the layout's 404
+(`test/guards/guest-pages.guard.test.ts` enforces it). Each page wraps its
 content in `<ViewMarker>`: with Cache Components the router keeps the page
 you left mounted but hidden, so page DOM is only queried inside the visible
 page's `<main>` (`lib/page-scope.guard.test.ts` enforces it).
@@ -725,6 +826,23 @@ is seeded by `db/migrations/002_seed_restaurants.sql` (and its content by
 008) and read by `lib/server/content/restaurants.queries.ts#loadRestaurants`,
 then handed to the client through `SiteProvider`. Editing the catalogue means
 editing a migration until the phase-7 editors.
+
+The rest of the guest site's content is in the database too since phase 6
+(migration 008): `media` (every file in `public/assets`, served from there;
+alt text per language in `media_i18n`, empty for a decorative file),
+`sections` (the home page's fixed blocks: on or off, a picture, a link),
+`cuisines`, `destinations` and `restaurants` with their `*_i18n` rows,
+`restaurant_cuisines`, `restaurant_highlights`, `hero_slides`, `experiences`,
+`stories`, `offers`, `nav_items`, `social_links` and `site_settings`. A
+`*_i18n` row shows in its language when `reviewed` (or `machine`, where the
+language serves machine translations), and a field it lacks falls back to
+the default language's (`lib/server/content/sql.ts`). Phase 6 has no editor:
+until phase 7, content changes are migrations. `lib/data.ts` holds code
+only (the meal enum, phase 1's slots, the number the error pages print
+without the database); `test/fixtures/phase5-content.ts` keeps what its
+constants held, and `test/integration/content-seed.test.ts` checks the seed
+against it. `db/checks/preflight-008.sql` and `postcheck-008.sql` are the
+read-only checks of the 008 runbook (Deploying).
 
 `locales`, `content_strings` and `destinations` (migration 004) are the
 shared foundations of the CMS. Which UI strings exist is decided by
@@ -800,7 +918,9 @@ turns the whole system off.
 
 `public/assets/` holds the design's 39 photographs. `scripts/extract-assets.py`
 re-derives them from the DesignSync reads in a session transcript and is
-idempotent.
+idempotent. Each has a `media` row (migration 008) with its type, pixel size
+and byte count, which `node scripts/measure-assets.mjs` prints as the
+migration's `VALUES` block; `content-seed.test.ts` re-measures every file.
 
 Five source photos exceed the DesignSync 192 KiB per-file transfer cap and are
 substituted with the design's own smaller rendition of the same shot (listed in
@@ -826,3 +946,4 @@ reference so future design revisions can be diffed against what was built.
 | `npm run test:visual` | Screenshot comparison (local) |
 | `npm run db:migrate` | Apply pending SQL migrations   |
 | `npm run db:psql`    | psql shell against Neon        |
+| `node scripts/measure-assets.mjs` | The `media` rows of `public/assets` (migration 008's `VALUES`) |
