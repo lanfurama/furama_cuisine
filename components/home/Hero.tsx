@@ -6,6 +6,25 @@ import type { HeroSlide } from '@/lib/content/types';
 import { useSite } from '@/components/site/SiteProvider';
 import { readMotionLevel } from '@/lib/motion';
 
+/**
+ * The hero's headline, a line each. Section copy in JSX (R2) until phase 7
+ * moves it into the registry, and kept in one place for HeroHeading, which
+ * says the same words when the hero is left out.
+ */
+const TITLE = ['Many Flavours.', 'Many Destinations.', 'One Furama Cuisine.'] as const;
+
+/**
+ * The home page's <h1> when it has no hero (switched off, or no slide with a
+ * picture: homeSections). The hero holds the page's only <h1>, and without it
+ * the page would have none, so this names the page with the hero's own words,
+ * visually hidden. A component rather than the exported lines: a value
+ * exported from a 'use client' module reaches the Server Component page as a
+ * client reference, not as the strings.
+ */
+export function HeroHeading() {
+  return <h1 className="sr-only">{TITLE.join(' ')}</h1>;
+}
+
 /*
  * One hero serves every width: the three cross-fading slides run on desktop,
  * while a phone gets a single art-directed crop, the shorter two-line headline
@@ -70,17 +89,17 @@ export function Hero({ slides }: { slides: HeroSlide[] }) {
           <h1 className="hero-title">
             <span className="line-mask">
               <span data-intro="1" data-intro-kind="line">
-                Many Flavours.
+                {TITLE[0]}
               </span>
             </span>
             <span className="line-mask hero-title-mid">
               <span data-intro="2" data-intro-kind="line">
-                Many Destinations.
+                {TITLE[1]}
               </span>
             </span>
             <span className="line-mask">
               <span data-intro="3" data-intro-kind="line">
-                One Furama Cuisine.
+                {TITLE[2]}
               </span>
             </span>
           </h1>

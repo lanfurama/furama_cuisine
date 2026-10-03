@@ -763,9 +763,9 @@ bootstrapping production is what you mean to do.
 | --- | --- | --- |
 | `/` and other unprefixed paths | Proxy (`proxy.ts`) | 307 to `/<locale>…` by the `NEXT_LOCALE` cookie, then `Accept-Language`, then `en` (only `en` is enabled in phase 2); the query is kept |
 | `/en` | Static, revalidated hourly (`cacheLife('hours')`, for today's offers) | Home: hero, finder, cuisines, restaurants, destinations, experiences, heritage, stories, offers, read from the database; a section switched off or with nothing to show is left out |
-| `/en/restaurants/[slug]` | Static for each restaurant with `has_detail_page` at build time (`_none` when there is none); a page switched on later renders on its first visit. Any other slug is a 404: the first visit is a soft 404 (status 200 with `noindex`), later visits get the cached 404, and without JavaScript the body is empty | Restaurant detail, read from the database (`taya-house` today). The cached 404 carries `restaurants`, so a save that expires the catalogue opens a page that was just switched on |
+| `/en/restaurants/[slug]` | Static for each restaurant with `has_detail_page` at build time (`_none` when there is none), revalidated hourly (the layout reads today's offers for the nav); a page switched on later renders on its first visit. Any other slug is a 404: the first visit is a soft 404 (status 200 with `noindex`), later visits get the cached 404, and without JavaScript the body is empty | Restaurant detail, read from the database (`taya-house` today). The cached 404 carries `restaurants`, so a save that expires the catalogue opens a page that was just switched on |
 | `/taya-house` | Redirect | 308 to `/en/restaurants/taya-house` (`next.config.ts`) |
-| `/en/privacy` | Static, `cacheLife('max')`, tag `content:legal` | The privacy policy (`legal.*`), linked from the footer and the reserve drawer's consent box |
+| `/en/privacy` | Static, revalidated hourly (the layout reads today's offers for the nav), tag `content:legal` | The privacy policy (`legal.*`), linked from the footer and the reserve drawer's consent box |
 | `/api/availability` | Dynamic, `no-store` | `?restaurant=&lang=[&from=&to=]`: each day's state (open, full, past, closed, too_large, outside) and public closure reason, with the clock, the party limit and the number to call; `?restaurant=&date=&lang=[&guests=]`: one day's services and slots with the covers left. 404 for an unknown restaurant or one with online booking off; a range given in full that is backwards or too long (400) and an id that cannot exist (404) are answered before any query. `scripts/check-prerender.mjs` fails if it is ever prerendered, or missing from the build |
 | `/api/cron/outbox` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, every 5 minutes: sends the due outbox rows of its environment (at most 500 or 240 s) and answers only the counts. 401 without `Authorization: Bearer $CRON_SECRET` |
 | `/api/cron/daily` | Dynamic, `no-store`, `maxDuration` 60 | Vercel Cron, daily at 17:05 UTC (00:05 in Da Nang): `revalidateTag('content:offers', 'max')`, so the home page drops an offer past its `valid_until` and shows one whose `valid_from` has come. The first visit after it may still get yesterday's offers once; in exchange, a database that is down then cannot break the home page. 401 without `Authorization: Bearer $CRON_SECRET` |
@@ -800,10 +800,15 @@ against the `locales` table and reads the catalogue and UI strings, so a
 disabled language gets the site's 404 and a database error gets
 `[lang]/error.tsx`, but only for request-time renders with JavaScript on.
 An expired static route that fails to re-render, or a disabled-locale 404, gets
-a plain 500 or an empty shell instead. Guest pages are cached with
-`cacheLife('max')` (30 days; the home page `'hours'`, for today's offers),
-so content edited directly on Neon needs a redeploy (or a tag purge) to
-appear; the uncached booking action reads the database directly.
+a plain 500 or an empty shell instead. Guest pages are cached: the
+loaders with `cacheLife('max')` (30 days), today's offers with `'hours'`.
+The header and the menu leave out an item whose section the home page
+leaves out (no offer today, say), so the layout reads the home page's
+lists (`getHomeContent`, `lib/server/content/home-content.ts`), and every
+guest page revalidates hourly, expiring after a day. The hourly re-render
+reuses the other loaders' cached (`'max'`) entries, so content edited
+directly on Neon needs a redeploy (or a tag purge) to appear reliably; the
+uncached booking action reads the database directly.
 `lib/cache-tags.ts` names every tag of the CMS (spec §6.2), so no code spells
 a tag by hand, and `lib/cache-plan.ts` says which tables each cached loader
 reads and which tags it carries (`LOADERS`), and what a save to each table
@@ -848,9 +853,10 @@ read-only checks of the 008 runbook (Deploying).
 shared foundations of the CMS. Which UI strings exist is decided by
 `lib/i18n/registry.ts`; `content_strings` only overrides or translates them,
 and while it is empty the registry's English text is served. Guest pages
-read through cached functions in `lib/server/content/` (`'use cache'`,
-`cacheLife('max')`); their uncached loaders (`*.queries.ts`) are what the
-integration tests exercise.
+read through cached functions in `lib/server/content/` (`'use cache'`; the
+loaders `cacheLife('max')`, the offers `'hours'`, so every guest page
+revalidates hourly: the layout reads today's offers for the nav); their
+uncached loaders (`*.queries.ts`) are what the integration tests exercise.
 
 `reservations` records bookings (migration 006, phase 4). What a restaurant
 offers comes from the database, never from the code: `service_periods` (the

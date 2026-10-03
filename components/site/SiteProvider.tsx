@@ -32,6 +32,7 @@ import type { IsoDate } from '@/lib/venue-time';
 import { submitReservation } from '@/app/actions';
 import { coverThen } from '@/components/site/PageCurtain';
 import { homeHref, restaurantHref } from '@/lib/i18n/href';
+import { markHero } from '@/lib/content/home-sections';
 
 export type Filter = { cuisine: string; occasion: string; destination: string };
 export type Finder = Filter & { location: string };
@@ -39,8 +40,11 @@ export type Overlay = 'drawer' | 'search' | 'menu' | 'film' | 'sheet';
 /** 'other': a page with no view of its own (an unknown restaurant), so the chrome's links go home. */
 export type View = 'home' | 'detail' | 'other';
 
-/** The page currently on screen, as registered by its <ViewMarker>. `restaurant` is a detail page's slug. */
-export type PageView = { view: View; restaurant: string | null; root: HTMLElement };
+/**
+ * The page currently on screen, as registered by its <ViewMarker>. `restaurant`
+ * is a detail page's slug; `hero` is false for a home page without its hero.
+ */
+export type PageView = { view: View; restaurant: string | null; root: HTMLElement; hero: boolean };
 
 const EMPTY_FORM: BookingForm = { name: '', phone: '', email: '', note: '' };
 
@@ -247,6 +251,8 @@ export function SiteProvider({
     setPage(next);
     // Drives the view-specific chrome CSS (styles/layout.css, styles/booking.css).
     document.documentElement.dataset.view = next.view;
+    // html[data-hero='none'] only while a home page without its hero shows; every other page takes it off.
+    markHero(document.documentElement.dataset, next);
     return () => setPage((cur) => (cur === next ? null : cur));
   }, []);
 

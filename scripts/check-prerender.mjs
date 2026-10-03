@@ -2,10 +2,11 @@
 /**
  * Run after `next build`. Exits 1 and lists the problems if any check fails.
  *
- * 1. The guest pages must be fully prerendered with their cacheLife ('max';
- *    the home page 'hours', for today's offers) and carry every cache tag
- *    their data readers declare, or a write that refreshes one of those tags
- *    (spec §6.2) would never reach them. The admin pages are the
+ * 1. The guest pages must be fully prerendered with their cacheLife (every
+ *    one 'hours': the layout reads today's offers, since the nav leaves out a
+ *    section with nothing to show) and carry every cache tag their data
+ *    readers declare, or a write that refreshes one of those tags (spec §6.2)
+ *    would never reach them. The admin pages are the
  *    opposite (1b): no static shell at all, since a shell built at build time
  *    could not carry the per-request CSP nonce (spec §11). /api/availability
  *    (1c) must be built as a route handler, and must not be prerendered either.
@@ -33,7 +34,12 @@ const PAGES = {
   '/en/restaurants/taya-house': 'en/restaurants/taya-house',
   '/en/privacy': 'en/privacy',
 };
-/** The (guarded) layout's tags: the catalogue, the chrome's content (lib/server/content/site.ts) and the UI strings. */
+/**
+ * The (guarded) layout's tags: the catalogue, the chrome's content and the UI
+ * strings. The chrome's nav follows the home page's own answer (getHomeContent
+ * in lib/server/content/home-content.ts), so the layout reads the home page's
+ * lists too: the hero slides, experiences, stories and today's offers.
+ */
 const TAGS = [
   'restaurants',
   'i18n:en',
@@ -45,18 +51,22 @@ const TAGS = [
   'content:nav',
   'content:contact',
   'media',
+  'content:hero',
+  'content:experiences',
+  'content:stories',
+  'content:offers',
 ];
-/** Tags a page carries beyond the layout's: the home page's lists (lib/server/content/home.ts), a restaurant page's own (restaurants.ts), the privacy policy's text (legal.ts). */
+/** Tags a page carries beyond the layout's: a restaurant page's own (restaurants.ts), the privacy policy's text (legal.ts). */
 const PAGE_TAGS = {
-  '/en': ['content:hero', 'content:experiences', 'content:stories', 'content:offers'],
   '/en/restaurants/taya-house': ['restaurant:taya-house'],
   '/en/privacy': ['content:legal'],
 };
-/** A prerendered page lives as long as its shortest cacheLife (cacheLife.md:144-147). */
-const MAX = { revalidate: 2_592_000, expire: 31_536_000 }; // 'max': 30 days, 1 year
-const HOURS = { revalidate: 3_600, expire: 86_400 }; // 'hours': 1 hour, 1 day
-/** The home page shows today's offers (getOffers, 'hours'); every other page is 'max'. */
-const LIFETIME = { '/en': HOURS };
+/**
+ * A prerendered page lives as long as its shortest cacheLife (cacheLife.md:144-147).
+ * Every guest page reads today's offers through the layout (getOffers, 'hours':
+ * 1 hour, 1 day), so every one revalidates hourly; the other loaders are 'max'.
+ */
+const LIFETIME = { revalidate: 3_600, expire: 86_400 };
 
 /** The families lib/fonts/index.ts defines, by the CSS variable that carries each. */
 const FONTS = [
@@ -91,12 +101,11 @@ for (const [route, file] of Object.entries(PAGES)) {
     problems.push(`${route} is not prerendered`);
     continue;
   }
-  const life = LIFETIME[route] ?? MAX;
-  if (entry.initialRevalidateSeconds !== life.revalidate) {
-    problems.push(`${route} revalidates after ${entry.initialRevalidateSeconds}s, expected ${life.revalidate}s`);
+  if (entry.initialRevalidateSeconds !== LIFETIME.revalidate) {
+    problems.push(`${route} revalidates after ${entry.initialRevalidateSeconds}s, expected ${LIFETIME.revalidate}s`);
   }
-  if (entry.initialExpireSeconds !== life.expire) {
-    problems.push(`${route} expires after ${entry.initialExpireSeconds}s, expected ${life.expire}s`);
+  if (entry.initialExpireSeconds !== LIFETIME.expire) {
+    problems.push(`${route} expires after ${entry.initialExpireSeconds}s, expected ${LIFETIME.expire}s`);
   }
   const meta = JSON.parse(readFileSync(join(dir, 'server', 'app', `${file}.meta`), 'utf8'));
   if (meta.postponed) problems.push(`${route} is only partially prerendered`);
@@ -159,7 +168,7 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `Prerender check passed: ${Object.keys(PAGES).join(', ')} (tags: ${TAGS.join(', ')}; ${Object.entries(PAGE_TAGS).map(([route, tags]) => `${route} also ${tags.join(', ')}`).join('; ')}; lifetimes: ${Object.keys(PAGES).map((route) => `${route} ${(LIFETIME[route] ?? MAX).revalidate}/${(LIFETIME[route] ?? MAX).expire}s`).join(', ')}).`,
+  `Prerender check passed: ${Object.keys(PAGES).join(', ')} (tags: ${TAGS.join(', ')}; ${Object.entries(PAGE_TAGS).map(([route, tags]) => `${route} also ${tags.join(', ')}`).join('; ')}; lifetimes: ${Object.keys(PAGES).map((route) => `${route} ${LIFETIME.revalidate}/${LIFETIME.expire}s`).join(', ')}).`,
 );
 console.log(`Admin check passed: ${adminRoutes.map(([route]) => route).join(', ')} have no static shell.`);
 console.log(`Uncached check passed: ${UNCACHED.join(', ')} built as a route handler, not prerendered.`);

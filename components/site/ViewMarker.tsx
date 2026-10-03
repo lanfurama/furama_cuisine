@@ -20,14 +20,21 @@ export function usePageRoot(): RefObject<HTMLElement | null> | null {
  * effects are torn down when a page hides and set up again when it shows. So
  * "the registered page" is always the visible one, and its <main> is the
  * container every DOM query should search.
+ *
+ * `hero={false}`: a home page without its hero. Its <main> says so
+ * (data-hero="none"), which styles/layout.css reads before hydration, while
+ * the server HTML holds that one page; showPage then marks <html> while the
+ * page is on screen (markHero). With its hero the page adds no attribute.
  */
 export function ViewMarker({
   view,
   restaurant,
+  hero = true,
   children,
 }: {
   view: View;
   restaurant?: string;
+  hero?: boolean;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLElement>(null);
@@ -36,12 +43,12 @@ export function ViewMarker({
   useLayoutEffect(() => {
     const root = ref.current;
     if (!root) return;
-    return showPage({ view, restaurant: restaurant ?? null, root });
-  }, [showPage, view, restaurant]);
+    return showPage({ view, restaurant: restaurant ?? null, root, hero });
+  }, [showPage, view, restaurant, hero]);
 
   return (
     <PageRootContext value={ref}>
-      <main ref={ref} data-view={view}>
+      <main ref={ref} data-view={view} data-hero={hero ? undefined : 'none'}>
         {children}
       </main>
     </PageRootContext>

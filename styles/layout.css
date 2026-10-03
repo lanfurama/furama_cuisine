@@ -26,9 +26,16 @@
  * text, so its header is solid from the top, as it is once scrolled. <ViewMarker>
  * sets html[data-view] once hydrated; before that the server HTML holds exactly
  * one page, so :has() on its <main> decides (as for the detail view below).
+ * A home page whose hero is left out (homeSections) is the same case: it stays
+ * view 'home' (scrollToId and goHomeTop rely on it), and says so with
+ * data-hero='none', on its <main> from the server and on <html> while it shows
+ * (markHero). Not a document-wide :has() once hydrated: <Activity> keeps a
+ * hidden home page mounted, and its <main> would still match.
  */
 html[data-view='other'] .hdr,
-html:not([data-view]):has(main[data-view='other']) .hdr {
+html:not([data-view]):has(main[data-view='other']) .hdr,
+html[data-view='home'][data-hero='none'] .hdr,
+html:not([data-view]):has(main[data-view='home'][data-hero='none']) .hdr {
   background: rgba(20, 32, 28, 0.96);
   box-shadow: 0 1px 0 rgba(247, 242, 232, 0.08);
   backdrop-filter: blur(10px);
@@ -55,8 +62,26 @@ html:not([data-view]):has(main[data-view='other']) .hdr {
 
 /* The hero-less pages' solid header (above) is the condensed one too, as once scrolled. */
 html[data-view='other'] .hdr-full,
-html:not([data-view]):has(main[data-view='other']) .hdr-full {
+html:not([data-view]):has(main[data-view='other']) .hdr-full,
+html[data-view='home'][data-hero='none'] .hdr-full,
+html:not([data-view]):has(main[data-view='home'][data-hero='none']) .hdr-full {
   height: var(--header-h-solid);
+}
+
+/*
+ * The hero used to sit under the fixed header; without it the page's first
+ * section (the finder from 760 px, the cuisines on a phone) starts below the
+ * header instead: the compact one's height, the condensed roomy one's from
+ * 1080 px. The <main> carries the mark, so a hidden home page keeps its own.
+ */
+main[data-view='home'][data-hero='none'] {
+  padding-top: var(--header-h-compact);
+}
+
+@media (min-width: 1080px) {
+  main[data-view='home'][data-hero='none'] {
+    padding-top: var(--header-h-solid);
+  }
 }
 
 .hdr-full .hdr-inner {

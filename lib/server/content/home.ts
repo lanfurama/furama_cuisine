@@ -32,6 +32,8 @@ export async function getStories(locale: string) {
  * cacheLife.md:144), so the home page drops an ended offer within the hour
  * even without the daily cron (app/api/cron/daily), which revalidates
  * content:offers at 00:05 in Da Nang. It still prerenders (cacheLife.md:270).
+ * The (guarded) layout reads it too, since the nav leaves Offers out on a day
+ * without one (getHomeContent), so every guest page revalidates hourly.
  */
 export async function getOffers(locale: string) {
   'use cache';

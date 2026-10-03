@@ -1,5 +1,6 @@
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { getPool } from '@/db/client';
+import { homeSections } from '@/lib/content/home-sections';
 import { FALLBACK_PHONE } from '@/lib/data';
 import { loadExperiences, loadHeroSlides, loadOffers, loadStories } from '@/lib/server/content/home.queries';
 import { loadDetailSlugs, loadRestaurantDetail } from '@/lib/server/content/restaurants.queries';
@@ -313,6 +314,24 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
       expect((await loadHeroSlides('en')).map((h) => h.id)).toEqual([1, 3]);
       expect((await loadExperiences('en')).map((e) => e.id)).toEqual([1, 3]);
       expect((await loadStories('en')).map((s) => s.id)).toEqual([1, 2, 3]);
+    });
+
+    it('a slide whose picture was deleted, and the hero itself once every slide’s picture is', async () => {
+      // Soft-deleted media: phase 7's media library deletes so (spec §5.2), and the slide has nothing to show.
+      const pictures = (await sql(`SELECT h.image_id FROM hero_slides h ORDER BY h.id`)).rows.map((r) => r.image_id as string);
+      try {
+        await sql(`UPDATE media SET deleted_at = now() WHERE id = $1`, [pictures[0]]);
+        expect((await loadHeroSlides('en')).map((h) => h.id)).toEqual([2, 3]);
+
+        await sql(`UPDATE media SET deleted_at = now() WHERE id = ANY($1)`, [pictures]);
+        const hero = await loadHeroSlides('en');
+        expect(hero).toEqual([]);
+        // The home page then has no hero (and marks itself so: ViewMarker, styles/layout.css).
+        expect(homeSections(await loadSections('en'), { hero }).has('hero')).toBe(false);
+      } finally {
+        await sql(`UPDATE media SET deleted_at = NULL WHERE id = ANY($1)`, [pictures]);
+      }
+      expect((await loadHeroSlides('en')).map((h) => h.id)).toEqual([1, 2, 3]);
     });
 
     it('an unpublished cuisine, destination, nav item or social link', async () => {

@@ -2,7 +2,7 @@ import 'server-only';
 import { cacheLife, cacheTag } from 'next/cache';
 import { LOADERS } from '@/lib/cache-plan';
 import { TAGS } from '@/lib/cache-tags';
-import type { SiteContent, SiteSettings } from '@/lib/content/types';
+import type { SiteSettings } from '@/lib/content/types';
 import { loadSiteSettings } from './settings.queries';
 import { loadCuisines, loadDestinations, loadNav, loadSections, loadSocials } from './site.queries';
 
@@ -11,7 +11,9 @@ import { loadCuisines, loadDestinations, loadNav, loadSections, loadSocials } fr
  * the tags of lib/cache-plan.ts, and the locale as an argument (so it is part
  * of the cache key). One entry per tag group, so a save expires only what
  * read its table. Never import these from Vitest: cacheTag() throws outside
- * Next; test the *.queries.ts functions instead.
+ * Next; test the *.queries.ts functions instead. The chrome's content as one
+ * object, its nav filtered by the home page's answer, is getSiteContent in
+ * home-content.ts.
  */
 
 export async function getSections(locale: string) {
@@ -66,17 +68,4 @@ export async function getSiteSettings(): Promise<SiteSettings> {
     defaultOccasion: row.defaultOccasion,
     heroAutoplayMs: row.heroAutoplayMs,
   };
-}
-
-/** Everything the chrome needs, for the (guarded) layout to hand to SiteProvider. Each part is its own cache entry. */
-export async function getSiteContent(locale: string): Promise<SiteContent> {
-  const [cuisines, destinations, nav, socials, sections, settings] = await Promise.all([
-    getCuisines(locale),
-    getDestinations(locale),
-    getNav(locale),
-    getSocials(locale),
-    getSections(locale),
-    getSiteSettings(),
-  ]);
-  return { cuisines, destinations, nav, socials, sections, settings };
 }
