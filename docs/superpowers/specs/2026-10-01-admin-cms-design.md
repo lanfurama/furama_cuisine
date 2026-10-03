@@ -243,7 +243,7 @@ Index của đặt bàn:
   - Các nơi sau luôn truyền `locale` tường minh, vì `next/root-params` không dùng được ở đó: Server Action, Route Handler (`/api/availability` nhận thêm `&lang=`), `after()`, bộ gửi email (dùng `email_outbox.locale`), cron, `sitemap.ts`, trang admin.
 - **Nội dung phụ thuộc ngày:**
   - Hàm đọc offers dùng `cacheLife('hours')`.
-  - Cron `/api/cron/daily` chạy lúc 17:05 UTC (00:05 giờ VN) và gọi `revalidateTag('content:offers', { expire: 0 })`. Nhờ vậy ưu đãi tự ẩn khi qua `valid_until` và tự hiện khi tới `valid_from` trong vài phút sau nửa đêm.
+  - Cron `/api/cron/daily` chạy lúc 17:05 UTC (00:05 giờ VN) và gọi `revalidateTag('content:offers', 'max')`. Nhờ vậy ưu đãi tự ẩn khi qua `valid_until` và tự hiện khi tới `valid_from` ngay sau nửa đêm.
 - **Danh sách tag** (đầy đủ, nằm ở `lib/cache-tags.ts`):
 
   | Nhóm | Tag |
@@ -258,7 +258,7 @@ Index của đặt bàn:
 - **Làm mới cache:**
   - Thao tác ghi trong Server Action gọi `updateTag(tag)`.
   - Thao tác ghi ngoài Server Action (job dịch hàng loạt, alt ảnh tự sinh trong `after()`, cron) gọi `revalidateTag(tag, 'max')`.
-  - Riêng ưu đãi hết hạn dùng `{ expire: 0 }`.
+  - Riêng cron ưu đãi hằng ngày dùng `'max'`: khách đầu tiên sau 00:05 có thể thấy bản cũ một lần, nhưng DB lỗi lúc đó không làm sập trang chủ.
   - Khách mở trang mới thấy thay đổi ngay. Khách đang mở sẵn trang có thể thấy bản cũ tối đa khoảng 5 phút.
 - **Không cache:** đặt bàn, availability, mọi trang admin.
 - **Phương án dự phòng** nếu chuyển sang Cache Components tốn quá nhiều công: dùng `unstable_cache` với tham số `locale` tường minh (không gọi `next/root-params` bên trong), giữ nguyên tên tag và các lời gọi làm mới.
@@ -725,7 +725,7 @@ Mỗi lần lưu cấu hình đều ghi audit và gọi `updateTag('ai-settings'
 
 | Tình huống | Hành vi |
 |---|---|
-| DB lỗi khi khách xem trang | Trang đã prerender hoặc đã cache vẫn được phục vụ. Các trường hợp phải render lúc request (bot hoặc crawler, trang vừa `updateTag`, URL chưa render lần nào, cache trong bộ nhớ đã mất) sẽ hiện `error.tsx`: trang lỗi thân thiện kèm số điện thoại đặt bàn. Riêng đặt bàn báo `error.network` kèm số điện thoại nhà hàng. |
+| DB lỗi khi khách xem trang | Trang đã prerender hoặc đã cache vẫn được phục vụ. Các trường hợp phải render lúc request (bot hoặc crawler, trang vừa `updateTag`, URL chưa render lần nào, cache trong bộ nhớ đã mất) sẽ hiện `error.tsx`: trang lỗi thân thiện kèm số điện thoại đặt bàn. Riêng đặt bàn báo `error.network` kèm số điện thoại nhà hàng. Ghi chú (đợt 6, đo trên Next 16.3.7): `error.tsx` chỉ hiện ở route render có stream. Một trang tĩnh vừa bị `updateTag` làm hết hạn mà render lại lúc DB lỗi trả 500 dạng chữ thường (`/en`, `/en/privacy`), còn trang chi tiết stream `error.tsx` nhưng không kết thúc response. Cửa sổ này cần DB hỏng giữa một lần lưu và lần ghé đầu tiên vào trang đó, và tự lành khi DB về. Đợt 10 làm ấm các trang bị ảnh hưởng trong `after()` sau commit và đặt `maxDuration` cho trang chi tiết; preview đầu tiên kiểm hành vi này trên Vercel. |
 | DB lỗi khi admin lưu | Transaction rollback. Form giữ nguyên dữ liệu đang nhập. Báo `db_error` bằng tiếng Việt. Không làm mới cache. |
 | Hai người sửa cùng lúc | So `updated_at` (nội dung) hoặc `version` (đặt bàn). Người lưu sau thấy báo `conflict` và nút tải lại. |
 | Gửi email lỗi | Đặt bàn vẫn thành công. Outbox tự thử lại. Tổng quan hiện số email lỗi. |
