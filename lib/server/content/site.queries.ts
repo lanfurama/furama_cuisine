@@ -20,7 +20,12 @@ import { LOCALE_CTE, i18nJoin, mediaJson, tr } from './sql';
  * lists are ordered by sort_order, then id.
  */
 
-/** Every section, keyed; a key without a row is visible with nothing attached (a section added in code before its row). */
+/**
+ * Every section, keyed; a key without a row is visible with nothing attached (a section added in code before its row).
+ * A switched-off section keeps only its flag: the layout hands this object to the browser on every guest page,
+ * so a picture or link staff hid (an unreleased film, say) must not travel with it. Nothing reads a hidden
+ * section's fields: it does not render, and the film button and dialog check `visible` first.
+ */
 export async function loadSections(locale: string): Promise<Sections> {
   const rows = await query<{ key: SectionKey; is_visible: boolean; link_url: string | null; image: Media | null }>(
     `WITH ${LOCALE_CTE}
@@ -33,7 +38,8 @@ export async function loadSections(locale: string): Promise<Sections> {
   return Object.fromEntries(
     SECTION_KEYS.map((key) => {
       const r = byKey.get(key);
-      return [key, { visible: r?.is_visible ?? true, image: r?.image ?? null, link: r?.link_url ?? null }];
+      const visible = r?.is_visible ?? true;
+      return [key, { visible, image: visible ? (r?.image ?? null) : null, link: visible ? (r?.link_url ?? null) : null }];
     }),
   ) as Sections;
 }

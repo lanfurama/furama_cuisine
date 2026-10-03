@@ -6,6 +6,7 @@ import { MoreRestaurants } from '@/components/detail/MoreRestaurants';
 import { IntroTrigger } from '@/components/site/IntroTrigger';
 import { MobileBar } from '@/components/site/MobileBar';
 import { ViewMarker } from '@/components/site/ViewMarker';
+import { isRestaurantSlug } from '@/lib/content/slug';
 import { getEnabledLocales, requireEnabledLocale } from '@/lib/server/content/locales';
 import { getDetailSlugs, getRestaurantDetail } from '@/lib/server/content/restaurants';
 
@@ -15,7 +16,8 @@ type Props = { params: Promise<{ lang: string; slug: string }> };
  * Cache Components refuses an empty list (migrating-to-cache-components.md:570),
  * so with no page switched on the build prerenders this placeholder, which
  * 404s like any unknown slug. No restaurant can take it: a slug is lower-case
- * words and hyphens (restaurants_slug_check).
+ * words and hyphens (restaurants_slug_check), so isRestaurantSlug refuses it
+ * before any read.
  */
 const NO_PAGE_SLUG = '_none';
 
@@ -37,6 +39,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { lang, slug } = await params;
   // A language that is off 404s in the layout; its tab must not carry the restaurant's title (phase-2 risk 7, R14).
   if (!(await getEnabledLocales()).some((l) => l.code === lang)) return NOT_FOUND;
+  // A segment no restaurant can have never reaches the database (a NUL byte made Postgres throw).
+  if (!isRestaurantSlug(slug)) return NOT_FOUND;
   const detail = await getRestaurantDetail(slug, lang);
   if (!detail) return NOT_FOUND;
   // PHASE 7: the SEO editor fills these, and "{name} — Furama Cuisine" becomes a registry template.
@@ -64,6 +68,9 @@ export default async function RestaurantPage({ params }: Props) {
   const { lang, slug } = await params;
   // Before the read: the layout's language check runs in parallel (requireEnabledLocale).
   await requireEnabledLocale(lang);
+  // A segment no restaurant can have is a 404 without a query: a NUL byte made Postgres throw on every
+  // hit, so the error page was never cached, and any other junk slug cost a read (R13).
+  if (!isRestaurantSlug(slug)) notFound();
   const detail = await getRestaurantDetail(slug, lang);
   if (!detail) notFound();
 

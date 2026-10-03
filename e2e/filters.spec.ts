@@ -34,11 +34,13 @@ test('search ignores accents and đ, and matches type, cuisine and destination a
   await input.fill('dining house');
   await expect(names).toHaveText(['Steakhouse The Fan', 'Phố Cuốn', 'Thai Siam Kitchen', 'Hura Izakaya']);
   await expect(page.locator('.search-result-meta').first()).toHaveText('Steak & Wine · 3F · Furama Dining House');
-  // A type line (restaurant_i18n.type_label), and a cuisine label (cuisine_i18n).
+  // A type line (restaurant_i18n.type_label).
   await input.fill('food hall');
   await expect(names).toHaveText(['Yum Food Village']);
-  await input.fill('hotpot');
-  await expect(names).toHaveText(['ChaoShan Hotpot']);
+  // A cuisine label (cuisine_i18n): "grill" is in The Fan's "Steak & Grill" and in no restaurant's name, type
+  // line or destination, so only the labels can find it ("hotpot" also matched ChaoShan Hotpot by name).
+  await input.fill('grill');
+  await expect(names).toHaveText(['Steakhouse The Fan']);
   await input.fill('zzz');
   await expect(page.locator('.search-none')).toContainText('No matches for “zzz”');
 });

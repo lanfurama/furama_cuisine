@@ -103,6 +103,20 @@ test.describe('pages that do not exist', () => {
     expect(html).toContain('Page not found');
   });
 
+  test('a restaurant slug no restaurant can have is a 404 that never reaches the database', async ({ request, page }) => {
+    // A NUL byte in the slug made Postgres raise "invalid byte sequence for encoding UTF8": the render failed,
+    // was never cached, and every hit cost a query and an error log. The page now refuses the slug first
+    // (isRestaurantSlug). Upper-case and over-long slugs are the unit test's (lib/content/slug.test.ts): on a
+    // case-insensitive disk their cached 404 would overwrite taya-house.html, and a long one overflows the file name.
+    const path = '/en/restaurants/taya-house%00';
+    const statuses: number[] = [];
+    for (let i = 0; i < 3; i++) statuses.push((await request.get(path, { maxRedirects: 0 })).status());
+    expect(statuses.filter((s) => s >= 500), statuses.join(' ')).toEqual([]);
+    expect(statuses.slice(1), statuses.join(' ')).toEqual([404, 404]);
+    await page.goto(path);
+    await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  });
+
   test('an unknown restaurant has its own tab title, not the home page one', async ({ page }) => {
     await page.goto('/en/restaurants/nope');
     await expect(page).toHaveTitle('Page not found — Furama Cuisine');

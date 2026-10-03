@@ -33,22 +33,34 @@ test.beforeAll(() => seedStaff());
 
 test('saving the shared inbox changes the footer and the privacy policy at once', async ({ page, browser }) => {
   const visitor = await guest(browser);
-  await visitor.goto(HOME_PATH);
-  await expect(visitor.locator('footer a[href^="mailto:"]')).toHaveText(SEED);
-
-  await signInAs(page, STAFF.admin);
   try {
-    await saveInbox(page, NEW);
+    await visitor.goto(HOME_PATH);
+    await expect(visitor.locator('footer a[href^="mailto:"]')).toHaveText(SEED);
 
-    await visitor.reload();
-    await expect(visitor.locator('footer a[href^="mailto:"]')).toHaveText(NEW);
-    await expect(visitor.locator('footer a[href^="mailto:"]')).toHaveAttribute('href', `mailto:${NEW}`);
+    await signInAs(page, STAFF.admin);
+    try {
+      await saveInbox(page, NEW);
+
+      await visitor.reload();
+      await expect(visitor.locator('footer a[href^="mailto:"]')).toHaveText(NEW);
+      await expect(visitor.locator('footer a[href^="mailto:"]')).toHaveAttribute('href', `mailto:${NEW}`);
+      await visitor.goto('/en/privacy');
+      await expect(visitor.locator('article.legal a[href^="mailto:"]').first()).toHaveText(NEW);
+    } finally {
+      await saveInbox(page, SEED);
+    }
+    /*
+     * Both pages re-rendered above with the new address, and the tag's expiry lives in the server's
+     * memory: a restarted server would serve those files as they are on disk. Visiting each page
+     * again writes it back with the seeded address.
+     */
+    await visitor.goto(HOME_PATH);
+    await expect(visitor.locator('footer a[href^="mailto:"]')).toHaveText(SEED);
     await visitor.goto('/en/privacy');
-    await expect(visitor.locator('article.legal a[href^="mailto:"]').first()).toHaveText(NEW);
+    const policy = visitor.getByRole('article');
+    await expect(policy.getByRole('link', { name: SEED, exact: true }).first()).toHaveAttribute('href', `mailto:${SEED}`);
+    await expect(policy.getByRole('link', { name: NEW, exact: true })).toHaveCount(0);
   } finally {
-    await saveInbox(page, SEED);
+    await visitor.context().close();
   }
-  await visitor.goto(HOME_PATH);
-  await expect(visitor.locator('footer a[href^="mailto:"]')).toHaveText(SEED);
-  await visitor.context().close();
 });

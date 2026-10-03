@@ -20,12 +20,18 @@ describe('story kicker', () => {
 
   it('cannot move the date with the server’s zone (a calendar date, formatted in UTC)', () => {
     const tz = process.env.TZ;
+    const had = 'TZ' in process.env;
     process.env.TZ = 'Pacific/Kiritimati';
     try {
       expect(formatStoryDate('2026-09-03', 'en')).toBe('3 Sep 2026');
     } finally {
-      process.env.TZ = tz;
+      // Assigning undefined would store the string "undefined", an unknown zone, for the rest of this worker.
+      if (tz === undefined) delete process.env.TZ;
+      else process.env.TZ = tz;
     }
+    // The zone is put back as it was, unset included: every later test in this worker runs in it.
+    expect('TZ' in process.env).toBe(had);
+    expect(process.env.TZ).toBe(tz);
   });
 });
 

@@ -324,10 +324,13 @@ export function ReserveDrawer() {
             <div ref={headingRef} className="drawer-kicker" tabIndex={-1}>
               RESERVE A TABLE
             </div>
-            <div className="drawer-name">{restaurant?.name}</div>
-            <div className="drawer-meta">
-              {restaurant ? `${restaurant.type} · ${destName(restaurant.dest)}` : ''}
-            </div>
+            {/* With every restaurant booking offline (R20) none is chosen: no empty name and meta band above the message. */}
+            {restaurant && (
+              <>
+                <div className="drawer-name">{restaurant.name}</div>
+                <div className="drawer-meta">{`${restaurant.type} · ${destName(restaurant.dest)}`}</div>
+              </>
+            )}
           </div>
           <button type="button" className="drawer-close" aria-label="Close" onClick={closeDrawer}>
             ×

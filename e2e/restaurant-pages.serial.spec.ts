@@ -85,75 +85,91 @@ async function guest(browser: Browser, viewport = { width: 1280, height: 860 }) 
 
 test('switching has_detail_page on opens a working page for another restaurant, and off closes it again', async ({ page, browser }) => {
   const visitor = await guest(browser);
-  // Before: no page (a cached 404 from here on, tagged restaurants), and the card only reserves.
-  await visitor.goto(FAN_PATH);
-  await expectNotFound(visitor);
-  await visitor.goto(HOME_PATH);
-  await expect(visitor.locator('.rcard:visible', { hasText: 'Steakhouse The Fan' }).locator('.rcard-tag')).toHaveText('Reserve a table →');
-
-  await signInAs(page, STAFF.editor);
-  await openTheFan();
+  let phone: Page | undefined;
   try {
-    await refreshGuestPages(page);
-
-    // The page renders from the database, at a URL that was a cached 404 a moment ago.
+    // Before: no page (a cached 404 from here on, tagged restaurants), and the card only reserves.
     await visitor.goto(FAN_PATH);
-    await expect(visitor).toHaveTitle('Steakhouse The Fan — Furama Cuisine');
-    const hero = visitor.locator('.taya-hero-copy');
-    await expect(hero.getByRole('heading', { level: 1 })).toHaveText('Steakhouse The Fan');
-    await expect(hero.locator('.taya-kicker')).toHaveText('Steak & Wine · Furama Dining House');
-    await expect(hero.locator('.taya-story-label')).toHaveText('Brand Story');
-    await expect(hero.locator('.taya-story')).toContainText('three floors above An Thượng');
-    await expect(visitor.locator('.taya-portrait img')).toHaveAttribute('src', '/assets/r-the-fan.jpg');
-    // CALL is the dining house's number; no map link anywhere, so no MAP.
-    await expect(hero.getByRole('link', { name: 'CALL' })).toHaveAttribute('href', 'tel:+84859555759');
-    await expect(hero.getByRole('link', { name: 'MAP' })).toHaveCount(0);
-    await expect(visitor.getByRole('heading', { name: 'At Steakhouse The Fan' })).toBeVisible();
-    await expect(visitor.locator('#dishes .dish-title')).toHaveText(['The Art Floor', 'Tomahawk for Two']);
-    await expect(visitor.getByRole('heading', { name: 'More at Furama Dining House' })).toBeVisible();
-    await expect(visitor.locator('.more-rail .rcard-name')).toHaveText(['Phố Cuốn', 'Thai Siam Kitchen', 'Hura Izakaya']);
-
-    // No PDF: MENU takes the guest to the highlights.
-    await hero.getByRole('button', { name: 'MENU' }).click();
-    await expect.poll(() => visitor.locator('#dishes').evaluate((e) => Math.round(e.getBoundingClientRect().top))).toBeLessThan(120);
-
-    // RESERVE books this restaurant.
-    await hero.getByRole('button', { name: /RESERVE A TABLE/ }).click();
-    await expect(visitor.getByRole('dialog', { name: 'Reserve a table' }).locator('.drawer-name')).toHaveText('Steakhouse The Fan');
-    await visitor.keyboard.press('Escape');
-
-    // From the home page, the card now opens the page, without a reload.
+    await expectNotFound(visitor);
     await visitor.goto(HOME_PATH);
-    await visitor.evaluate(() => {
-      (window as Window & { pageMark?: string }).pageMark = 'same document';
-    });
-    const card = visitor.locator('.rcard:visible', { hasText: 'Steakhouse The Fan' });
-    await expect(card.locator('.rcard-tag')).toHaveText('View restaurant →');
-    await card.click();
-    await visitor.waitForURL((u) => u.pathname === FAN_PATH);
-    await expect(visitor.locator('.taya-kicker:visible')).toHaveText('Steak & Wine · Furama Dining House');
-    expect(await visitor.evaluate(() => (window as Window & { pageMark?: string }).pageMark)).toBe('same document');
+    await expect(visitor.locator('.rcard:visible', { hasText: 'Steakhouse The Fan' }).locator('.rcard-tag')).toHaveText('Reserve a table →');
 
-    // A phone gets one tab per button shown: CALL, MENU, RESERVE.
-    const phone = await guest(browser, { width: 390, height: 844 });
-    await phone.goto(FAN_PATH);
-    const bar = phone.getByRole('navigation', { name: 'Restaurant actions' });
-    await expect(bar.getByRole('link')).toHaveText(['CALL']);
-    await expect(bar.getByRole('button')).toHaveText(['MENU', 'RESERVE']);
-    await expect(bar).toHaveAttribute('style', /repeat\(3, minmax\(0, 1fr\)\)/);
-    // Tàya House keeps all four.
-    await phone.goto(DETAIL_PATH);
-    await expect(phone.getByRole('navigation', { name: 'Restaurant actions' })).toHaveAttribute('style', /repeat\(4, minmax\(0, 1fr\)\)/);
-    await phone.context().close();
+    await signInAs(page, STAFF.editor);
+    try {
+      // Inside the try: if it stops halfway, the finally still switches the page off through the save.
+      await openTheFan();
+      await refreshGuestPages(page);
+
+      // The page renders from the database, at a URL that was a cached 404 a moment ago.
+      await visitor.goto(FAN_PATH);
+      await expect(visitor).toHaveTitle('Steakhouse The Fan — Furama Cuisine');
+      const hero = visitor.locator('.taya-hero-copy');
+      await expect(hero.getByRole('heading', { level: 1 })).toHaveText('Steakhouse The Fan');
+      await expect(hero.locator('.taya-kicker')).toHaveText('Steak & Wine · Furama Dining House');
+      await expect(hero.locator('.taya-story-label')).toHaveText('Brand Story');
+      await expect(hero.locator('.taya-story')).toContainText('three floors above An Thượng');
+      await expect(visitor.locator('.taya-portrait img')).toHaveAttribute('src', '/assets/r-the-fan.jpg');
+      // CALL is the dining house's number; no map link anywhere, so no MAP.
+      await expect(hero.getByRole('link', { name: 'CALL' })).toHaveAttribute('href', 'tel:+84859555759');
+      await expect(hero.getByRole('link', { name: 'MAP' })).toHaveCount(0);
+      await expect(visitor.getByRole('heading', { name: 'At Steakhouse The Fan' })).toBeVisible();
+      await expect(visitor.locator('#dishes .dish-title')).toHaveText(['The Art Floor', 'Tomahawk for Two']);
+      await expect(visitor.getByRole('heading', { name: 'More at Furama Dining House' })).toBeVisible();
+      await expect(visitor.locator('.more-rail .rcard-name')).toHaveText(['Phố Cuốn', 'Thai Siam Kitchen', 'Hura Izakaya']);
+
+      // No PDF: MENU takes the guest to the highlights.
+      await hero.getByRole('button', { name: 'MENU' }).click();
+      await expect.poll(() => visitor.locator('#dishes').evaluate((e) => Math.round(e.getBoundingClientRect().top))).toBeLessThan(120);
+
+      // RESERVE books this restaurant.
+      await hero.getByRole('button', { name: /RESERVE A TABLE/ }).click();
+      await expect(visitor.getByRole('dialog', { name: 'Reserve a table' }).locator('.drawer-name')).toHaveText('Steakhouse The Fan');
+      await visitor.keyboard.press('Escape');
+
+      // From the home page, the card now opens the page, without a reload.
+      await visitor.goto(HOME_PATH);
+      await visitor.evaluate(() => {
+        (window as Window & { pageMark?: string }).pageMark = 'same document';
+      });
+      const card = visitor.locator('.rcard:visible', { hasText: 'Steakhouse The Fan' });
+      await expect(card.locator('.rcard-tag')).toHaveText('View restaurant →');
+      await card.click();
+      await visitor.waitForURL((u) => u.pathname === FAN_PATH);
+      await expect(visitor.locator('.taya-kicker:visible')).toHaveText('Steak & Wine · Furama Dining House');
+      expect(await visitor.evaluate(() => (window as Window & { pageMark?: string }).pageMark)).toBe('same document');
+
+      // A phone gets one tab per button shown: CALL, MENU, RESERVE.
+      phone = await guest(browser, { width: 390, height: 844 });
+      await phone.goto(FAN_PATH);
+      const bar = phone.getByRole('navigation', { name: 'Restaurant actions' });
+      await expect(bar.getByRole('link')).toHaveText(['CALL']);
+      await expect(bar.getByRole('button')).toHaveText(['MENU', 'RESERVE']);
+      await expect(bar).toHaveAttribute('style', /repeat\(3, minmax\(0, 1fr\)\)/);
+      // Tàya House keeps all four.
+      await phone.goto(DETAIL_PATH);
+      await expect(phone.getByRole('navigation', { name: 'Restaurant actions' })).toHaveAttribute('style', /repeat\(4, minmax\(0, 1fr\)\)/);
+    } finally {
+      await one(`UPDATE restaurants SET has_detail_page = false WHERE id = 'the-fan'`);
+      await refreshGuestPages(page);
+    }
+
+    /*
+     * Off again, with its portrait, copy and highlights still there: the page 404s and the card
+     * reserves. The tag's expiry lives in the server's memory, so every guest page re-rendered above
+     * is visited again, which writes it back to disk as it was (a restarted server serves the file):
+     * The Fan's URL, the home page, and Tàya House's page, whose catalogue the phone left with The
+     * Fan's page on.
+     */
+    await visitor.goto(FAN_PATH);
+    await expectNotFound(visitor);
+    await visitor.goto(HOME_PATH);
+    await expect(visitor.locator('.rcard:visible', { hasText: 'Steakhouse The Fan' }).locator('.rcard-tag')).toHaveText('Reserve a table →');
+    await visitor.goto(DETAIL_PATH);
+    await visitor.getByRole('banner').getByRole('button', { name: 'SEARCH', exact: true }).click();
+    const search = visitor.getByRole('dialog', { name: 'Search' });
+    await search.getByRole('textbox', { name: 'Search restaurants, cuisines, places' }).fill('the fan');
+    await expect(search.getByRole('button', { name: /^Steakhouse The Fan.*Reserve →$/ })).toHaveCount(1);
   } finally {
-    await one(`UPDATE restaurants SET has_detail_page = false WHERE id = 'the-fan'`);
-    await refreshGuestPages(page);
+    await phone?.context().close();
+    await visitor.context().close();
   }
-
-  // Off again, with its portrait, copy and highlights still there: the page 404s and the card reserves.
-  await visitor.goto(FAN_PATH);
-  await expectNotFound(visitor);
-  await visitor.goto(HOME_PATH);
-  await expect(visitor.locator('.rcard:visible', { hasText: 'Steakhouse The Fan' }).locator('.rcard-tag')).toHaveText('Reserve a table →');
-  await visitor.context().close();
 });

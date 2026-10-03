@@ -1,11 +1,13 @@
+import 'server-only';
 import { toBcp47 } from '@/lib/i18n/locales';
 
 /*
  * Text the content loaders build from typed columns. They run on the server
  * only (inside 'use cache'), so the browser never formats these and server
- * and browser ICU data cannot disagree at hydration. English wording and
- * order are the site's as of phase 5, pixel for pixel; other languages use
- * Intl's own order until phase 8 gives them registry templates.
+ * and browser ICU data cannot disagree at hydration. `server-only` holds that:
+ * a client component that imports this module fails the build. English
+ * wording and order are the site's as of phase 5, pixel for pixel; other
+ * languages use Intl's own order until phase 8 gives them registry templates.
  */
 
 /**

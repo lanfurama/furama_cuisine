@@ -359,6 +359,20 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
       expect((await loadSocials('vi')).map((s) => s.platform)).toContain('youtube');
     });
 
+    it('a switched-off section sends no picture and no link: the layout hands every section to the browser', async () => {
+      try {
+        await sql(`UPDATE sections SET is_visible = false WHERE key = 'heritage'`);
+        expect((await loadSections('en')).heritage).toEqual({ visible: false, image: null, link: null });
+      } finally {
+        await sql(`UPDATE sections SET is_visible = true WHERE key = 'heritage'`);
+      }
+      expect((await loadSections('en')).heritage).toMatchObject({
+        visible: true,
+        image: { url: SECTIONS_AT_8FE98F5.heritage.image },
+        link: SECTIONS_AT_8FE98F5.heritage.link,
+      });
+    });
+
     it('a nav item whose section is switched off (spec §6.5)', async () => {
       await sql(`UPDATE sections SET is_visible = false WHERE key IN ('offers', 'stories')`);
       expect((await loadNav('en')).map((n) => n.target)).toEqual(['restaurants', 'destinations', 'experiences', 'heritage']);

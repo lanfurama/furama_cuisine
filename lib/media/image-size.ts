@@ -52,7 +52,14 @@ function jpegSize(bytes: Uint8Array): ImageSize | null {
   return null;
 }
 
-/** True when a JPEG carries an EXIF orientation other than 1 (normal), which would swap the displayed size. */
+/**
+ * True when a JPEG carries an EXIF orientation other than 1 (normal), so a
+ * browser draws it transformed and its stored pixels are not what a guest
+ * sees. Only orientations 5–8 swap the displayed width and height (a quarter
+ * turn, mirrored or not); 2–4 mirror the picture or turn it half way round in
+ * place, and keep its size. scripts/measure-assets.mjs refuses all of them,
+ * since none of those files shows as stored.
+ */
 export function jpegIsRotated(bytes: Uint8Array): boolean {
   let at = 2;
   while (at + 4 < bytes.length && bytes[at] === 0xff) {
