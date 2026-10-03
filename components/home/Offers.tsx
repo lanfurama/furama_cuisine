@@ -47,7 +47,7 @@ function OfferCard({ offer }: { offer: Offer }) {
         <button
           type="button"
           className="offer-cta"
-          onClick={() => openReserve({ restaurant: offer.restaurantId }, `Offer: ${offer.title}`)}
+          onClick={() => openReserve({ restaurant: offer.restaurantId }, { id: offer.id, title: offer.title })}
         >
           VIEW OFFER<span>→</span>
         </button>

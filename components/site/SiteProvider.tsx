@@ -191,7 +191,8 @@ type SiteState = {
   submit: () => void;
 
   overlay: Overlay | null;
-  openReserve: (preset?: Partial<Booking>, note?: string) => void;
+  /** Opens the form; from VIEW OFFER with the offer, whose title goes into an empty note and whose id goes with the request (R9). */
+  openReserve: (preset?: Partial<Booking>, offer?: { id: number; title: string }) => void;
   closeDrawer: () => void;
   open: (o: Overlay) => void;
   close: () => void;
@@ -292,6 +293,8 @@ export function SiteProvider({
   const [booked, setBooked] = useState<Booked | null>(null);
   const [dateMoved, setDateMoved] = useState<DateMove | null>(null);
   const [overlay, setOverlay] = useState<Overlay | null>(null);
+  /* The offer the form was opened from, and its restaurant (R9): sent only while that is the restaurant chosen. */
+  const [offer, setOffer] = useState<{ id: number; restaurant: string } | null>(null);
   /* A move note belongs to the drawer visit it was shown in. Many paths close
      the overlay (×, Escape, a link), so the drop happens here, on the change,
      adjusting state during render; a move made from the booking bar while the
@@ -522,7 +525,7 @@ export function SiteProvider({
   }, [home, router]);
 
   const openReserve = useCallback(
-    (preset?: Partial<Booking>, note?: string) => {
+    (preset?: Partial<Booking>, from?: { id: number; title: string }) => {
       setOverlay('drawer');
       setOpenDropdown(null);
       setDone(false);
@@ -530,9 +533,14 @@ export function SiteProvider({
       setTried(false);
       setServerError(null);
       setWaitNote(null);
-      if (note) setForm((f) => (f.note ? f : { ...f, note }));
       // A restaurant that does not book online is ignored here (reconcileBooking keeps the current one).
       const next = reconcileBooking(latest.current.booking, { ...preset }, context(now()));
+      if (from) {
+        // The note still names the offer, as before phase 6; reservations.offer_id now says it for staff.
+        const note = `Offer: ${from.title}`;
+        setForm((f) => (f.note ? f : { ...f, note }));
+        setOffer({ id: from.id, restaurant: preset?.restaurant ?? next.restaurant });
+      }
       setBookingState(next);
       // Ask again: the tab may have been open past midnight, or a closure or a booking changed the picture.
       if (next.restaurant) loadCalendar(next.restaurant);
@@ -548,6 +556,7 @@ export function SiteProvider({
       setBooked(null);
       setTried(false);
       setServerError(null);
+      setOffer(null);
       setForm(EMPTY_FORM);
       setConsent(false);
       setHoneypot('');
@@ -655,6 +664,7 @@ export function SiteProvider({
       locale,
       consent,
       honeypot,
+      ...(offer && offer.restaurant === booking.restaurant ? { offerId: offer.id } : {}),
     })
       .then((result) => {
         if (result.ok) {
@@ -675,7 +685,7 @@ export function SiteProvider({
       // failing or passing its deadline (lib/botid.ts). Every one names the number to call.
       .catch(() => setServerError({ code: 'network', params: errorParams(booking.restaurant) }))
       .finally(() => setPending(false));
-  }, [booking, consent, context, errorParams, failed, form, honeypot, loadBoard, loadCalendar, locale, now, restaurants, valid]);
+  }, [booking, consent, context, errorParams, failed, form, honeypot, loadBoard, loadCalendar, locale, now, offer, restaurants, valid]);
 
   const setFormField = useCallback((key: keyof BookingForm, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));

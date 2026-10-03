@@ -49,6 +49,13 @@ const schema = z.object({
   consent: z.literal(true),
   /** The drawer's hidden field; step 1 (honeypotFilled) has already refused anything but empty. */
   honeypot: z.literal('').optional(),
+  /**
+   * offers.id of the VIEW OFFER the form was opened from. A soft link (R9): a
+   * value that is not a positive int4 is dropped, never an error, since the
+   * booking stands without it; the insert keeps only an offer of this
+   * restaurant that runs on the booked date.
+   */
+  offerId: z.number().int().positive().max(2_147_483_647).optional().catch(undefined),
 });
 
 /** First failing field → the code the drawer shows. Order follows the form, top to bottom. */
@@ -81,6 +88,8 @@ export type ReservationRequest = {
   locale: string;
   /** The privacy policy version the guest agreed to (lib/legal.ts), stored on the booking. */
   consentVersion: string;
+  /** The offer as sent (R9); reservations.offer_id gets it only if the insert's check passes. */
+  offerId: number | null;
 };
 
 export type ParseResult = { ok: true; value: ReservationRequest } | { ok: false; code: BookingErrorCode };
@@ -110,6 +119,7 @@ export function parseReservationInput(input: unknown): ParseResult {
       locale: v.locale ?? 'en',
       // The version this server shows; the box links to that page.
       consentVersion: PRIVACY_POLICY_VERSION,
+      offerId: v.offerId ?? null,
     },
   };
 }

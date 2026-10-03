@@ -439,4 +439,31 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('submitReservation v2 (database)
       }
     });
   });
+
+  // Migration 008's offers: 1 Café Indochine's, 2 Tàya House's, 3 Hải Vân Lounge's, none with dates.
+  describe('the offer it was booked from (R9: a soft link, never a refusal)', () => {
+    afterEach(() => sql(`UPDATE offers SET is_published = true, valid_from = NULL, valid_until = NULL`));
+
+    it('keeps an offer of the booked restaurant that is published and runs on the booked date, its last day included', async () => {
+      await sql(`UPDATE offers SET valid_from = '2026-09-01', valid_until = '2026-10-02' WHERE id = 2`);
+      expect(await submitReservation({ ...request, offerId: 2 })).toMatchObject({ ok: true });
+      expect((await sql(`SELECT offer_id FROM reservations`)).rows).toEqual([{ offer_id: '2' }]);
+    });
+
+    it('books without it when the offer is another restaurant’s, unknown, unpublished, or not running on the booked date', async () => {
+      const cases: [label: string, offerId: number, setup?: string][] = [
+        ['another restaurant’s', 1],
+        ['unknown', 999],
+        ['unpublished', 2, `UPDATE offers SET is_published = false WHERE id = 2`],
+        ['not started yet', 2, `UPDATE offers SET is_published = true, valid_from = '2026-10-03' WHERE id = 2`],
+        ['ended the day before', 2, `UPDATE offers SET valid_from = NULL, valid_until = '2026-10-01' WHERE id = 2`],
+      ];
+      for (const [i, [, offerId, setup]] of cases.entries()) {
+        if (setup) await sql(setup);
+        expect(await submitReservation({ ...request, offerId, phone: phone(40 + i) })).toMatchObject({ ok: true });
+      }
+      const { rows } = await sql(`SELECT phone, offer_id FROM reservations ORDER BY id`);
+      expect(rows.map((r, i) => [cases[i][0], r.offer_id])).toEqual(cases.map(([label]) => [label, null]));
+    });
+  });
 });

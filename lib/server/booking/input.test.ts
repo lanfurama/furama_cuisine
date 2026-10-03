@@ -31,8 +31,19 @@ describe('parseReservationInput', () => {
         note: 'window seat',
         locale: 'en',
         consentVersion: PRIVACY_POLICY_VERSION,
+        offerId: null,
       },
     });
+  });
+
+  it('carries the offer the form was opened from (R9: reservations.offer_id)', () => {
+    expect(parseReservationInput({ ...valid, offerId: 3 })).toMatchObject({ ok: true, value: { offerId: 3 } });
+    expect(parseReservationInput({ ...valid, offerId: 2 ** 31 - 1 })).toMatchObject({ ok: true, value: { offerId: 2 ** 31 - 1 } });
+  });
+
+  // A soft link (R9): a bad id costs the link, never the booking, and never names a field.
+  it.each([['3'], [0], [-1], [1.5], [2 ** 31], [null], [{ id: 3 }]])('books without an offerId of %j', (offerId) => {
+    expect(parseReservationInput({ ...valid, offerId })).toMatchObject({ ok: true, value: { offerId: null } });
   });
 
   it.each([

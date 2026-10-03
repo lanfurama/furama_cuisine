@@ -116,12 +116,19 @@ async function insertInTransaction(client: PoolClient, input: ReservationRequest
   const { rows } = await client.query<{ id: string }>(
     `INSERT INTO reservations
        (reference, restaurant_id, reserved_on, reserved_at, meal, guests, guest_name, phone, phone_e164,
-        email, note, status, confirmed_at, source, locale, consent_version, consented_at)
+        email, note, status, confirmed_at, source, locale, consent_version, consented_at, offer_id)
      VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8, $9, $10, $11, $12,
              CASE WHEN $12 = 'confirmed' THEN now() END, 'web',
              COALESCE((SELECT code FROM locales WHERE code = $13 AND is_enabled),
                       (SELECT code FROM locales WHERE is_default)),
-             $14, now())
+             $14, now(),
+             -- R9, a soft link: the id came over the wire, and the guest may have switched
+             -- restaurant or date since VIEW OFFER. Kept only for a published offer of this
+             -- restaurant that runs on the booked date; anything else books without it.
+             (SELECT o.id FROM offers o
+               WHERE o.id = $15 AND o.restaurant_id = $2 AND o.is_published
+                 AND (o.valid_from IS NULL OR o.valid_from <= $3::date)
+                 AND (o.valid_until IS NULL OR o.valid_until >= $3::date)))
      RETURNING id::text`,
     [
       reference,
@@ -138,6 +145,7 @@ async function insertInTransaction(client: PoolClient, input: ReservationRequest
       status,
       input.locale,
       input.consentVersion,
+      input.offerId,
     ],
   );
   const id = rows[0].id;
