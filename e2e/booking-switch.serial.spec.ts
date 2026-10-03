@@ -1,4 +1,4 @@
-import type { Browser, Page } from '@playwright/test';
+import type { Browser, Locator, Page } from '@playwright/test';
 import { DETAIL_PATH, HOME_PATH } from './paths';
 import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures';
 
@@ -35,6 +35,41 @@ async function guest(browser: Browser, viewport = { width: 1280, height: 860 }) 
   const context = await browser.newContext({ viewport, reducedMotion: 'reduce' });
   await context.addInitScript(() => sessionStorage.setItem('fc-intro-seen', '1'));
   return context.newPage();
+}
+
+/*
+ * Where Hải Vân Lounge's card is narrowest: the home grid's cards are 150–200 px
+ * wide on a phone, a tablet and the narrow desktops, and the detail page's rail
+ * holds them at min(44vw, 180px).
+ */
+const CALL_CARDS: { path: string; width: number; height: number }[] = [
+  { path: HOME_PATH, width: 390, height: 844 },
+  { path: HOME_PATH, width: 560, height: 860 },
+  { path: HOME_PATH, width: 768, height: 1024 },
+  { path: HOME_PATH, width: 1024, height: 860 },
+  { path: HOME_PATH, width: 1120, height: 860 },
+  { path: HOME_PATH, width: 1200, height: 860 },
+  { path: DETAIL_PATH, width: 390, height: 844 },
+  { path: DETAIL_PATH, width: 1024, height: 860 },
+];
+
+/**
+ * How far the shown call tag of a card, or any line of its text, reaches past the
+ * card's picture, which clips it (0 when it all lies inside), and how much text the
+ * tag cuts off itself. A clipped tag read "+84 236 651 999": a wrong number.
+ */
+async function callTagSpill(card: Locator) {
+  await card.hover();
+  return card.evaluate(async (el) => {
+    const frame = el.querySelector('.rcard-frame')!.getBoundingClientRect();
+    const tag = el.querySelector('.rcard-tag')!;
+    await Promise.all(tag.getAnimations().map((a) => a.finished)); // it rises in over 0.35 s
+    const text = document.createRange();
+    text.selectNodeContents(tag);
+    const boxes = [tag.getBoundingClientRect(), ...text.getClientRects()];
+    const past = boxes.flatMap((b) => [frame.left - b.left, b.right - frame.right, frame.top - b.top, b.bottom - frame.bottom]);
+    return { past: Math.max(0, ...past), cut: tag.scrollWidth - tag.clientWidth };
+  });
 }
 
 test('switching online booking off hides every RESERVE of that restaurant; on again brings them back', async ({ page, browser }) => {
@@ -95,6 +130,20 @@ test('switching online booking off hides every RESERVE of that restaurant; on ag
   const bar = phone.getByRole('navigation', { name: 'Restaurant actions' });
   await expect(bar.getByRole('button', { name: 'RESERVE' })).toHaveCount(0);
   await expect(bar).toHaveAttribute('style', /repeat\(3, minmax\(0, 1fr\)\)/); // CALL, MAP, MENU
+
+  // However narrow the card, its call tag shows the whole number, last digit included, inside the picture.
+  for (const { path, width, height } of CALL_CARDS) {
+    const narrow = await guest(browser, { width, height });
+    try {
+      await narrow.goto(path);
+      const list = narrow.locator(path === DETAIL_PATH ? '.more-rail' : '.restaurant-grid');
+      const caller = list.locator('.rcard:visible', { hasText: 'Hải Vân Lounge' });
+      await expect(caller.locator('.rcard-tag')).toHaveText('Call +84 236 651 9999 →');
+      expect.soft(await callTagSpill(caller), `${path} at ${width} px`).toEqual({ past: 0, cut: 0 });
+    } finally {
+      await narrow.context().close();
+    }
+  }
 
   for (const id of SWITCHED) await setOnline(page, id, true);
   await detail.reload();

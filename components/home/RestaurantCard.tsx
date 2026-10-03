@@ -15,6 +15,7 @@ export function RestaurantCard({ restaurant, hidden }: { restaurant: Restaurant;
   const ref = useReveal<HTMLButtonElement>('card');
   // A card without a page reserves; with online booking off (R14) it calls instead (R20), and with
   // no number either it has no action (GX-6).
+  const calls = !restaurant.hasDetailPage && !restaurant.bookingEnabled && restaurant.phone !== null;
   const tag = restaurant.hasDetailPage
     ? 'View restaurant'
     : restaurant.bookingEnabled
@@ -45,7 +46,8 @@ export function RestaurantCard({ restaurant, hidden }: { restaurant: Restaurant;
             />
           )}
         </span>
-        {tag && <span className="rcard-tag">{tag} →</span>}
+        {/* The call tag holds a whole phone number, longer than the narrowest cards: it wraps (home.css). */}
+        {tag && <span className={calls ? 'rcard-tag rcard-tag-call' : 'rcard-tag'}>{tag} →</span>}
       </span>
       <span className="rcard-name">{restaurant.name}</span>
       <span className="rcard-type">{restaurant.type}</span>
