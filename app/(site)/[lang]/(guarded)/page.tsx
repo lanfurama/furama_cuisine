@@ -12,7 +12,7 @@ import { IntroTrigger } from '@/components/site/IntroTrigger';
 import { MobileBar } from '@/components/site/MobileBar';
 import { ViewMarker } from '@/components/site/ViewMarker';
 import { homeSections } from '@/lib/content/home-sections';
-import { getExperiences, getHeroSlides, getStories } from '@/lib/server/content/home';
+import { getExperiences, getHeroSlides, getOffers, getStories } from '@/lib/server/content/home';
 import { requireEnabledLocale } from '@/lib/server/content/locales';
 import { getSections } from '@/lib/server/content/site';
 
@@ -21,17 +21,20 @@ import { getSections } from '@/lib/server/content/site';
  * (lib/server/content/home.ts); the chrome's content and the catalogue come
  * from the (guarded) layout. A section staff switched off (sections.is_visible)
  * is left out, and so is one with nothing to show (spec §6.5; homeSections).
+ * The offers are today's (Da Nang), so this page revalidates hourly (getOffers,
+ * cacheLife('hours')).
  */
 export default async function HomePage() {
   // First, before any read: /favicon.ico lands here with "favicon.ico" as its language (requireEnabledLocale).
   const locale = await requireEnabledLocale(await lang());
-  const [sections, slides, experiences, stories] = await Promise.all([
+  const [sections, slides, experiences, stories, offers] = await Promise.all([
     getSections(locale),
     getHeroSlides(locale),
     getExperiences(locale),
     getStories(locale),
+    getOffers(locale),
   ]);
-  const shown = homeSections(sections, { hero: slides, experiences, stories });
+  const shown = homeSections(sections, { hero: slides, experiences, stories, offers });
 
   return (
     <ViewMarker view="home">
@@ -44,7 +47,7 @@ export default async function HomePage() {
       {shown.has('experiences') && <Experiences items={experiences} />}
       {shown.has('heritage') && <Heritage />}
       {shown.has('stories') && <Stories items={stories} />}
-      {shown.has('offers') && <Offers />}
+      {shown.has('offers') && <Offers items={offers} />}
       <MobileBar />
     </ViewMarker>
   );

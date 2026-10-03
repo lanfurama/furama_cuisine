@@ -1,7 +1,7 @@
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { getPool } from '@/db/client';
 import { FALLBACK_PHONE } from '@/lib/data';
-import { loadExperiences, loadHeroSlides, loadStories } from '@/lib/server/content/home.queries';
+import { loadExperiences, loadHeroSlides, loadOffers, loadStories } from '@/lib/server/content/home.queries';
 import { loadDetailSlugs, loadRestaurantDetail } from '@/lib/server/content/restaurants.queries';
 import { loadSiteSettings } from '@/lib/server/content/settings.queries';
 import { loadCuisines, loadDestinations, loadNav, loadSections, loadSocials } from '@/lib/server/content/site.queries';
@@ -13,6 +13,7 @@ import {
   HERO_AUTOPLAY_MS_AT_8FE98F5,
   HERO_SLIDES_AT_8FE98F5,
   NAV_AT_8FE98F5,
+  OFFERS_AT_8FE98F5,
   SECTIONS_AT_8FE98F5,
   SETTINGS_AT_8FE98F5,
   SOCIALS_AT_8FE98F5,
@@ -25,14 +26,17 @@ import {
  * (test/fixtures/phase5-content.ts), so a loader that drifts from what the
  * site rendered fails here as well as in the visual baselines. Then the rules:
  * language fallback per field (spec §5.1 item 5), machine translations behind
- * serve_machine, unpublished rows, and nav items following their section.
+ * serve_machine, unpublished rows, nav items following their section, and
+ * offers shown by the date in Da Nang.
  */
 
 const sql = (text: string, values: unknown[] = []) => getPool().query(text, values);
+/** Today in Da Nang plus `days`, as SQL (the day offers are shown for). */
+const venueDay = (days: number) => `(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date + ${days}`;
 
 describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', () => {
   afterEach(async () => {
-    for (const table of ['cuisine_i18n', 'destination_i18n', 'media_i18n', 'nav_item_i18n', 'experience_i18n', 'story_i18n']) {
+    for (const table of ['cuisine_i18n', 'destination_i18n', 'media_i18n', 'nav_item_i18n', 'experience_i18n', 'story_i18n', 'offer_i18n']) {
       await sql(`DELETE FROM ${table} WHERE locale <> 'en'`);
     }
     await sql(`UPDATE locales SET serve_machine = false WHERE code = 'vi'`);
@@ -44,6 +48,9 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
     await sql(`UPDATE experiences SET is_published = true`);
     await sql(`UPDATE stories SET is_published = true`);
     await sql(`UPDATE hero_slides SET is_published = true`);
+    await sql(`UPDATE offers SET is_published = true, valid_from = NULL, valid_until = NULL`);
+    await sql(`UPDATE offers SET price_amount = 450000, price_basis = 'net' WHERE id = 3`);
+    await sql(`UPDATE offer_i18n SET venue_override = NULL`);
     await sql(`UPDATE restaurants SET is_published = true, archived_at = NULL, phone_e164 = NULL, phone_display = NULL, map_url = NULL`);
     await sql(`DELETE FROM restaurant_highlights WHERE restaurant_id <> 'taya-house'`);
     await sql(`UPDATE restaurants SET has_detail_page = false, detail_image_id = NULL WHERE id <> 'taya-house'`);
@@ -119,6 +126,29 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
         STORIES_AT_8FE98F5,
       );
       for (const s of await loadStories('en')) expect(s.image?.alt).toBe('');
+    });
+
+    it('offers: the three cards as the site drew them, the detail line rebuilt from the price and the schedule', async () => {
+      expect((await loadOffers('en')).map(({ venue, title, detail, restaurantId }) => ({ venue, title, detail, restaurantId }))).toEqual(
+        OFFERS_AT_8FE98F5.map(({ venue, title, detail, restaurant }) => ({ venue, title, detail, restaurantId: restaurant })),
+      );
+      expect((await loadOffers('en')).map((o) => o.id)).toEqual([1, 2, 3]);
+    });
+  });
+
+  describe('offers by date (spec §6.2)', () => {
+    it('shows an offer from its valid_from to its valid_until, both days included, by the date in Da Nang', async () => {
+      await sql(`UPDATE offers SET valid_until = ${venueDay(0)} WHERE id = 1`);
+      await sql(`UPDATE offers SET valid_from = ${venueDay(0)} WHERE id = 2`);
+      expect((await loadOffers('en')).map((o) => o.id)).toEqual([1, 2, 3]);
+      await sql(`UPDATE offers SET valid_until = ${venueDay(-1)} WHERE id = 1`);
+      await sql(`UPDATE offers SET valid_from = ${venueDay(1)} WHERE id = 2`);
+      expect((await loadOffers('en')).map((o) => o.id)).toEqual([3]);
+    });
+
+    it('an offer without a price is its schedule alone', async () => {
+      await sql(`UPDATE offers SET price_amount = NULL, price_basis = NULL WHERE id = 3`);
+      expect((await loadOffers('en')).find((o) => o.id === 3)?.detail).toBe('~30 pastries, 12+ teas');
     });
   });
 
@@ -252,9 +282,26 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
       expect(s.heritage.image?.alt).toBe('');
     });
 
+    it('an offer translated in part keeps the default language’s other fields; its venue override beats the restaurant’s name', async () => {
+      await sql(`INSERT INTO offer_i18n (offer_id, locale, title, status) VALUES (3, 'vi', 'Trà chiều và tiệc bánh ngọt', 'reviewed')`);
+      await sql(`UPDATE offer_i18n SET venue_override = 'The Lounge, Furama Resort' WHERE offer_id = 3 AND locale = 'en'`);
+      const tea = (await loadOffers('vi')).find((o) => o.id === 3);
+      // vi formats the number its own way (phase 8 gives each language its template).
+      expect(tea).toMatchObject({
+        title: 'Trà chiều và tiệc bánh ngọt',
+        venue: 'The Lounge, Furama Resort',
+        detail: expect.stringMatching(/ · ~30 pastries, 12\+ teas$/),
+      });
+      expect((await loadOffers('en')).find((o) => o.id === 3)).toMatchObject({
+        title: 'Afternoon Tea & Dessert Buffet',
+        venue: 'The Lounge, Furama Resort',
+      });
+    });
+
     it('a language with no rows at all is the default language throughout', async () => {
       expect(await loadNav('zz')).toEqual(await loadNav('en'));
       expect(await loadDestinations('zz')).toEqual(await loadDestinations('en'));
+      expect(await loadOffers('zz')).toEqual(await loadOffers('en'));
     });
   });
 
@@ -277,6 +324,14 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
       expect((await loadDestinations('en')).map((d) => d.id)).toEqual(['resort', 'dining-house', 'mm']);
       expect((await loadNav('en')).map((n) => n.target)).not.toContain('stories');
       expect((await loadSocials('en')).map((s) => s.platform)).toEqual(['facebook', 'instagram', 'youtube']);
+    });
+
+    it('an unpublished offer, and the offers of a restaurant that is unpublished or archived', async () => {
+      await sql(`UPDATE offers SET is_published = false WHERE id = 1`);
+      expect((await loadOffers('en')).map((o) => o.id)).toEqual([2, 3]);
+      await sql(`UPDATE restaurants SET is_published = false WHERE id = 'taya-house'`);
+      await sql(`UPDATE restaurants SET archived_at = now() WHERE id = 'hai-van-lounge'`);
+      expect(await loadOffers('en')).toEqual([]);
     });
 
     it('a social link meant for other languages', async () => {

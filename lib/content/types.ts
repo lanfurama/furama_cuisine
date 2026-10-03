@@ -73,6 +73,14 @@ export type Experience = { id: number; title: string; blurb: string; href: strin
 /** A story card: the kicker is already "Category · 9 Sep 2026" (lib/content/format.ts). */
 export type Story = { id: number; image: Media | null; kicker: string; title: string; href: string };
 
+/**
+ * An offer card on show today: the venue (an override, else the restaurant's
+ * name), the title, and the detail line already "VND 888,000++ per guest ·
+ * Nightly 18:30–22:00" (lib/content/format.ts). VIEW OFFER reserves at
+ * restaurantId.
+ */
+export type Offer = { id: number; restaurantId: string; venue: string; title: string; detail: string };
+
 /** A card of a restaurant page's highlights (restaurant_highlights). */
 export type Highlight = { id: number; image: Media; title: string; detail: string };
 

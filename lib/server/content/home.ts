@@ -2,7 +2,7 @@ import 'server-only';
 import { cacheLife, cacheTag } from 'next/cache';
 import { LOADERS } from '@/lib/cache-plan';
 import { TAGS } from '@/lib/cache-tags';
-import { loadExperiences, loadHeroSlides, loadStories } from './home.queries';
+import { loadExperiences, loadHeroSlides, loadOffers, loadStories } from './home.queries';
 
 /* The home page's lists, cached (see lib/server/content/site.ts for the rules). */
 
@@ -25,4 +25,17 @@ export async function getStories(locale: string) {
   cacheLife('max');
   cacheTag(...LOADERS.stories.tags, TAGS.i18n(locale));
   return loadStories(locale);
+}
+
+/**
+ * Date-bound (spec §6.2): 'hours' (stale 5 min, revalidate 1 h, expire 1 day;
+ * cacheLife.md:144), so the home page drops an ended offer within the hour
+ * even without the daily cron (app/api/cron/daily), which revalidates
+ * content:offers at 00:05 in Da Nang. It still prerenders (cacheLife.md:270).
+ */
+export async function getOffers(locale: string) {
+  'use cache';
+  cacheLife('hours');
+  cacheTag(...LOADERS.offers.tags, TAGS.i18n(locale));
+  return loadOffers(locale);
 }

@@ -1,8 +1,8 @@
 import 'server-only';
 import { query } from '@/db/client';
-import { storyKicker } from '@/lib/content/format';
-import type { Experience, HeroSlide, Media, Story } from '@/lib/content/types';
-import { LOCALE_CTE, i18nJoin, mediaJson, tr } from './sql';
+import { formatPrice, offerDetail, storyKicker } from '@/lib/content/format';
+import type { Experience, HeroSlide, Media, Offer, Story } from '@/lib/content/types';
+import { LOCALE_CTE, VENUE_TODAY, i18nJoin, mediaJson, tr } from './sql';
 
 /* The home page's lists, uncached (lib/server/content/home.ts wraps them). Published rows, by sort_order then id. */
 
@@ -60,5 +60,49 @@ export async function loadStories(locale: string): Promise<Story[]> {
     kicker: storyKicker(r.category ?? '', r.published_on, locale),
     title: r.title,
     href: r.href,
+  }));
+}
+
+/**
+ * The offers on show today in Da Nang (spec §5.2, §6.2): published, their
+ * restaurant published and not archived, and today between valid_from and
+ * valid_until (both days included; either may be open). Only the date makes
+ * this list change by itself: its cached wrapper lives for hours, and the
+ * daily cron revalidates content:offers. The detail line is formatted here,
+ * on the server.
+ */
+export async function loadOffers(locale: string): Promise<Offer[]> {
+  const rows = await query<{
+    id: string;
+    restaurant_id: string;
+    venue: string;
+    title: string;
+    schedule: string | null;
+    price_amount: string | null;
+    currency: string;
+    price_basis: 'plus_plus' | 'net' | null;
+  }>(
+    `WITH ${LOCALE_CTE}
+     SELECT o.id::text, o.restaurant_id, coalesce(${tr('ot', 'venue_override')}, r.name) AS venue,
+            ${tr('ot', 'title')} AS title, ${tr('ot', 'schedule')} AS schedule,
+            o.price_amount::text AS price_amount, o.currency, o.price_basis
+       FROM offers o CROSS JOIN lc
+       JOIN restaurants r ON r.id = o.restaurant_id AND r.is_published AND r.archived_at IS NULL
+       ${i18nJoin('offer_i18n', 'ot', 'offer_id', 'o.id')}
+      WHERE o.is_published AND ${tr('ot', 'title')} IS NOT NULL
+        AND (o.valid_from IS NULL OR o.valid_from <= ${VENUE_TODAY})
+        AND (o.valid_until IS NULL OR o.valid_until >= ${VENUE_TODAY})
+      ORDER BY o.sort_order, o.id`,
+    [locale],
+  );
+  return rows.map((r) => ({
+    id: Number(r.id),
+    restaurantId: r.restaurant_id,
+    venue: r.venue,
+    title: r.title,
+    detail: offerDetail(
+      r.price_amount !== null && r.price_basis ? formatPrice({ amount: r.price_amount, currency: r.currency, basis: r.price_basis }, locale) : null,
+      r.schedule,
+    ),
   }));
 }

@@ -2,9 +2,10 @@
 /**
  * Run after `next build`. Exits 1 and lists the problems if any check fails.
  *
- * 1. The guest pages must be fully prerendered with cacheLife('max') and carry
- *    every cache tag their data readers declare, or a write that refreshes one
- *    of those tags (spec §6.2) would never reach them. The admin pages are the
+ * 1. The guest pages must be fully prerendered with their cacheLife ('max';
+ *    the home page 'hours', for today's offers) and carry every cache tag
+ *    their data readers declare, or a write that refreshes one of those tags
+ *    (spec §6.2) would never reach them. The admin pages are the
  *    opposite (1b): no static shell at all, since a shell built at build time
  *    could not carry the per-request CSP nonce (spec §11). /api/availability
  *    (1c) must be built as a route handler, and must not be prerendered either.
@@ -47,12 +48,15 @@ const TAGS = [
 ];
 /** Tags a page carries beyond the layout's: the home page's lists (lib/server/content/home.ts), a restaurant page's own (restaurants.ts), the privacy policy's text (legal.ts). */
 const PAGE_TAGS = {
-  '/en': ['content:hero', 'content:experiences', 'content:stories'],
+  '/en': ['content:hero', 'content:experiences', 'content:stories', 'content:offers'],
   '/en/restaurants/taya-house': ['restaurant:taya-house'],
   '/en/privacy': ['content:legal'],
 };
-const REVALIDATE = 2_592_000; // cacheLife('max'): 30 days
-const EXPIRE = 31_536_000; // 1 year
+/** A prerendered page lives as long as its shortest cacheLife (cacheLife.md:144-147). */
+const MAX = { revalidate: 2_592_000, expire: 31_536_000 }; // 'max': 30 days, 1 year
+const HOURS = { revalidate: 3_600, expire: 86_400 }; // 'hours': 1 hour, 1 day
+/** The home page shows today's offers (getOffers, 'hours'); every other page is 'max'. */
+const LIFETIME = { '/en': HOURS };
 
 /** The families lib/fonts/index.ts defines, by the CSS variable that carries each. */
 const FONTS = [
@@ -87,11 +91,12 @@ for (const [route, file] of Object.entries(PAGES)) {
     problems.push(`${route} is not prerendered`);
     continue;
   }
-  if (entry.initialRevalidateSeconds !== REVALIDATE) {
-    problems.push(`${route} revalidates after ${entry.initialRevalidateSeconds}s, expected ${REVALIDATE}s`);
+  const life = LIFETIME[route] ?? MAX;
+  if (entry.initialRevalidateSeconds !== life.revalidate) {
+    problems.push(`${route} revalidates after ${entry.initialRevalidateSeconds}s, expected ${life.revalidate}s`);
   }
-  if (entry.initialExpireSeconds !== EXPIRE) {
-    problems.push(`${route} expires after ${entry.initialExpireSeconds}s, expected ${EXPIRE}s`);
+  if (entry.initialExpireSeconds !== life.expire) {
+    problems.push(`${route} expires after ${entry.initialExpireSeconds}s, expected ${life.expire}s`);
   }
   const meta = JSON.parse(readFileSync(join(dir, 'server', 'app', `${file}.meta`), 'utf8'));
   if (meta.postponed) problems.push(`${route} is only partially prerendered`);
@@ -116,14 +121,15 @@ for (const [route, entry] of adminRoutes) {
 /*
  * 1c. Availability is never cached (spec §6.2): a GET handler that stops
  * reading the request is prerendered at build time, and every guest would get
- * the build's slots. The outbox cron (spec §10.4) likewise: prerendered, its
- * one build-time run would be all the sending it ever did. Neither route may
- * be in the prerender manifest at all.
+ * the build's slots. The crons likewise: prerendered, the outbox's one
+ * build-time run would be all the sending it ever did (spec §10.4), and the
+ * daily one would never revalidate the offers again (spec §6.2). None of these
+ * routes may be in the prerender manifest at all.
  * It must also be in the build as a route handler: a moved or renamed route
  * is missing from the prerender manifest too, so that test alone would pass
  * on a build without it.
  */
-const UNCACHED = ['/api/availability', '/api/cron/outbox'];
+const UNCACHED = ['/api/availability', '/api/cron/outbox', '/api/cron/daily'];
 const appPaths = JSON.parse(readFileSync(join(dir, 'server', 'app-paths-manifest.json'), 'utf8'));
 for (const route of UNCACHED) {
   if (!appPaths[`${route}/route`]) {
@@ -153,7 +159,7 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `Prerender check passed: ${Object.keys(PAGES).join(', ')} (tags: ${TAGS.join(', ')}; ${Object.entries(PAGE_TAGS).map(([route, tags]) => `${route} also ${tags.join(', ')}`).join('; ')}).`,
+  `Prerender check passed: ${Object.keys(PAGES).join(', ')} (tags: ${TAGS.join(', ')}; ${Object.entries(PAGE_TAGS).map(([route, tags]) => `${route} also ${tags.join(', ')}`).join('; ')}; lifetimes: ${Object.keys(PAGES).map((route) => `${route} ${(LIFETIME[route] ?? MAX).revalidate}/${(LIFETIME[route] ?? MAX).expire}s`).join(', ')}).`,
 );
 console.log(`Admin check passed: ${adminRoutes.map(([route]) => route).join(', ')} have no static shell.`);
 console.log(`Uncached check passed: ${UNCACHED.join(', ')} built as a route handler, not prerendered.`);

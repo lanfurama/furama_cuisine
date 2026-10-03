@@ -1,10 +1,11 @@
 'use client';
 
-import { OFFERS, type Offer } from '@/lib/data';
+import type { Offer } from '@/lib/content/types';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 
-export function Offers() {
+/** Today's offers (lib/server/content/home.ts getOffers); the page leaves the section out when there are none. */
+export function Offers({ items }: { items: Offer[] }) {
   const title = useReveal<HTMLHeadingElement>('title');
   const lede = useReveal<HTMLParagraphElement>('up');
 
@@ -22,8 +23,8 @@ export function Offers() {
         </div>
 
         <div className="offers-grid">
-          {OFFERS.map((o) => (
-            <OfferCard key={o.title} offer={o} />
+          {items.map((o) => (
+            <OfferCard key={o.id} offer={o} />
           ))}
         </div>
       </div>
@@ -35,7 +36,7 @@ function OfferCard({ offer }: { offer: Offer }) {
   const { bookable, openReserve } = useSite();
   const ref = useReveal<HTMLDivElement>('up');
   // An offer's only action is reserving at its restaurant: none while that restaurant books offline.
-  const canReserve = bookable.some((r) => r.id === offer.restaurant);
+  const canReserve = bookable.some((r) => r.id === offer.restaurantId);
 
   return (
     <div ref={ref} data-reveal="up" className="offer">
@@ -46,7 +47,7 @@ function OfferCard({ offer }: { offer: Offer }) {
         <button
           type="button"
           className="offer-cta"
-          onClick={() => openReserve({ restaurant: offer.restaurant }, offer.note)}
+          onClick={() => openReserve({ restaurant: offer.restaurantId }, `Offer: ${offer.title}`)}
         >
           VIEW OFFER<span>→</span>
         </button>
