@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import { getPool } from '@/db/client';
 import { formatIsoDayVi } from '@/lib/admin/format';
-import { DESTS, MEALS, type DestKey } from '@/lib/data';
+import { MEALS } from '@/lib/data';
 import { STATUS_LABELS } from '@/lib/reservations/lifecycle';
 import { findAffected } from '@/lib/server/booking/affected';
 import { listClosures } from '@/lib/server/booking/config';
-import { listRestaurantOptions } from '@/lib/server/booking/queries';
+import { listDestinationOptions, listRestaurantOptions } from '@/lib/server/booking/queries';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { venueNow } from '@/lib/venue-time';
 import { AffectedList } from '../../_ui/AffectedList';
@@ -22,13 +22,18 @@ const SCOPE_LABELS = { all: 'Tất cả nhà hàng', destination: 'Điểm đế
 export default async function ClosuresPage() {
   await requirePagePermission({ schedule: ['read'] });
   const pool = getPool();
-  const [closures, restaurants] = await Promise.all([listClosures(pool, venueNow().date), listRestaurantOptions(pool)]);
+  const [closures, restaurants, destinations] = await Promise.all([
+    listClosures(pool, venueNow().date),
+    listRestaurantOptions(pool),
+    listDestinationOptions(pool),
+  ]);
   // Each closure's own list (spec §10.1): never acted on automatically.
   const affected = await Promise.all(closures.map((c) => findAffected(pool, { closureId: c.id })));
   const restaurantName = new Map(restaurants.map((r) => [r.id, r.name]));
+  const destinationName = new Map(destinations.map((d) => [d.id, d.name]));
   const options = {
     restaurants,
-    destinations: Object.entries(DESTS).map(([id, name]) => ({ id, name })),
+    destinations,
     meals: [...MEALS],
   };
 
@@ -44,7 +49,7 @@ export default async function ClosuresPage() {
           c.scope === 'all'
             ? SCOPE_LABELS.all
             : c.scope === 'destination'
-              ? `${SCOPE_LABELS.destination}: ${DESTS[c.destinationId as DestKey] ?? c.destinationId}`
+              ? `${SCOPE_LABELS.destination}: ${destinationName.get(c.destinationId ?? '') ?? c.destinationId}`
               : `${SCOPE_LABELS.restaurant}: ${restaurantName.get(c.restaurantId ?? '') ?? c.restaurantId}`;
         const values: ClosureValues = {
           id: c.id,

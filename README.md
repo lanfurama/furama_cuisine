@@ -208,9 +208,11 @@ either side of it breaks on the wrong database:
 
 - 006 must be on an environment's Neon branch **before that environment
   builds** the phase-4 code. `next build` prerenders `/en`, whose layout reads
-  the catalogue (`db/queries.ts#listRestaurants`: `restaurants.booking_enabled`
-  and the active `service_periods`), so a build against a 005 database stops
-  at `/en` with `column r.booking_enabled does not exist`.
+  the catalogue (then `db/queries.ts#listRestaurants`, since phase 6
+  `lib/server/content/restaurants.queries.ts#loadRestaurants`:
+  `restaurants.booking_enabled` and the active `service_periods`), so a build
+  against a 005 database stops at `/en` with `column r.booking_enabled does
+  not exist`.
 - The phase-3 code cannot write a booking on a 006 database: its INSERT names
   neither `meal` (now NOT NULL) nor `source` (no default).
 
@@ -719,9 +721,10 @@ page's `<main>` (`lib/page-scope.guard.test.ts` enforces it).
 ## Database
 
 The restaurant catalogue is the database's job, not the code's — `restaurants`
-is seeded by `db/migrations/002_seed_restaurants.sql` and read by
-`db/queries.ts#listRestaurants`, then handed to the client through
-`SiteProvider`. Editing the catalogue means editing a migration.
+is seeded by `db/migrations/002_seed_restaurants.sql` (and its content by
+008) and read by `lib/server/content/restaurants.queries.ts#loadRestaurants`,
+then handed to the client through `SiteProvider`. Editing the catalogue means
+editing a migration until the phase-7 editors.
 
 `locales`, `content_strings` and `destinations` (migration 004) are the
 shared foundations of the CMS. Which UI strings exist is decided by

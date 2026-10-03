@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { getPool } from '@/db/client';
-import { DESTS, type DestKey } from '@/lib/data';
-import { listLocales, listRestaurantOptions } from '@/lib/server/booking/queries';
+import { listDestinationOptions, listLocales, listRestaurantOptions } from '@/lib/server/booking/queries';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { deliveryModeNotice } from '@/lib/server/email/mode';
 import { getSharedInbox, listRecipients, restaurantsWithoutRecipient } from '@/lib/server/email/recipients';
@@ -26,16 +25,18 @@ export default async function NotificationsPage() {
   // Before any query: an Editor gets the 403 view.
   const staff = await requirePagePermission({ settings: ['read'] });
   const pool = getPool();
-  const [recipients, inbox, uncovered, restaurants, locales] = await Promise.all([
+  const [recipients, inbox, uncovered, restaurants, destinations, locales] = await Promise.all([
     listRecipients(pool),
     getSharedInbox(pool),
     restaurantsWithoutRecipient(pool),
     listRestaurantOptions(pool),
+    listDestinationOptions(pool),
     listLocales(pool),
   ]);
+  const destinationName = new Map(destinations.map((d) => [d.id, d.name]));
   const options: RecipientOptions = {
     restaurants,
-    destinations: Object.entries(DESTS).map(([id, name]) => ({ id, name })),
+    destinations,
     locales: locales.map((l) => ({ code: l.code, name: l.name })),
   };
 
@@ -59,7 +60,7 @@ export default async function NotificationsPage() {
             r.scope === 'all'
               ? SCOPE_LABELS.all
               : r.scope === 'destination'
-                ? `${SCOPE_LABELS.destination}: ${DESTS[r.destinationId as DestKey] ?? r.destinationId}`
+                ? `${SCOPE_LABELS.destination}: ${destinationName.get(r.destinationId ?? '') ?? r.destinationId}`
                 : `${SCOPE_LABELS.restaurant}: ${r.restaurantName ?? r.restaurantId}`;
           const values: RecipientValues = {
             id: r.id,

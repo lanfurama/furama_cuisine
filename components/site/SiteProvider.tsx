@@ -11,7 +11,7 @@ import {
   useState,
 } from 'react';
 import type { SiteContent } from '@/lib/content/types';
-import type { DestKey, Restaurant } from '@/lib/data';
+import type { Restaurant } from '@/lib/data';
 import { findRestaurant, validate, type Booking, type BookingForm } from '@/lib/booking';
 import {
   boardFor,
@@ -115,7 +115,7 @@ type SiteState = {
   clearFilters: () => void;
   applyFinder: () => void;
   pickCuisine: (cuisine: string) => void;
-  pickDestination: (key: DestKey) => void;
+  pickDestination: (key: string) => void;
 
   booking: Booking;
   setBooking: (patch: Partial<Booking>) => void;
@@ -708,7 +708,7 @@ export function SiteProvider({
   );
 
   const pickDestination = useCallback(
-    (key: DestKey) => {
+    (key: string) => {
       setFilter({ destination: key, cuisine: 'all', occasion: 'all' });
       scrollToId('restaurants');
     },

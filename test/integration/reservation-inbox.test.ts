@@ -1,6 +1,16 @@
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { INBOX_PAGE_SIZE, daySheet, getReservation, listEvents, listInbox, listLocales, listNotes, overviewCounts } from '@/lib/server/booking/queries';
+import {
+  INBOX_PAGE_SIZE,
+  daySheet,
+  getReservation,
+  listDestinationOptions,
+  listEvents,
+  listInbox,
+  listLocales,
+  listNotes,
+  overviewCounts,
+} from '@/lib/server/booking/queries';
 import { TEST_DATABASE_URL } from '../helpers/db';
 
 /*
@@ -183,6 +193,22 @@ describe.skipIf(!TEST_DATABASE_URL)('reservation inbox (database)', () => {
     expect(taya.periods[1].slots.find((s) => s.time === '19:00')).toEqual({ time: '19:00', capacity: 16, booked: 7 });
     expect(taya.outside.map((r) => r.id)).toEqual([late]);
     expect((await daySheet(pool, '2026-10-05')).map((r) => r.id)).toContain('hai-van-lounge');
+  });
+
+  it('names the destinations staff pick from: every venue, published or not, by its default-language name (R1)', async () => {
+    await pool.query(`UPDATE destinations SET is_published = false WHERE id = 'mm'`);
+    await pool.query(`INSERT INTO destination_i18n (destination_id, locale, name, status) VALUES ('resort', 'vi', 'Khu nghỉ dưỡng Furama', 'reviewed')`);
+    try {
+      // The teaser ("Future Locations") is a home-page card, not a place: no closure or recipient can name it.
+      expect(await listDestinationOptions(pool)).toEqual([
+        { id: 'resort', name: 'Furama Resort Danang' },
+        { id: 'dining-house', name: 'Furama Dining House' },
+        { id: 'mm', name: 'Furama MM Supercenter' },
+      ]);
+    } finally {
+      await pool.query(`UPDATE destinations SET is_published = true WHERE id = 'mm'`);
+      await pool.query(`DELETE FROM destination_i18n WHERE locale = 'vi'`);
+    }
   });
 
   it('lists every language a guest may speak, enabled or not, the default marked', async () => {

@@ -2,7 +2,6 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import * as DATA from '@/lib/data';
 import { imageSize, jpegIsRotated } from '@/lib/media/image-size';
 import {
   CUISINES_AT_8FE98F5,
@@ -22,11 +21,11 @@ import { TEST_DATABASE_URL, databaseUrl, resetDatabase } from '../helpers/db';
 
 /*
  * Spec §14.1 row 6: "the web is identical to before". Migration 008 must seed
- * exactly the content of 8fe98f5. Three links of one chain:
- *   1. the frozen snapshot (test/fixtures/phase5-content.ts) is what lib/data.ts
- *      and the components held — this block goes when phase 6 deletes them;
- *   2. the database holds the snapshot, rebuilt into the strings a guest reads;
- *   3. every media row is a real file in public/assets, measured.
+ * exactly the content of 8fe98f5, which the frozen snapshot
+ * (test/fixtures/phase5-content.ts) keeps now that lib/data.ts and the
+ * components no longer hold it (R1). Two links of one chain:
+ *   1. the database holds the snapshot, rebuilt into the strings a guest reads;
+ *   2. every media row is a real file in public/assets, measured.
  * Restaurants were already rows (002): their new columns are compared with
  * their phase-1 columns in the same database, which also holds on Neon.
  * A database of its own, freshly migrated: other files edit the shared one.
@@ -52,38 +51,6 @@ function dayFirst(iso: string): string {
 function price(amount: string, currency: string, basis: string): string {
   return `${currency} ${new Intl.NumberFormat('en').format(Number(amount))}${basis === 'plus_plus' ? '++' : ' net'} per guest`;
 }
-
-
-describe('the snapshot is the content of 8fe98f5 (delete with the constants and literals it mirrors)', () => {
-  it('matches lib/data.ts', () => {
-    expect(CUISINES_AT_8FE98F5).toEqual(DATA.CUISINES);
-    expect(DESTINATIONS_AT_8FE98F5.filter((d) => d.name).map((d) => [d.id, d.name])).toEqual(Object.entries(DATA.DESTS));
-    expect(
-      DESTINATIONS_AT_8FE98F5.map((d) => ({ key: d.id, slot: d.image.slice(8, -4), title: d.title, blurb: d.blurb })),
-    ).toEqual(DATA.DESTINATION_CARDS);
-    expect(HERO_SLIDES_AT_8FE98F5.map((s) => s.image)).toEqual(DATA.HERO_SLIDES.map((s) => `/assets/${s.img}.jpg`));
-    expect(EXPERIENCES_AT_8FE98F5).toEqual(DATA.EXPERIENCES);
-    expect(STORIES_AT_8FE98F5).toEqual(
-      DATA.STORIES.map(({ img, kicker, title, href }) => ({ image: `/assets/${img}.jpg`, kicker, title, href })),
-    );
-    expect(OFFERS_AT_8FE98F5).toEqual(DATA.OFFERS);
-    expect(Object.keys(DETAIL_PAGES_AT_8FE98F5)).toEqual([...DATA.DETAIL_PAGE_IDS]);
-    const taya = DETAIL_PAGES_AT_8FE98F5['taya-house'];
-    expect(taya.seo).toEqual(DATA.DETAIL_SEO['taya-house']);
-    expect(taya.menuPdf).toBe(DATA.CONTACT.tariffPdf);
-    expect({ tel: taya.call, map: taya.map }).toEqual(DATA.contactFor('resort'));
-    expect(taya.highlights).toEqual(
-      DATA.TAYA_EXPERIENCES.map(({ img, alt, title, detail }) => ({ image: `/assets/${img}.jpg`, alt, title, detail })),
-    );
-    expect(NAV_AT_8FE98F5.map((n) => ({ label: n.header, target: n.target }))).toEqual(DATA.NAV_LINKS);
-    expect(SOCIALS_AT_8FE98F5.map(({ label, href }) => ({ label, href }))).toEqual(DATA.SOCIALS);
-    expect(SETTINGS_AT_8FE98F5.email).toBe(DATA.CONTACT.email);
-    expect(SETTINGS_AT_8FE98F5.defaultRestaurantId).toBe(DATA.DEFAULT_RESTAURANT_ID);
-    expect(SECTIONS_AT_8FE98F5.heritage.link).toBe(DATA.CONTACT.story);
-    expect(DESTINATIONS_AT_8FE98F5[0].footer.endsWith(DATA.CONTACT.resortPhoneLabel)).toBe(true);
-    expect(DESTINATIONS_AT_8FE98F5[1].footer.endsWith(DATA.CONTACT.diningHousePhoneLabel)).toBe(true);
-  });
-});
 
 describe.skipIf(!TEST_DATABASE_URL)('migration 008 seeds exactly the content of 8fe98f5 (database)', () => {
   beforeAll(() => {
@@ -140,8 +107,8 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 008 seeds exactly the content of 
       })),
     ).toEqual(DESTINATIONS_AT_8FE98F5);
     expect((await alts()).get('/assets/dest-resort.jpg')).toBe('');
-    // The footer's tel: link becomes E.164 (CONTACT.diningHousePhone was the national 0859555759).
-    expect(list.find((d) => d.id === 'dining-house')?.phone_e164).toBe(`+84${DATA.CONTACT.diningHousePhone.slice(1)}`);
+    // The footer's tel: link becomes E.164 (it dialled the national 0859555759; R18).
+    expect(list.find((d) => d.id === 'dining-house')?.phone_e164).toBe('+84859555759');
   });
 
   it('restaurants: slug, destination, type label, cuisines and card image, from their phase-1 columns', async () => {
