@@ -236,5 +236,14 @@ export const SOCIALS = [
   { label: 'TIKTOK', href: 'https://www.tiktok.com/@furama.dining.hous' },
 ];
 
+/**
+ * The number the error pages print, and the one a booking failure names
+ * before the chosen restaurant's own has arrived (DEFAULT_PHONE). A code
+ * constant on purpose, kept when the content constants go (R1): those pages
+ * render when the database cannot be read (spec §12), so they cannot ask it.
+ * The resort destination's number (migration 004); a test holds the two equal.
+ */
+export const FALLBACK_PHONE = { display: '+84 236 651 9999', tel: '+842366519999' } as const;
+
 export const restaurantImage = (id: string) => `/assets/r-${id}.jpg`;
 export const cuisineImage = (slug: string) => `/assets/cuisine-${slug}.jpg`;

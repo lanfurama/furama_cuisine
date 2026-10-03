@@ -1,20 +1,10 @@
 'use client';
 
-import { NAV_LINKS } from '@/lib/data';
 import { useSite } from '@/components/site/SiteProvider';
 import { useOpenAnimation } from '@/lib/motion';
 
-const MENU_LABELS: Record<string, string> = {
-  restaurants: 'Restaurants',
-  destinations: 'Destinations',
-  experiences: 'Experiences',
-  offers: 'Offers',
-  stories: 'Stories',
-  heritage: 'About',
-};
-
 export function MenuOverlay() {
-  const { overlay, close, open, scrollToId, openReserve, lang, setLang } = useSite();
+  const { site, overlay, close, open, scrollToId, openReserve, lang, setLang } = useSite();
   const isOpen = overlay === 'menu';
 
   useOpenAnimation(isOpen, (animate) => {
@@ -41,7 +31,8 @@ export function MenuOverlay() {
       </div>
 
       <nav className="menu-nav" aria-label="Sections">
-        {NAV_LINKS.map((l) => (
+        {/* The header's links, as written (the header uppercases them; this list does not). */}
+        {site.nav.map((l) => (
           <button
             key={l.target}
             type="button"
@@ -49,7 +40,7 @@ export function MenuOverlay() {
             className="menu-item"
             onClick={() => scrollToId(l.target)}
           >
-            {MENU_LABELS[l.target]}
+            {l.label}
             <span className="menu-arrow" aria-hidden="true">
               →
             </span>

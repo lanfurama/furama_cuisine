@@ -1,6 +1,5 @@
 'use client';
 
-import { NAV_LINKS } from '@/lib/data';
 import { useSite } from '@/components/site/SiteProvider';
 import { homeHref } from '@/lib/i18n/href';
 
@@ -12,6 +11,7 @@ const LANGS: { value: 'EN' | 'VI'; label: string }[] = [
 export function Header() {
   const {
     locale,
+    site,
     scrolled,
     open,
     openReserve,
@@ -46,8 +46,9 @@ export function Header() {
             <span className="hdr-logo-sub">CUISINE</span>
           </a>
 
+          {/* nav_item_i18n holds one label per language as written ("Restaurants"); styles/layout.css sets it in capitals here. */}
           <nav className="hdr-nav" aria-label="Main">
-            {NAV_LINKS.map((l) => (
+            {site.nav.map((l) => (
               <button type="button" key={l.target} className="hdr-link" onClick={() => scrollToId(l.target)}>
                 {l.label}
               </button>

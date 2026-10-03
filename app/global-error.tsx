@@ -1,6 +1,6 @@
 'use client';
 
-import { CONTACT } from '@/lib/data';
+import { FALLBACK_PHONE } from '@/lib/data';
 import './globals.css';
 
 /*
@@ -17,7 +17,7 @@ export default function GlobalError({ retry }: { error: Error & { digest?: strin
           <h1>We could not load this page.</h1>
           <p>
             Please try again, or call us to book:{' '}
-            <a href={`tel:${CONTACT.resortPhone}`}>{CONTACT.resortPhoneLabel}</a>
+            <a href={`tel:${FALLBACK_PHONE.tel}`}>{FALLBACK_PHONE.display}</a>
           </p>
           <button type="button" className="btn-slab" onClick={() => retry()}>
             TRY AGAIN

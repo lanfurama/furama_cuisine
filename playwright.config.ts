@@ -66,12 +66,14 @@ export default defineConfig({
       testIgnore: [/\/visual[^/]*\.spec\.ts$/, /\.serial\.spec\.ts$/],
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 860 } },
     },
-    // Specs that change what every guest page reads (a restaurant's booking switch) run
-    // after all the others (spec files otherwise run in parallel workers).
+    // Specs that change what every guest page reads (a restaurant's booking switch, the
+    // shared inbox) run after all the others, and one file at a time (R21): each puts the
+    // data back at its end, but another serial file must not see the middle.
     {
       name: 'desktop-serial',
       testMatch: /\.serial\.spec\.ts$/,
       dependencies: ['desktop'],
+      workers: 1,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 860 } },
     },
   ],

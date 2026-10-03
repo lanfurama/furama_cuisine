@@ -91,22 +91,14 @@ describe('the snapshot is the content of 8fe98f5 (delete with the constants and 
     expect(hero).toContain(`srcSet="${HERO_SLIDES_AT_8FE98F5[0].mobile}"`);
     expect(hero).toContain(`alt="${HERO_SLIDES_AT_8FE98F5[0].alt}"`);
     expect(hero).toContain(`}, ${HERO_AUTOPLAY_MS_AT_8FE98F5});`);
-    expect(source('components/site/SiteProvider.tsx')).toContain(`occasion: '${SETTINGS_AT_8FE98F5.defaultOccasion}'`);
     const taya = DETAIL_PAGES_AT_8FE98F5['taya-house'];
     const tayaHero = source('components/detail/TayaHero.tsx');
     expect(tayaHero.split(taya.kicker)).toHaveLength(3); // desktop and phone copies
     expect(tayaHero.split(taya.story)).toHaveLength(3);
     expect(tayaHero).toContain(`<img src="${taya.portrait}" alt="${taya.portraitAlt}"`);
-    const footer = source('components/site/Footer.tsx');
-    for (const d of DESTINATIONS_AT_8FE98F5) {
-      if (d.footer) expect(footer).toContain(d.footer.slice(0, d.footer.lastIndexOf(' · ') + 2));
-    }
-    const menu = source('components/overlays/MenuOverlay.tsx');
-    for (const n of NAV_AT_8FE98F5) expect(menu).toContain(`${n.target}: '${n.menu}'`);
     const experiences = source('components/home/Experiences.tsx');
     expect(experiences).toContain(`src="${SECTIONS_AT_8FE98F5.experiences.image}" alt="${SECTIONS_AT_8FE98F5.experiences.alt}"`);
     expect(source('components/home/Heritage.tsx')).toContain(`src="${SECTIONS_AT_8FE98F5.heritage.image}" alt=""`);
-    expect(source('components/overlays/FilmModal.tsx')).toContain(`src="${SECTIONS_AT_8FE98F5.film.image}" alt=""`);
     // Cuisine, destination and story images are drawn with alt="".
     expect(source('components/home/Cuisines.tsx')).toContain('src={cuisineImage(slug)} alt=""');
     expect(source('components/home/Destinations.tsx')).toContain('src={`/assets/${card.slot}.jpg`} alt=""');

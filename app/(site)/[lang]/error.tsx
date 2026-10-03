@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { CONTACT } from '@/lib/data';
+import { FALLBACK_PHONE } from '@/lib/data';
 
 /*
  * A guest page failed to render, for example a request-time render while the
@@ -18,7 +18,7 @@ export default function SiteError({ error, retry }: { error: Error & { digest?: 
     <main className="shell" style={{ padding: '160px 0 120px', textAlign: 'center' }}>
       <h1>We could not load this page.</h1>
       <p>
-        Please try again, or call us to book: <a href={`tel:${CONTACT.resortPhone}`}>{CONTACT.resortPhoneLabel}</a>
+        Please try again, or call us to book: <a href={`tel:${FALLBACK_PHONE.tel}`}>{FALLBACK_PHONE.display}</a>
       </p>
       <button type="button" className="btn-slab" onClick={() => retry()}>
         TRY AGAIN

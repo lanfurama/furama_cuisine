@@ -165,7 +165,11 @@ export async function getSharedInbox(db: Db): Promise<{ email: string; token: st
   return { email: settings.email, token: settings.token };
 }
 
-/** R3: the same address is the general email of the site footer from phase 6/7; the screen says so. */
+/**
+ * R3: the same address is the general email of the site footer and the
+ * privacy page (site_settings, read by the guest site under content:contact):
+ * the action expires that tag after this commits (saveInbox).
+ */
 export async function saveSharedInbox(pool: Pool, actor: AuditActor, input: { email: string; token: string }): Promise<{ ok: true; data: null } | Conflict> {
   return withTransaction(pool, async (client) => {
     const { rows } = await client.query<{ email: string; token: string; updated_by: string | null; updated_at: Date }>(

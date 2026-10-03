@@ -4,7 +4,7 @@
  * registry (lib/i18n/registry.ts) as error.<code>, so the DB can override it.
  */
 import { PHONE_DAY_LIMIT, type GroupPhone } from '@/lib/booking/rules';
-import { CONTACT } from '@/lib/data';
+import { FALLBACK_PHONE } from '@/lib/data';
 import { formatMessage } from '@/lib/i18n/format';
 import { REGISTRY } from '@/lib/i18n/registry';
 
@@ -42,7 +42,7 @@ export const DEFAULT_ERROR_STRINGS = Object.fromEntries(
  * The number a failure names when the chosen restaurant's own is not known yet
  * (its availability never arrived): the resort's switchboard.
  */
-export const DEFAULT_PHONE: GroupPhone = { display: CONTACT.resortPhoneLabel, tel: CONTACT.resortPhone };
+export const DEFAULT_PHONE: GroupPhone = { display: FALLBACK_PHONE.display, tel: FALLBACK_PHONE.tel };
 
 /**
  * Used when a message arrives without its params (the server always sends them

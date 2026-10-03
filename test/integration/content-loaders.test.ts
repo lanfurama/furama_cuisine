@@ -1,5 +1,6 @@
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { getPool } from '@/db/client';
+import { FALLBACK_PHONE } from '@/lib/data';
 import { loadSiteSettings } from '@/lib/server/content/settings.queries';
 import { loadCuisines, loadDestinations, loadNav, loadSections, loadSocials } from '@/lib/server/content/site.queries';
 import {
@@ -53,6 +54,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
         DESTINATIONS_AT_8FE98F5.flatMap((d) => (d.footer ? [d.footer] : [])),
       );
       expect(ds.filter((d) => d.showInFooter).map((d) => d.phone?.tel)).toEqual(['+842366519999', '+84859555759']);
+      // The error pages print FALLBACK_PHONE without asking the database (spec §12): it is the resort's number.
+      expect(ds.find((d) => d.id === 'resort')?.phone).toEqual({ tel: FALLBACK_PHONE.tel, display: FALLBACK_PHONE.display });
     });
 
     it('nav: the header’s targets with the menu’s labels, stored once in natural case', async () => {

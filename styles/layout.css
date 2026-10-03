@@ -155,6 +155,11 @@ html:not([data-view]):has(main[data-view='other']) .hdr-full {
   transition: color 0.25s, background-size 0.45s var(--ease-soft);
 }
 
+/* nav_item_i18n stores one label as written ("Restaurants"); the header sets it in capitals (spec §6.3 item 6, R18). */
+.hdr-nav .hdr-link {
+  text-transform: uppercase;
+}
+
 .hdr-link:hover {
   color: var(--gold);
   background-size: 100% 1px;

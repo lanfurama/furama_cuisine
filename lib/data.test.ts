@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CONTACT, CUISINES, MEALS, MEAL_LABELS, contactFor, cuisineLabel, cuisineSlug } from './data';
+import { CONTACT, CUISINES, FALLBACK_PHONE, MEALS, MEAL_LABELS, contactFor, cuisineLabel, cuisineSlug } from './data';
 
 describe('cuisine keys', () => {
   it('turns every label into its slug and back', () => {
@@ -22,6 +22,13 @@ describe('cuisine keys', () => {
 describe('meal labels', () => {
   it('has display text for every meal key', () => {
     for (const meal of MEALS) expect(MEAL_LABELS[meal]).toBe(meal);
+  });
+});
+
+describe('FALLBACK_PHONE', () => {
+  it('is a dialable E.164 number, printed with the spaces the footer prints', () => {
+    expect(FALLBACK_PHONE.tel).toMatch(/^\+[1-9][0-9]{6,14}$/);
+    expect(FALLBACK_PHONE.display.replace(/ /g, '')).toBe(FALLBACK_PHONE.tel);
   });
 });
 

@@ -19,7 +19,7 @@ import { useScrollMotion } from '@/lib/motion';
  * survive navigation between the home and restaurant views.
  */
 export function Chrome({ children }: { children: React.ReactNode }) {
-  const { overlay, pageRoot } = useSite();
+  const { site, overlay, pageRoot } = useSite();
 
   useScrollMotion(overlay !== null, pageRoot);
 
@@ -32,10 +32,12 @@ export function Chrome({ children }: { children: React.ReactNode }) {
       <div className="page">
         {children}
 
-        {/* The phone detail view hands reservations to its bottom bar instead (styles/booking.css). */}
-        <div className="booking-slot">
-          <BookingBar />
-        </div>
+        {/* The phone detail view hands reservations to its bottom bar instead (styles/booking.css). Staff can switch it off (sections.booking_bar). */}
+        {site.sections.booking_bar.visible && (
+          <div className="booking-slot">
+            <BookingBar />
+          </div>
+        )}
 
         <Footer />
       </div>

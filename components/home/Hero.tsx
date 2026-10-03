@@ -12,7 +12,7 @@ import { readMotionLevel } from '@/lib/motion';
  * #top anchor instead of duplicating the section per breakpoint.
  */
 export function Hero() {
-  const { open, overlay, scrollToId } = useSite();
+  const { site, open, overlay, scrollToId } = useSite();
   const [slide, setSlide] = useState(0);
   const count = HERO_SLIDES.length;
 
@@ -94,12 +94,14 @@ export function Hero() {
               EXPLORE OUR RESTAURANTS<span className="hero-arrow">→</span>
             </button>
 
-            <button type="button" className="hero-film" onClick={() => open('film')}>
-              <span className="hero-play">
-                <span className="hero-play-tri" />
-              </span>
-              WATCH THE FILM
-            </button>
+            {site.sections.film.visible && (
+              <button type="button" className="hero-film" onClick={() => open('film')}>
+                <span className="hero-play">
+                  <span className="hero-play-tri" />
+                </span>
+                WATCH THE FILM
+              </button>
+            )}
 
             <button type="button" className="hero-find" onClick={() => open('sheet')}>
               FIND A RESTAURANT<span>→</span>

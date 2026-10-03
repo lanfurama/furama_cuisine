@@ -94,8 +94,8 @@ export default async function NotificationsPage() {
       <section aria-labelledby="notify-inbox-title">
         <h2 id="notify-inbox-title">Hộp thư chung</h2>
         <p className="a-muted">
-          Nhận email “đặt bàn mới” của những nhà hàng chưa có người nhận, và là địa chỉ khách trả lời khi họ bấm Reply. Từ đợt 6 đây cũng là email
-          chung hiện ở chân trang web.
+          Nhận email “đặt bàn mới” của những nhà hàng chưa có người nhận, và là địa chỉ khách trả lời khi họ bấm Reply. Đây cũng là email
+          chung hiện ở chân trang web và trong trang chính sách bảo mật; lưu xong, web khách đổi theo ngay.
         </p>
         <SharedInboxForm email={inbox.email} token={inbox.token} />
       </section>

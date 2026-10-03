@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { SiteContent } from '@/lib/content/types';
 import type { DestKey, Restaurant } from '@/lib/data';
 import { findRestaurant, validate, type Booking, type BookingForm } from '@/lib/booking';
 import {
@@ -92,6 +93,10 @@ type SiteState = {
   /** The URL locale code (`en`). */
   locale: string;
   restaurants: Restaurant[];
+  /** The chrome's content in this language (cuisines, destinations, nav, socials, sections, settings). */
+  site: SiteContent;
+  /** A destination's name in this language ('' for an unknown id or a teaser without one). */
+  destName: (id: string) => string;
   /** Which page is showing; 'home' until the first <ViewMarker> registers. */
   view: View;
   /** The visible page's <main>; DOM queries search inside it. */
@@ -218,14 +223,14 @@ export function useSite(): SiteState {
 export function SiteProvider({
   locale,
   restaurants,
-  defaultRestaurantId,
+  site,
   strings,
   children,
 }: {
   locale: string;
   restaurants: Restaurant[];
-  /** The restaurant the booking bar starts on (DEFAULT_RESTAURANT_ID until phase 6). */
-  defaultRestaurantId: string;
+  /** The chrome's content (lib/server/content/site.ts), resolved on the server for this language. */
+  site: SiteContent;
   /** The booking.* and error.* copy for this language, resolved on the server (DB override, else registry). */
   strings: ClientStrings;
   children: React.ReactNode;
@@ -249,7 +254,8 @@ export function SiteProvider({
   const [finder, setFinderState] = useState<Finder>({
     location: 'Da Nang',
     cuisine: 'all',
-    occasion: 'Dinner',
+    // site_settings.default_occasion; NULL: any occasion.
+    occasion: site.settings.defaultOccasion ?? 'all',
     destination: 'all',
   });
   const [filter, setFilterState] = useState<Filter>({
@@ -258,9 +264,11 @@ export function SiteProvider({
     destination: 'all',
   });
   const bookable = useMemo(() => bookableRestaurants(restaurants), [restaurants]);
+  const destNames = useMemo(() => new Map(site.destinations.map((d) => [d.id, d.name ?? ''])), [site.destinations]);
+  const destName = useCallback((id: string) => destNames.get(id) ?? '', [destNames]);
   const [booking, setBookingState] = useState<Booking>(() => {
-    // Spec §5.2 site_settings.default_restaurant_id: the first bookable restaurant when that one is not.
-    const first = bookable.find((r) => r.id === defaultRestaurantId) ?? bookable[0];
+    // Spec §5.2 site_settings.default_restaurant_id: the first bookable restaurant when that one is not (or is NULL).
+    const first = bookable.find((r) => r.id === site.settings.defaultRestaurantId) ?? bookable[0];
     return { destination: first?.dest ?? 'resort', restaurant: first?.id ?? '', date: '', time: '19:00', guests: 2 };
   });
   const [calendar, setCalendar] = useState<CalendarResponse | null>(null);
@@ -784,6 +792,8 @@ export function SiteProvider({
     () => ({
       locale,
       restaurants,
+      site,
+      destName,
       view,
       pageRoot,
       showPage,
@@ -849,10 +859,10 @@ export function SiteProvider({
     }),
     [
       applyFinder, booked, booking, bookable, chosenBoard, clearFilters, close, closeDrawer, closeDropdown,
-      confirmedDate, consent, dateMoved, days, done, errors, failureNudge, filter, finder, footLoading, form, goBackToRestaurants,
+      confirmedDate, consent, dateMoved, days, destName, done, errors, failureNudge, filter, finder, footLoading, form, goBackToRestaurants,
       goHomeTop, groupPhone, honeypot, invalidNudge, lang, loadFailed, locale, matches, maxParty, now, open, openDropdown, openReserve,
       openRestaurant, overlay, pageRoot, pending, pickCuisine, pickDestination, query, reference, restaurants,
-      retryAvailability, scrollToId, scrolled, serverError, setBooking, setFilter, setFinder, setFormField, showPage, shownCount,
+      retryAvailability, scrollToId, scrolled, serverError, setBooking, setFilter, setFinder, setFormField, showPage, shownCount, site,
       strings, submit, tab, today, toggleDropdown, tried, view,
     ],
   );

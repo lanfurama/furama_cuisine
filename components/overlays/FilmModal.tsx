@@ -4,8 +4,11 @@ import { useSite } from '@/components/site/SiteProvider';
 import { useOpenAnimation } from '@/lib/motion';
 
 export function FilmModal() {
-  const { overlay, close } = useSite();
-  const open = overlay === 'film';
+  const { site, overlay, close } = useSite();
+  // The poster is the film section's picture, decorative here whatever its alt (the dialog is named); the
+  // video itself (sections.link_url, YouTube or Vimeo) is phase 7's embed. Switched off, the hero hides WATCH THE FILM.
+  const poster = site.sections.film.image;
+  const open = overlay === 'film' && site.sections.film.visible;
 
   useOpenAnimation(open, (animate) => {
     animate(
@@ -25,7 +28,7 @@ export function FilmModal() {
       </button>
 
       <div data-anim="film" className="film-frame">
-        <img src="/assets/hero-beach.jpg" alt="" className="fill" />
+        {poster && <img src={poster.url} alt="" className="fill" />}
         <div className="film-overlay">
           <span className="film-play">
             <span className="film-play-tri" />

@@ -1,15 +1,31 @@
 'use client';
 
 import Link from 'next/link';
-import { CONTACT, SOCIALS } from '@/lib/data';
 import { privacyHref } from '@/lib/legal';
 import { useSite } from '@/components/site/SiteProvider';
 import { homeHref } from '@/lib/i18n/href';
 import { useReveal } from '@/lib/motion';
 
+/** A platform's name as the footer prints it: a brand, so code holds it, untranslated (social_links.platform). */
+const SOCIAL_LABELS: Record<string, string> = {
+  facebook: 'FACEBOOK',
+  instagram: 'INSTAGRAM',
+  youtube: 'YOUTUBE',
+  tiktok: 'TIKTOK',
+  zalo: 'ZALO',
+  x: 'X',
+  tripadvisor: 'TRIPADVISOR',
+  wechat: 'WECHAT',
+  kakao: 'KAKAOTALK',
+  line: 'LINE',
+};
+
 export function Footer() {
-  const { goHomeTop, locale, strings } = useSite();
+  const { goHomeTop, locale, site, strings } = useSite();
   const reveal = useReveal<HTMLDivElement>('fade');
+  // The destinations staff mark for the footer, each as "name · address · phone" (destinations.show_in_footer).
+  const venues = site.destinations.filter((d) => d.showInFooter);
+  const email = site.settings.email;
 
   return (
     <footer className="footer">
@@ -26,9 +42,9 @@ export function Footer() {
         </a>
         <div className="footer-tagline">PEOPLE | CULTURE | GREAT FOOD</div>
         <div className="footer-socials">
-          {SOCIALS.map((s) => (
-            <a key={s.label} href={s.href} target="_blank" rel="noopener" className="footer-social">
-              {s.label}
+          {site.socials.map((s) => (
+            <a key={s.platform + s.href} href={s.href} target="_blank" rel="noopener" className="footer-social">
+              {SOCIAL_LABELS[s.platform] ?? s.platform.toUpperCase()}
             </a>
           ))}
         </div>
@@ -37,20 +53,21 @@ export function Footer() {
 
       <div className="shell footer-bottom-wrap">
         <div className="footer-bottom">
-          <span>
-            Furama Resort Danang · 103–105 Võ Nguyên Giáp, Ngũ Hành Sơn, Đà Nẵng ·{' '}
-            <a href={`tel:${CONTACT.resortPhone}`} className="footer-strong">
-              {CONTACT.resortPhoneLabel}
-            </a>
-          </span>
-          <span>
-            Furama Dining House · 73 Trần Bạch Đằng, An Thượng ·{' '}
-            <a href={`tel:${CONTACT.diningHousePhone}`} className="footer-strong">
-              {CONTACT.diningHousePhoneLabel}
-            </a>
-          </span>
-          <a href={`mailto:${CONTACT.email}`} className="footer-strong">
-            {CONTACT.email}
+          {venues.map((d) => {
+            const line = [d.name, d.address].filter(Boolean).join(' · ');
+            return (
+              <span key={d.id}>
+                {d.phone ? `${line} · ` : line}
+                {d.phone && (
+                  <a href={`tel:${d.phone.tel}`} className="footer-strong">
+                    {d.phone.display}
+                  </a>
+                )}
+              </span>
+            );
+          })}
+          <a href={`mailto:${email}`} className="footer-strong">
+            {email}
           </a>
           {/* e2e/visual-added.css hides this link, so the pre-phase-5 baselines still compare pixel for pixel. */}
           <Link href={privacyHref(locale)} className="footer-strong footer-legal">

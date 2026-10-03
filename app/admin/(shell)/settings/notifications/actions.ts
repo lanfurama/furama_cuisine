@@ -1,7 +1,8 @@
 'use server';
 
-import { refresh } from 'next/cache';
+import { refresh, updateTag } from 'next/cache';
 import { getPool } from '@/db/client';
+import { TAGS } from '@/lib/cache-tags';
 import { RecipientForm, RecipientTarget, SharedInboxForm, TestEmailForm } from '@/lib/admin/notification-schemas';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
 import { auditActor, requirePermission } from '@/lib/server/dal/session';
@@ -13,8 +14,10 @@ import type { EmailDeliveryMode } from '@/lib/server/email/types';
  * "Thông báo email" (spec §7.1: Admin only, settings:update; the CI guard
  * holds this whole file to a permission the Editor lacks). Recipients and the
  * shared inbox save in one transaction with their audit_log row (spec §7.4).
- * Nothing here is cached: the queue reads recipients live when it writes
- * staff.new, so there is no tag to expire; refresh() redraws this page.
+ * Recipients are not cached: the queue reads them live when it writes
+ * staff.new, so there is no tag to expire; refresh() redraws this page. The
+ * shared inbox is also the guest site's general email (footer, privacy page),
+ * cached under content:contact: saveInbox expires that tag after its commit.
  */
 
 const DUPLICATE = { email: ['Địa chỉ này đã nhận thông báo cho cùng phạm vi.'] };
@@ -76,6 +79,8 @@ export async function saveInbox(_prev: ActionResult | null, formData: FormData):
     const input = SharedInboxForm.parse(Object.fromEntries(formData));
     const result = await saveSharedInbox(getPool(), auditActor(staff), input);
     if (!result.ok) return result;
+    // The footer and the privacy page print this address (lib/cache-plan.ts SAVE_TAGS.site_settings).
+    updateTag(TAGS.contentContact);
     refresh();
     return result;
   } catch (err) {

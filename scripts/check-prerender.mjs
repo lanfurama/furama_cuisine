@@ -32,8 +32,19 @@ const PAGES = {
   '/en/restaurants/taya-house': 'en/restaurants/taya-house',
   '/en/privacy': 'en/privacy',
 };
-/** The (guarded) layout's tags: the catalogue (lib/server/content/restaurants.ts) also reads cuisines, destinations and media. */
-const TAGS = ['restaurants', 'i18n:en', 'locales', 'content:ui', 'content:cuisines', 'content:destinations', 'media'];
+/** The (guarded) layout's tags: the catalogue, the chrome's content (lib/server/content/site.ts) and the UI strings. */
+const TAGS = [
+  'restaurants',
+  'i18n:en',
+  'locales',
+  'content:ui',
+  'content:sections',
+  'content:cuisines',
+  'content:destinations',
+  'content:nav',
+  'content:contact',
+  'media',
+];
 /** Tags a page carries beyond the layout's: the privacy policy's own reader (lib/server/content/legal.ts). */
 const PAGE_TAGS = { '/en/privacy': ['content:legal'] };
 const REVALIDATE = 2_592_000; // cacheLife('max'): 30 days
