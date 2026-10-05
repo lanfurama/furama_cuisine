@@ -47,6 +47,14 @@ Final gate (A12, twice on the last commit, plus a third E2E run with `TZ=UTC`):
   - B8 (labels and the emails pass): UX-9, the ui-text screen labels its 16 `error.*` keys with raw key names (with risk 17: a Vietnamese `label` on every key); Enter on the emails screen runs "Xem trước", not the save (A4); `guestEventKeys()` repeats `GUEST_EMAILS`' event names (A4).
   - B9/B10 (the form-kit retrofit): UX-5, a restore's "Đã khôi phục." unmounts with its choice (one outcome line per History panel, also the hero's "Slide đã xóa gần đây"); UX-10, small differences between editors ("Xóa file" without a confirm, `MediaDetailsForm` off `useSaveState`/`SaveBar`, missing "← Nội dung" crumbs, no "Nội dung | Giờ và sức chứa" subnav, a strings conflict on a reset key naming "người khác"); `conflictBy` names whoever last bumped `updated_by` (booking-config save, reorder, R19's alt follow: name the newest audit row's actor); `useSaveState` drops edits typed while a save is in flight (narrower after F12); the warn colours as `--a-*` tokens (A2).
   - With the new pickers and sections: a file of the wrong kind gets the `MEDIA_GONE` message (A6, A9); the trash lists at most 20 rows (A6); two slides on one picture share an accessible name (A9); `aria-invalid` on `ImagePicker`'s `<fieldset>` (A9); `SECTION_PARTS` typed `Partial<Record<SectionKey, …>>` (A9); `fileOf` on the hero page calls a trashed deleted slide's picture "slide" (A9); the advisory "MENU hidden" warning can be missing (A10); "Ẩn" has no confirm while "Lưu trữ" has one, and the "Đặt bàn online" column says "Bật" for a hidden or archived restaurant (A11).
+  - Residuals of the fix wave's re-review (all Minor):
+    - the offers action still reads `fields.publish === '1'` instead of `PublishForm` (`content/offers/actions.ts:67`);
+    - the README routes-table row for `/api/cron/media-sweep` still describes the old sweep: no deletion of purged rows' files from any folder, and a dry run that runs the purge;
+    - the `scripts/move-assets-to-blob.mjs` usage comment shows `DATABASE_URL`, not `DATABASE_URL_UNPOOLED`;
+    - the README botid prefix blanks fewer Blob variables than the other commands;
+    - in `lib/legal.test.ts`, the title "moves whenever …" and the "pin that migration's pair in RECORDED" step contradict the new comment;
+    - "Tải lại" after `not_allowed` clears `dirty` before the refresh;
+    - out-of-folder files of rows purged in a run whose orphan pass then fails are never retried.
 
 ## Carried to later phases
 
