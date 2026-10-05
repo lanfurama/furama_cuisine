@@ -141,13 +141,16 @@ function parse(rel: string, source: string): Node {
   return program as unknown as Node;
 }
 
+/** Whether the module's directive prologue holds 'use server' (comments before it do not matter). */
+const hasFileUseServer = (program: Node): boolean =>
+  (program.body as Node[]).some((s) => s.type === 'ExpressionStatement' && s.directive === 'use server');
+
 /** Problems in one source file (`rel` is relative to the repository root). */
 export function checkActions(rel: string, source: string, publicActions: ReadonlySet<string>): string[] {
   const problems: string[] = [];
   const program = parse(rel, source);
-  const fileLevel = (program.body as Node[]).some((s) => s.type === 'ExpressionStatement' && s.directive === 'use server');
 
-  if (fileLevel) {
+  if (hasFileUseServer(program)) {
     for (const { name, fn } of exportedFunctions(program)) {
       if (publicActions.has(`${rel}#${name}`)) continue;
       const problem = fn ? firstStatementProblem(fn) : 'export the action as a function declared in this file';
@@ -181,11 +184,18 @@ export function scanRepo(root: string, publicActions: ReadonlySet<string>): stri
   });
 }
 
-/** The files under `prefixes` whose first statement is 'use server' (Server Action modules), relative to `root`. */
+/**
+ * The files under `prefixes` that are Server Action modules (a file-level 'use server' directive),
+ * relative to `root`. Read from the syntax tree like checkActions: a start-of-file regex missed a
+ * module that opens with a comment, which then escaped the permission matrix.
+ */
 export function actionFiles(root: string, prefixes: readonly string[]): string[] {
   return sourceFiles(root)
     .filter((rel) => prefixes.some((p) => rel.startsWith(p)))
-    .filter((rel) => /^\s*['"]use server['"]/.test(readFileSync(join(root, rel), 'utf8')))
+    .filter((rel) => {
+      const source = readFileSync(join(root, rel), 'utf8');
+      return source.includes('use server') && hasFileUseServer(parse(rel, source));
+    })
     .sort();
 }
 

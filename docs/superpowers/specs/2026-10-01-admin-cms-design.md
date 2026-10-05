@@ -710,6 +710,7 @@ Mỗi lần lưu cấu hình đều ghi audit và gọi `updateTag('ai-settings'
 - **Môi trường:**
   - Dev dùng branch Neon riêng; mỗi preview có một branch riêng; Production dùng branch mặc định.
   - Blob store tách riêng cho Production và cho Preview/Dev.
+  - *(Sửa 2026-10-05 (chủ dự án): Preview dùng DB production, không có branch Neon cho preview; một Blob store chung cho mọi môi trường, mỗi môi trường một thư mục (`production/`, `preview/<branch>/`, `development/`); cron `media-sweep` chỉ chạy ở Production trên `production/`.)*
 - **Dữ liệu cá nhân** (Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15, hiệu lực từ 2026-01-01; cần luật sư xác nhận):
   - Form đặt bàn có thông báo bảo mật, ô đồng ý và trang chính sách (`legal.*`).
   - Cron `/api/cron/daily` ẩn danh các đặt bàn có `reserved_on` cũ hơn `pii_retention_months`, mỗi lô một transaction:
@@ -731,7 +732,7 @@ Mỗi lần lưu cấu hình đều ghi audit và gọi `updateTag('ai-settings'
 | Gửi email lỗi | Đặt bàn vẫn thành công. Outbox tự thử lại. Tổng quan hiện số email lỗi. |
 | Vertex lỗi | Form vẫn dùng được. Nút AI báo lỗi tiếng Việt theo mã (mục 9.2). Job dịch hàng loạt chuyển sang `paused`. |
 | Vượt ngân sách AI | Từ chối ngay trước khi gọi, báo "Đã hết ngân sách AI tháng này". |
-| Upload lỗi | Không tạo hàng `media`. Cron `media-sweep` xóa blob không có hàng `media` sau 24 giờ, chỉ trong store của môi trường đó. |
+| Upload lỗi | Không tạo hàng `media`. Cron `media-sweep` xóa blob không có hàng `media` sau 24 giờ, chỉ trong store của môi trường đó (thư mục của môi trường đó trong store chung, ghi chú §11). |
 | Cron thiếu `CRON_SECRET` | Trả 401. |
 | Ghi log | Lỗi server ghi `console.error` kèm mã lỗi, xem được trong Vercel Logs. Không ghi dữ liệu cá nhân. |
 
@@ -749,7 +750,7 @@ Mỗi lần lưu cấu hình đều ghi audit và gọi `updateTag('ai-settings'
 **CI trên GitHub Actions:**
 - Chạy: typecheck, lint, unit, tích hợp, E2E, build.
 - Lint dùng oxlint, không dùng ESLint (`next lint` đã bị bỏ ở Next 16), vì typescript-eslint chỉ hỗ trợ TypeScript < 6.1 mà dự án dùng TypeScript 7.
-- Từ khi web khách đọc dữ liệu từ DB, `next build` cũng truy vấn DB. Vì vậy trong CI, bước build chạy sau `db:migrate` và seed trên Postgres của CI. Build trên Vercel đọc branch Neon của đúng môi trường.
+- Từ khi web khách đọc dữ liệu từ DB, `next build` cũng truy vấn DB. Vì vậy trong CI, bước build chạy sau `db:migrate` và seed trên Postgres của CI. Build trên Vercel đọc branch Neon của đúng môi trường (từ 2026-10-05 Preview và Production cùng đọc DB production).
 
 ## 14. Lộ trình
 

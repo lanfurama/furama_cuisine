@@ -74,19 +74,22 @@ password to `pg`. The other blanks are there because `.env.local` may carry
 pulled Vercel values: a pulled `VERCEL_ENV=production` would make a local
 server treat log mode as a deployment (no `EMAIL_LOG_FILE`, invitations
 unsent, outbox rows stamped `production`) and, with `NEXT_PUBLIC_VERCEL_ENV`
-in the build, call the real BotID API.
+in the build, call the real BotID API. A pulled `VERCEL="1"` makes
+`blobImageHost` (`lib/media/rules.ts`) treat the build as a Vercel build that
+names no store, so it allows no Blob host: every thumbnail of an uploaded
+file and the media end-to-end tests break.
 
 ```bash
 RESET_DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test node scripts/reset-db.mjs
-CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
+CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
   EMAIL_FROM= EMAIL_REDIRECT_TO= SMTP_HOST= SMTP_USER= SMTP_PASSWORD= BOTID_DEV_BYPASS= \
-  BLOB_READ_WRITE_TOKEN= BLOB_STORE_ID= BLOB_WEBHOOK_PUBLIC_KEY= VERCEL_BLOB_API_URL= NEXT_PUBLIC_VERCEL_BLOB_API_URL= \
+  BLOB_READ_WRITE_TOKEN= BLOB_STORE_ID= BLOB_WEBHOOK_PUBLIC_KEY= VERCEL_BLOB_API_URL= NEXT_PUBLIC_VERCEL_BLOB_API_URL= VERCEL_BLOB_CALLBACK_URL= \
   DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test npm run build
 node scripts/check-prerender.mjs
 # Visual first, on the fresh build (see below).
-PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
+PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
   EMAIL_FROM= EMAIL_REDIRECT_TO= SMTP_HOST= SMTP_USER= SMTP_PASSWORD= BOTID_DEV_BYPASS= \
-  BLOB_READ_WRITE_TOKEN= BLOB_STORE_ID= BLOB_WEBHOOK_PUBLIC_KEY= VERCEL_BLOB_API_URL= NEXT_PUBLIC_VERCEL_BLOB_API_URL= \
+  BLOB_READ_WRITE_TOKEN= BLOB_STORE_ID= BLOB_WEBHOOK_PUBLIC_KEY= VERCEL_BLOB_API_URL= NEXT_PUBLIC_VERCEL_BLOB_API_URL= VERCEL_BLOB_CALLBACK_URL= \
   DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
   BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3201 EMAIL_DELIVERY=log npx next start -p 3201 &
 for i in $(seq 1 60); do curl -s -o /dev/null http://localhost:3201/ && break; sleep 1; done
@@ -94,9 +97,9 @@ VISUAL_BASE_URL=http://localhost:3201 npm run test:visual
 kill %1   # stop the server (or: lsof -ti tcp:3201 | xargs kill)
 # Then end to end, with an empty email log.
 rm -f "$TMPDIR/emails.ndjson"
-CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
+CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
   EMAIL_FROM= EMAIL_REDIRECT_TO= SMTP_HOST= SMTP_USER= SMTP_PASSWORD= BOTID_DEV_BYPASS= \
-  BLOB_READ_WRITE_TOKEN= BLOB_STORE_ID= BLOB_WEBHOOK_PUBLIC_KEY= VERCEL_BLOB_API_URL= NEXT_PUBLIC_VERCEL_BLOB_API_URL= \
+  BLOB_READ_WRITE_TOKEN= BLOB_STORE_ID= BLOB_WEBHOOK_PUBLIC_KEY= VERCEL_BLOB_API_URL= NEXT_PUBLIC_VERCEL_BLOB_API_URL= VERCEL_BLOB_CALLBACK_URL= \
   DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
   BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3100 \
   EMAIL_DELIVERY=log EMAIL_LOG_FILE=$TMPDIR/emails.ndjson CRON_SECRET=$(openssl rand -hex 16) \
@@ -184,12 +187,12 @@ request, so it is skipped unless the server runs with `BOTID_DEV_BYPASS=BAD-BOT`
 booking on that server is refused, so it runs on its own, after the main run:
 
 ```bash
-CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
+CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
   EMAIL_FROM= EMAIL_REDIRECT_TO= SMTP_HOST= SMTP_USER= SMTP_PASSWORD= BOTID_DEV_BYPASS=BAD-BOT \
   DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
   BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3100 \
   EMAIL_DELIVERY=log EMAIL_LOG_FILE=$TMPDIR/emails.ndjson CRON_SECRET=$(openssl rand -hex 16) \
-  BLOB_READ_WRITE_TOKEN= BLOB_STORE_ID= FAKE_BLOB_SECRET=$(openssl rand -hex 16) \
+  BLOB_READ_WRITE_TOKEN= BLOB_STORE_ID= VERCEL_BLOB_CALLBACK_URL= FAKE_BLOB_SECRET=$(openssl rand -hex 16) \
   npx playwright test e2e/botid.spec.ts --project=desktop
 ```
 
@@ -252,6 +255,9 @@ them. 005 only adds tables, so the guest site keeps working on a migrated
 database. Apply it with `node scripts/migrate.mjs` like the others.
 
 ### Migration 006 (phase 4: booking v2)
+
+*Since 2026-10-05 previews use the production database (no Neon branch per
+preview); the preview-branch steps below are historical.*
 
 `006_booking_v2.sql` adds `booking_settings`, the restaurants' booking
 switch and overrides, `service_periods` (seeded to behave exactly as before:
@@ -368,6 +374,10 @@ against an empty local database, and write the difference as a new migration.
 
 ### Migration 007 (phase 5: email and consent)
 
+*Since 2026-10-05 previews use the production database (no Neon branch per
+preview); the preview-branch steps below are historical. 007 is on
+production since 2026-10-03.*
+
 `007_email_and_consent.sql` adds `site_settings` (one row, the shared inbox
 `email`, seeded `fb@furamavietnam.com`), `notification_recipients`,
 `email_outbox`, and the pair `reservations.consent_version` /
@@ -416,6 +426,10 @@ Until recipients are added, every new booking's staff email goes to the
 shared inbox, and the overview lists the restaurants that do so.
 
 ### Migration 008 (phase 6: content)
+
+*Since 2026-10-05 previews use the production database (no Neon branch per
+preview); the preview-branch steps below are historical. 008 is on
+production since 2026-10-03.*
 
 `008_content.sql` moves the guest site's content into the database: `media`
 (one row per file in `public/assets`, served from there), the translation
@@ -527,11 +541,12 @@ saves that day), bookings store the newest row's version in
 `reservations.consent_version`, and the policy page prints its date. It only
 adds, in one transaction, and is safe to run again.
 
-**009 goes first, then the phase-7A deploy.** The phase-6 code ignores the
-table, so 009 can go on while phase 6 runs. The phase-7A code needs it: its
-build prerenders `/en/privacy`, which reads the version (measured locally on
-a database at 008: `relation "legal_versions" does not exist` while it
-prerenders `/en/privacy`, and the build stops), and every booking reads it.
+**009 goes first, then the phase-7A deploy.** Code from before phase 7A
+ignores the table, so 009 can go on before any deploy. The phase-7A code
+needs it: its build prerenders `/en/privacy`, which reads the version
+(measured locally on a database at 008: `relation "legal_versions" does not
+exist` while it prerenders `/en/privacy`, and the build stops), and every
+booking reads it.
 
 On production's direct URL (not `npm run db:psql`, which reads `.env.local`):
 
@@ -551,9 +566,9 @@ On production's direct URL (not `npm run db:psql`, which reads `.env.local`):
 Previews use the production database (owner, 2026-10-05: "Before launch
 A" step 1), so 009 goes on production once, with the three steps above,
 before the first phase-7A deploy, preview or production. It only adds a
-table the deployed phase-6 code never reads, so it can go on at any time
-before that deploy. **Rollback:** leave 009 in place (the phase-6 code runs
-on it) and roll back the deployment only.
+table that code from before phase 7A never reads, so it can go on at any
+time before that deploy. **Rollback:** leave 009 in place (every earlier
+build runs on it) and roll back the deployment only.
 
 ### Media in Vercel Blob (phase 7A)
 
@@ -563,26 +578,33 @@ sets `BLOB_READ_WRITE_TOKEN` for the environments it is connected to. Inside
 the store each environment writes only its own folder: `production/`,
 `preview/<branch>/`, `development/` (`lib/media/rules.ts` `blobEnvPrefix`).
 
-**One store for Production and Preview: the recommendation, awaiting the
-owner's sign-off** (the phase-7A ledger, "Needs a decision"; the owner had
-said two stores, as the phase-7 outline planned in §8 for a database per
-preview). Previews use the production database (owner, 2026-10-05), so a
-file uploaded on a preview is a row of production's library, and
-production's files show on every preview. Each build lets next/image
+**One store for every environment (decided by the owner, 2026-10-05).** One
+Vercel Blob store is shared by all environments, each writing its own folder
+(above), and the sweep runs only on Production, over `production/` ("Media
+sweep" below). Previews use the production database (owner, 2026-10-05), so
+production's files show on every preview, and each build lets next/image
 optimise one store's host only (`blobImageHost`: the store named by the
 build's `BLOB_READ_WRITE_TOKEN` or `BLOB_STORE_ID`; a Vercel build with
-neither allows no Blob host at all), so with a separate Preview store a
-preview would draw none of production's pictures, and production none
-uploaded on a preview. If the owner keeps two stores, `blobImageHost` must
-allow both hosts and an upload made on a preview must not be used on
-production, before the stores are created.
+neither allows no Blob host at all). One store is what lets a preview draw
+production's pictures, and production draw a picture uploaded on a preview.
 
-**Setting up the store (the owner, once, after the sign-off and before the
-phase-7A deploy):**
+**Preview folders hold production files.** A file uploaded on a preview is a
+row of production's library: production's pages can use it, and its file
+lives under `preview/<branch>/`. Never delete a `preview/` folder by hand.
+Production's sweep purges rows that have been in the trash for 30 days from
+any folder, and deletes their files with them; an orphan in a preview folder
+(an upload whose second step failed) is never swept (R15: it only costs
+storage).
+
+**Setting up the store (the owner, once, before the first phase-7A deploy,
+preview or production):**
 
 1. Storage → Create Database → **Blob**: `furama-cuisine`, access
-   **Public**, connected to **Production** and **Preview** (not
-   Development: nobody runs the app against it locally, see 3).
+   **Public**, connected to **Production** and **Preview**. Not
+   Development: `development/` is the folder of local runs, which use the
+   fake store (see 3), and connecting Development would let
+   `vercel env pull` write the live token into `.env.local`, next to a
+   `DATABASE_URL` that reaches production's database.
 2. Project → Settings → Environment Variables: check that
    `BLOB_READ_WRITE_TOKEN` exists for Production and Preview, and note
    whether `BLOB_STORE_ID` or `BLOB_WEBHOOK_PUBLIC_KEY` appeared too. Report
@@ -606,28 +628,40 @@ change, through History, and delete the test upload when done.
   that is not one is refused after upload and gone from the store;
 - try to delete a file a page shows (`chef.jpg`): refused, with the list of
   where it is used;
-- the sweep's dry run on the preview's URL (below) lists nothing young;
 - an alt text saved in the library shows on the guest page from several
   responses in a row (`updateTag` reaching every instance), then History
   puts the old one back;
 - the function log of the upload's second step (`registerMediaAction`) for a
   large photo: its memory stays within the plan's limit (sharp decodes up
-  to 50 megapixels).
+  to 50 megapixels);
+- the policy and consent text cannot be saved on a preview: a save in
+  `/admin/content/legal` is refused with "Chữ khách đồng ý (chính sách, câu
+  đồng ý) chỉ sửa trên trang chính thức: bản preview dùng chung dữ liệu với
+  Production." (a preview would stamp production's bookings with its own
+  branch's wording); other words still save.
 
 **Media sweep.** `/api/cron/media-sweep` runs daily at 18:35 UTC (01:35 in
-Da Nang, `vercel.json`) with the same `CRON_SECRET` as the other crons. In
-its environment's folder only, it deletes files no `media` row names that
-are older than 24 hours (an upload whose second step never ran), and purges
+Da Nang, `vercel.json`) with the same `CRON_SECRET` as the other crons.
+Vercel runs crons on Production only, so it sweeps `production/`. It purges
 rows that have been in the trash for 30 days, keeping any row content uses
-again; a database error stops it before it deletes anything. Without a store
-(local, CI) it answers `{"skipped":"blob_not_configured"}`. Vercel runs crons
-on Production only, so a preview's folder is swept only by hand, dry run
-first, on that preview's own URL:
+again, and deletes their files from whatever folder holds them (a preview's
+upload is a production row); then, in `production/` only, it deletes files
+no `media` row names that are older than 24 hours (an upload whose second
+step never ran). A database error stops it before it deletes anything.
+Without a store (local, CI) it answers `{"skipped":"blob_not_configured"}`.
+Nobody runs it on a preview: there it would purge production's trash too,
+and it would need a Preview `CRON_SECRET` and the Deployment Protection
+bypass.
+
+After the production deploy, check that it answers 200 (not 401):
 
 ```bash
-curl -H "Authorization: Bearer $CRON_SECRET" "https://<preview URL>/api/cron/media-sweep?dry=1"   # what would go
-curl -H "Authorization: Bearer $CRON_SECRET" "https://<preview URL>/api/cron/media-sweep"         # sweep
+curl -H "Authorization: Bearer $CRON_SECRET" "https://<production domain>/api/cron/media-sweep?dry=1"
 ```
+
+The dry run lists the orphan files of `production/` that would go and
+deletes nothing. It skips the trash purge, so it does not show the rows, or
+their files, that the daily run would purge.
 
 Never run the sweep, or anything else, from a local machine with a real
 store's token: the local database does not name that store's files.
@@ -640,23 +674,28 @@ placeholder and one audit row each. It is a dry run unless `--apply`, checks
 each file's size against its row, skips a file already in the store, and is
 safe to run again. Once, with production's database and the store, after the
 phase-7A deploy (the controller runs it; the token comes from the dashboard
-and is never written to a file):
+and is never written to a file). The script reads `DATABASE_URL_UNPOOLED`
+before `DATABASE_URL` (as `scripts/migrate.mjs` does), so pass production's
+direct URL as `DATABASE_URL_UNPOOLED`, and check the host on its first
+output line (`DRY RUN: database <host>/<database> → store …`) before going
+on. Do not run `--apply`, first or again, between 18:30 and 18:45 UTC, while
+the daily sweep runs.
 
 ```bash
 # 1. Dry run: expect "39 static row(s); 39 file(s) to upload."
-DATABASE_URL=<production's direct URL> BLOB_READ_WRITE_TOKEN=<the store's token> \
+DATABASE_URL_UNPOOLED=<production's direct URL> BLOB_READ_WRITE_TOKEN=<the store's token> \
   node scripts/move-assets-to-blob.mjs --prefix production
 # 2. Apply: uploads, then updates every row in one transaction.
-DATABASE_URL=<…> BLOB_READ_WRITE_TOKEN=<…> node scripts/move-assets-to-blob.mjs --prefix production --apply
+DATABASE_URL_UNPOOLED=<…> BLOB_READ_WRITE_TOKEN=<…> node scripts/move-assets-to-blob.mjs --prefix production --apply
 # 3. Redeploy, so cached guest pages pick up the Blob URLs (the script cannot expire the cache).
 ```
 
 Production only: previews read production's rows (the shared database) and
 draw the moved files from the same store, so they need no move of their own;
 the script refuses a preview's folder, since a run there would point
-production's rows at copies in that folder. The `public/assets` files stay in the repository (a
-code rollback still renders), and the move can only be undone by restoring
-the rows from their audit rows.
+production's rows at copies in that folder. The `public/assets` files stay
+in the repository (a code rollback still renders), and the move can only be
+undone by restoring the rows from their audit rows.
 
 ### Environment variables (admin)
 
@@ -671,7 +710,7 @@ the rows from their audit rows.
 | `SMTP_PORT` | `587` (STARTTLS, the default) or `465` (TLS) | same | never set |
 | `SMTP_SECURE` | only if the port rule does not fit: `true` (TLS from the first byte) or `false` (STARTTLS); unset means `true` on 465 only | same | never set |
 | `SMTP_USER`, `SMTP_PASSWORD` | the login (both or neither) | a separate login if the provider allows | never set |
-| `CRON_SECRET` | 16+ characters (`openssl rand -hex 32`); Vercel Cron sends it to `/api/cron/outbox`, `/api/cron/daily` and `/api/cron/media-sweep`, and a missing or shorter one answers every call to any of them 401 | optional (crons run on Production only) | a fresh random value per E2E run |
+| `CRON_SECRET` | 16+ characters (`openssl rand -hex 32`); Vercel Cron sends it to `/api/cron/outbox`, `/api/cron/daily` and `/api/cron/media-sweep`, and a missing or shorter one answers every call to any of them 401 | not needed: crons run on Production only, and nobody calls one on a preview (the media sweep there would purge production's trash) | a fresh random value per E2E run |
 | `BOTID_DEV_BYPASS` | **never** | **never** | only for the opt-in `e2e/botid.spec.ts` run (`BAD-BOT`); a deployment ignores it |
 | `BLOB_READ_WRITE_TOKEN` | set by connecting the Blob store | the same store's (Preview shares production's database, so it shares the store too) | **never** a real one: blank for the build, the visual server and local runs; Playwright gives the E2E app the fake store's token |
 | `FAKE_BLOB_SECRET` | never | never | a fresh `openssl rand -hex 16` per E2E run (16+ letters and digits); `FAKE_BLOB_PORT` moves the fake (default 3102) |
@@ -810,8 +849,8 @@ build, the local one too: never request that prefix on a local `next start`.
 
 ### Before launch A: what the owner sets up
 
-Migrations 007 and 008, email, the two crons and BotID need these steps
-once, in this order. Until the last one, keep Production on
+Migrations 007 to 009, the Blob store, email, the three crons and BotID
+need these steps once, in this order. Until the last one, keep Production on
 `EMAIL_DELIVERY=redirect`, and nothing reaches a guest. Running Production
 on redirect also needs `EMAIL_REDIRECT_TO`, `EMAIL_FROM` and `SMTP_*`.
 Redirect sends every email to that inbox, staff's
@@ -822,17 +861,27 @@ any change to these variables (switching redirect → live, adding or fixing
 `CRON_SECRET`), Deployments → … → Redeploy: Vercel applies a change only to
 a new deployment.
 
-1. **Migrations 007 and 008, before any deploy:** done on production Neon
-   on 2026-10-03, with the checks in "Migration 007" and "Migration 008"
-   above (008 at sha256 `8f0869…d755`). The site has never been deployed,
-   so launch A's first deploy is phase-6 code, and it builds only on a Neon
-   branch that has 008 (without it, the build fails before it prerenders
-   anything: `column "slug" does not exist`). Previews do not get their own
-   database: Preview uses the production database (owner, 2026-10-05), so a
-   later migration is applied to production once, before the first deploy
-   (preview or production) that builds on it; with Vercel's Git integration,
-   pushing or merging `main` is the Production deploy. Older sections of this
-   README that mention preview branches no longer apply.
+1. **Migrations, the Blob store and the image move:** 007 and 008 are done
+   on production Neon (2026-10-03, with the checks in "Migration 007" and
+   "Migration 008" above; 008 at sha256 `8f0869…d755`). The site has never
+   been deployed, so launch A's first deploy is phase-7A code. Previews do
+   not get their own database: Preview uses the production database (owner,
+   2026-10-05), so a migration is applied to production once, before the
+   first deploy (preview or production) that builds on it; with Vercel's Git
+   integration, pushing or merging `main` is the Production deploy. Older
+   sections of this README that mention preview branches no longer apply.
+   In this order:
+   1. **009 on production** (the controller, "Migration 009" above: the
+      pre-flight, the apply, the post-check) before the first deploy,
+      preview or production. The phase-7A build stops without it
+      (`relation "legal_versions" does not exist`).
+   2. **Create and connect the one Blob store** ("Media in Vercel Blob"
+      above, "Setting up the store") before the first deploy: a Vercel
+      build that names no store lets next/image draw no Blob picture, and
+      the library refuses uploads.
+   3. **After the production deploy** (step 11), run
+      `scripts/move-assets-to-blob.mjs` ("Moving the phase-6 images to
+      Blob": the dry run, then `--apply`), then redeploy.
 2. **Neon plan:** the project is on Neon Free (owner, 2026-10-05). Free
    suspends an idle compute after 5 minutes, and its monthly compute
    allowance is limited; once it runs out, Neon suspends the compute and
@@ -844,7 +893,10 @@ a new deployment.
    month; if it nears the allowance, move to Launch (check
    neon.tech/pricing) and the cron can go back to `*/5 * * * *` (change
    `vercel.json` and `test/guards/vercel-crons.guard.test.ts` together).
-   Phase 9's AI-jobs cron must follow the same rule.
+   Phase 9's AI-jobs cron must follow the same rule. The hourly outbox cron
+   needs **Vercel Pro**: Hobby runs a cron at most once a day (the research
+   synthesis, `docs/superpowers/research/2026-10-01-admin-cms/00-synthesis.md`
+   §D item 7, records Pro).
 3. **Vercel project settings, before the first deploy:** turn on
    "Automatically expose System Environment Variables" and OIDC Federation,
    and keep Fluid Compute on (the default). BotID's browser half needs
@@ -892,10 +944,14 @@ a new deployment.
    test bookings made on a Preview. Remove `RESEND_API_KEY` from every
    environment.
 9. **First preview:** push a branch other than `main`. It builds on the
-   production database, which already has 007 and 008 (step 1). On the preview, "Gửi email thử" in
-   `/admin/settings/notifications` arrives at the redirect inbox (that proves
-   port 587/465 is reachable from Vercel Functions, the login, and SPF/DKIM
-   passing in the headers).
+   production database, which already has 007, 008 and 009 (step 1), and
+   writes into the one Blob store's `preview/<branch>/` folder. On the
+   preview, "Gửi email thử" in `/admin/settings/notifications` arrives at
+   the redirect inbox (that proves port 587/465 is reachable from Vercel
+   Functions, the login, and SPF/DKIM passing in the headers). Then run the
+   "First preview checks" of "Media in Vercel Blob" above (upload, refused
+   delete, alt text, the register's memory, policy text refused on a
+   preview), putting back what they change.
 10. **First preview, same branch:** book a table from a browser: the staff
     and guest emails arrive (redirected). In the browser's network tab the
     booking's action POST carries an `x-is-human` header, and the function
@@ -919,10 +975,14 @@ a new deployment.
     - **Autofill does not trip the honeypot.** On an iPhone (Safari) and an
       Android phone (Chrome), fill the form with the browser's autofill and
       book. Neither gets "We could not accept this request online".
-11. **Production deploy and crons:** 008 is already on production (step 1);
-    merge into `main` (Production starts on redirect). After that deploy, Project → Settings →
-    Cron Jobs shows both crons: `/api/cron/outbox` hourly (`0 * * * *`),
-    and `/api/cron/daily` at `5 17 * * *`, 00:05 in Da Nang.
+11. **Production deploy and crons:** 009 is already on production and the
+    store is connected (step 1); merge into `main` (Production starts on
+    redirect). After that deploy, Project → Settings → Cron Jobs shows
+    three crons: `/api/cron/outbox` hourly (`0 * * * *`), `/api/cron/daily`
+    at `5 17 * * *` (00:05 in Da Nang) and `/api/cron/media-sweep` at
+    `35 18 * * *` (01:35 in Da Nang). The media sweep's dry run answers 200,
+    not 401 ("Media sweep" above has the `curl`). Then move the phase-6
+    images and redeploy (step 1.3).
 12. **Recipients:** in `/admin/settings/notifications`, add the notification
     emails per restaurant or destination (spec §15 item 15), and confirm
     `fb@furamavietnam.com` as the shared inbox (the fallback, and where
@@ -937,9 +997,10 @@ a new deployment.
     - "Gửi email thử" to an outside inbox says "Đã gửi email thử tới …"
       (not "chuyển hướng tới hộp thư thử nghiệm"), and the email arrives
       there;
-    - both crons log 200, not 401, in Vercel → Settings → Cron Jobs:
-      `/api/cron/outbox` within the hour, and `/api/cron/daily` after its
-      next run at 00:05 in Da Nang;
+    - all three crons log 200, not 401, in Vercel → Settings → Cron Jobs:
+      `/api/cron/outbox` within the hour, `/api/cron/daily` after its next
+      run at 00:05 in Da Nang, and `/api/cron/media-sweep` after its next
+      run at 01:35 in Da Nang;
     - a test booking made with an address you read: its `guest.ack` (or
       `guest.confirmed`, where the restaurant confirms automatically) reads
       "Đã gửi" in `/admin/reservations/emails` and arrives at that address.
@@ -953,7 +1014,15 @@ number per booking date]; BotID failing open and refusing verified bots [yes];
 the privacy policy's wording and its Vietnamese text (a lawyer's review under
 Law 91/2025/QH15, which must also confirm the anti-abuse clause: the count of
 one phone number's online requests per day, and the bot check) [an English
-draft]; which inbox Previews redirect to.
+draft]; which inbox Previews redirect to. For the lawyer, on the policy's
+versions: editing the agreed text in `/admin/content/legal` makes a new
+policy version (R21, "Migration 009"); a booking records the version in
+force when it is saved, so a guest whose page stayed open across a change is
+recorded against the newer wording until phase 8 (SEC-3, an accepted risk);
+and a new code default of agreed text (`legal.*`, `booking.consent`,
+`booking.privacy_notice`) needs its own migration adding a `legal_versions`
+row, shipped in the same deploy window as the code (`lib/legal.test.ts`
+says how).
 
 ### First Admin
 
@@ -994,14 +1063,14 @@ bootstrapping production is what you mean to do.
 | `/api/admin/media/upload` | Dynamic, `no-store` | Upload step 1: a presigned URL for one pathname of this environment's folder, its type, 15 MB and ten minutes. Session and `content:update` first, then the `Origin`; Vercel's completion callback is refused |
 | `/admin/media`, `/admin/media/[id]` | Request time, nonce CSP | The library: upload, search, the trash; one file's EN alt text, decorative flag, uses, delete (refused while it is shown) and History. `content:read`; writes `content:update`, restores `content:restore` |
 | `/admin/content` and `/admin/content/{sections,hero,offers,offers/new,offers/[id],stories,heritage,ui-text,legal,emails}` | Request time, nonce CSP | The content editors (spec §7.2), in English until phase 8: the home sections' switches, pictures and links; the hero's slides, words and pace and the film; the offers; the registry's words by screen; the privacy policy (each change of the agreed wording is a policy version); the booking emails with a preview. Every record has its History. `content:read`; writes `content:update`, restores `content:restore` |
-| `/admin/restaurants/[id]` | Request time, nonce CSP | One restaurant's content: name, slug, pictures, contact, detail page, highlights, menu (a PDF from the library or a link), SEO, History. `content:read`; writes `content:update` |
+| `/admin/restaurants/[id]` | Request time, nonce CSP | One restaurant's content: name, slug, pictures, contact, detail page, highlights, menu (a PDF from the library or a link), SEO, History. `content:read`; writes `content:update`, restores `content:restore` |
 | `/api/admin/emails/preview` | Dynamic, `no-store` | The emails screen's preview of unsaved text, framed by that screen only (its own CSP). `content:read`, then the `Origin` |
 | `/admin/sign-in`, `/admin/accept-invite`, `/admin/reset-password` | Request time, nonce CSP | The only admin pages open without a session cookie |
 | `/admin`, `/admin/users`, `/admin/audit` | Request time, nonce CSP | Overview (with pending and today's bookings); staff and invitations (Admin); audit log of `audit_log` and booking events, paged with `?truoc=`/`?sau=` (Admin). Without a session cookie the proxy sends them to sign-in (307, `?next=` kept) |
 | `/admin/reservations`, `/admin/reservations/[id]`, `/admin/reservations/day` | Request time, nonce CSP | Inbox (Cần xử lý · Hôm nay · Sắp tới · Tất cả, search by reference, phone, name or email: the search posts, its text waits 30 minutes in an httpOnly cookie and the URL carries only `?tim=<id>`); a booking (status changes, edit, internal notes, timeline, its emails); the printable day sheet. `reservations:read` |
 | `/admin/reservations/emails` | Request time, nonce CSP | The email log of this environment (tabs by status, guest addresses masked) and "Gửi lại". `reservations:read`; "Gửi lại" `reservations:update` |
 | `/admin/reservations/new` | Request time, nonce CSP | Phone bookings and walk-ins. `reservations:create` |
-| `/admin/reservations/closures`, `/admin/restaurants`, `/admin/restaurants/[id]/booking` | Request time, nonce CSP | Closures with the bookings each covers; the restaurants (add one, show or hide it, archive it: never deleted; their order with its History; the words every restaurant card and page shares); "Giờ và sức chứa" (switch, overrides, service periods, slot preview, affected bookings; auto-confirm for Admins). `schedule:read`; the list's writes `content:update` |
+| `/admin/reservations/closures`, `/admin/restaurants`, `/admin/restaurants/[id]/booking` | Request time, nonce CSP | Closures with the bookings each covers; the restaurants (add one, show or hide it, archive it: never deleted; their order with its History; the words every restaurant card and page shares); "Giờ và sức chứa" (switch, overrides, service periods, slot preview, affected bookings; auto-confirm for Admins). `schedule:read`; the list's writes `content:update`, restores `content:restore` |
 | `/admin/settings/booking` | Request time, nonce CSP | Booking defaults. Admin (`settings:read`) |
 | `/admin/settings/notifications` | Request time, nonce CSP | Who hears about new bookings, the shared inbox, the restaurants that fall back to it, "Gửi email thử". Admin (`settings:read`; every save `settings:update`) |
 | `/api/auth/*` | Dynamic | Better Auth; `/api/auth/admin/*` is refused with 403 |

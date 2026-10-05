@@ -24,7 +24,10 @@ describe('the README runbook covers every migration and check (phase 7A)', () =>
     expect(README).toMatch(new RegExp(`^### Migration ${n} \\(`, 'm'));
   });
 
-  it.each(readdirSync(join(ROOT, 'db/checks')))('db/checks/%s is named in the README', (file) => {
+  // Only the .sql checks: a Finder .DS_Store (or any other stray file) is not a runbook step.
+  const checks = readdirSync(join(ROOT, 'db/checks')).filter((f) => f.endsWith('.sql'));
+
+  it.each(checks)('db/checks/%s is named in the README', (file) => {
     expect(README).toContain(`db/checks/${file}`);
   });
 });

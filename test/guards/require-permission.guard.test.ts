@@ -275,6 +275,20 @@ export async function b() {
     ]);
   });
 
+  it('finds a content screen’s action file by its directive, even after a leading comment (the permission matrix must see it)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'guard-'));
+    const put = (rel: string, source: string) => {
+      mkdirSync(dirname(join(root, rel)), { recursive: true });
+      writeFileSync(join(root, rel), source);
+    };
+    const body = `export async function save() { await requirePermission({ content: ['update'] }); }`;
+    put('app/admin/(shell)/content/a/actions.ts', `'use server';\n${body}`);
+    put('app/admin/(shell)/content/b/actions.ts', `/*\n * Why these actions exist.\n */\n// one more line\n"use server";\n${body}`);
+    put('app/admin/(shell)/content/c/helpers.ts', `// mentions 'use server' only in a comment\nexport const x = 'use server';`);
+    put('app/admin/(shell)/content/d/inline.ts', `export async function f() { 'use server'; }`);
+    expect(actionFiles(root, ['app/admin/(shell)/content/'])).toEqual(['app/admin/(shell)/content/a/actions.ts', 'app/admin/(shell)/content/b/actions.ts']);
+  });
+
   it('an admin plugin endpoint outside the two allowed files, called or destructured', () => {
     const source = `export async function a(auth) {
   await auth.api.adminUpdateUser({ body: { userId: 'u', data: { role: 'admin' } } });

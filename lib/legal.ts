@@ -6,13 +6,13 @@ import type { IsoDate } from '@/lib/venue-time';
  * The guest privacy policy (spec §11): its page, its version and the keys it
  * is written in. A web booking stores the version the guest agreed to
  * (reservations.consent_version), so the version must change whenever the
- * policy's meaning does. lib/legal.test.ts pins a hash of the English text to
- * this version: editing a legal.* default fails CI until the version moves.
- * Since phase 7 editors change the text in the database, and the version in
- * force is the newest legal_versions row (migration 009), which a save adds
- * when the agreed text changes (lib/server/content/policy-version.ts). This
- * constant is the seeded first row, and the fallback while that table is
- * empty.
+ * policy's meaning does. Since phase 7 editors change the text in the
+ * database, and the version in force is the newest legal_versions row
+ * (migration 009), which a save adds when the agreed text changes
+ * (lib/server/content/policy-version.ts). This constant is the seeded first
+ * row, and the fallback while that table is empty: it never moves. A changed
+ * code default of agreed text needs its own migration adding a legal_versions
+ * row (lib/legal.test.ts fails on such a change and says what to do).
  */
 export const PRIVACY_POLICY_VERSION: IsoDate = '2026-10-03';
 

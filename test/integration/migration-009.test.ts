@@ -44,6 +44,11 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 009: legal_versions (database)', 
     expect(await one(`SELECT consent_version FROM reservations`)).toEqual({ consent_version: PRIVACY_POLICY_VERSION });
   });
 
+  // This pins 009's seed to today's code defaults of the agreed text. If a default changes, do not edit
+  // 009 or its seed (a migration runs once per database, and the seed is the first version): add a new
+  // migration that inserts a legal_versions row for the new text (today's Da Nang date, the new hash),
+  // shipped in the same deploy window as the code, and move this registry check to that migration's
+  // test; here, keep only the seed's own SEED_HASH.
   it('seeds the hash of the registry’s agreed English text, as the version check computes it', () => {
     const text = JSON.stringify(AGREED_KEYS.map((k) => [k, REGISTRY[k].en]));
     expect(createHash('sha256').update(text).digest('hex')).toBe(SEED_HASH);

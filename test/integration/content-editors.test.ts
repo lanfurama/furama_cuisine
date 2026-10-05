@@ -94,65 +94,69 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content editors: save flow, his
 
   describe('offers', () => {
     it('ACCEPTANCE: edit an offer, restore the version before; delete it, restore it; the guest list follows each step', async () => {
-      expect(await titles()).toEqual(['Seafood & Steak Buffet Dinner', 'Vietnamese Cooking Class', 'Afternoon Tea & Dessert Buffet']);
+      try {
+        expect(await titles()).toEqual(['Seafood & Steak Buffet Dinner', 'Vietnamese Cooking Class', 'Afternoon Tea & Dessert Buffet']);
 
-      // Edit.
-      const input = { ...(await getOfferEditor(pool, '2'))!.values, title: { en: 'Cooking Class with Chef Hép' } };
-      expect(await updateOffer(pool, ACTOR, '2', await offerToken('2'), input)).toEqual({ ok: true, data: null });
-      expect(await titles()).toEqual(['Seafood & Steak Buffet Dinner', 'Cooking Class with Chef Hép', 'Afternoon Tea & Dessert Buffet']);
-      const [edit] = await audit();
-      expect(edit).toMatchObject({ actor_id: ACTOR.id, action: 'update', entity_type: 'offers', entity_id: '2' });
-      // Both snapshots hold the main row and every i18n row.
-      expect(edit.before).toMatchObject({ v: 1, row: { id: 2, restaurant_id: 'taya-house' }, i18n: [{ locale: 'en', title: 'Vietnamese Cooking Class' }] });
-      expect(edit.after.i18n).toEqual([expect.objectContaining({ locale: 'en', title: 'Cooking Class with Chef Hép', status: 'reviewed', origin: 'human' })]);
+        // Edit.
+        const input = { ...(await getOfferEditor(pool, '2'))!.values, title: { en: 'Cooking Class with Chef Hép' } };
+        expect(await updateOffer(pool, ACTOR, '2', await offerToken('2'), input)).toEqual({ ok: true, data: null });
+        expect(await titles()).toEqual(['Seafood & Steak Buffet Dinner', 'Cooking Class with Chef Hép', 'Afternoon Tea & Dessert Buffet']);
+        const [edit] = await audit();
+        expect(edit).toMatchObject({ actor_id: ACTOR.id, action: 'update', entity_type: 'offers', entity_id: '2' });
+        // Both snapshots hold the main row and every i18n row.
+        expect(edit.before).toMatchObject({ v: 1, row: { id: 2, restaurant_id: 'taya-house' }, i18n: [{ locale: 'en', title: 'Vietnamese Cooking Class' }] });
+        expect(edit.after.i18n).toEqual([expect.objectContaining({ locale: 'en', title: 'Cooking Class with Chef Hép', status: 'reviewed', origin: 'human' })]);
 
-      // History offers the version before the edit (the seed) and nothing for the current one.
-      const history = await listHistory(pool, 'offers', '2');
-      expect(restoreChoices(history, await offerToken('2'), snapshotToken)).toEqual([[{ side: 'before', label: 'Khôi phục bản trước lần này' }]]);
+        // History offers the version before the edit (the seed) and nothing for the current one.
+        const history = await listHistory(pool, 'offers', '2');
+        expect(restoreChoices(history, await offerToken('2'), snapshotToken)).toEqual([[{ side: 'before', label: 'Khôi phục bản trước lần này' }]]);
 
-      // Restore 1: the version before the edit.
-      expect(await restoreOffer(pool, ACTOR, { id: '2', auditId: edit.id, side: 'before', token: await offerToken('2') })).toEqual({ ok: true, data: null });
-      expect(await titles()).toEqual(['Seafood & Steak Buffet Dinner', 'Vietnamese Cooking Class', 'Afternoon Tea & Dessert Buffet']);
-      const restored = (await audit()).at(-1);
-      expect(restored).toMatchObject({ action: 'restore', entity_id: '2', before: { i18n: [{ title: 'Cooking Class with Chef Hép' }] } });
-      expect(restored.after).toMatchObject({ i18n: [{ title: 'Vietnamese Cooking Class' }], meta: { restored_from: edit.id } });
+        // Restore 1: the version before the edit.
+        expect(await restoreOffer(pool, ACTOR, { id: '2', auditId: edit.id, side: 'before', token: await offerToken('2') })).toEqual({ ok: true, data: null });
+        expect(await titles()).toEqual(['Seafood & Steak Buffet Dinner', 'Vietnamese Cooking Class', 'Afternoon Tea & Dessert Buffet']);
+        const restored = (await audit()).at(-1);
+        expect(restored).toMatchObject({ action: 'restore', entity_id: '2', before: { i18n: [{ title: 'Cooking Class with Chef Hép' }] } });
+        expect(restored.after).toMatchObject({ i18n: [{ title: 'Vietnamese Cooking Class' }], meta: { restored_from: edit.id } });
 
-      // Delete, with a booking that took the offer: the booking keeps everything but the link (phase-6 R5).
-      const { rows } = await pool.query<{ id: string }>(
-        `INSERT INTO reservations (reference, restaurant_id, reserved_on, reserved_at, guests, guest_name, phone, phone_e164, status, meal, source, offer_id, note)
-         VALUES ('FC-OFFER02', 'taya-house', '2026-12-01', '11:00', 2, 'Khách', '+84905111222', '+84905111222', 'confirmed', 'Lunch', 'web', 2, 'Offer: Vietnamese Cooking Class')
-         RETURNING id::text`,
-      );
-      expect(await deleteOffer(pool, ACTOR, '2', await offerToken('2'))).toEqual({ ok: true, data: { meta: { unlinked_reservations: [rows[0].id] } } });
-      expect(await titles()).toEqual(['Seafood & Steak Buffet Dinner', 'Afternoon Tea & Dessert Buffet']);
-      expect(await getOfferEditor(pool, '2')).toBeNull();
-      const booking = (await pool.query('SELECT offer_id, note, version FROM reservations WHERE id = $1', [rows[0].id])).rows[0];
-      expect(booking).toEqual({ offer_id: null, note: 'Offer: Vietnamese Cooking Class', version: 2 });
-      // R9: the booking's timeline says why its version moved, and who did it (L7-12).
-      const events = (await pool.query(`SELECT actor_kind, actor_id, actor_label, type, changes FROM reservation_events WHERE reservation_id = $1 ORDER BY id`, [rows[0].id])).rows;
-      expect(events).toEqual([
-        { actor_kind: 'staff', actor_id: ACTOR.id, actor_label: 'Mai (mai@furama.test)', type: 'edited', changes: { offer: ['Vietnamese Cooking Class', null] } },
-      ]);
-      const del = (await audit()).at(-1);
-      expect(del).toMatchObject({ action: 'delete', entity_id: '2', after: null, before: { row: { id: 2 }, meta: { unlinked_reservations: [rows[0].id] } } });
-      expect(del.before.i18n).toEqual([expect.objectContaining({ locale: 'en', title: 'Vietnamese Cooking Class', schedule: 'Daily 11:00 or 14:00' })]);
-      expect((await listDeleted(pool, OFFER)).map((d) => d.id)).toEqual(['2']);
+        // Delete, with a booking that took the offer: the booking keeps everything but the link (phase-6 R5).
+        const { rows } = await pool.query<{ id: string }>(
+          `INSERT INTO reservations (reference, restaurant_id, reserved_on, reserved_at, guests, guest_name, phone, phone_e164, status, meal, source, offer_id, note)
+           VALUES ('FC-OFFER02', 'taya-house', '2026-12-01', '11:00', 2, 'Khách', '+84905111222', '+84905111222', 'confirmed', 'Lunch', 'web', 2, 'Offer: Vietnamese Cooking Class')
+           RETURNING id::text`,
+        );
+        expect(await deleteOffer(pool, ACTOR, '2', await offerToken('2'))).toEqual({ ok: true, data: { meta: { unlinked_reservations: [rows[0].id] } } });
+        expect(await titles()).toEqual(['Seafood & Steak Buffet Dinner', 'Afternoon Tea & Dessert Buffet']);
+        expect(await getOfferEditor(pool, '2')).toBeNull();
+        const booking = (await pool.query('SELECT offer_id, note, version FROM reservations WHERE id = $1', [rows[0].id])).rows[0];
+        expect(booking).toEqual({ offer_id: null, note: 'Offer: Vietnamese Cooking Class', version: 2 });
+        // R9: the booking's timeline says why its version moved, and who did it (L7-12).
+        const events = (await pool.query(`SELECT actor_kind, actor_id, actor_label, type, changes FROM reservation_events WHERE reservation_id = $1 ORDER BY id`, [rows[0].id])).rows;
+        expect(events).toEqual([
+          { actor_kind: 'staff', actor_id: ACTOR.id, actor_label: 'Mai (mai@furama.test)', type: 'edited', changes: { offer: ['Vietnamese Cooking Class', null] } },
+        ]);
+        const del = (await audit()).at(-1);
+        expect(del).toMatchObject({ action: 'delete', entity_id: '2', after: null, before: { row: { id: 2 }, meta: { unlinked_reservations: [rows[0].id] } } });
+        expect(del.before.i18n).toEqual([expect.objectContaining({ locale: 'en', title: 'Vietnamese Cooking Class', schedule: 'Daily 11:00 or 14:00' })]);
+        expect((await listDeleted(pool, OFFER)).map((d) => d.id)).toEqual(['2']);
 
-      // Restore 2: the deleted offer, under its own id and in its old place; the booking is not relinked (R5).
-      const choices = restoreChoices(await listHistory(pool, 'offers', '2'), 'deleted', snapshotToken);
-      expect(choices[0]).toEqual([{ side: 'before', label: 'Khôi phục mục đã xóa' }]);
-      expect(await restoreOffer(pool, ACTOR, { id: '2', auditId: del.id, side: 'before', token: 'deleted' })).toEqual({ ok: true, data: null });
-      expect(await titles()).toEqual(['Seafood & Steak Buffet Dinner', 'Vietnamese Cooking Class', 'Afternoon Tea & Dessert Buffet']);
-      expect((await loadOffers('en'))[1]).toMatchObject({ id: 2, restaurantId: 'taya-house', detail: 'VND 799,000++ per guest · Daily 11:00 or 14:00' });
-      expect((await pool.query('SELECT offer_id FROM reservations WHERE id = $1', [rows[0].id])).rows[0].offer_id).toBeNull();
-      expect((await pool.query('SELECT count(*)::int AS n FROM reservation_events WHERE reservation_id = $1', [rows[0].id])).rows[0].n).toBe(1);
-      expect(await listDeleted(pool, OFFER)).toEqual([]);
+        // Restore 2: the deleted offer, under its own id and in its old place; the booking is not relinked (R5).
+        const choices = restoreChoices(await listHistory(pool, 'offers', '2'), 'deleted', snapshotToken);
+        expect(choices[0]).toEqual([{ side: 'before', label: 'Khôi phục mục đã xóa' }]);
+        expect(await restoreOffer(pool, ACTOR, { id: '2', auditId: del.id, side: 'before', token: 'deleted' })).toEqual({ ok: true, data: null });
+        expect(await titles()).toEqual(['Seafood & Steak Buffet Dinner', 'Vietnamese Cooking Class', 'Afternoon Tea & Dessert Buffet']);
+        expect((await loadOffers('en'))[1]).toMatchObject({ id: 2, restaurantId: 'taya-house', detail: 'VND 799,000++ per guest · Daily 11:00 or 14:00' });
+        expect((await pool.query('SELECT offer_id FROM reservations WHERE id = $1', [rows[0].id])).rows[0].offer_id).toBeNull();
+        expect((await pool.query('SELECT count(*)::int AS n FROM reservation_events WHERE reservation_id = $1', [rows[0].id])).rows[0].n).toBe(1);
+        expect(await listDeleted(pool, OFFER)).toEqual([]);
 
-      // The same delete row restored twice: the offer exists now, so the page's 'deleted' token is stale.
-      expect(await restoreOffer(pool, ACTOR, { id: '2', auditId: del.id, side: 'before', token: 'deleted' })).toMatchObject({ ok: false, code: 'conflict' });
-      expect((await audit()).map((a) => a.action)).toEqual(['update', 'restore', 'delete', 'restore']);
-      await pool.query('DELETE FROM reservation_events WHERE reservation_id = $1', [rows[0].id]);
-      await pool.query('DELETE FROM reservations WHERE id = $1', [rows[0].id]);
+        // The same delete row restored twice: the offer exists now, so the page's 'deleted' token is stale.
+        expect(await restoreOffer(pool, ACTOR, { id: '2', auditId: del.id, side: 'before', token: 'deleted' })).toMatchObject({ ok: false, code: 'conflict' });
+        expect((await audit()).map((a) => a.action)).toEqual(['update', 'restore', 'delete', 'restore']);
+      } finally {
+        // Clean up even when an assertion above fails: a booking left behind would break the next run's INSERT (unique reference).
+        await pool.query(`DELETE FROM reservation_events WHERE reservation_id IN (SELECT id FROM reservations WHERE reference = 'FC-OFFER02')`);
+        await pool.query(`DELETE FROM reservations WHERE reference = 'FC-OFFER02'`);
+      }
     });
 
     it('a restore rewrites every language of the snapshot, keeping each one’s review state (R3)', async () => {

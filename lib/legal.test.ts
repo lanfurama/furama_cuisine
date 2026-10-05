@@ -4,9 +4,17 @@ import { REGISTRY } from '@/lib/i18n/registry';
 import { AGREED_KEYS, PRIVACY_POLICY_VERSION, privacyHref } from './legal';
 
 /*
- * reservations.consent_version must name the text the guest saw. When this
- * test fails, the policy text changed: move PRIVACY_POLICY_VERSION to today's
- * date and record the new pair below, in the same commit.
+ * reservations.consent_version must name the text the guest saw, and since
+ * phase 7 the version in force is the newest legal_versions row (migration
+ * 009), not this constant. When this test fails, a code default of agreed text
+ * (legal.*, booking.consent, booking.privacy_notice) changed. Do not move
+ * PRIVACY_POLICY_VERSION or edit 009's seed: both describe the seeded first
+ * row, and a migration runs once per database. Instead add a new migration
+ * that inserts a legal_versions row (version and effective_on = today's Da
+ * Nang date, text_sha256 = the new hash this test prints), shipped in the
+ * same deploy window as the code (the README's "Before launch A", the
+ * lawyer's note). Then pin that migration's pair here in RECORDED and compare
+ * against it.
  */
 const RECORDED = { version: '2026-10-03', sha256: 'f49aa3f58723d14d6491c1801466c411fe9439acab85b4da5272d4c7676e10d2' };
 

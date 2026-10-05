@@ -248,7 +248,7 @@ export const COLUMN_SCREENS: Record<ContentTable, Record<string, ColumnOwner>> =
   social_links: { ...LIST_META, platform: 'contact', href: 'contact', visible_locales: 'contact', is_published: 'contact' },
   legal_versions: {
     version: { none: 'written by a legal save that changes the agreed text (lib/server/content/policy-version.ts)' },
-    effective_on: 'legal',
+    effective_on: { none: 'computed by the save' },
     text_sha256: { none: 'computed by the save' },
     created_at: BOOKKEEPING,
     created_by: BOOKKEEPING,

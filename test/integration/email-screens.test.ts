@@ -242,9 +242,15 @@ describe.skipIf(!TEST_DATABASE_URL)('email screens and templates (database)', ()
       expect(guest.text).not.toContain('Bàn gần cửa sổ.');
       expect(guest.text).not.toContain('0905 123 456');
       expect(guest.html).not.toContain('/admin/');
-      const staff = await render('staff.new', id, 'en');
-      expect(staff.text).toContain('Bàn gần cửa sổ.');
-      expect(staff.text).toContain(`http://localhost:3000/admin/reservations/${id}`);
+      // The admin link's origin is BETTER_AUTH_URL (appOrigin): pin it here, so a value exported in the shell cannot change the expected link.
+      vi.stubEnv('BETTER_AUTH_URL', 'https://admin.furama.test');
+      try {
+        const staff = await render('staff.new', id, 'en');
+        expect(staff.text).toContain('Bàn gần cửa sổ.');
+        expect(staff.text).toContain(`https://admin.furama.test/admin/reservations/${id}`);
+      } finally {
+        vi.unstubAllEnvs();
+      }
     });
 
     it('the destination’s phone, and replies to the guest (staff) or the shared inbox (guest) (R11)', async () => {
