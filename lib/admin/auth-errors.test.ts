@@ -50,6 +50,8 @@ describe('actionErrorMessage', () => {
     ['closed', 'Nhà hàng đóng cửa vào bữa này trong ngày đã chọn.'],
     ['slot_unavailable', 'Giờ này không nằm trong ca phục vụ của ngày đã chọn.'],
     ['duplicate', 'Số điện thoại này đã có một đặt bàn đang hoạt động cùng nhà hàng, ngày và giờ.'],
+    ['limit', 'Đã đủ số mục tối đa được hiện. Hãy ẩn một mục khác trước.'],
+    ['missing_reference', 'Phiên bản này dùng một nhà hàng, ảnh hoặc mục không còn nữa, nên không khôi phục được.'],
   ] as const)('%s', (code, message) => expect(actionErrorMessage(code)).toBe(message));
 
   it('says who saved first, and how many covers are left, when the action sends them', () => {
@@ -59,6 +61,10 @@ describe('actionErrorMessage', () => {
     expect(actionErrorMessage('conflict', { by: 'Lan', at: '' })).toBe('Vừa được Lan thay đổi. Hãy tải lại trang rồi làm lại.');
     expect(actionErrorMessage('full', { left: '3' })).toBe('Khung giờ này chỉ còn 3 chỗ. Muốn vẫn nhận, hãy ghi lý do vượt sức chứa.');
     expect(actionErrorMessage('full', { left: '0' })).toBe('Khung giờ này chỉ còn 0 chỗ. Muốn vẫn nhận, hãy ghi lý do vượt sức chứa.');
+  });
+
+  it('names the layout limit a content save would pass (spec §6.5)', () => {
+    expect(actionErrorMessage('limit', { max: '6' })).toBe('Tối đa 6 mục được hiện (giới hạn bố cục). Hãy ẩn một mục khác trước.');
   });
 });
 

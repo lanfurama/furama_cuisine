@@ -19,5 +19,8 @@ export default defineConfig({
     globalSetup: ['./test/global-setup.ts'],
     // Integration tests share one database, so files run one at a time.
     fileParallelism: false,
+    // A migration test's hook resets a database and replays every migration: 10 s ran out under load
+    // (migration-008 and -007 in the phase-7 spikes, migration-006 in plan 7A's verification).
+    hookTimeout: 30_000,
   },
 });

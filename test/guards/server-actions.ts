@@ -181,6 +181,14 @@ export function scanRepo(root: string, publicActions: ReadonlySet<string>): stri
   });
 }
 
+/** The files under `prefixes` whose first statement is 'use server' (Server Action modules), relative to `root`. */
+export function actionFiles(root: string, prefixes: readonly string[]): string[] {
+  return sourceFiles(root)
+    .filter((rel) => prefixes.some((p) => rel.startsWith(p)))
+    .filter((rel) => /^\s*['"]use server['"]/.test(readFileSync(join(root, rel), 'utf8')))
+    .sort();
+}
+
 /** Allowlist entries ("file#export") that no longer name an exported function. */
 export function publicActionsMissing(root: string, entries: readonly string[]): string[] {
   return entries.filter((entry) => {

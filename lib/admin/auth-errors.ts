@@ -64,6 +64,8 @@ const ACTION_MESSAGES: Record<ActionCode, string> = {
   duplicate: 'Số điện thoại này đã có một đặt bàn đang hoạt động cùng nhà hàng, ngày và giờ.',
   not_resendable: 'Email này đã gửi, đã bỏ qua hoặc đang được gửi, nên không gửi lại được. Hãy tải lại trang.',
   email_failed: 'Không gửi được email thử.',
+  limit: 'Đã đủ số mục tối đa được hiện. Hãy ẩn một mục khác trước.',
+  missing_reference: 'Phiên bản này dùng một nhà hàng, ảnh hoặc mục không còn nữa, nên không khôi phục được.',
 };
 
 /** `params` fills in the codes that carry details: who saved first and when, the covers left. */
@@ -73,6 +75,9 @@ export function actionErrorMessage(code: ActionCode, params?: Record<string, str
   }
   if (code === 'full' && params?.left !== undefined) {
     return `Khung giờ này chỉ còn ${params.left} chỗ. Muốn vẫn nhận, hãy ghi lý do vượt sức chứa.`;
+  }
+  if (code === 'limit' && params?.max) {
+    return `Tối đa ${params.max} mục được hiện (giới hạn bố cục). Hãy ẩn một mục khác trước.`;
   }
   if (code === 'email_failed' && params?.error) {
     return `Không gửi được email thử. ${emailFailureHint(params.error)} (${params.error})`;

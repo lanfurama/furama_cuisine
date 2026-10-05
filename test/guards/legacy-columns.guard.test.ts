@@ -25,12 +25,19 @@ import { describe, expect, it } from 'vitest';
  * join cannot be placed and is left to the alias rule. Migrations, the Neon check SQL and
  * the tests (booking-seed.test.ts reads the phase-1 seed on purpose) are not
  * app code.
+ *
+ * Phase 7 (ledger L7-9) writes most of the new SQL, so the scan reads
+ * keywords in any case (`select … from restaurants r`), sees an alias given
+ * in a comma join (`FROM reservations x, restaurants r`), and parses every
+ * script kind: .ts/.tsx, .js/.jsx, .mjs/.mts and .cjs/.cts.
  */
 
 const ROOT = join(__dirname, '..', '..');
 const SCAN = ['app', 'components', 'lib', 'db', 'scripts'];
 const LEGACY = ['type', 'destination', 'cuisines', 'meals', 'slot_capacity'];
-const SQL = /\b(?:SELECT|INSERT INTO|UPDATE|DELETE FROM|WHERE|JOIN)\b|\bAS "\w+"/;
+const SQL = /\b(?:SELECT|INSERT INTO|UPDATE|DELETE FROM|WHERE|JOIN)\b|\bAS "\w+"/i;
+const SOURCE = /\.(?:[cm]?[jt]s|[jt]sx)$/;
+const NOT_APP = /\.test\.[cm]?[jt]sx?$|\.d\.[cm]?ts$/;
 
 type Node = { type: string; [key: string]: unknown };
 
@@ -40,7 +47,7 @@ function files(path: string): string[] {
   try {
     entries = readdirSync(full, { withFileTypes: true });
   } catch {
-    return /\.(?:ts|tsx|mjs)$/.test(path) && !/\.test\.ts$/.test(path) && !/\.d\.ts$/.test(path) ? [path] : [];
+    return SOURCE.test(path) && !NOT_APP.test(path) ? [path] : [];
   }
   return entries.flatMap((e) => (e.name === 'node_modules' || e.name.startsWith('.') || path === 'db/migrations' ? [] : files(join(path, e.name))));
 }
@@ -71,14 +78,21 @@ function literals(rel: string, source: string): string[] {
 function legacyReads(sql: string): string[] {
   if (!SQL.test(sql)) return [];
   const aliases = new Set(['restaurants']);
-  for (const m of sql.matchAll(/\b(?:FROM|JOIN|UPDATE)\s+restaurants\s+(?:AS\s+)?([a-z_]\w*)/gi)) {
+  // `FROM restaurants r`, `JOIN restaurants AS r`, and a comma join's `…, restaurants r`.
+  for (const m of sql.matchAll(/(?:\b(?:FROM|JOIN|UPDATE)\s+|,\s*)restaurants\s+(?:AS\s+)?([a-z_]\w*)/gi)) {
     if (!/^(?:WHERE|ON|JOIN|LEFT|RIGHT|INNER|CROSS|SET|ORDER|GROUP|USING|LIMIT)$/i.test(m[1])) aliases.add(m[1]);
   }
   const cols = LEGACY.join('|');
   const qualified = new RegExp(`(?:\\b(${[...aliases].join('|')})|\\$\\{\\})\\.(${cols})\\b(?![\\w])`, 'g');
   const bare = /(?<![\w.'"$])(destination|slot_capacity)(?![\w'"])/g;
   const reads = [...[...sql.matchAll(qualified)].map((m) => m[0]), ...[...sql.matchAll(bare)].map((m) => m[0])];
-  const tables = new Set([...sql.matchAll(/\b(?:FROM|JOIN|UPDATE|INTO)\s+([a-z_]\w*)/gi)].map((m) => m[1].toLowerCase()));
+  const tables = new Set(
+    [
+      ...sql.matchAll(/\b(?:FROM|JOIN|UPDATE|INTO)\s+([a-z_]\w*)/gi),
+      // A comma join's next table: `FROM restaurants r, media m`.
+      ...sql.matchAll(/\b(?:FROM|JOIN)\s+[a-z_]\w*(?:\s+(?:AS\s+)?[a-z_]\w*)?((?:\s*,\s*[a-z_]\w*(?:\s+(?:AS\s+)?[a-z_]\w*)?)+)/gi),
+    ].flatMap((m) => (m[0].includes(',') ? [...m[1].matchAll(/,\s*([a-z_]\w*)/g)].map((t) => t[1]) : [m[1]])).map((t) => t.toLowerCase()),
+  );
   if (tables.size === 1 && tables.has('restaurants')) {
     reads.push(...[...sql.matchAll(/(?<![\w.'"$])(type|cuisines|meals)(?![\w'"])/g)].map((m) => m[0]));
   }
@@ -109,5 +123,16 @@ describe('no app SQL reads the phase-1 columns of restaurants (R10)', () => {
     expect(legacyReads(`SELECT r.id, type FROM restaurants r JOIN media m ON m.id = r.card_image_id`)).toEqual([]);
     expect(legacyReads(`SELECT id, name FROM restaurants WHERE content_type = 'type' ORDER BY sort_order`)).toEqual([]);
     expect(legacyReads('Any destination')).toEqual([]);
+  });
+
+  it('reads keywords in any case, sees a comma join’s alias, and parses every script kind (L7-9)', () => {
+    expect(legacyReads(`select r.id, r.type from restaurants r where r.id = $1`)).toEqual(['r.type']);
+    expect(legacyReads(`SELECT x.id FROM reservations x, restaurants r WHERE r.id = x.restaurant_id AND r.meals @> $1`)).toEqual(['r.meals']);
+    expect(legacyReads(`select id from reservations x, restaurants as rest where rest.cuisines @> $1`)).toEqual(['rest.cuisines']);
+    expect(legacyReads(`update restaurants set slot_capacity = 4 where id = $1`)).toEqual(['slot_capacity']);
+    // Two tables by a comma: a bare `type` cannot be placed, as in a JOIN.
+    expect(legacyReads(`SELECT r.id, type FROM restaurants r, media m WHERE m.id = r.card_image_id`)).toEqual([]);
+    for (const name of ['a.js', 'a.jsx', 'a.mjs', 'a.mts', 'a.cjs', 'a.cts', 'a.ts', 'a.tsx']) expect(SOURCE.test(name), name).toBe(true);
+    for (const name of ['a.test.ts', 'a.test.mjs', 'a.d.ts', 'a.d.mts', 'a.sql', 'a.json']) expect(SOURCE.test(name) && !NOT_APP.test(name), name).toBe(false);
   });
 });

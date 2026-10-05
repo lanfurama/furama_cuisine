@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { roleCan } from '../../lib/server/auth/permissions';
-import { actionPermissions, adminOnlyProblems, adminPluginCalls, adminPluginCallsIn, checkActions, publicActionsMissing, scanRepo } from './server-actions';
+import { actionFiles, actionPermissions, adminOnlyProblems, adminPluginCalls, adminPluginCallsIn, checkActions, publicActionsMissing, scanRepo } from './server-actions';
 
 /*
  * Spec §7.1 / §13 "Bảo vệ": every Server Action ('use server' export or inline
@@ -95,8 +95,24 @@ const BOOKING_ACTIONS: Record<string, Record<string, { permission: object; edito
   },
 };
 
-describe('booking actions follow the permission matrix (spec §7.1)', () => {
-  for (const [rel, actions] of Object.entries(BOOKING_ACTIONS)) {
+/*
+ * Spec §7.1, content (phase 7): Editor and Admin edit content and files and
+ * restore their history; a restore asks for content:restore, every other
+ * write content:update. Each content editor adds its action file here, and
+ * the test after the matrix fails while a content screen's action file has
+ * no rows.
+ */
+const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; editor: boolean }>> = {};
+
+/** Where content editors keep their Server Actions (spec §7.2): every 'use server' file here needs CONTENT_ACTIONS rows. */
+const CONTENT_SCREENS = ['app/admin/(shell)/content/', 'app/admin/(shell)/media/', 'app/admin/(shell)/restaurants/[id]/actions.ts', 'app/admin/(shell)/restaurants/actions.ts'];
+
+describe('booking and content actions follow the permission matrix (spec §7.1)', () => {
+  it('every content screen’s action file has its rows in CONTENT_ACTIONS', () => {
+    expect(actionFiles(ROOT, CONTENT_SCREENS).filter((rel) => !(rel in CONTENT_ACTIONS))).toEqual([]);
+  });
+
+  for (const [rel, actions] of Object.entries({ ...BOOKING_ACTIONS, ...CONTENT_ACTIONS })) {
     it(rel, () => {
       const found = actionPermissions(ROOT, rel);
       expect(Object.keys(found).sort()).toEqual(Object.keys(actions).sort());

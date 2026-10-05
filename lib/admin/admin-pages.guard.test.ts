@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { parseSync } from 'oxc-parser';
 import { describe, expect, it } from 'vitest';
 
@@ -10,6 +10,10 @@ import { describe, expect, it } from 'vitest';
  * every session read as a blocking route (instant-navigation.md:568). Each
  * admin page therefore says `instant = false` itself, and no admin file may
  * use style="" (style={…}) markup: the admin CSP has no 'unsafe-inline'.
+ * For the same CSP (and to keep the guest's code out of the admin), no admin
+ * file imports a guest component (components/**) or next/image's <Image>,
+ * which injects style="color:transparent" (phase-3 ledger; R18). Thumbnails
+ * use the named getImageProps through _kit/Thumb (phase 7).
  */
 const ADMIN = 'app/admin';
 
@@ -20,7 +24,8 @@ function files(dir: string): string[] {
   });
 }
 
-const all = files(ADMIN).filter((f) => /\.tsx?$/.test(f));
+// Every script kind: a .js or .jsx file under app/admin is checked like a .ts one.
+const all = files(ADMIN).filter((f) => /\.[jt]sx?$/.test(f));
 
 describe('admin pages', () => {
   it('every page.tsx exports instant = false', () => {
@@ -71,10 +76,35 @@ describe('admin pages', () => {
     expect(all.filter((f) => /\bstyle=\{/.test(readFileSync(f, 'utf8')))).toEqual([]);
   });
 
+  it('imports no guest component and no next/image <Image>', () => {
+    const problems = all.flatMap((f) => forbiddenImports(f, readFileSync(f, 'utf8')).map((p) => `${relative('.', f)}: ${p}`));
+    expect(problems).toEqual([]);
+  });
+
+  it('the import rule: components/** by alias or relative path, and the default or namespace import of next/image', () => {
+    const fixture = [
+      "import Image from 'next/image';",
+      "import * as NextImage from 'next/image';",
+      "import { getImageProps } from 'next/image';",
+      "import { CmsImage } from '@/components/ui/CmsImage';",
+      "import { Footer } from '../../../../../components/site/Footer';",
+      "import { FormMessage } from '../_ui/FormMessage';",
+      "export { Header } from '@/components/site/Header';",
+      "import Link from 'next/link';",
+    ].join('\n');
+    expect(forbiddenImports('app/admin/(shell)/content/x/page.tsx', fixture)).toEqual([
+      "line 1: next/image's <Image> (its inline style breaks the admin CSP; use _kit/Thumb)",
+      "line 2: next/image's <Image> (its inline style breaks the admin CSP; use _kit/Thumb)",
+      'line 4: a guest component (@/components/ui/CmsImage)',
+      'line 5: a guest component (../../../../../components/site/Footer)',
+      'line 7: a guest component (@/components/site/Header)',
+    ]);
+  });
+
   it('a form that submits from onSubmit, or has no action, says method="post"', () => {
     const forms: string[] = [];
     const missing: string[] = [];
-    for (const f of all.filter((path) => path.endsWith('.tsx'))) {
+    for (const f of all.filter((path) => /\.[jt]sx$/.test(path))) {
       for (const { line, lacksPost } of checkForms(f, readFileSync(f, 'utf8'))) {
         forms.push(`${relative('.', f)}:${line}`);
         if (lacksPost) missing.push(`${relative('.', f)}:${line}`);
@@ -182,6 +212,28 @@ function checkForms(file: string, src: string): { line: number; lacksPost: boole
     forms.push({ line: lineOf(src, n), lacksPost: needsPost && !posts });
   });
   return forms;
+}
+
+/**
+ * The imports an admin file may not make, by line: a guest component (the admin has its own UI, and a guest
+ * component brings the guest's CSS assumptions and, through next/image, inline styles), and next/image's
+ * default or namespace import, whose <Image> sets style="color:transparent" that the admin's nonce CSP blocks
+ * (the phase-7 kit spike measured 560 violations). The named getImageProps import stays allowed.
+ */
+function forbiddenImports(file: string, src: string): string[] {
+  const found: string[] = [];
+  const program = parseSync(file, src).program as unknown as JsxNode;
+  for (const n of program.body as JsxNode[]) {
+    if (!['ImportDeclaration', 'ExportNamedDeclaration', 'ExportAllDeclaration'].includes(n.type) || !n.source) continue;
+    const source = String((n.source as JsxNode).value);
+    const specifiers = (n.specifiers as JsxNode[] | undefined) ?? [];
+    if (source === 'next/image' && specifiers.some((sp) => sp.type === 'ImportDefaultSpecifier' || sp.type === 'ImportNamespaceSpecifier')) {
+      found.push(`line ${lineOf(src, n)}: next/image's <Image> (its inline style breaks the admin CSP; use _kit/Thumb)`);
+    }
+    const resolved = source.startsWith('.') ? relative('.', join(dirname(file), source)) : source;
+    if (/^(?:@\/)?components\//.test(resolved)) found.push(`line ${lineOf(src, n)}: a guest component (${source})`);
+  }
+  return found;
 }
 
 /**

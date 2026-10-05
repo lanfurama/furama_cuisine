@@ -42,7 +42,12 @@ export type ActionCode =
   /** "Gửi lại" on an email that was sent, skipped, or is being sent right now. */
   | 'not_resendable'
   /** "Gửi email thử" did not go out; params.error is describeEmailError's "<code>: <message>" (no address). */
-  | 'email_failed';
+  | 'email_failed'
+  // Content (spec §6.5, §7.5; R16).
+  /** A layout limit (spec §6.5) would be passed; params.max is the limit. */
+  | 'limit'
+  /** A restore points at a restaurant, file or row that is gone since that version. */
+  | 'missing_reference';
 
 export type ActionFailure = {
   ok: false;
