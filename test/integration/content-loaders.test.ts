@@ -3,7 +3,7 @@ import { getPool } from '@/db/client';
 import { homeSections } from '@/lib/content/home-sections';
 import { FALLBACK_PHONE } from '@/lib/data';
 import { loadExperiences, loadHeroSlides, loadOffers, loadStories } from '@/lib/server/content/home.queries';
-import { loadDetailSlugs, loadRestaurantDetail } from '@/lib/server/content/restaurants.queries';
+import { loadDetailSlugs, loadRestaurantDetail, loadRestaurants } from '@/lib/server/content/restaurants.queries';
 import { loadSiteSettings } from '@/lib/server/content/settings.queries';
 import { loadCuisines, loadDestinations, loadNav, loadSections, loadSocials } from '@/lib/server/content/site.queries';
 import {
@@ -59,6 +59,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
     await sql(
       `UPDATE restaurant_i18n SET detail_kicker = NULL, story = NULL, menu_pdf_url = NULL WHERE restaurant_id <> 'taya-house'`,
     );
+    await sql(`UPDATE media SET deleted_at = NULL WHERE storage = 'static'`);
+    await sql(`DELETE FROM media WHERE pathname LIKE '/assets/test-l73-%'`);
   });
   afterAll(() => getPool().end());
 
@@ -236,6 +238,35 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
       });
       await openPage('chaoshan-hotpot', '/assets/r-chaoshan-hotpot.jpg');
       expect(await loadRestaurantDetail('chaoshan-hotpot', 'en')).toMatchObject({ phone: null, map: null, destinationName: 'Furama MM Supercenter' });
+    });
+
+    it('L7-3: "has a page" is one predicate: a portrait in the trash, or an archived restaurant, takes away the page, its slug and the card’s link together', async () => {
+      const tayaCard = async () => (await loadRestaurants('en')).find((r) => r.id === 'taya-house');
+      expect((await tayaCard())?.hasDetailPage).toBe(true);
+      await sql(`UPDATE media SET deleted_at = now() WHERE pathname = '/assets/taya-hero.jpg'`);
+      expect((await tayaCard())?.hasDetailPage).toBe(false);
+      expect(await loadDetailSlugs()).toEqual([]);
+      expect(await loadRestaurantDetail('taya-house', 'en')).toBeNull();
+      await sql(`UPDATE media SET deleted_at = NULL WHERE pathname = '/assets/taya-hero.jpg'`);
+      await sql(`UPDATE restaurants SET archived_at = now() WHERE id = 'taya-house'`);
+      expect(await loadDetailSlugs()).toEqual([]);
+      expect(await tayaCard()).toBeUndefined();
+    });
+
+    it('a highlight whose picture is in the trash is left out', async () => {
+      const [first, ...rest] = (await loadRestaurantDetail('taya-house', 'en'))!.highlights;
+      await sql(`UPDATE media SET deleted_at = now() WHERE url = $1`, [first.image.url]);
+      expect((await loadRestaurantDetail('taya-house', 'en'))!.highlights.map((h) => h.title)).toEqual(rest.map((h) => h.title));
+    });
+
+    it('an uploaded menu PDF of the page’s language beats the default language’s link; one in the trash falls back to the link', async () => {
+      const { rows } = await sql(
+        `INSERT INTO media (storage, url, pathname, content_type, bytes) VALUES ('static', '/assets/test-l73-menu-vi.pdf', '/assets/test-l73-menu-vi.pdf', 'application/pdf', 1000) RETURNING id`,
+      );
+      await sql(`INSERT INTO restaurant_i18n (restaurant_id, locale, menu_pdf_media_id, status) VALUES ('taya-house', 'vi', $1, 'reviewed')`, [rows[0].id]);
+      expect((await loadRestaurantDetail('taya-house', 'vi'))?.menu).toEqual({ kind: 'pdf', url: '/assets/test-l73-menu-vi.pdf' });
+      await sql(`UPDATE media SET deleted_at = now() WHERE id = $1`, [rows[0].id]);
+      expect((await loadRestaurantDetail('taya-house', 'vi'))?.menu).toEqual({ kind: 'pdf', url: DETAIL_PAGES_AT_8FE98F5['taya-house'].menuPdf });
     });
 
     it('the menu PDF of the page’s language, else the default language’s', async () => {

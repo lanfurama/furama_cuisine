@@ -17,10 +17,10 @@ import { useReveal } from '@/lib/motion';
  * restaurant does not have (kicker, story) hides its element.
  */
 export function RestaurantHero({ detail }: { detail: RestaurantDetail }) {
-  const { goBackToRestaurants, openReserve, scrollToId } = useSite();
+  const { goBackToRestaurants, openReserve, scrollToId, strings } = useSite();
   const story = useReveal<HTMLParagraphElement>('up');
-  // PHASE 7: the default label becomes the registry key detail.story_label.
-  const storyLabel = detail.storyLabel ?? 'Brand Story';
+  // The restaurant's own label, else the one every page shares (detail.story_label, /admin/restaurants).
+  const storyLabel = detail.storyLabel ?? strings['detail.story_label'];
   const menu = detail.menu;
 
   return (
@@ -29,7 +29,8 @@ export function RestaurantHero({ detail }: { detail: RestaurantDetail }) {
         <div className="shell-wide taya-hero-inner">
           <div className="taya-hero-copy">
             <button type="button" className="taya-back" data-intro="0" onClick={goBackToRestaurants}>
-              <span aria-hidden="true">←</span>ALL RESTAURANTS
+              <span aria-hidden="true">←</span>
+              {strings['detail.back_all']}
             </button>
 
             {detail.kicker && (
@@ -71,17 +72,17 @@ export function RestaurantHero({ detail }: { detail: RestaurantDetail }) {
               {/* The restaurant's own, else its destination's; neither hides the button (spec §6.4). */}
               {detail.phone && (
                 <a href={`tel:${detail.phone.tel}`} className="taya-link">
-                  CALL
+                  {strings['detail.call']}
                 </a>
               )}
               {detail.map && (
                 <a href={detail.map} target="_blank" rel="noopener" className="taya-link">
-                  MAP
+                  {strings['detail.map']}
                 </a>
               )}
               {menu && (
                 <button type="button" className="taya-link" onClick={() => openMenu(menu, () => scrollToId('dishes'))}>
-                  MENU
+                  {strings['detail.menu']}
                 </button>
               )}
             </div>
@@ -102,7 +103,8 @@ export function RestaurantHero({ detail }: { detail: RestaurantDetail }) {
         </div>
 
         <button type="button" className="taya-back-float" onClick={goBackToRestaurants}>
-          <span aria-hidden="true">←</span>BACK
+          <span aria-hidden="true">←</span>
+          {strings['detail.back']}
         </button>
 
         <div className="taya-hero-scrim" aria-hidden="true" />

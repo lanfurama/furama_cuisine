@@ -25,7 +25,6 @@ const NOT_BUILT: readonly EditScreen[] = [
   'navigation',
   'contact',
   'seo',
-  'restaurant',
 ];
 
 const CURRENT_PHASE = 7;

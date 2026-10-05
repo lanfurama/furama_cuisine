@@ -105,3 +105,55 @@ export function sectionErrors(key: string, version: { visible: boolean; link: st
   }
   return errors;
 }
+
+export type DetailPageInput = {
+  hasDetailPage: boolean;
+  detailImageId: string | null;
+  storyEn: string | null;
+};
+
+/**
+ * Spec §6.4: switching the page on needs the portrait and the EN story. The
+ * restaurants_detail_image CHECK holds the first in SQL; the story lives in
+ * restaurant_i18n, which no CHECK on restaurants can see.
+ */
+export function detailPageErrors(input: DetailPageInput): Record<string, string[]> {
+  if (!input.hasDetailPage) return {};
+  const errors: Record<string, string[]> = {};
+  if (!input.detailImageId) errors.detailImageId = ['Trang chi tiết cần ảnh chân dung.'];
+  if (!input.storyEn?.trim()) errors.story = ['Trang chi tiết cần câu chuyện tiếng Anh.'];
+  return errors;
+}
+
+export type DetailPageWarningInput = {
+  hasDetailPage: boolean;
+  name: string;
+  shownHighlights: number;
+  /** The restaurant's or its destination's (spec §6.4 fallbacks); false hides that button. */
+  hasPhone: boolean;
+  hasMap: boolean;
+  hasMenu: boolean;
+};
+
+/** Spec §6.4/§6.5 warnings for a restaurant whose page is on. */
+export function detailPageWarnings(input: DetailPageWarningInput): string[] {
+  if (!input.hasDetailPage) return [];
+  const out: string[] = [];
+  if (input.shownHighlights < LIMITS.highlights.warnBelow) out.push(`Trang chi tiết chỉ có ${input.shownHighlights} điểm nổi bật (nên có ít nhất 2).`);
+  const hidden = [!input.hasPhone && 'CALL', !input.hasMap && 'MAP', !input.hasMenu && 'MENU'].filter(Boolean);
+  if (hidden.length) out.push(`Nút ${hidden.join(', ')} bị ẩn vì chưa có số điện thoại, bản đồ hoặc thực đơn.`);
+  if (checkLength(input.name, LENGTHS.restaurantName.max, LENGTHS.restaurantName.warn).level !== 'ok') {
+    out.push(`Tên dài hơn ${LENGTHS.restaurantName.warn} ký tự có thể xuống dòng ở trang chi tiết.`);
+  }
+  return out;
+}
+
+/**
+ * R19: the card's EN alt was seeded as a copy of the restaurant's name. A
+ * rename carries it along while it still equals the old name; an alt an
+ * editor wrote by hand stays. The new alt, or null for "leave it".
+ */
+export function followRename(alt: string | null, oldName: string, newName: string): string | null {
+  if (oldName === newName || alt === null) return null;
+  return alt.trim() === oldName.trim() ? newName : null;
+}

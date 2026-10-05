@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AutoplayForm, checkbox, OfferForm, OrderForm, readForm, RecordRef, RestoreForm, SectionForm, SlideForm } from './content-schemas';
+import { AutoplayForm, checkbox, OfferForm, OrderForm, readForm, RecordRef, RestaurantForm, RestoreForm, SectionForm, SlideForm } from './content-schemas';
 import { z } from './zod';
 
 const form = (entries: Record<string, string>) => {
@@ -95,5 +95,57 @@ describe('content form schemas (spec §7.3, §7.4)', () => {
     const token = 'c'.repeat(32);
     expect(AutoplayForm.parse({ token, seconds: '9' })).toEqual({ token, seconds: 9 });
     for (const seconds of ['2', '21', '7.5', '']) expect(AutoplayForm.safeParse({ token, seconds }).success, seconds).toBe(false);
+  });
+
+  it('a restaurant: the phone is stored in both forms; highlights are checked one by one with their number; the menu is a file or a link', () => {
+    const base = {
+      token: 'a'.repeat(32),
+      name: 'Tàya House',
+      slug: 'taya-house',
+      destinationId: 'resort',
+      isPublished: 'on',
+      cardImageId: '6f1c2a5e-1f3b-4c1d-9a2b-3c4d5e6f7a8b',
+      detailImageId: '',
+      ogImageId: '',
+      phoneDisplay: '0905 111 222',
+      mapUrl: '',
+      'typeLabel.en': 'Garden Dining',
+      'detailKicker.en': '',
+      'storyLabel.en': '',
+      'story.en': '',
+      'highlightsTitle.en': '',
+      'menuPdfMediaId.en': '',
+      'menuPdfUrl.en': '',
+      'seoTitle.en': '',
+      'seoDescription.en': '',
+      cuisines: '["vietnamese"]',
+      highlights: JSON.stringify([{ id: null, imageId: 'nope', isPublished: true, title: { en: '' }, detail: { en: null } }]),
+    };
+    const result = RestaurantForm.safeParse(readForm(form(base)));
+    expect(result.success).toBe(false);
+    expect(fieldErrors(result.error).highlights).toEqual(['Điểm nổi bật 1: chọn ảnh.', 'Điểm nổi bật 1: nhập tiêu đề tiếng Anh.']);
+    const ok = RestaurantForm.parse(readForm(form({ ...base, highlights: '[]' })));
+    expect(ok).toMatchObject({
+      phoneDisplay: '0905 111 222',
+      phoneE164: '+84905111222',
+      hasDetailPage: false,
+      detailImageId: null,
+      menuPdfMediaId: { en: null },
+      menuPdfUrl: { en: null },
+      cuisines: ['vietnamese'],
+    });
+    expect(fieldErrors(RestaurantForm.safeParse(readForm(form({ ...base, highlights: '[]', phoneDisplay: '123' }))).error).phoneDisplay).toEqual([
+      'Số điện thoại không hợp lệ.',
+    ]);
+    expect(fieldErrors(RestaurantForm.safeParse(readForm(form({ ...base, highlights: '[]', 'menuPdfUrl.en': 'http://x' }))).error).menuPdfUrl).toEqual([
+      'Đường dẫn phải bắt đầu bằng https://',
+    ]);
+    // A hidden draft (R22) has no card picture and no type yet: the save's rules ask for them when it shows.
+    const { isPublished: _shown, ...hidden } = base;
+    expect(RestaurantForm.parse(readForm(form({ ...hidden, highlights: '[]', cardImageId: '', 'typeLabel.en': '' })))).toMatchObject({
+      isPublished: false,
+      cardImageId: null,
+      typeLabel: { en: null },
+    });
   });
 });

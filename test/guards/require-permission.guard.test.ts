@@ -134,6 +134,11 @@ const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; edito
     saveAutoplayAction: { permission: { content: ['update'] }, editor: true },
     restoreAutoplayAction: { permission: { content: ['restore'] }, editor: true },
   },
+  // One restaurant's content (spec §7.2 /admin/restaurants/[id]): the aggregate's save and History.
+  'app/admin/(shell)/restaurants/[id]/actions.ts': {
+    saveRestaurantAction: { permission: { content: ['update'] }, editor: true },
+    restoreRestaurantAction: { permission: { content: ['restore'] }, editor: true },
+  },
   // The media library (spec §7.2 /admin/media): upload step 2, alt text, delete, and History.
   'app/admin/(shell)/media/actions.ts': {
     registerMediaAction: { permission: { content: ['update'] }, editor: true },

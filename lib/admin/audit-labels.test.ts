@@ -72,19 +72,22 @@ describe('audit labels', () => {
       'lib/server/content-admin/offers.ts',
       'lib/server/content-admin/hero.ts',
       'lib/server/content-admin/sections.ts',
+      'lib/server/content-admin/restaurants.ts',
       'lib/server/content/strings-admin.ts',
       'lib/server/content/policy-version.ts',
       'lib/server/media/library.ts',
     ];
     const source = files.map((f) => readFileSync(f, 'utf8')).join('\n');
     const entities = [...new Set([...source.matchAll(/entityType: '([a-z_]+)'/g)].map((m) => m[1]))].sort();
-    expect(entities).toEqual(['content_strings', 'hero_slides', 'legal_versions', 'media', 'offers', 'sections', 'site_settings']);
+    expect(entities).toEqual(['content_strings', 'hero_slides', 'legal_versions', 'media', 'offers', 'restaurant_highlights', 'restaurants', 'sections', 'site_settings']);
     expect(entities.map(auditEntityLabel)).toEqual([
       'Chữ trên web',
       'Slide hero',
       'Phiên bản chính sách',
       'File trong thư viện',
       'Ưu đãi',
+      'Điểm nổi bật',
+      'Nhà hàng',
       'Section trang chủ',
       'Cài đặt chung',
     ]);

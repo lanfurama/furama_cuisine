@@ -52,7 +52,6 @@ const PENDING: Record<string, string> = {
   "app/(site)/[lang]/(guarded)/not-found.tsx: Back to Furama Cuisine": "common.back_home",
   "app/(site)/[lang]/(guarded)/not-found.tsx: Page not found": "common.not_found",
   "app/(site)/[lang]/(guarded)/privacy/page.tsx: — Furama Cuisine": "seo.page_title ('{page} — Furama Cuisine')",
-  "app/(site)/[lang]/(guarded)/restaurants/[slug]/page.tsx: At": "detail.highlights_title ('At {name}')",
   "app/(site)/[lang]/(guarded)/restaurants/[slug]/page.tsx: Page not found — Furama Cuisine": "seo.not_found_title",
   "app/(site)/[lang]/(guarded)/restaurants/[slug]/page.tsx: — Furama Cuisine": "seo.page_title",
   "app/(site)/[lang]/layout.tsx: From beachfront dining to vibrant city destinations – discover the restaurants, cuisines and people of Furama Cuisine in Da Nang.": "seo.home_description",
@@ -70,14 +69,6 @@ const PENDING: Record<string, string> = {
   "components/booking/BookingBar.tsx: Tomorrow": "common.tomorrow",
   "components/booking/BookingBar.tsx: Where would you like to dine?": "booking.title",
   "components/booking/BookingBar.tsx: left": "booking.slot_left ('{count} left')",
-  "components/detail/MoreRestaurants.tsx: ALL RESTAURANTS →": "detail.more_all",
-  "components/detail/MoreRestaurants.tsx: More at": "detail.more_title ('More at {destination}')",
-  "components/detail/RestaurantHero.tsx: ALL RESTAURANTS": "detail.back_all",
-  "components/detail/RestaurantHero.tsx: BACK": "detail.back",
-  "components/detail/RestaurantHero.tsx: Brand Story": "detail.story_label (restaurant_i18n.story_label overrides)",
-  "components/detail/RestaurantHero.tsx: CALL": "detail.call",
-  "components/detail/RestaurantHero.tsx: MAP": "detail.map",
-  "components/detail/RestaurantHero.tsx: MENU": "detail.menu",
   "components/detail/RestaurantHero.tsx: RESERVE A TABLE": "ui.reserve_table",
   "components/home/Cuisines.tsx: ALL CUISINES →": "cuisines.all",
   "components/home/Cuisines.tsx: Explore by Cuisine": "cuisines.title",
@@ -178,13 +169,9 @@ const PENDING: Record<string, string> = {
   "components/site/Header.tsx: SEARCH": "ui.search",
   "components/site/Header.tsx: Tiếng Việt": "phase 8: locales.native_name",
   "components/site/Header.tsx: VI": "phase 8: locales.short_label",
-  "components/site/MobileBar.tsx: CALL": "detail.call",
   "components/site/MobileBar.tsx: EXPLORE": "ui.tab_explore",
-  "components/site/MobileBar.tsx: MAP": "detail.map",
-  "components/site/MobileBar.tsx: MENU": "detail.menu",
   "components/site/MobileBar.tsx: RESERVE": "ui.reserve",
   "components/site/MobileBar.tsx: RESTAURANTS": "ui.tab_restaurants",
-  "components/site/MobileBar.tsx: Restaurant actions": "detail.actions_aria",
   "components/site/MobileBar.tsx: Sections": "ui.sections_aria",
   "components/site/SiteProvider.tsx: Da Nang": "finder.city (the finder's default location)",
   "components/site/SiteProvider.tsx: EN": "phase 8: locales.short_label",
@@ -207,9 +194,9 @@ describe('guest-visible text lives in the registry or the database (spec §13)',
   });
 
   it('PENDING only shrinks during phase 7 (the number in the plan’s task table)', () => {
-    // 161 found by the phase-7 spike, less the six offers.* literals moved in plan 7A task A3 and the
-    // thirteen hero.* and film.* ones moved in A9.
-    expect(Object.keys(PENDING).length).toBeLessThanOrEqual(142);
+    // 161 found by the phase-7 spike, less the six offers.* literals moved in plan 7A task A3, the
+    // thirteen hero.* and film.* ones moved in A9 and the thirteen detail.* ones moved in A10.
+    expect(Object.keys(PENDING).length).toBeLessThanOrEqual(129);
   });
 });
 

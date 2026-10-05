@@ -44,6 +44,9 @@ const ENTITIES: Record<string, string> = {
   // Content (phase 7): a list item and its order (entity_id NULL), a registry key, a policy version.
   offers: 'Ưu đãi',
   sections: 'Section trang chủ',
+  // A restaurant's content (the row, its translations, cuisines and highlights as one aggregate).
+  restaurants: 'Nhà hàng',
+  restaurant_highlights: 'Điểm nổi bật',
   hero_slides: 'Slide hero',
   content_strings: 'Chữ trên web',
   legal_versions: 'Phiên bản chính sách',

@@ -1,5 +1,6 @@
 import { SECTION_KEYS } from '@/lib/content/types';
-import { HERO_AUTOPLAY_MS } from './content-rules';
+import { toE164 } from '@/lib/phone';
+import { HERO_AUTOPLAY_MS, LENGTHS, LIMITS } from './content-rules';
 import { z } from './zod';
 
 /*
@@ -173,3 +174,93 @@ export const AutoplayForm = z.object({
     .min(HERO_AUTOPLAY_MS.min / 1000, `Từ ${HERO_AUTOPLAY_MS.min / 1000} đến ${HERO_AUTOPLAY_MS.max / 1000} giây.`)
     .max(HERO_AUTOPLAY_MS.max / 1000, `Từ ${HERO_AUTOPLAY_MS.min / 1000} đến ${HERO_AUTOPLAY_MS.max / 1000} giây.`),
 });
+
+/** An https link, '' → null (the columns' CHECK: '^https://', at most `max`). */
+const httpsUrl = (max: number) =>
+  z
+    .string()
+    .trim()
+    .transform((v) => (v === '' ? null : v))
+    .pipe(
+      z
+        .string()
+        .max(max, tooLong(max))
+        .regex(/^https:\/\/[^\s]+$/, 'Đường dẫn phải bắt đầu bằng https://')
+        .nullable(),
+    );
+
+/** A list the form keeps in client state and posts as one JSON field (SortableList). */
+const json = <T extends z.ZodType>(schema: T) =>
+  z
+    .string()
+    .transform((v, ctx) => {
+      try {
+        return JSON.parse(v) as unknown;
+      } catch {
+        ctx.addIssue({ code: 'custom', message: 'Dữ liệu không hợp lệ, hãy tải lại trang.' });
+        return z.NEVER;
+      }
+    })
+    .pipe(schema);
+
+const Highlight = z.object({
+  id: z.string().regex(/^\d{1,18}$/).nullable(),
+  imageId: z.string(),
+  isPublished: z.boolean(),
+  title: z.object({ en: z.string().nullable() }),
+  detail: z.object({ en: z.string().nullable() }),
+});
+
+/**
+ * One restaurant's content (spec §7.2 /admin/restaurants/[id]): the row, its
+ * EN texts, its menu (an uploaded PDF or a link), its cuisines and highlights
+ * (both posted as JSON by their SortableList). The phone is typed once and
+ * stored in both forms (phone_display, phone_e164: CHECK restaurants_phone_pair).
+ * What a shown restaurant or an open page needs (a card picture, a type, a
+ * portrait, a story) is a rule of the save (lib/server/content-admin/restaurants.ts),
+ * so a hidden draft (R22) saves without them.
+ */
+export const RestaurantForm = z
+  .object({
+    token: Token,
+    name: requiredText(LENGTHS.restaurantName.max, 'Nhập tên nhà hàng.'),
+    slug: z
+      .string()
+      .trim()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Chỉ chữ thường không dấu, số và gạch nối, ví dụ taya-house.')
+      .max(60, tooLong(60)),
+    destinationId: z.string().min(1, 'Chọn điểm đến.'),
+    isPublished: checkbox,
+    hasDetailPage: checkbox,
+    cardImageId: optionalMedia,
+    detailImageId: optionalMedia,
+    ogImageId: optionalMedia,
+    phoneDisplay: optionalText(30),
+    mapUrl: httpsUrl(2000),
+    typeLabel: translatable(60),
+    detailKicker: translatable(100),
+    storyLabel: translatable(40),
+    story: translatable(1500),
+    highlightsTitle: translatable(60),
+    menuPdfMediaId: z.object({ en: optionalMedia }),
+    menuPdfUrl: z.object({ en: httpsUrl(2000) }),
+    seoTitle: translatable(120),
+    seoDescription: translatable(320),
+    cuisines: json(z.array(z.string().max(40)).max(LIMITS.cuisines.max, `Tối đa ${LIMITS.cuisines.max} ẩm thực.`)),
+    highlights: json(z.array(Highlight).max(10, 'Tối đa 10 điểm nổi bật (kể cả mục ẩn).')),
+  })
+  .transform((v, ctx) => {
+    const phoneE164 = v.phoneDisplay ? toE164(v.phoneDisplay) : null;
+    if (v.phoneDisplay && !phoneE164) ctx.addIssue({ code: 'custom', path: ['phoneDisplay'], message: 'Số điện thoại không hợp lệ.' });
+    const highlights = v.highlights.map((h, i) => {
+      const title = h.title.en?.trim() ?? '';
+      const detail = h.detail.en?.trim() ?? '';
+      const at = `Điểm nổi bật ${i + 1}`;
+      if (!z.uuid().safeParse(h.imageId).success) ctx.addIssue({ code: 'custom', path: ['highlights'], message: `${at}: chọn ảnh.` });
+      if (!title) ctx.addIssue({ code: 'custom', path: ['highlights'], message: `${at}: nhập tiêu đề tiếng Anh.` });
+      if ([...title].length > 80) ctx.addIssue({ code: 'custom', path: ['highlights'], message: `${at}: tiêu đề ${tooLong(80).toLowerCase()}` });
+      if ([...detail].length > 200) ctx.addIssue({ code: 'custom', path: ['highlights'], message: `${at}: mô tả ${tooLong(200).toLowerCase()}` });
+      return { ...h, title: { en: title || null }, detail: { en: detail || null } };
+    });
+    return { ...v, phoneE164, highlights };
+  });

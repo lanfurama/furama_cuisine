@@ -1,6 +1,7 @@
 'use client';
 
 import { useSite } from '@/components/site/SiteProvider';
+import { formatMessage } from '@/lib/i18n/format';
 import { useReveal } from '@/lib/motion';
 import { RestaurantCard } from '@/components/home/RestaurantCard';
 
@@ -11,7 +12,7 @@ import { RestaurantCard } from '@/components/home/RestaurantCard';
  * fault through the restaurants.find() below, so keep that call.
  */
 export function MoreRestaurants({ slug, destinationName }: { slug: string; destinationName: string }) {
-  const { restaurants, clearFilters, scrollToId } = useSite();
+  const { restaurants, clearFilters, scrollToId, strings, locale } = useSite();
   const title = useReveal<HTMLHeadingElement>('title');
   const link = useReveal<HTMLButtonElement>('fade');
 
@@ -24,7 +25,7 @@ export function MoreRestaurants({ slug, destinationName }: { slug: string; desti
       <div className="shell">
         <div className="section-head">
           <h2 ref={title} data-reveal="title" className="section-title more-title">
-            More at {destinationName}
+            {formatMessage(strings['detail.more_title'], { destination: destinationName }, locale)}
           </h2>
           <button
             ref={link}
@@ -36,7 +37,7 @@ export function MoreRestaurants({ slug, destinationName }: { slug: string; desti
               scrollToId('restaurants');
             }}
           >
-            ALL RESTAURANTS →
+            {`${strings['detail.more_all']} →`}
           </button>
         </div>
 

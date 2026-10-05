@@ -4,13 +4,19 @@ import { getPool } from '@/db/client';
 import { getBookingSettings, listRestaurantBookings } from '@/lib/server/booking/config';
 import { listDestinationOptions } from '@/lib/server/booking/queries';
 import { requirePagePermission } from '@/lib/server/dal/session';
+import { StringsPanel } from '../content/_ui/StringsPanel';
 
 // Request-time like the whole admin (app/admin/layout.tsx); also opts navigations between admin pages out of dev instant validation (instant-navigation.md:568).
 export const instant = false;
 
 export const metadata: Metadata = { title: 'Nhà hàng' };
 
-/* Phase 4 keeps this list to each restaurant's booking screen (R16); content editing arrives with phase 7. */
+/*
+ * Each restaurant's two screens: its content (phase 7, /admin/restaurants/[id])
+ * and its booking hours and rules (phase 4). Below the list, the words every
+ * restaurant page shares (detail.*, spec §6.4): they belong to no one
+ * restaurant, so they are edited here, once (registry screen `restaurants`).
+ */
 export default async function RestaurantsPage() {
   await requirePagePermission({ schedule: ['read'] });
   const pool = getPool();
@@ -23,7 +29,7 @@ export default async function RestaurantsPage() {
   return (
     <>
       <h1>Nhà hàng</h1>
-      <p className="a-lede">Giờ phục vụ, sức chứa và quy tắc đặt bàn của từng nhà hàng.</p>
+      <p className="a-lede">Nội dung, giờ phục vụ, sức chứa và quy tắc đặt bàn của từng nhà hàng.</p>
       <table className="a-table">
         <thead>
           <tr>
@@ -42,12 +48,18 @@ export default async function RestaurantsPage() {
               <td>{r.bookingEnabled ? 'Bật' : 'Tắt'}</td>
               <td>{r.maxParty ?? `${settings.maxParty} (mặc định)`}</td>
               <td>
-                <Link href={`/admin/restaurants/${r.id}/booking`}>Giờ và sức chứa</Link>
+                <Link href={`/admin/restaurants/${r.id}`}>Nội dung</Link> · <Link href={`/admin/restaurants/${r.id}/booking`}>Giờ và sức chứa</Link>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      <section aria-labelledby="restaurants-copy">
+        <h2 id="restaurants-copy">Chữ của trang nhà hàng</h2>
+        <p className="a-muted">Nút, nhãn và tiêu đề mọi trang nhà hàng dùng chung (tiếng Anh). Chữ riêng của một nhà hàng sửa ở màn Nội dung của nhà hàng đó.</p>
+        <StringsPanel screen="restaurants" title="Chữ trang nhà hàng" />
+      </section>
     </>
   );
 }

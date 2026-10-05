@@ -143,7 +143,8 @@ export const LOADERS = {
     ],
     tags: [TAGS.restaurants, TAGS.contentDestinations, TAGS.media],
   },
-  detailSlugs: { reads: ['restaurants'], tags: [TAGS.restaurants] },
+  // "Has a page" needs a live portrait (L7-3): the slugs read media too.
+  detailSlugs: { reads: ['restaurants', 'media'], tags: [TAGS.restaurants, TAGS.media] },
 } as const satisfies Record<string, Loader>;
 
 export type LoaderName = keyof typeof LOADERS;

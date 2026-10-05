@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { charCount, checkLength, LIMITS, limitError, limitWarnings, sectionErrors } from './content-rules';
+import { charCount, checkLength, detailPageErrors, detailPageWarnings, followRename, LIMITS, limitError, limitWarnings, sectionErrors } from './content-rules';
 
 describe('content rules (spec §6.5)', () => {
   it('counts characters as Postgres char_length does, not UTF-16 units', () => {
@@ -56,5 +56,30 @@ describe('content rules (spec §6.5)', () => {
     expect(sectionErrors('film', { visible: true, link: 'https://example.com/video.mp4' }).link).toHaveLength(1);
     expect(sectionErrors('heritage', { visible: true, link: 'https://furamavietnam.com/the-resort/' })).toEqual({});
     expect(sectionErrors('heritage', { visible: true, link: 'http://furamavietnam.com/' })).toEqual({ link: ['Đường dẫn phải bắt đầu bằng https://'] });
+  });
+
+  it('a detail page needs its portrait and an EN story', () => {
+    expect(detailPageErrors({ hasDetailPage: false, detailImageId: null, storyEn: null })).toEqual({});
+    expect(detailPageErrors({ hasDetailPage: true, detailImageId: null, storyEn: '  ' })).toEqual({
+      detailImageId: [expect.any(String)],
+      story: [expect.any(String)],
+    });
+    expect(detailPageErrors({ hasDetailPage: true, detailImageId: 'm', storyEn: 'Story' })).toEqual({});
+  });
+
+  it('warns about a page with few highlights, hidden buttons or a long name', () => {
+    const base = { hasDetailPage: true, name: 'Tàya House', shownHighlights: 4, hasPhone: true, hasMap: true, hasMenu: true };
+    expect(detailPageWarnings(base)).toEqual([]);
+    expect(detailPageWarnings({ ...base, hasDetailPage: false, shownHighlights: 0 })).toEqual([]);
+    expect(detailPageWarnings({ ...base, shownHighlights: 1 })[0]).toMatch(/1 điểm nổi bật/);
+    expect(detailPageWarnings({ ...base, hasMap: false, hasMenu: false })[0]).toMatch(/MAP, MENU/);
+    expect(detailPageWarnings({ ...base, name: 'A very long restaurant name indeed' })[0]).toMatch(/24/);
+  });
+
+  it('R19: the card alt follows a rename only while it still equals the old name', () => {
+    expect(followRename('Tàya House', 'Tàya House', 'Tàya Garden House')).toBe('Tàya Garden House');
+    expect(followRename('A garden house among palms', 'Tàya House', 'Tàya Garden House')).toBeNull();
+    expect(followRename('Tàya House', 'Tàya House', 'Tàya House')).toBeNull();
+    expect(followRename(null, 'Tàya House', 'Other')).toBeNull();
   });
 });

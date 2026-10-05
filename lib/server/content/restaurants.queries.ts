@@ -7,6 +7,17 @@ import { LOCALE_CTE, i18nJoin, mediaJson, tr } from './sql';
 
 /* Restaurants as the guest site shows them, uncached (lib/server/content/restaurants.ts wraps them). */
 
+/**
+ * "Has a page" (spec §6.4; phase-6 ledger L7-3), once for the card, the
+ * prerendered slugs and the page itself: the switch is on, the restaurant is
+ * shown (published, not archived) and its portrait is a live file. Before,
+ * the card and the slugs read has_detail_page alone, while the page needed
+ * the portrait too, so a card could link to a 404.
+ */
+const HAS_PAGE = (r: string) =>
+  `(${r}.has_detail_page AND ${r}.is_published AND ${r}.archived_at IS NULL
+     AND EXISTS (SELECT 1 FROM media pm WHERE pm.id = ${r}.detail_image_id AND pm.deleted_at IS NULL))`;
+
 type RestaurantRow = {
   id: string;
   slug: string;
@@ -43,7 +54,7 @@ export async function loadRestaurants(locale: string): Promise<Restaurant[]> {
     `WITH ${LOCALE_CTE}
      SELECT r.id, r.slug, r.name, ${tr('rt', 'type_label')} AS type, rt_d.type_label AS type_default,
             r.destination_id, ${tr('dt', 'name')} AS destination_name, dt_d.name AS destination_name_default,
-            r.booking_enabled, r.has_detail_page, img.j AS image,
+            r.booking_enabled, ${HAS_PAGE('r')} AS has_detail_page, img.j AS image,
             CASE WHEN r.phone_e164 IS NOT NULL THEN r.phone_e164 ELSE d.phone_e164 END AS phone_e164,
             CASE WHEN r.phone_e164 IS NOT NULL THEN r.phone_display ELSE d.phone_display END AS phone_display,
             ARRAY(SELECT rc.cuisine_id
@@ -96,12 +107,12 @@ export async function loadRestaurants(locale: string): Promise<Restaurant[]> {
   });
 }
 
-/** Slugs with a page (generateStaticParams); unpublished or archived restaurants have none. */
+/** Slugs with a page (generateStaticParams): HAS_PAGE, so never an unpublished or archived restaurant, or one without its portrait. */
 export async function loadDetailSlugs(): Promise<string[]> {
   const rows = await query<{ slug: string }>(
-    `SELECT slug FROM restaurants
-      WHERE has_detail_page AND is_published AND archived_at IS NULL
-      ORDER BY sort_order, id`,
+    `SELECT r.slug FROM restaurants r
+      WHERE ${HAS_PAGE('r')}
+      ORDER BY r.sort_order, r.id`,
   );
   return rows.map((r) => r.slug);
 }
@@ -151,7 +162,7 @@ export async function loadRestaurantDetail(slug: string, locale: string): Promis
        ${i18nJoin('restaurant_i18n', 'rt', 'restaurant_id', 'r.id')}
        ${i18nJoin('destination_i18n', 'dt', 'destination_id', 'd.id')}
        LEFT JOIN LATERAL ${mediaJson('r.detail_image_id')} AS img ON true
-      WHERE r.slug = $2 AND r.has_detail_page AND r.is_published AND r.archived_at IS NULL`,
+      WHERE r.slug = $2 AND ${HAS_PAGE('r')}`,
     [locale, slug],
   );
   if (!row || !row.portrait) return null;

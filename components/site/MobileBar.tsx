@@ -9,7 +9,7 @@ import { useSite } from '@/components/site/SiteProvider';
  * bar with it. The home page passes nothing, a restaurant page passes its page.
  */
 export function MobileBar({ detail }: { detail?: RestaurantDetail }) {
-  const { tab, openReserve, scrollToId, setBooking, close } = useSite();
+  const { tab, openReserve, scrollToId, setBooking, close, strings } = useSite();
 
   if (detail) {
     const id = detail.id;
@@ -20,18 +20,18 @@ export function MobileBar({ detail }: { detail?: RestaurantDetail }) {
     return (
       <nav
         className="tabbar tabbar-detail"
-        aria-label="Restaurant actions"
+        aria-label={strings['detail.actions_aria']}
         style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
       >
-        {detail.phone && <a href={`tel:${detail.phone.tel}`}>CALL</a>}
+        {detail.phone && <a href={`tel:${detail.phone.tel}`}>{strings['detail.call']}</a>}
         {detail.map && (
           <a href={detail.map} target="_blank" rel="noopener">
-            MAP
+            {strings['detail.map']}
           </a>
         )}
         {menu && (
           <button type="button" onClick={() => openMenu(menu, () => scrollToId('dishes'))}>
-            MENU
+            {strings['detail.menu']}
           </button>
         )}
         {detail.bookingEnabled && (

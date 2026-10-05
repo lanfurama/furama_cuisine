@@ -7,8 +7,10 @@ import { IntroTrigger } from '@/components/site/IntroTrigger';
 import { MobileBar } from '@/components/site/MobileBar';
 import { ViewMarker } from '@/components/site/ViewMarker';
 import { isRestaurantSlug } from '@/lib/content/slug';
+import { formatMessage } from '@/lib/i18n/format';
 import { getEnabledLocales, requireEnabledLocale } from '@/lib/server/content/locales';
 import { getDetailSlugs, getRestaurantDetail } from '@/lib/server/content/restaurants';
+import { getStrings } from '@/lib/server/content/strings';
 
 type Props = { params: Promise<{ lang: string; slug: string }> };
 
@@ -71,7 +73,7 @@ export default async function RestaurantPage({ params }: Props) {
   // A segment no restaurant can have is a 404 without a query: a NUL byte made Postgres throw on every
   // hit, so the error page was never cached, and any other junk slug cost a read (R13).
   if (!isRestaurantSlug(slug)) notFound();
-  const detail = await getRestaurantDetail(slug, lang);
+  const [detail, strings] = await Promise.all([getRestaurantDetail(slug, lang), getStrings(lang, ['detail.highlights_title'])]);
   if (!detail) notFound();
 
   return (
@@ -79,7 +81,7 @@ export default async function RestaurantPage({ params }: Props) {
       <IntroTrigger />
       <RestaurantHero detail={detail} />
       {detail.highlights.length > 0 && (
-        <Highlights title={detail.highlightsTitle ?? `At ${detail.name}`} items={detail.highlights} />
+        <Highlights title={detail.highlightsTitle ?? formatMessage(strings['detail.highlights_title'], { name: detail.name }, lang)} items={detail.highlights} />
       )}
       <MoreRestaurants slug={detail.slug} destinationName={detail.destinationName} />
       <MobileBar detail={detail} />

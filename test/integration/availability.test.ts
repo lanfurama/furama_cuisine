@@ -191,6 +191,19 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('GET /api/availability v2 (datab
     }
   });
 
+  it('L7-5: answers 404 for a restaurant guests cannot see (unpublished or archived), its booking switch on', async () => {
+    for (const hide of ['is_published = false', 'archived_at = now()']) {
+      await sql(`UPDATE restaurants SET ${hide} WHERE id = 'hai-van-lounge'`);
+      for (const query of ['restaurant=hai-van-lounge', 'restaurant=hai-van-lounge&date=2026-10-03']) {
+        const res = await get(query);
+        expect(res.status, `${hide}: ${query}`).toBe(404);
+        expect(await res.json()).toEqual({ error: 'restaurant_unavailable' });
+      }
+      await sql(`UPDATE restaurants SET is_published = true, archived_at = NULL WHERE id = 'hai-van-lounge'`);
+    }
+    expect((await get('restaurant=hai-van-lounge')).status).toBe(200);
+  });
+
   it.each([
     ['date=2026-10-02', 'restaurant_required'],
     ['restaurant=taya-house&date=tomorrow', 'invalid_date'],

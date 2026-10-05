@@ -598,6 +598,82 @@ export const REGISTRY = {
     screen: 'hero',
     label: 'Tên trình phát video (trình đọc màn hình)',
   },
+  // ── A restaurant's page (spec §6.4): shared by every restaurant, edited on /admin/restaurants (screen
+  // `restaurants`); the hero, the tab bar and "More at" are client components (CLIENT_KEYS), the page reads
+  // the highlights' default title on the server ──
+  'detail.back_all': {
+    en: 'ALL RESTAURANTS',
+    maxLength: 32,
+    context: 'Restaurant page, the back button above the name (desktop); returns to the home page’s restaurants. Capitals; an arrow comes before it.',
+    screen: 'restaurants',
+    label: 'Nút quay lại danh sách (máy tính)',
+  },
+  'detail.back': {
+    en: 'BACK',
+    maxLength: 16,
+    context: 'Restaurant page on a phone, the small back button floating over the photo. Capitals; an arrow comes before it.',
+    screen: 'restaurants',
+    label: 'Nút quay lại (điện thoại)',
+  },
+  'detail.story_label': {
+    en: 'Brand Story',
+    maxLength: 40,
+    context: 'Restaurant page, small label above the restaurant’s story, when the restaurant has none of its own (its editor’s “Nhãn câu chuyện”).',
+    screen: 'restaurants',
+    label: 'Nhãn câu chuyện mặc định',
+  },
+  'detail.call': {
+    en: 'CALL',
+    maxLength: 16,
+    context: 'Restaurant page and its phone tab bar, the link that calls the restaurant. Capitals.',
+    screen: 'restaurants',
+    label: 'Nút gọi',
+  },
+  'detail.map': {
+    en: 'MAP',
+    maxLength: 16,
+    context: 'Restaurant page and its phone tab bar, the link that opens the map in a new tab. Capitals.',
+    screen: 'restaurants',
+    label: 'Nút bản đồ',
+  },
+  'detail.menu': {
+    en: 'MENU',
+    maxLength: 16,
+    context: 'Restaurant page and its phone tab bar: opens the menu PDF, or scrolls to the highlights without one. Capitals.',
+    screen: 'restaurants',
+    label: 'Nút thực đơn',
+  },
+  'detail.actions_aria': {
+    en: 'Restaurant actions',
+    maxLength: 60,
+    context: 'Screen-reader name of the phone tab bar of a restaurant page (CALL, MAP, MENU, RESERVE).',
+    screen: 'restaurants',
+    label: 'Tên thanh nút của trang nhà hàng (trình đọc màn hình)',
+  },
+  'detail.highlights_title': {
+    en: 'At {name}',
+    maxLength: 60,
+    vars: ['name'],
+    context:
+      'Restaurant page, the title above the highlights, when the restaurant has none of its own (its editor’s “Tiêu đề phần nổi bật”). {name} is the restaurant’s name; keep it.',
+    screen: 'restaurants',
+    label: 'Tiêu đề phần nổi bật mặc định',
+  },
+  'detail.more_title': {
+    en: 'More at {destination}',
+    maxLength: 60,
+    vars: ['destination'],
+    context: 'Restaurant page, the title above the other restaurants of the same destination. {destination} is its name; keep it.',
+    screen: 'restaurants',
+    label: 'Tiêu đề “nhà hàng khác cùng điểm đến”',
+  },
+  'detail.more_all': {
+    en: 'ALL RESTAURANTS',
+    maxLength: 32,
+    context: 'Restaurant page, the link beside “More at …” to every restaurant on the home page. Capitals; an arrow follows it.',
+    screen: 'restaurants',
+    label: 'Link xem mọi nhà hàng',
+  },
   // ── Search overlay: a client component of the chrome (CLIENT_KEYS) ──
   'search.aria': {
     en: 'Search',
@@ -956,14 +1032,15 @@ export const KEY_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/;
 /**
  * Keys the browser needs at first paint, passed to SiteProvider by the
  * (guarded) layout: the chrome's client components (reservation form, search,
- * finder, booking bar, film dialog) and the policy link. Everything else is read on the
+ * finder, booking bar, film dialog), a restaurant page's client parts (its hero, tab bar
+ * and "More at") and the policy link. Everything else is read on the
  * server: a page's own section copy (pageKeys), metadata (seo.*), the policy
  * page (legal.*) and emails (email.*).
  */
-const CLIENT_PREFIXES = ['error.', 'booking.', 'search.', 'meal.', 'finder.', 'film.'] as const;
+const CLIENT_PREFIXES = ['error.', 'booking.', 'search.', 'meal.', 'finder.', 'film.', 'detail.'] as const;
 /** Single keys the chrome needs beyond the prefixes: the policy link (form, footer), VIEW OFFER's note (form). */
 const CLIENT_SINGLES = ['legal.link', 'offers.note'] as const;
-export type ClientKey = Extract<StringKey, `${'error' | 'booking' | 'search' | 'meal' | 'finder' | 'film'}.${string}` | (typeof CLIENT_SINGLES)[number]>;
+export type ClientKey = Extract<StringKey, `${'error' | 'booking' | 'search' | 'meal' | 'finder' | 'film' | 'detail'}.${string}` | (typeof CLIENT_SINGLES)[number]>;
 
 export const CLIENT_KEYS = STRING_KEYS.filter(
   (k): k is ClientKey => CLIENT_PREFIXES.some((p) => k.startsWith(p)) || (CLIENT_SINGLES as readonly string[]).includes(k),
