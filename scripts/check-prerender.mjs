@@ -138,7 +138,7 @@ for (const [route, entry] of adminRoutes) {
  * is missing from the prerender manifest too, so that test alone would pass
  * on a build without it.
  */
-const UNCACHED = ['/api/availability', '/api/cron/outbox', '/api/cron/daily', '/api/admin/emails/preview', '/api/admin/media/upload'];
+const UNCACHED = ['/api/availability', '/api/cron/outbox', '/api/cron/daily', '/api/admin/emails/preview', '/api/admin/media/upload', '/api/cron/media-sweep'];
 const appPaths = JSON.parse(readFileSync(join(dir, 'server', 'app-paths-manifest.json'), 'utf8'));
 for (const route of UNCACHED) {
   if (!appPaths[`${route}/route`]) {

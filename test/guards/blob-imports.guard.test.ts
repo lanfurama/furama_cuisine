@@ -27,6 +27,8 @@ const ALLOWED: Record<string, string> = {
   // The presigned flow (spec §11): the browser asks the route for a URL, the route issues it through blob.ts.
   'app/admin/(shell)/_kit/MediaUploader.tsx': '@vercel/blob/client',
   'app/api/admin/media/upload/route.ts': '@vercel/blob/client',
+  // Run by the controller with the store's token on the command line (README "Media in Vercel Blob").
+  'scripts/move-assets-to-blob.mjs': '@vercel/blob',
 };
 
 type Node = { type: string; [key: string]: unknown };

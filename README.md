@@ -515,6 +515,57 @@ portrait, a kicker, an English story, 2–5 highlights with photos and an
 optional menu PDF (spec §15 item 17). Until a page's content exists, its
 `has_detail_page` stays off.
 
+### Media in Vercel Blob (phase 7A)
+
+Uploads go to Vercel Blob (spec §11): one store for Production, one shared
+by Preview and Development, each connected to the project in the Vercel
+dashboard (Storage → Create Database → Blob, access Public), which sets
+`BLOB_READ_WRITE_TOKEN` for those environments. Inside a store each
+environment writes only its own folder: `production/`, `preview/<branch>/`,
+`development/` (`lib/media/rules.ts` `blobEnvPrefix`).
+
+**Media sweep.** `/api/cron/media-sweep` runs daily at 18:35 UTC (01:35 in
+Da Nang, `vercel.json`) with the same `CRON_SECRET` as the other crons. In
+its environment's folder only, it deletes files no `media` row names that
+are older than 24 hours (an upload whose second step never ran), and purges
+rows that have been in the trash for 30 days, keeping any row content uses
+again; a database error stops it before it deletes anything. Without a store
+(local, CI) it answers `{"skipped":"blob_not_configured"}`. Vercel runs crons
+on Production only, so a preview's folder is swept only by hand, dry run
+first, on that preview's own URL:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" "https://<preview URL>/api/cron/media-sweep?dry=1"   # what would go
+curl -H "Authorization: Bearer $CRON_SECRET" "https://<preview URL>/api/cron/media-sweep"         # sweep
+```
+
+Never run the sweep, or anything else, from a local machine with a real
+store's token: the local database does not name that store's files.
+
+**Moving the phase-6 images to Blob.** Migration 008 seeded the 39 files of
+`public/assets` as `storage = 'static'` rows. `scripts/move-assets-to-blob.mjs`
+copies them into the store under `<folder>/assets/<file>` and points the same
+rows (same ids, so every reference holds) at the copies, with a blur
+placeholder and one audit row each. It is a dry run unless `--apply`, checks
+each file's size against its row, skips a file already in the store, and is
+safe to run again. Per environment, with that environment's database and
+store, after the phase-7A deploy (the controller runs it; the token comes
+from the dashboard and is never written to a file):
+
+```bash
+# 1. Dry run: expect "39 static row(s); 39 file(s) to upload."
+DATABASE_URL=<that environment's direct URL> BLOB_READ_WRITE_TOKEN=<that store's token> \
+  node scripts/move-assets-to-blob.mjs --prefix production
+# 2. Apply: uploads, then updates every row in one transaction.
+DATABASE_URL=<…> BLOB_READ_WRITE_TOKEN=<…> node scripts/move-assets-to-blob.mjs --prefix production --apply
+# 3. Redeploy, so cached guest pages pick up the Blob URLs (the script cannot expire the cache).
+```
+
+For a preview, use `--prefix preview/<branch slug>` with the Preview/Dev
+store's token and that preview's own Neon branch. The `public/assets` files
+stay in the repository (a code rollback still renders), and the move can only
+be undone by restoring the rows from their audit rows.
+
 ### Environment variables (admin)
 
 | Variable | Production | Preview | Local E2E / CI |
@@ -528,7 +579,7 @@ optional menu PDF (spec §15 item 17). Until a page's content exists, its
 | `SMTP_PORT` | `587` (STARTTLS, the default) or `465` (TLS) | same | never set |
 | `SMTP_SECURE` | only if the port rule does not fit: `true` (TLS from the first byte) or `false` (STARTTLS); unset means `true` on 465 only | same | never set |
 | `SMTP_USER`, `SMTP_PASSWORD` | the login (both or neither) | a separate login if the provider allows | never set |
-| `CRON_SECRET` | 16+ characters (`openssl rand -hex 32`); Vercel Cron sends it to `/api/cron/outbox` and `/api/cron/daily`, and a missing or shorter one answers every call to either 401 | optional (crons run on Production only) | a fresh random value per E2E run |
+| `CRON_SECRET` | 16+ characters (`openssl rand -hex 32`); Vercel Cron sends it to `/api/cron/outbox`, `/api/cron/daily` and `/api/cron/media-sweep`, and a missing or shorter one answers every call to any of them 401 | optional (crons run on Production only) | a fresh random value per E2E run |
 | `BOTID_DEV_BYPASS` | **never** | **never** | only for the opt-in `e2e/botid.spec.ts` run (`BAD-BOT`); a deployment ignores it |
 | `BLOB_READ_WRITE_TOKEN` | set by connecting the Production Blob store (Production only) | set by connecting the Preview/Dev store | **never** a real one: blank for the build, the visual server and local runs; Playwright gives the E2E app the fake store's token |
 | `FAKE_BLOB_SECRET` | never | never | a fresh `openssl rand -hex 16` per E2E run (16+ letters and digits); `FAKE_BLOB_PORT` moves the fake (default 3102) |
@@ -847,6 +898,9 @@ bootstrapping production is what you mean to do.
 | `/api/availability` | Dynamic, `no-store` | `?restaurant=&lang=[&from=&to=]`: each day's state (open, full, past, closed, too_large, outside) and public closure reason, with the clock, the party limit and the number to call; `?restaurant=&date=&lang=[&guests=]`: one day's services and slots with the covers left. 404 for an unknown restaurant or one with online booking off; a range given in full that is backwards or too long (400) and an id that cannot exist (404) are answered before any query. `scripts/check-prerender.mjs` fails if it is ever prerendered, or missing from the build |
 | `/api/cron/outbox` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, hourly: sends the due outbox rows of its environment (at most 500 or 240 s) and answers only the counts. 401 without `Authorization: Bearer $CRON_SECRET` |
 | `/api/cron/daily` | Dynamic, `no-store`, `maxDuration` 60 | Vercel Cron, daily at 17:05 UTC (00:05 in Da Nang): `revalidateTag('content:offers', 'max')`, so the home page drops an offer past its `valid_until` and shows one whose `valid_from` has come, and on a day with no offer every guest page's header and menu drop Offers. The first visit to each page after it may still get yesterday's offers and nav once; in exchange, a database that is down then cannot break a guest page. 401 without `Authorization: Bearer $CRON_SECRET` |
+| `/api/cron/media-sweep` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, daily at 18:35 UTC (01:35 in Da Nang): in its environment's folder of the Blob store, deletes files no `media` row names after 24 hours and purges rows 30 days in the trash (`?dry=1` reports without deleting); `{"skipped":"blob_not_configured"}` without a store. 401 without `Authorization: Bearer $CRON_SECRET` |
+| `/api/admin/media/upload` | Dynamic, `no-store` | Upload step 1: a presigned URL for one pathname of this environment's folder, its type, 15 MB and ten minutes. Session and `content:update` first, then the `Origin`; Vercel's completion callback is refused |
+| `/admin/media`, `/admin/media/[id]` | Request time, nonce CSP | The library: upload, search, the trash; one file's EN alt text, decorative flag, uses, delete (refused while it is shown) and History. `content:read`; writes `content:update`, restores `content:restore` |
 | `/admin/sign-in`, `/admin/accept-invite`, `/admin/reset-password` | Request time, nonce CSP | The only admin pages open without a session cookie |
 | `/admin`, `/admin/users`, `/admin/audit` | Request time, nonce CSP | Overview (with pending and today's bookings); staff and invitations (Admin); audit log of `audit_log` and booking events, paged with `?truoc=`/`?sau=` (Admin). Without a session cookie the proxy sends them to sign-in (307, `?next=` kept) |
 | `/admin/reservations`, `/admin/reservations/[id]`, `/admin/reservations/day` | Request time, nonce CSP | Inbox (Cần xử lý · Hôm nay · Sắp tới · Tất cả, search by reference, phone, name or email: the search posts, its text waits 30 minutes in an httpOnly cookie and the URL carries only `?tim=<id>`); a booking (status changes, edit, internal notes, timeline, its emails); the printable day sheet. `reservations:read` |
@@ -1044,3 +1098,4 @@ reference so future design revisions can be diffed against what was built.
 | `npm run db:migrate` | Apply pending SQL migrations   |
 | `npm run db:psql`    | psql shell against Neon        |
 | `node scripts/measure-assets.mjs` | The `media` rows of `public/assets` (migration 008's `VALUES`) |
+| `node scripts/move-assets-to-blob.mjs --prefix production [--apply]` | Copies the static `media` files into the Blob store and repoints their rows, once, for production only ("Media in Vercel Blob") |
