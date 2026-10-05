@@ -120,6 +120,13 @@ The whole-branch review of 7a9a364..d3f898e, fixed in four commits (one per grou
     - An unknown restaurant slug answers 200 with the home page's description and og: tags; with the database down some pages hang over 20 s and `/vi` answers 500: identical on 7a9a364; spec §12.
 - **Phase 8, 9, 10 lists of the 7A ledger:** unchanged.
 
+### Residuals of the fix wave's re-review (Minor, phase 10)
+- F3's `beforeDelete` and a concurrent move of a restaurant back to the same destination can deadlock (40P01; the loser sees a generic error, nothing is written). Fix by locking the restaurant rows before the destination's `FOR UPDATE`, or by skipping rows locked by others.
+- F8's `RestaurantForm` wiring (`tokenUnlessInserted` as the 4th `useSaveState` argument) has no test; only the helper and the reducer are pinned.
+- AC1 row 79 restores the email subject through strings History but checks only `content_strings`; it does not send a second email.
+- F18 put four SQL strings in the guest-text guard's LOCK list. An edit to that SQL also needs its LOCK key updated. A scanner rule for SQL is the cleaner long-term shape.
+- Lint sits at exactly the 14-warning limit.
+
 ## Needs a decision or a first-preview check
 
 Unchanged from the 7A ledger (the real Blob service, sharp's memory, the owner's content, the lawyer's two points). Plan 7B's "Cần quyết định" risk 11 (the destination address edited on the destinations screen, not on contact) stands as ruled (R24) unless the owner asks otherwise.
