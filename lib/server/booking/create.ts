@@ -121,7 +121,8 @@ async function insertInTransaction(client: PoolClient, input: ReservationRequest
              CASE WHEN $12 = 'confirmed' THEN now() END, 'web',
              COALESCE((SELECT code FROM locales WHERE code = $13 AND is_enabled),
                       (SELECT code FROM locales WHERE is_default)),
-             $14, now(),
+             -- The policy version in force now (migration 009); the constant only while the table is empty.
+             COALESCE((SELECT version FROM legal_versions ORDER BY created_at DESC, version DESC LIMIT 1), $14), now(),
              -- R9, a soft link: the id came over the wire, and the guest may have switched
              -- restaurant or date since VIEW OFFER. Kept only for a published offer of this
              -- restaurant that runs on the booked date; anything else books without it.

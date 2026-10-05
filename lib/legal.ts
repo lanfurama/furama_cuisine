@@ -8,8 +8,11 @@ import type { IsoDate } from '@/lib/venue-time';
  * (reservations.consent_version), so the version must change whenever the
  * policy's meaning does. lib/legal.test.ts pins a hash of the English text to
  * this version: editing a legal.* default fails CI until the version moves.
- * From phase 7 editors change the text in the database, and the version
- * becomes the time of that save instead of this constant.
+ * Since phase 7 editors change the text in the database, and the version in
+ * force is the newest legal_versions row (migration 009), which a save adds
+ * when the agreed text changes (lib/server/content/policy-version.ts). This
+ * constant is the seeded first row, and the fallback while that table is
+ * empty.
  */
 export const PRIVACY_POLICY_VERSION: IsoDate = '2026-10-03';
 
@@ -24,6 +27,9 @@ export const PRIVACY_SECTIONS = [
 
 /** Every key the policy page reads. */
 export const PRIVACY_KEYS = ['legal.title', 'legal.updated', 'legal.intro', ...PRIVACY_SECTIONS.flat()] as const satisfies readonly StringKey[];
+
+/** Everything a guest agrees to when ticking the box: the page, and the drawer's notice and label. A change to any moves the version. */
+export const AGREED_KEYS = [...PRIVACY_KEYS, 'booking.privacy_notice', 'booking.consent'] as const satisfies readonly StringKey[];
 
 export function privacyHref(locale: string): string {
   return localeHref(locale, '/privacy');

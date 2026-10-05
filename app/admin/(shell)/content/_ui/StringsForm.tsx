@@ -29,39 +29,57 @@ export type StringFieldView = {
  * server writes only what this editor changed and refuses only a real
  * conflict on that key.
  */
+/** A titled group of a screen's keys, by key prefix (the emails screen: one per email). */
+export type StringGroup = { title: string; prefix: string };
+
 export function StringsForm({
   screen,
   title,
   fields,
+  groups,
   children,
 }: {
   screen: string;
   title: string;
   fields: StringFieldView[];
+  /** Keys under a titled fieldset each; keys no group takes come first, ungrouped. */
+  groups?: readonly StringGroup[];
   /** Extra controls inside the form, before the save bar. */
   children?: React.ReactNode;
 }) {
   const version = fields.map((f) => f.token).join('|');
   const save = useSaveState<StringsSaved>(saveScreenStrings, version);
-  const changed = save.state?.ok ? save.state.data.changed.length : null;
-  const success = changed === 0 ? 'Không có gì thay đổi.' : `Đã lưu ${changed} mục. Web khách hiện chữ mới ngay.`;
+  const saved = save.state?.ok ? save.state.data : null;
+  const success =
+    saved?.changed.length === 0
+      ? 'Không có gì thay đổi.'
+      : `Đã lưu ${saved?.changed.length ?? 0} mục. Web khách hiện chữ mới ngay.${saved?.policyVersion ? ` Phiên bản chính sách mới: ${saved.policyVersion}.` : ''}`;
 
   return (
     <form method="post" className="a-grid-form a-editor" onSubmit={submitKeepingValues(save.dispatch)} onInput={save.markDirty} noValidate aria-label={title}>
       <input type="hidden" name="screen" value={screen} />
-      <StringFields key={version} fields={fields} state={save.state} />
+      <StringFields key={version} fields={fields} groups={groups ?? []} state={save.state} />
       {children}
       <SaveBar state={save.state as ActionResult<unknown> | null} pending={save.pending} dirty={save.dirty} success={success} label={`Lưu ${title.toLowerCase()}`} />
     </form>
   );
 }
 
-function StringFields({ fields, state }: { fields: StringFieldView[]; state: ActionResult<StringsSaved> | null }) {
+function StringFields({ fields, groups, state }: { fields: StringFieldView[]; groups: readonly StringGroup[]; state: ActionResult<StringsSaved> | null }) {
+  const field = (f: StringFieldView) => <StringField key={f.key} field={f} error={state && !state.ok ? state.fieldErrors?.[`v:${f.key}`] : undefined} />;
+  const grouped = (f: StringFieldView) => groups.some((g) => f.key.startsWith(g.prefix));
   return (
     <>
-      {fields.map((f) => (
-        <StringField key={f.key} field={f} error={state && !state.ok ? state.fieldErrors?.[`v:${f.key}`] : undefined} />
-      ))}
+      {fields.filter((f) => !grouped(f)).map(field)}
+      {groups.map((g) => {
+        const own = fields.filter((f) => f.key.startsWith(g.prefix));
+        return own.length ? (
+          <fieldset key={g.prefix} className="a-strings-group">
+            <legend>{g.title}</legend>
+            {own.map(field)}
+          </fieldset>
+        ) : null;
+      })}
     </>
   );
 }

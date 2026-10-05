@@ -4,7 +4,7 @@ import { audienceOf, type EmailEvent } from '@/lib/email/events';
 import { addDays, venueNow } from '@/lib/venue-time';
 import { renderEmail } from '../send';
 import type { BookingEmailData } from './load';
-import { buildBookingEmail, loadEmailStrings, resolveEmailLocale, sharedInbox } from './render';
+import { buildBookingEmail, loadEmailStrings, resolveEmailLocale, sharedInbox, type EmailKey } from './render';
 
 /*
  * "Gửi email thử" (spec §10.4, R9) and, from phase 7, /admin/content/emails
@@ -44,11 +44,12 @@ export async function renderSampleEmail(
   pool: Pool,
   event: EmailEvent,
   locale: string,
-  options: { adminOrigin: string; now?: Date },
+  options: { adminOrigin: string; now?: Date; overrides?: Partial<Record<EmailKey, string>> },
 ): Promise<{ subject: string; html: string; text: string; replyTo?: string; locale: string }> {
   const sample = sampleBooking(options.now);
   const resolved = await resolveEmailLocale(pool, locale, 'staff', event);
-  const strings = await loadEmailStrings(pool, event, resolved.code);
+  // /admin/content/emails previews unsaved English text (phase 7 edits the default language only).
+  const strings = { ...(await loadEmailStrings(pool, event, resolved.code)), ...(resolved.code === 'en' ? options.overrides : {}) };
   const built = buildBookingEmail(event, sample, strings, resolved, { adminOrigin: options.adminOrigin });
   const { html, text } = await renderEmail(built.element);
   const replyTo = audienceOf(event) === 'staff' ? (sample.email ?? undefined) : ((await sharedInbox(pool)) ?? undefined);

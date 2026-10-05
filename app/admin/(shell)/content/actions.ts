@@ -2,11 +2,12 @@
 
 import { refresh, updateTag } from 'next/cache';
 import { getPool } from '@/db/client';
+import { readForm, StringRestoreForm } from '@/lib/admin/content-schemas';
 import { z } from '@/lib/admin/zod';
 import { ADMIN_SCREENS } from '@/lib/i18n/registry';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
 import { auditActor, requirePermission } from '@/lib/server/dal/session';
-import { saveStrings, tagsForStrings, type StringsSaved } from '@/lib/server/content/strings-admin';
+import { restoreString, saveStrings, tagsForStrings, type StringsSaved } from '@/lib/server/content/strings-admin';
 
 /*
  * Saving the registry keys of one content screen (spec §7.2, §7.4): Editor
@@ -39,9 +40,24 @@ export async function saveScreenStrings(_prev: ActionResult<StringsSaved> | null
       tokens: fields(formData, 't:'),
     });
     if (!result.ok) return result;
-    for (const tag of tagsForStrings(result.data.changed)) updateTag(tag);
+    for (const tag of tagsForStrings(result.data.changed, result.data.policyVersion !== null)) updateTag(tag);
     refresh();
     return result;
+  } catch (err) {
+    return actionError(err);
+  }
+}
+
+/** "Khôi phục phiên bản này" of one key (spec §7.5): content:restore, then the same tags as a save. */
+export async function restoreScreenString(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  try {
+    const staff = await requirePermission({ content: ['restore'] });
+    const { id, ...input } = StringRestoreForm.parse(readForm(formData));
+    const result = await restoreString(getPool(), auditActor(staff), { key: id, ...input });
+    if (!result.ok) return result;
+    for (const tag of tagsForStrings(result.data.changed, result.data.policyVersion !== null)) updateTag(tag);
+    refresh();
+    return { ok: true, data: null };
   } catch (err) {
     return actionError(err);
   }

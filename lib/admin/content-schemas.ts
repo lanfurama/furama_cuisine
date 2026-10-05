@@ -120,3 +120,11 @@ export const OrderForm = z.object({
     })
     .pipe(z.array(ListId).max(100)),
 });
+
+/** A restore of one registry key (spec §7.5): the key, and its row's token as the page drew it ('' while the default shows). */
+export const StringRestoreForm = z.object({
+  id: z.string().regex(/^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+$/).max(100),
+  auditId: z.string().regex(/^\d{1,18}$/),
+  side: z.enum(['before', 'after']),
+  token: z.string().regex(/^\d{0,20}$/, 'Trang đã cũ, hãy tải lại.'),
+});

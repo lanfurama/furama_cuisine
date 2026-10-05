@@ -41,6 +41,7 @@ export const CONTENT_TABLES = [
   'nav_items',
   'nav_item_i18n',
   'social_links',
+  'legal_versions',
 ] as const;
 export type ContentTable = (typeof CONTENT_TABLES)[number];
 
@@ -80,6 +81,8 @@ export const SAVE_TAGS: Record<ContentTable, readonly string[]> = {
   nav_items: [TAGS.contentNav],
   nav_item_i18n: [TAGS.contentNav],
   social_links: [TAGS.contentContact],
+  // The policy page prints the version's date (phase 7, migration 009).
+  legal_versions: [TAGS.contentLegal],
 };
 
 type Loader = { reads: readonly ContentTable[]; tags: readonly string[] };
@@ -89,6 +92,7 @@ export const LOADERS = {
   locales: { reads: ['locales'], tags: [TAGS.locales] },
   strings: { reads: ['locales', 'content_strings'], tags: [TAGS.contentUi] },
   legal: { reads: ['locales', 'content_strings'], tags: [TAGS.contentLegal] },
+  policyVersion: { reads: ['legal_versions'], tags: [TAGS.contentLegal] },
   sections: { reads: ['locales', 'sections', 'media', 'media_i18n'], tags: [TAGS.contentSections, TAGS.media] },
   settings: { reads: ['site_settings'], tags: [TAGS.contentContact] },
   cuisines: { reads: ['locales', 'cuisines', 'cuisine_i18n', 'media', 'media_i18n'], tags: [TAGS.contentCuisines, TAGS.media] },

@@ -16,6 +16,7 @@ import {
   updateRecipient,
   type RecipientInput,
 } from '@/lib/server/email/recipients';
+import { REGISTRY } from '@/lib/i18n/registry';
 import { createEmailSender } from '@/lib/server/email/send';
 import { sendTestEmail } from '@/lib/server/email/test-email';
 import { addDays, venueNow } from '@/lib/venue-time';
@@ -202,6 +203,30 @@ describe.skipIf(!TEST_DATABASE_URL)('email screens and templates (database)', ()
       const staff = await render('staff.new', id, 'vi');
       expect(staff.text).toContain('Có đặt bàn online mới');
       expect(staff.text).not.toContain('máy dịch');
+    });
+
+    it('a reviewed vi row beats the registry’s Vietnamese for staff (phase-5 ledger T5.5)', async () => {
+      const id = await seedReservation({ status: 'requested' });
+      await pool.query(
+        `INSERT INTO content_strings (key, locale, value, status, origin) VALUES ('email.staff.new.heading', 'vi', 'Có khách đặt bàn mới', 'reviewed', 'human')`,
+      );
+      const staff = await render('staff.new', id, 'vi');
+      expect(staff.text).toContain('Có khách đặt bàn mới');
+      expect(staff.text).not.toContain(REGISTRY['email.staff.new.heading'].vi);
+    });
+
+    it('staff.new says what the booking was when it was made, not what it is now: a retry after a hand confirmation is still a request (T5.1)', async () => {
+      const id = await seedReservation({ status: 'confirmed' });
+      const { rows } = await pool.query<{ id: string }>(
+        `INSERT INTO reservation_events (reservation_id, actor_kind, type, to_status) VALUES ($1, 'guest', 'created', 'requested') RETURNING id::text`,
+        [id],
+      );
+      const data = (await loadBookingEmailData(pool, id))!;
+      const retried = await renderOutboxEmail(pool, { event: 'staff.new', locale: 'vi', reservation_event_id: rows[0].id }, data);
+      expect(retried.text).toContain(REGISTRY['email.staff.new.intro_requested'].vi);
+      expect(retried.text).not.toContain(REGISTRY['email.staff.new.intro_confirmed'].vi);
+      // Without the event (an older row), today's status decides, as before.
+      expect((await render('staff.new', id, 'vi')).text).toContain(REGISTRY['email.staff.new.intro_confirmed'].vi);
     });
 
     it('never carries internal notes; the guest’s own request reaches staff only', async () => {

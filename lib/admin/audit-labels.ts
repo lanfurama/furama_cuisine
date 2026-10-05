@@ -41,6 +41,10 @@ const ENTITIES: Record<string, string> = {
   notification_recipient: 'Người nhận thông báo',
   site_settings: 'Cài đặt chung',
   email_outbox: 'Email',
+  // Content (phase 7): a list item and its order (entity_id NULL), a registry key, a policy version.
+  offers: 'Ưu đãi',
+  content_strings: 'Chữ trên web',
+  legal_versions: 'Phiên bản chính sách',
 };
 
 export function auditActionLabel(action: string): string {

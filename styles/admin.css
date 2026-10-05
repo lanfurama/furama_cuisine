@@ -996,3 +996,35 @@ fieldset.a-field legend {
 .a-danger-zone {
   margin-top: 16px;
 }
+
+/* String screens (phase 7): a titled group of keys (the emails screen, one per email), and the email preview. */
+.a-strings-group,
+.a-email-preview-box {
+  grid-column: 1 / -1;
+  margin: 16px 0 0;
+  padding: 12px 16px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--a-radius);
+}
+
+.a-strings-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0 16px;
+}
+
+.a-strings-group legend,
+.a-email-preview-box legend {
+  padding: 0 4px;
+  font-weight: 600;
+}
+
+/* The preview frame; the email's own CSP comes with its response (app/api/admin/emails/preview). */
+.a-email-preview {
+  display: block;
+  width: 100%;
+  height: 640px;
+  margin-top: 12px;
+  border: 1px solid var(--a-line);
+  background: #fff;
+}

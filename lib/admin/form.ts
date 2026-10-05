@@ -13,8 +13,11 @@ import { startTransition, type FormEvent } from 'react';
  */
 export function submitKeepingValues(dispatch: (formData: FormData) => void) {
   return (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    // A button with its own formAction (a preview into an iframe, /admin/content/emails) is a plain
+    // browser submit to that URL: let it through, before anything prevents it.
+    if (submitter?.hasAttribute('formaction')) return;
+    event.preventDefault();
     const formData = new FormData(event.currentTarget, submitter instanceof HTMLElement ? submitter : null);
     startTransition(() => dispatch(formData));
   };

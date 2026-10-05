@@ -106,6 +106,7 @@ const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; edito
   // The registry keys of every string screen (lib/server/content/strings-admin.ts).
   'app/admin/(shell)/content/actions.ts': {
     saveScreenStrings: { permission: { content: ['update'] }, editor: true },
+    restoreScreenString: { permission: { content: ['restore'] }, editor: true },
   },
   'app/admin/(shell)/content/offers/actions.ts': {
     createOfferAction: { permission: { content: ['update'] }, editor: true },

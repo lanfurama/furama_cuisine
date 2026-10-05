@@ -170,6 +170,24 @@ describe('booking emails', () => {
     expect((await render('guest.confirmed', EN, withOffer)).text).not.toContain('Vietnamese Cooking Class');
   });
 
+  it('staff.new opens with the status the booking was created with, when the outbox row names its event (T5.1)', async () => {
+    const built = buildBookingEmail('staff.new', { ...booking, status: 'confirmed' }, registryStrings('staff.new', 'vi'), VI, { adminOrigin: ORIGIN, createdStatus: 'requested' });
+    const { text } = await renderEmail(built.element);
+    expect(text).toContain('Vui lòng xác nhận hoặc từ chối');
+  });
+
+  it('each guest email reads its own three keys, then the shared lines (one table, T5.3)', () => {
+    expect(emailKeys('guest.declined').slice(6)).toEqual([
+      'email.guest.declined.subject',
+      'email.guest.declined.heading',
+      'email.guest.declined.intro',
+      'email.common.label_reason',
+      'email.common.contact',
+      'email.common.footer_guest',
+    ]);
+    expect(emailKeys('guest.ack').slice(6)).toEqual(['email.guest.ack.subject', 'email.guest.ack.heading', 'email.guest.ack.intro', 'email.common.contact', 'email.common.footer_guest']);
+  });
+
   it('staff.new in English says "party of", so one guest still reads right', async () => {
     const { subject } = await render('staff.new', EN, { ...booking, guests: 1 });
     expect(subject).toBe('New booking FC-7K3QH9XA: Tàya House, Mon, Oct 5, 2026 7:00 PM, party of 1');

@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import { lang } from 'next/root-params';
+import { WithEmail } from '@/components/legal/WithEmail';
 import { ViewMarker } from '@/components/site/ViewMarker';
 import { formatMessage } from '@/lib/i18n/format';
 import { DEFAULT_LOCALE, toBcp47 } from '@/lib/i18n/locales';
-import { PRIVACY_POLICY_VERSION, PRIVACY_SECTIONS } from '@/lib/legal';
-import { getPrivacyStrings } from '@/lib/server/content/legal';
+import { PRIVACY_SECTIONS } from '@/lib/legal';
+import { getPolicyVersion, getPrivacyStrings } from '@/lib/server/content/legal';
 import { requireEnabledLocale } from '@/lib/server/content/locales';
 import { getSiteSettings } from '@/lib/server/content/site';
 
@@ -34,22 +35,9 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-/** A body whose {email} becomes a mailto link. */
-function WithEmail({ template, email }: { template: string; email: string }) {
-  const parts = template.split('{email}');
-  if (parts.length < 2) return <>{template}</>;
-  return (
-    <>
-      {parts[0]}
-      <a href={`mailto:${email}`}>{email}</a>
-      {parts.slice(1).join(email)}
-    </>
-  );
-}
-
 export default async function PrivacyPage() {
   const locale = await requireEnabledLocale(await lang());
-  const [t, settings] = await Promise.all([getPrivacyStrings(locale), getSiteSettings()]);
+  const [t, settings, policy] = await Promise.all([getPrivacyStrings(locale), getSiteSettings(), getPolicyVersion()]);
   // A calendar date: format it in UTC so the server's zone cannot move it. English reads day first, as the
   // booking form does ("Thu, 1 Oct"); other languages take their own order (phase 8).
   const updated = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : toBcp47(locale), {
@@ -57,7 +45,7 @@ export default async function PrivacyPage() {
     month: 'long',
     year: 'numeric',
     timeZone: 'UTC',
-  }).format(new Date(`${PRIVACY_POLICY_VERSION}T00:00:00Z`));
+  }).format(new Date(`${policy.effectiveOn}T00:00:00Z`));
 
   return (
     <ViewMarker view="other">

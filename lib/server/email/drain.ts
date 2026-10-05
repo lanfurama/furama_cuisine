@@ -69,6 +69,8 @@ export type ClaimedRow = {
   message_id: string | null;
   /** staff.new to the shared inbox (site_settings.email), because no recipient reached the booking. */
   fallback: boolean;
+  /** The event the email is about (staff.new: the booking's created event, whose status picks the intro: T5.1). */
+  reservation_event_id: string | null;
 };
 
 async function claimOne(pool: Pool, env: string, ids: readonly string[] | null, domain: string | null): Promise<ClaimedRow | null> {
@@ -96,7 +98,8 @@ async function claimOne(pool: Pool, env: string, ids: readonly string[] | null, 
             updated_at = now()
        FROM next
       WHERE o.id = next.id
-      RETURNING o.id::text, o.event, o.reservation_id::text, o.to_email, o.locale, o.attempts, o.idempotency_key, o.message_id, o.fallback`,
+      RETURNING o.id::text, o.event, o.reservation_id::text, o.to_email, o.locale, o.attempts, o.idempotency_key, o.message_id, o.fallback,
+                o.reservation_event_id::text`,
     [env, ids, LEASE_SECONDS, domain, MAX_ATTEMPTS],
   );
   return rows[0] ?? null;

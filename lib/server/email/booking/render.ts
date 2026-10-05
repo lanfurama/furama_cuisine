@@ -1,6 +1,7 @@
 import 'server-only';
 import { createElement, type ReactElement } from 'react';
 import type { Pool, PoolClient } from 'pg';
+import type { ReservationStatus } from '@/lib/booking/rules';
 import { audienceOf, type EmailAudience, type EmailEvent } from '@/lib/email/events';
 import { formatMessage } from '@/lib/i18n/format';
 import { registryLocaleDefault, type StringKey } from '@/lib/i18n/registry';
@@ -46,6 +47,28 @@ const COMMON_KEYS = [
   'email.common.label_guests',
 ] as const satisfies readonly EmailKey[];
 
+type GuestEvent = Exclude<EmailEvent, 'staff.new'>;
+
+/**
+ * Each guest email's own keys, written once (phase-5 ledger T5.3): the
+ * subject, heading and intro buildBookingEmail prints, and the shared lines it
+ * shows after them. emailKeys() and the template both read this table.
+ */
+const GUEST_EMAILS = {
+  'guest.ack': { subject: 'email.guest.ack.subject', heading: 'email.guest.ack.heading', intro: 'email.guest.ack.intro', reason: false },
+  'guest.confirmed': { subject: 'email.guest.confirmed.subject', heading: 'email.guest.confirmed.heading', intro: 'email.guest.confirmed.intro', reason: false },
+  'guest.declined': { subject: 'email.guest.declined.subject', heading: 'email.guest.declined.heading', intro: 'email.guest.declined.intro', reason: true },
+  'guest.cancelled': { subject: 'email.guest.cancelled.subject', heading: 'email.guest.cancelled.heading', intro: 'email.guest.cancelled.intro', reason: true },
+} as const satisfies Record<GuestEvent, { subject: EmailKey; heading: EmailKey; intro: EmailKey; reason: boolean }>;
+
+function guestEventKeys(): Record<GuestEvent, readonly EmailKey[]> {
+  const keys = (e: GuestEvent): EmailKey[] => {
+    const g = GUEST_EMAILS[e];
+    return [g.subject, g.heading, g.intro, ...(g.reason ? (['email.common.label_reason'] as const) : []), 'email.common.contact', 'email.common.footer_guest'];
+  };
+  return { 'guest.ack': keys('guest.ack'), 'guest.confirmed': keys('guest.confirmed'), 'guest.declined': keys('guest.declined'), 'guest.cancelled': keys('guest.cancelled') };
+}
+
 const EVENT_KEYS = {
   'staff.new': [
     'email.staff.new.subject',
@@ -60,30 +83,7 @@ const EVENT_KEYS = {
     'email.staff.new.button',
     'email.common.footer_staff',
   ],
-  'guest.ack': ['email.guest.ack.subject', 'email.guest.ack.heading', 'email.guest.ack.intro', 'email.common.contact', 'email.common.footer_guest'],
-  'guest.confirmed': [
-    'email.guest.confirmed.subject',
-    'email.guest.confirmed.heading',
-    'email.guest.confirmed.intro',
-    'email.common.contact',
-    'email.common.footer_guest',
-  ],
-  'guest.declined': [
-    'email.guest.declined.subject',
-    'email.guest.declined.heading',
-    'email.guest.declined.intro',
-    'email.common.label_reason',
-    'email.common.contact',
-    'email.common.footer_guest',
-  ],
-  'guest.cancelled': [
-    'email.guest.cancelled.subject',
-    'email.guest.cancelled.heading',
-    'email.guest.cancelled.intro',
-    'email.common.label_reason',
-    'email.common.contact',
-    'email.common.footer_guest',
-  ],
+  ...guestEventKeys(),
 } as const satisfies Record<EmailEvent, readonly EmailKey[]>;
 
 /** Every registry key one event's email reads. */
@@ -102,7 +102,7 @@ export function buildBookingEmail(
   data: BookingEmailData,
   strings: Readonly<Record<EmailKey, string>>,
   locale: EmailLocale,
-  options: { adminOrigin: string },
+  options: { adminOrigin: string; createdStatus?: ReservationStatus | null },
 ): BuiltEmail {
   const t = (key: EmailKey, params?: Record<string, string | number>) => formatMessage(strings[key], params, locale.code);
   const time = formatEmailTime(data.time, locale.bcp47);
@@ -115,8 +115,10 @@ export function buildBookingEmail(
   ];
 
   if (event === 'staff.new') {
-    // R4: auto-confirmed bookings say so; staff need not act on them.
-    const intro = t(data.status === 'requested' ? 'email.staff.new.intro_requested' : 'email.staff.new.intro_confirmed');
+    // R4: auto-confirmed bookings say so; staff need not act on them. The status the booking was created with
+    // (its created event), not today's: a retry after staff confirmed it by hand is still a request (T5.1).
+    const created = options.createdStatus ?? data.status;
+    const intro = t(created === 'requested' ? 'email.staff.new.intro_requested' : 'email.staff.new.intro_confirmed');
     const href = `${options.adminOrigin}/admin/reservations/${data.reservationId}`;
     const subject = t('email.staff.new.subject', {
       reference: data.reference,
@@ -145,21 +147,15 @@ export function buildBookingEmail(
     return { subject, preview: subject, element: createElement(BookingEmail, props) };
   }
 
-  const keys = {
-    'guest.ack': ['email.guest.ack.subject', 'email.guest.ack.heading', 'email.guest.ack.intro'],
-    'guest.confirmed': ['email.guest.confirmed.subject', 'email.guest.confirmed.heading', 'email.guest.confirmed.intro'],
-    'guest.declined': ['email.guest.declined.subject', 'email.guest.declined.heading', 'email.guest.declined.intro'],
-    'guest.cancelled': ['email.guest.cancelled.subject', 'email.guest.cancelled.heading', 'email.guest.cancelled.intro'],
-  } as const satisfies Record<Exclude<EmailEvent, 'staff.new'>, readonly [EmailKey, EmailKey, EmailKey]>;
-  const [subjectKey, headingKey, introKey] = keys[event];
-  const subject = t(subjectKey, { reference: data.reference });
-  const intro = t(introKey, { restaurant: data.restaurantName });
+  const own = GUEST_EMAILS[event];
+  const subject = t(own.subject, { reference: data.reference });
+  const intro = t(own.intro, { restaurant: data.restaurantName });
   // status_reason reaches the guest only on a decline or a cancellation (R8).
-  const reason = (event === 'guest.declined' || event === 'guest.cancelled') && data.statusReason?.trim() ? data.statusReason.trim() : null;
+  const reason = own.reason && data.statusReason?.trim() ? data.statusReason.trim() : null;
   const props: BookingEmailProps = {
     lang: locale.bcp47,
     preview: intro,
-    heading: t(headingKey),
+    heading: t(own.heading),
     intro,
     details,
     quotes: reason ? [{ label: t('email.common.label_reason'), text: reason }] : [],
@@ -206,13 +202,24 @@ export type RenderedEmail = { subject: string; html: string; text: string; reply
  * just re-read. Reply-To (R11): staff reply straight to the guest; a guest's
  * reply goes to the shared inbox, never to a staff member's address.
  */
-export async function renderOutboxEmail(db: Db, row: { event: EmailEvent; locale: string }, data: BookingEmailData): Promise<RenderedEmail> {
+export async function renderOutboxEmail(
+  db: Db,
+  row: { event: EmailEvent; locale: string; reservation_event_id?: string | null },
+  data: BookingEmailData,
+): Promise<RenderedEmail> {
   const audience = audienceOf(row.event);
   const locale = await resolveEmailLocale(db, row.locale, audience, row.event);
   const strings = await loadEmailStrings(db, row.event, locale.code);
+  const createdStatus = row.event === 'staff.new' && row.reservation_event_id ? await eventStatus(db, row.reservation_event_id) : null;
   // Only staff.new links to the admin; appOrigin() fails closed without BETTER_AUTH_URL outside log mode (R23).
-  const built = buildBookingEmail(row.event, data, strings, locale, { adminOrigin: audience === 'staff' ? appOrigin() : '' });
+  const built = buildBookingEmail(row.event, data, strings, locale, { adminOrigin: audience === 'staff' ? appOrigin() : '', createdStatus });
   const { html, text } = await renderEmail(built.element);
   const replyTo = audience === 'staff' ? (data.email ?? undefined) : ((await sharedInbox(db)) ?? undefined);
   return { subject: built.subject, html, text, replyTo, locale: locale.code };
+}
+
+/** The status an event left the booking in: for staff.new, the created event's (requested or confirmed). */
+async function eventStatus(db: Db, eventId: string): Promise<ReservationStatus | null> {
+  const { rows } = await db.query<{ to_status: ReservationStatus | null }>('SELECT to_status FROM reservation_events WHERE id = $1', [eventId]);
+  return rows[0]?.to_status ?? null;
 }

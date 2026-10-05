@@ -17,6 +17,8 @@ const SCREENS = [
   { href: '/admin/content/stories', label: 'Stories', about: 'Tiêu đề và câu dẫn của mục Stories.' },
   { href: '/admin/content/heritage', label: 'Heritage', about: 'Chữ của mục Heritage (ảnh và link: màn Sections).' },
   { href: '/admin/content/ui-text', label: 'Chữ giao diện', about: 'Nút, nhãn và thông báo chung: tìm kiếm, lỗi của form đặt bàn.' },
+  { href: '/admin/content/legal', label: 'Chính sách bảo mật', about: 'Trang chính sách và câu đồng ý ở form đặt bàn; mỗi lần đổi chữ khách đồng ý là một phiên bản mới.' },
+  { href: '/admin/content/emails', label: 'Nội dung email', about: 'Tiêu đề và nội dung email đặt bàn (tiếng Anh), xem trước với một đặt bàn mẫu.' },
 ];
 
 export default async function ContentIndex() {

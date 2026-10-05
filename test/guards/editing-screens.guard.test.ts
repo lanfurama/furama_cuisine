@@ -22,8 +22,6 @@ const NOT_BUILT: readonly EditScreen[] = [
   'cuisines',
   'destinations',
   'experiences',
-  'legal',
-  'emails',
   'booking',
   'navigation',
   'contact',

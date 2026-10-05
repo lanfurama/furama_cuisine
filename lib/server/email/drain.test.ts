@@ -20,6 +20,7 @@ const row = (event: EmailEvent = 'guest.confirmed'): ClaimedRow => ({
   idempotency_key: 'outbox:1',
   message_id: null,
   fallback: false,
+  reservation_event_id: null,
 });
 
 const booking = (over: Partial<BookingEmailData> = {}): BookingEmailData => ({

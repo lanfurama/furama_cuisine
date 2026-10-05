@@ -246,6 +246,13 @@ export const COLUMN_SCREENS: Record<ContentTable, Record<string, ColumnOwner>> =
   nav_items: { ...LIST_META, target_section: 'navigation', is_published: 'navigation' },
   nav_item_i18n: { nav_item_id: KEY, label: 'navigation', ...I18N_META },
   social_links: { ...LIST_META, platform: 'contact', href: 'contact', visible_locales: 'contact', is_published: 'contact' },
+  legal_versions: {
+    version: { none: 'written by a legal save that changes the agreed text (lib/server/content/policy-version.ts)' },
+    effective_on: 'legal',
+    text_sha256: { none: 'computed by the save' },
+    created_at: BOOKKEEPING,
+    created_by: BOOKKEEPING,
+  },
 };
 
 /** The screens some column or key is edited on. */

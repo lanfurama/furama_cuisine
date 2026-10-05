@@ -1,10 +1,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { REGISTRY, type StringKey } from '@/lib/i18n/registry';
-import { PRIVACY_KEYS, PRIVACY_POLICY_VERSION, privacyHref } from './legal';
-
-/** Everything a guest agrees to when ticking the box: the page and the drawer's notice and label. */
-const AGREED_KEYS: readonly StringKey[] = [...PRIVACY_KEYS, 'booking.privacy_notice', 'booking.consent'];
+import { REGISTRY } from '@/lib/i18n/registry';
+import { AGREED_KEYS, PRIVACY_POLICY_VERSION, privacyHref } from './legal';
 
 /*
  * reservations.consent_version must name the text the guest saw. When this
