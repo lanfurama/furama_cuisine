@@ -16,6 +16,7 @@ const SCREENS = [
   { href: '/admin/content/sections', label: 'Section trang chủ', about: 'Bật hoặc tắt từng phần của trang chủ; ảnh và link của phim, Experiences và Heritage.' },
   { href: '/admin/content/hero', label: 'Hero và phim', about: 'Slide đầu trang chủ, chữ trên ảnh, tốc độ chuyển slide; poster, link và chữ của phim.' },
   { href: '/admin/restaurants', label: 'Nhà hàng', about: 'Nội dung từng nhà hàng: ảnh, trang chi tiết, điểm nổi bật, thực đơn, SEO; chữ dùng chung của trang nhà hàng.' },
+  { href: '/admin/content/cuisines', label: 'Ẩm thực', about: 'Thanh “Explore by Cuisine”: tên, ảnh, thứ tự, hiện/ẩn của từng ẩm thực; cũng là bộ lọc ẩm thực.' },
   { href: '/admin/content/destinations', label: 'Điểm đến', about: 'Thẻ điểm đến ở trang chủ, tên, địa chỉ và số điện thoại của từng địa điểm; ẩn một điểm đến là ẩn nhà hàng của nó.' },
   { href: '/admin/content/offers', label: 'Ưu đãi', about: 'Thẻ ưu đãi ở trang chủ: thứ tự, hiện/ẩn, ngày hiện, xóa và khôi phục; chữ của mục.' },
   { href: '/admin/content/stories', label: 'Stories', about: 'Tiêu đề và câu dẫn của mục Stories.' },

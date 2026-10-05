@@ -69,6 +69,8 @@ export function limitWarnings(key: LimitKey, shown: number): string[] {
     out.push(`Đang hiện ${shown} mục; bố cục đẹp nhất khi số mục là bội số của ${limit.multipleOf}.`);
   }
   if (key === 'offers' && shown === 0) out.push('Không có ưu đãi nào được hiện: trang chủ ẩn section Offers.');
+  // Spec §6.5 "Cuisines: nên tối đa 10": advice, so the cuisines list passes no `limit` to makeListEditor.
+  if (key === 'cuisines' && shown > limit.max) out.push(`Đang hiện ${shown} ẩm thực; thanh ẩm thực đẹp nhất khi không quá ${limit.max}.`);
   if (key === 'highlights' && shown === 0) out.push('Không có điểm nổi bật nào: trang chi tiết ẩn phần này.');
   return out;
 }

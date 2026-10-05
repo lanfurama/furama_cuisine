@@ -43,6 +43,9 @@ describe('content rules (spec §6.5)', () => {
     expect(limitWarnings('offers', 0)).toEqual([expect.stringMatching(/ẩn section Offers/)]);
     expect(limitWarnings('highlights', 1)).toEqual([expect.stringMatching(/ít nhất 2/)]);
     expect(limitWarnings('experiences', 0)[0]).toMatch(/ít nhất 1/);
+    // Ten cuisines is advice (spec §6.5 "nên"): more only warns.
+    expect(limitWarnings('cuisines', 10)).toEqual([]);
+    expect(limitWarnings('cuisines', 11)).toEqual(['Đang hiện 11 ẩm thực; thanh ẩm thực đẹp nhất khi không quá 10.']);
   });
 
   it('a section: restaurants never hides; the film plays a YouTube or Vimeo video only; other links are https (code rule 5)', () => {

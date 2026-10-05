@@ -134,6 +134,16 @@ const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; edito
     saveAutoplayAction: { permission: { content: ['update'] }, editor: true },
     restoreAutoplayAction: { permission: { content: ['restore'] }, editor: true },
   },
+  // The cuisines list (spec §7.2 content/cuisines, plan 7B task B2).
+  'app/admin/(shell)/content/cuisines/actions.ts': {
+    createCuisineAction: { permission: { content: ['update'] }, editor: true },
+    saveCuisineAction: { permission: { content: ['update'] }, editor: true },
+    toggleCuisineAction: { permission: { content: ['update'] }, editor: true },
+    deleteCuisineAction: { permission: { content: ['update'] }, editor: true },
+    reorderCuisinesAction: { permission: { content: ['update'] }, editor: true },
+    restoreCuisineAction: { permission: { content: ['restore'] }, editor: true },
+    restoreCuisineOrderAction: { permission: { content: ['restore'] }, editor: true },
+  },
   // The destinations list (spec §7.2 content/destinations, plan 7B task B1).
   'app/admin/(shell)/content/destinations/actions.ts': {
     createDestinationAction: { permission: { content: ['update'] }, editor: true },

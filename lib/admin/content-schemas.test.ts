@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AutoplayForm,
   checkbox,
+  CuisineForm,
   DestinationForm,
   NewRestaurantForm,
   OfferForm,
@@ -249,5 +250,20 @@ describe('content form schemas (spec §7.3, §7.4)', () => {
     expect(SlugOrderForm.parse({ token, order: '["mm","resort"]' }).order).toEqual(['mm', 'resort']);
     for (const id of ['Dining House', '../x', '']) expect(SlugRecordRef.safeParse({ id, token }).success, id).toBe(false);
     expect(SlugOrderForm.safeParse({ token, order: '["mm","../x"]' }).success).toBe(false);
+  });
+
+  it('a cuisine: its slug, a picture from the library and its EN label are required (plan 7B B2)', () => {
+    const imageId = '5b0b1f3a-2b1c-4c1e-9a43-3f1d2c7b9e10';
+    expect(CuisineForm.parse(readForm(form({ id: 'korean', imageId, isPublished: 'on', 'label.en': ' Korean ' })))).toEqual({
+      id: 'korean',
+      imageId,
+      isPublished: true,
+      label: { en: 'Korean' },
+    });
+    expect(fieldErrors(CuisineForm.safeParse(readForm(form({ id: 'Korean BBQ', imageId: '', 'label.en': '' }))).error)).toEqual({
+      id: ['Chỉ chữ thường không dấu, số và gạch nối, ví dụ korean.'],
+      imageId: ['Chọn ảnh cho ẩm thực.'],
+      label: ['Nhập tên ẩm thực tiếng Anh.'],
+    });
   });
 });

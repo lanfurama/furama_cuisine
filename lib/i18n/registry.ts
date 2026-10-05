@@ -754,6 +754,22 @@ export const REGISTRY = {
     screen: 'restaurants',
     label: 'Link xem mọi nhà hàng',
   },
+  // ── Explore by Cuisine (spec §7.2 content/cuisines): the home page reads them on the server and hands them to the
+  // section (page props); the chips themselves are cuisines rows ──
+  'cuisines.title': {
+    en: 'Explore by Cuisine',
+    maxLength: 40,
+    context: 'Home page, title of the cuisine rail (round pictures that filter the restaurants by cuisine).',
+    screen: 'cuisines',
+    label: 'Tiêu đề mục ẩm thực',
+  },
+  'cuisines.all': {
+    en: 'ALL CUISINES',
+    maxLength: 32,
+    context: 'Home page, the link beside the cuisine title; clears the cuisine filter and scrolls to the restaurants. Capitals; an arrow follows it.',
+    screen: 'cuisines',
+    label: 'Link “mọi ẩm thực”',
+  },
   // ── Our Destinations (spec §7.2 content/destinations): the home page reads them on the server and hands them to
   // the section (page props); the cards themselves are destinations rows ──
   'destinations.title': {
@@ -1172,7 +1188,7 @@ export function sectionKeys<P extends string>(prefix: P): SectionKey<P>[] {
 }
 
 /** The home sections whose copy the home page reads on the server and passes down as props. */
-export const HOME_SECTIONS = ['hero', 'destinations', 'stories', 'heritage', 'offers'] as const;
+export const HOME_SECTIONS = ['hero', 'cuisines', 'destinations', 'stories', 'heritage', 'offers'] as const;
 export const HOME_KEYS = HOME_SECTIONS.flatMap((s) => sectionKeys(s));
 
 /** Every key one admin screen edits. */

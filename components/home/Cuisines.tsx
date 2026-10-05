@@ -1,11 +1,13 @@
 'use client';
 
 import type { Media } from '@/lib/content/types';
+import type { Copy } from '@/lib/i18n/registry';
 import { CmsImage } from '@/components/ui/CmsImage';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 
-export function Cuisines() {
+/** The chips come from the layout's cuisines; the section's copy (cuisines.*) from the page, read on the server. */
+export function Cuisines({ copy }: { copy: Copy<'cuisines'> }) {
   const { site, filter, pickCuisine, setFilter, scrollToId } = useSite();
   const title = useReveal<HTMLHeadingElement>('title');
   const link = useReveal<HTMLButtonElement>('fade');
@@ -15,7 +17,7 @@ export function Cuisines() {
       <div className="shell">
         <div className="section-head">
           <h2 ref={title} data-reveal="title" className="section-title">
-            Explore by Cuisine
+            {copy['cuisines.title']}
           </h2>
           <button
             ref={link}
@@ -27,7 +29,7 @@ export function Cuisines() {
               scrollToId('restaurants');
             }}
           >
-            ALL CUISINES →
+            {`${copy['cuisines.all']} →`}
           </button>
         </div>
 

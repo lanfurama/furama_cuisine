@@ -7,6 +7,7 @@ import { assertLiveMedia, reviveMedia } from '@/lib/server/media/library';
 import { getAuditRow } from './history';
 import {
   isForeignKeyViolation,
+  isRestrictViolation,
   isRuleViolation,
   lockList,
   orderToken,
@@ -324,8 +325,9 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
           return { ok: true, data: { meta } };
         });
       } catch (err) {
-        // A row refuseDelete does not know still points at it (NO ACTION / RESTRICT): refused, the transaction rolled back.
-        if (isForeignKeyViolation(err)) return { ok: false, code: 'invalid', fieldErrors: { [WHOLE_ITEM]: [STILL_IN_USE] } };
+        // A row refuseDelete does not know still points at it: NO ACTION raises 23503, RESTRICT 23001 (outline F2).
+        // Refused, the transaction rolled back.
+        if (isForeignKeyViolation(err) || isRestrictViolation(err)) return { ok: false, code: 'invalid', fieldErrors: { [WHOLE_ITEM]: [STILL_IN_USE] } };
         throw err;
       }
     },

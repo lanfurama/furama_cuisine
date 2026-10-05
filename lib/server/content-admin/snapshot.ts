@@ -248,6 +248,11 @@ export function isForeignKeyViolation(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { code?: string }).code === '23503';
 }
 
+/** restrict_violation: a delete an ON DELETE RESTRICT foreign key refuses (media, cuisines), not 23503. */
+export function isRestrictViolation(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: string }).code === '23001';
+}
+
 /** check_violation (23514) or not_null_violation (23502): a stored version today's schema refuses. */
 export function isRuleViolation(err: unknown): boolean {
   const code = typeof err === 'object' && err !== null ? (err as { code?: string }).code : undefined;

@@ -364,3 +364,19 @@ export const DestinationForm = z
     if (v.phoneDisplay && !phoneE164) ctx.addIssue({ code: 'custom', path: ['phoneDisplay'], message: 'Số điện thoại không hợp lệ.' });
     return { ...v, phoneE164 };
   });
+
+/**
+ * One cuisine (spec §7.2 content/cuisines): its slug (the filter's key, typed
+ * once when it is added), its picture on the rail (cuisines.image_id NOT
+ * NULL), its EN label and its switch.
+ */
+export const CuisineForm = z.object({
+  id: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Chỉ chữ thường không dấu, số và gạch nối, ví dụ korean.')
+    .max(40, tooLong(40)),
+  imageId: z.uuid({ error: 'Chọn ảnh cho ẩm thực.' }),
+  isPublished: checkbox,
+  label: translatable(40, 'Nhập tên ẩm thực tiếng Anh.'),
+});

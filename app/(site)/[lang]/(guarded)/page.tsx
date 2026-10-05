@@ -48,7 +48,7 @@ export default async function HomePage() {
       <IntroTrigger />
       {hero ? <Hero slides={slides} copy={copyOf(strings, 'hero')} /> : <HeroHeading copy={copyOf(strings, 'hero')} />}
       {shown.has('finder') && <Finder />}
-      {shown.has('cuisines') && <Cuisines />}
+      {shown.has('cuisines') && <Cuisines copy={copyOf(strings, 'cuisines')} />}
       {shown.has('restaurants') && <Restaurants />}
       {shown.has('destinations') && <Destinations copy={copyOf(strings, 'destinations')} />}
       {shown.has('experiences') && <Experiences items={experiences} />}

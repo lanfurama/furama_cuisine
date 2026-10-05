@@ -70,6 +70,7 @@ describe('audit labels', () => {
   it('names every entity the content editors write to audit_log (phase 7, R5: the table name)', () => {
     const files = [
       'lib/server/content-admin/offers.ts',
+      'lib/server/content-admin/cuisines.ts',
       'lib/server/content-admin/destinations.ts',
       'lib/server/content-admin/hero.ts',
       'lib/server/content-admin/sections.ts',
@@ -82,6 +83,7 @@ describe('audit labels', () => {
     const entities = [...new Set([...source.matchAll(/entityType: '([a-z_]+)'/g)].map((m) => m[1]))].sort();
     expect(entities).toEqual([
       'content_strings',
+      'cuisines',
       'destinations',
       'hero_slides',
       'legal_versions',
@@ -94,6 +96,7 @@ describe('audit labels', () => {
     ]);
     expect(entities.map(auditEntityLabel)).toEqual([
       'Chữ trên web',
+      'Ẩm thực',
       'Điểm đến',
       'Slide hero',
       'Phiên bản chính sách',
