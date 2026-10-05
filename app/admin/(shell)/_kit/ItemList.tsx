@@ -5,6 +5,7 @@ import type { ActionResult } from '@/lib/server/action-result';
 import { FormMessage, RuleAlert, fieldMessages } from '../_ui/FormMessage';
 import { LimitNote, moved, SortableList } from './SortableList';
 import { Thumb, type ThumbFile } from './Thumb';
+import { useLeaveGuard } from './useLeaveGuard';
 
 type Action = (prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
 
@@ -133,6 +134,8 @@ function ItemOrder({
   const byId = new Map(items.map((i) => [i.id, i]));
   const ordered = order.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
   const changed = order.join(',') !== items.map((i) => i.id).join(',');
+  // A new order is unsaved work like a form's typing: a reload or a closed tab asks first.
+  useLeaveGuard(changed);
   return (
     <>
       {ordered.length === 0 ? (

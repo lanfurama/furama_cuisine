@@ -4,7 +4,7 @@ import { useId, useState } from 'react';
 import { LENGTHS, LIMITS, limitWarnings } from '@/lib/admin/content-rules';
 import { submitKeepingValues } from '@/lib/admin/form';
 import type { MediaOption } from '@/lib/admin/media-option';
-import type { Saved } from '@/lib/admin/save-state';
+import { tokenUnlessInserted, type Saved } from '@/lib/admin/save-state';
 import type { ActionResult } from '@/lib/server/action-result';
 import type { RestaurantEditor } from '@/lib/server/content-admin/restaurants';
 import { ImagePicker } from '../../_kit/ImagePicker';
@@ -39,9 +39,15 @@ type Props = {
  * and the highlight list (client state, posted as JSON) remount on the token
  * the hook accepted, survive a refused save, and survive a colleague's save
  * arriving while staff type (the picker's upload refreshes the page).
+ * A save that inserted highlights remounts them even when staff typed while
+ * it was in flight (tokenUnlessInserted): the new rows get their ids, so the
+ * next save keeps them instead of deleting them and adding copies; what was
+ * typed during that one save is dropped, as with any save that cannot keep it.
  */
 export function RestaurantForm(props: Props) {
-  const save = useSaveState<Saved, Values>(saveRestaurantAction, props.token, props.values);
+  const save = useSaveState<Saved, Values>(saveRestaurantAction, props.token, props.values, (data, posted) =>
+    tokenUnlessInserted(data, posted.highlights, props.values.highlights),
+  );
   return (
     <form method="post" className="a-grid-form a-editor" onSubmit={submitKeepingValues(save.dispatch)} onInput={save.markDirty} noValidate aria-label="Nội dung nhà hàng">
       <Fields key={save.fieldsKey} {...props} token={save.token} values={save.view} state={save.state} markDirty={save.markDirty} />

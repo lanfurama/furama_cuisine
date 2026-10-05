@@ -10,8 +10,9 @@
  *   hidden token input the fields draw from it posts the new one, and the
  *   next save is no conflict with itself), but the fields do not remount:
  *   uncontrolled inputs keep what was typed since, and the form stays
- *   unsaved. Any other record (a colleague's save landed in between, or the
- *   save does not say what it wrote: a create) remounts the fields on it, as
+ *   unsaved. Any other record (a colleague's save landed in between, the
+ *   save does not say what it wrote: a create, or it inserted rows the
+ *   fields hold without ids: tokenUnlessInserted) remounts the fields on it, as
  *   a save with nothing typed does: posting its token under fields that do
  *   not show it would overwrite that other save silently;
  * - "Tải lại" (the not_allowed residual of the 7A fix wave): it remounts
@@ -25,6 +26,17 @@ export type Saved = { token: string };
 /** The token a save's data names (Saved), else null. */
 export function savedToken(data: unknown): string | null {
   return data !== null && typeof data === 'object' && typeof (data as Partial<Saved>).token === 'string' ? (data as Saved).token : null;
+}
+
+/**
+ * The save's token, unless the record now has rows the posted view lacked (a
+ * save that inserted them): those must remount to get their ids, or the next
+ * save would post them id-less again and replace them with copies. `posted` is
+ * the view the fields were drawn from, which never holds browser-only rows.
+ */
+export function tokenUnlessInserted(data: unknown, posted: readonly { id: string | null }[], now: readonly { id: string | null }[]): string | null {
+  const known = new Set(posted.map((r) => r.id));
+  return now.some((r) => r.id !== null && !known.has(r.id)) ? null : savedToken(data);
 }
 
 export type SaveSeen<S, V> = {

@@ -31,6 +31,7 @@ import { loadCuisines } from '@/lib/server/content/site.queries';
 const pool = getPool();
 const ACTOR: AuditActor = { id: 'staff-lan', email: 'lan@furama.test', name: 'Lan' };
 const OTHER: AuditActor = { id: 'staff-minh', email: 'minh@furama.test', name: 'Minh' };
+const THIRD: AuditActor = { id: 'staff-huy', email: 'huy@furama.test', name: 'Huy' };
 
 let seed: ItemSnapshot[] = [];
 let thaiImage = '';
@@ -64,7 +65,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('cuisines editor (database)', ()
   beforeAll(async () => {
     seed = await readItems(pool, CUISINE);
     thaiImage = String(seed.find((s) => s.row.id === 'thai')!.row.image_id);
-    for (const a of [ACTOR, OTHER]) {
+    for (const a of [ACTOR, OTHER, THIRD]) {
       await pool.query(`INSERT INTO staff_user (id, name, email, email_verified, role) VALUES ($1, $2, $3, true, 'editor') ON CONFLICT (id) DO NOTHING`, [
         a.id,
         a.name,
@@ -76,7 +77,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('cuisines editor (database)', ()
   afterEach(() => resetCuisines());
   afterAll(async () => {
     await pool.query('TRUNCATE audit_log');
-    await pool.query(`DELETE FROM staff_user WHERE id = ANY($1::text[])`, [[ACTOR.id, OTHER.id]]);
+    await pool.query(`DELETE FROM staff_user WHERE id = ANY($1::text[])`, [[ACTOR.id, OTHER.id, THIRD.id]]);
     await pool.end();
   });
 
@@ -102,6 +103,38 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('cuisines editor (database)', ()
     const thai = await item('thai');
     expect((await updateCuisine(pool, OTHER, 'thai', thai.token, { ...thai.values, label: { en: 'Thai & Lao' } })).ok).toBe(true);
     expect(await reorderCuisines(pool, OTHER, stale, order)).toMatchObject({ ok: false, code: 'conflict', params: { by: 'Lan' } });
+  });
+
+  it('a stale order names whoever changed the list’s ids last: a create, a delete, the restore of a deleted cuisine; never an item’s own restore (B10)', async () => {
+    const ids = async () => (await listCuisinesAdmin(pool)).items.map((c) => c.id);
+    const lastToLead = (order: string[]) => [order.at(-1)!, ...order.slice(0, -1)];
+    // Lan reorders; then Minh adds a cuisine. Lan's page from before the add is stale because of Minh.
+    expect(await reorderCuisines(pool, ACTOR, await listToken(), lastToLead(await ids()))).toEqual({ ok: true, data: null });
+    let stale = await listToken();
+    let order = await ids();
+    expect(await createCuisine(pool, OTHER, cuisine('test-b2-korean'))).toEqual({ ok: true, data: { id: 'test-b2-korean' } });
+    expect(await reorderCuisines(pool, ACTOR, stale, lastToLead(order))).toMatchObject({ ok: false, code: 'conflict', params: { by: 'Minh' } });
+
+    // Lan reorders again; then Minh deletes the new cuisine.
+    expect(await reorderCuisines(pool, ACTOR, await listToken(), lastToLead(await ids()))).toEqual({ ok: true, data: null });
+    stale = await listToken();
+    order = await ids();
+    expect(await deleteCuisine(pool, OTHER, 'test-b2-korean', (await item('test-b2-korean')).token)).toEqual({ ok: true, data: { meta: null } });
+    expect(await reorderCuisines(pool, ACTOR, stale, lastToLead(order))).toMatchObject({ ok: false, code: 'conflict', params: { by: 'Minh' } });
+
+    // Huy then restores a version of an existing cuisine: the list's ids are the same, so it is still Minh's change.
+    const thai = await item('thai');
+    expect((await updateCuisine(pool, THIRD, 'thai', thai.token, { ...thai.values, label: { en: 'Thai & Lao' } })).ok).toBe(true);
+    const edit = (await audit()).at(-1);
+    expect(await restoreCuisine(pool, THIRD, { id: 'thai', auditId: edit.id, side: 'before', token: (await item('thai')).token })).toEqual({ ok: true, data: null });
+    expect(await reorderCuisines(pool, ACTOR, stale, lastToLead(order))).toMatchObject({ ok: false, code: 'conflict', params: { by: 'Minh' } });
+
+    // Huy brings the deleted cuisine back: the ids change again, and a page from before that is stale because of Huy.
+    stale = await listToken();
+    order = await ids();
+    const [gone] = await listDeleted(pool, CUISINE);
+    expect(await restoreCuisine(pool, THIRD, { id: 'test-b2-korean', auditId: gone.auditId, side: 'before', token: 'deleted' })).toEqual({ ok: true, data: null });
+    expect(await reorderCuisines(pool, ACTOR, stale, lastToLead(order))).toMatchObject({ ok: false, code: 'conflict', params: { by: 'Huy' } });
   });
 
   it('the hide warning counts only the restaurants guests see; the delete’s count keeps every restaurant that lists it', async () => {

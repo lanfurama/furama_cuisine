@@ -3,7 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import { LIMITS, type LimitKey } from '@/lib/admin/content-rules';
 import type { Saved } from '@/lib/admin/save-state';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
-import { conflictFromHistory, type Conflict } from '@/lib/server/booking/config';
+import { conflictBy, conflictFromHistory, type Conflict } from '@/lib/server/booking/config';
 import { assertLiveMedia, reviveMedia } from '@/lib/server/media/library';
 import { getAuditRow } from './history';
 import {
@@ -169,12 +169,28 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
     return { snapshot };
   }
 
-  /** The order changed since the page: named for the newest row of the order's History (entity_id null), not an item's last editor. */
+  /**
+   * The order changed since the page: named for the newest audit row of a
+   * write that changes the order's token, which is the ids in order. That is
+   * a reorder or an order restore (entity_id null), but also a create, a
+   * delete, or the restore of a deleted item (its `before` is null: stored as
+   * JSON null by insertAudit), each audited under the item's id. An item's
+   * edit, or a restore over an item that exists, leaves the ids alone and is
+   * not the answer. With no such row yet, the list's newest updated_by.
+   */
   async function listConflict(client: PoolClient): Promise<Conflict> {
+    const { rows: history } = await client.query<{ actor_id: string | null; at: Date }>(
+      `SELECT actor_id, at FROM audit_log
+        WHERE entity_type = $1
+          AND (entity_id IS NULL OR action IN ('create', 'delete') OR (action = 'restore' AND (before IS NULL OR before = 'null'::jsonb)))
+        ORDER BY at DESC, id DESC LIMIT 1`,
+      [def.entityType],
+    );
+    if (history[0]) return conflictBy(client, history[0].actor_id, history[0].at);
     const { rows } = await client.query<{ updated_by: string | null; updated_at: Date }>(
       `SELECT updated_by, updated_at FROM ${def.table} ORDER BY updated_at DESC LIMIT 1`,
     );
-    return conflictFromHistory(client, def.entityType, null, { by: rows[0]?.updated_by ?? null, at: rows[0]?.updated_at ?? new Date() });
+    return conflictBy(client, rows[0]?.updated_by ?? null, rows[0]?.updated_at ?? new Date());
   }
 
   /** The media ids a row points at, by column (ItemDef.media). */

@@ -6,7 +6,8 @@ import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures'
  * text typed while a save is in flight stays on screen, unsaved, and the
  * next save sends it with no conflict against the first; a restore says
  * what it brought back at the top of its History, though that version is
- * no longer a choice (UX-5); on the restaurants list "Ẩn" asks first like
+ * no longer a choice (UX-5); an order moved but not saved asks before the
+ * page is left (UX-9); on the restaurants list "Ẩn" asks first like
  * "Lưu trữ", and "Đặt bàn online" says a hidden restaurant takes no booking.
  *
  * Serial (desktop-serial): the Thai cuisine's label and ChaoShan Hotpot's
@@ -77,6 +78,39 @@ test('text typed while a save is in flight stays, unsaved, and the next save sen
   await expect(history.getByRole('status')).toHaveText(/^Đã khôi phục: khôi phục bản trước lần này lúc \d\d:\d\d \d\d\/\d\d\/\d{4}\.$/);
   await expect.poll(() => one(`SELECT label FROM cuisine_i18n WHERE cuisine_id = 'thai' AND locale = 'en'`)).toEqual({ label: 'Thai' });
   expect(csp).toEqual([]);
+});
+
+test('an order moved but not saved asks before the page is left; moved back, it does not (UX-9)', async ({ page }) => {
+  await signInAs(page, STAFF.editor);
+  await page.goto('/admin/content/cuisines');
+  await expectHydrated(page);
+  const list = page.getByRole('list', { name: 'Thứ tự ẩm thực' });
+  const orderForm = page.getByRole('form', { name: 'Thứ tự ẩm thực' });
+  await list.getByRole('button', { name: 'Chuyển “Thai” lên' }).click();
+  await expect(orderForm.getByText('Thứ tự mới chưa được lưu.')).toBeVisible();
+
+  // A reload with the order unsaved: the browser asks, and staying keeps the new order on screen.
+  const asked: string[] = [];
+  page.once('dialog', (dialog) => {
+    asked.push(dialog.type());
+    void dialog.dismiss();
+  });
+  await page.evaluate(() => location.reload());
+  await expect.poll(() => asked).toEqual(['beforeunload']);
+  await expect(orderForm.getByText('Thứ tự mới chưa được lưu.')).toBeVisible();
+
+  // Moved back, nothing is unsaved: the reload goes through without asking, and the order is the saved one.
+  await list.getByRole('button', { name: 'Chuyển “Thai” xuống' }).click();
+  await expect(orderForm.getByText('Thứ tự mới chưa được lưu.')).toBeHidden();
+  page.on('dialog', (dialog) => {
+    asked.push(dialog.type());
+    void dialog.dismiss();
+  });
+  await page.reload();
+  await expectHydrated(page);
+  expect(asked).toEqual(['beforeunload']);
+  await expect(list.getByRole('listitem').nth(2)).toContainText('Thai');
+  await expect(orderForm.getByRole('button', { name: 'Lưu thứ tự' })).toBeDisabled();
 });
 
 test('on the restaurants list “Ẩn” asks first, and “Đặt bàn online” says a hidden restaurant takes no booking', async ({ page }) => {

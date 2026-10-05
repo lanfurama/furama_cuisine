@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { initialSaveState, markSaveDirty, nextSaveState, reloadSaveState, type SaveSeen } from './save-state';
+import { initialSaveState, markSaveDirty, nextSaveState, reloadSaveState, tokenUnlessInserted, type SaveSeen } from './save-state';
 
 type R = { ok: boolean } | null;
 type V = { label: string };
@@ -81,5 +81,37 @@ describe('an editor’s save state (useSaveState)', () => {
     expect(reloaded).toMatchObject({ token: 't1', dirty: false });
     expect(reloaded.fieldsKey).not.toBe(typed.fieldsKey);
     expect(reloadSaveState(reloaded, 't1', { label: 'Thai' }).fieldsKey).not.toBe(reloaded.fieldsKey);
+  });
+
+  it('a save that inserted rows (highlights) remounts the fields on them even with text typed meanwhile, so the next save keeps their ids (B10 review)', () => {
+    type H = { id: string | null };
+    const posted: H[] = [{ id: '1' }, { id: '2' }];
+    const data = { token: 't2' };
+    // The page's record now has a row the posted view lacked: the save inserted it, and only a remount gives it its id.
+    expect(tokenUnlessInserted(data, posted, [{ id: '1' }, { id: '2' }, { id: '7' }])).toBeNull();
+    // Rows deleted, or the same rows: the save's own token.
+    expect(tokenUnlessInserted(data, posted, [{ id: '2' }])).toBe('t2');
+    expect(tokenUnlessInserted(data, posted, [{ id: '2' }, { id: '1' }])).toBe('t2');
+    expect(tokenUnlessInserted(null, posted, posted)).toBeNull();
+
+    // The reducer: a save in flight, edited meanwhile; the page then holds the very version it wrote.
+    const typedDuringSave = () => {
+      let s = markSaveDirty(start);
+      s = render(s, { state: null, pending: true, token: 't1', view: { label: 'Thai' } });
+      return markSaveDirty(s);
+    };
+    const inserted = tokenUnlessInserted(data, posted, [...posted, { id: '7' }]);
+    expect(render(typedDuringSave(), { state: OK, saved: inserted ?? undefined, token: 't2', view: { label: 'Thai' } })).toMatchObject({
+      token: 't2',
+      fieldsKey: 't2',
+      dirty: false,
+    });
+    // Nothing inserted: the A2 case, the fields stay and the form stays unsaved.
+    const same = tokenUnlessInserted(data, posted, posted);
+    expect(render(typedDuringSave(), { state: OK, saved: same ?? undefined, token: 't2', view: { label: 'Thai' } })).toMatchObject({
+      token: 't2',
+      fieldsKey: 't1',
+      dirty: true,
+    });
   });
 });
