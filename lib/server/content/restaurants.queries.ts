@@ -10,12 +10,14 @@ import { LOCALE_CTE, i18nJoin, mediaJson, tr } from './sql';
 /**
  * "Has a page" (spec §6.4; phase-6 ledger L7-3), once for the card, the
  * prerendered slugs and the page itself: the switch is on, the restaurant is
- * shown (published, not archived) and its portrait is a live file. Before,
- * the card and the slugs read has_detail_page alone, while the page needed
- * the portrait too, so a card could link to a 404.
+ * shown (published, not archived, at a shown destination: L7-2) and its
+ * portrait is a live file. Before, the card and the slugs read
+ * has_detail_page alone, while the page needed the portrait too, so a card
+ * could link to a 404.
  */
 const HAS_PAGE = (r: string) =>
   `(${r}.has_detail_page AND ${r}.is_published AND ${r}.archived_at IS NULL
+     AND EXISTS (SELECT 1 FROM destinations pd WHERE pd.id = ${r}.destination_id AND pd.is_published)
      AND EXISTS (SELECT 1 FROM media pm WHERE pm.id = ${r}.detail_image_id AND pm.deleted_at IS NULL))`;
 
 type RestaurantRow = {
@@ -40,7 +42,9 @@ type RestaurantRow = {
 
 /**
  * The catalogue in the order staff set (ties broken by id, so the order is
- * total: phase-4 ledger T3), published and not archived. type: the
+ * total: phase-4 ledger T3), published, not archived, at a published
+ * destination (phase-6 ledger D1, L7-2: hiding a destination hides its
+ * restaurants everywhere a guest reaches them). type: the
  * restaurant's type line in `locale`, else the default language's. cuisines:
  * restaurant_cuisines ids (slugs) of published cuisines, in their own order.
  * meals: the meals of the active service periods, in MEALS order (spec §6.3
@@ -81,7 +85,7 @@ export async function loadRestaurants(locale: string): Promise<Restaurant[]> {
        ${i18nJoin('restaurant_i18n', 'rt', 'restaurant_id', 'r.id')}
        ${i18nJoin('destination_i18n', 'dt', 'destination_id', 'd.id')}
        LEFT JOIN LATERAL ${mediaJson('r.card_image_id')} AS img ON true
-      WHERE r.is_published AND r.archived_at IS NULL
+      WHERE r.is_published AND r.archived_at IS NULL AND d.is_published
       ORDER BY r.sort_order, r.id`,
     [locale, MEALS],
   );
@@ -107,7 +111,7 @@ export async function loadRestaurants(locale: string): Promise<Restaurant[]> {
   });
 }
 
-/** Slugs with a page (generateStaticParams): HAS_PAGE, so never an unpublished or archived restaurant, or one without its portrait. */
+/** Slugs with a page (generateStaticParams): HAS_PAGE, so never an unpublished or archived restaurant, one at a hidden destination, or one without its portrait. */
 export async function loadDetailSlugs(): Promise<string[]> {
   const rows = await query<{ slug: string }>(
     `SELECT r.slug FROM restaurants r
@@ -138,7 +142,7 @@ type DetailRow = {
 
 /**
  * One restaurant's page, or null when it has none (no such slug, page off,
- * unpublished, archived, or its portrait gone). CALL and MAP take the
+ * unpublished, archived, its destination hidden, or its portrait gone). CALL and MAP take the
  * restaurant's own number and map, else its destination's (spec §6.4). MENU
  * opens the PDF of this language, else the default language's (an uploaded
  * file before a link), else scrolls to the highlights; with neither, no MENU.

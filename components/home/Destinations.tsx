@@ -1,13 +1,16 @@
 'use client';
 
 import type { Destination } from '@/lib/content/types';
+import { formatMessage } from '@/lib/i18n/format';
+import type { Copy } from '@/lib/i18n/registry';
 import { journeyStops } from '@/lib/journey';
 import { CmsImage } from '@/components/ui/CmsImage';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 
-export function Destinations() {
-  const { site, restaurants, pickDestination } = useSite();
+/** The cards come from the layout's destinations; the section's copy (destinations.*) from the page, read on the server. */
+export function Destinations({ copy }: { copy: Copy<'destinations'> }) {
+  const { site, restaurants, pickDestination, strings, locale } = useSite();
   // destinations and destination_i18n: the venues, then the teaser ("Future Locations"), which is not a link.
   const cards = site.destinations;
   const title = useReveal<HTMLHeadingElement>('title');
@@ -20,10 +23,10 @@ export function Destinations() {
       <div className="shell">
         <div className="destinations-head">
           <h2 ref={title} data-reveal="title" className="section-title">
-            Our Destinations
+            {copy['destinations.title']}
           </h2>
           <p ref={lede} data-reveal="up" className="section-lede">
-            Different places. One culinary family.
+            {copy['destinations.lede']}
           </p>
         </div>
 
@@ -42,8 +45,8 @@ export function Destinations() {
               card={card}
               count={
                 card.kind === 'teaser'
-                  ? 'Coming soon'
-                  : `${restaurants.filter((r) => r.dest === card.id).length} restaurants →`
+                  ? strings['common.coming_soon']
+                  : `${formatMessage(copy['destinations.count'], { count: restaurants.filter((r) => r.dest === card.id).length }, locale)} →`
               }
               onPick={card.kind === 'teaser' ? undefined : () => pickDestination(card.id)}
             />

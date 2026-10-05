@@ -50,7 +50,7 @@ export default async function HomePage() {
       {shown.has('finder') && <Finder />}
       {shown.has('cuisines') && <Cuisines />}
       {shown.has('restaurants') && <Restaurants />}
-      {shown.has('destinations') && <Destinations />}
+      {shown.has('destinations') && <Destinations copy={copyOf(strings, 'destinations')} />}
       {shown.has('experiences') && <Experiences items={experiences} />}
       {shown.has('heritage') && <Heritage copy={copyOf(strings, 'heritage')} />}
       {shown.has('stories') && <Stories items={stories} copy={copyOf(strings, 'stories')} />}

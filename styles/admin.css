@@ -1214,15 +1214,21 @@ fieldset.a-field legend {
   margin-top: 0;
 }
 
-.a-slide-row {
+.a-slide-row,
+.a-item-row {
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 12px;
   align-items: center;
 }
 
-.a-slide-row .a-picker-thumb {
+.a-slide-row .a-picker-thumb,
+.a-item-row .a-picker-thumb {
   width: 96px;
+}
+
+.a-item-row p {
+  margin: 0;
 }
 
 .a-details-history > summary {

@@ -170,7 +170,8 @@ export const COLUMN_SCREENS: Record<ContentTable, Record<string, ColumnOwner>> =
     card_title_2: 'destinations',
     card_blurb_1: 'destinations',
     card_blurb_2: 'destinations',
-    address: 'contact',
+    // One writer per row (R24): the footer prints it, the destination's own form edits it with its phone and map.
+    address: 'destinations',
     ...I18N_META,
   },
   cuisines: { ...LIST_META, image_id: 'cuisines', is_published: 'cuisines' },

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getPool } from '@/db/client';
 import { getBookingSettings, listRestaurantBookings } from '@/lib/server/booking/config';
-import { listDestinationOptions } from '@/lib/server/booking/queries';
+import { listDestinationOptions } from '@/lib/server/content-admin/destinations';
 import { listHistory } from '@/lib/server/content-admin/history';
 import { listRestaurantsAdmin } from '@/lib/server/content-admin/restaurants';
 import { orderToken, type OrderSnapshot } from '@/lib/server/content-admin/snapshot';

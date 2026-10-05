@@ -70,6 +70,14 @@ export type ListEditorOptions<I> = {
   /** Extra `meta` for the delete's audit row, read before the DELETE in its transaction (R9: the bookings it unlinks). */
   beforeDelete?: (client: PoolClient, id: string, actor: AuditActor) => Promise<Row | null>;
   /**
+   * Why this item cannot be deleted, read in the delete's transaction, or
+   * null: rows that point at it (a destination's restaurants, a cuisine's
+   * restaurants), including ones an ON DELETE CASCADE would silently take
+   * with it (a destination's closures and recipients), which a restore of
+   * the item could never bring back.
+   */
+  refuseDelete?: (client: PoolClient, id: string) => Promise<ListFailure | null>;
+  /**
    * A rule about the whole list as a write leaves it (spec §6.5 "slide 1 bắt
    * buộc có ảnh crop cho mobile": which slide is first depends on every
    * item's order and switch). Runs after every write, in its transaction; a
@@ -112,6 +120,11 @@ export const VERSION_INVALID = 'Phiên bản này không còn hợp lệ theo lu
 
 /** The field error of a save that points at a file no longer in the library (code rule 2). */
 export const MEDIA_GONE = 'File này đã bị xóa khỏi thư viện. Hãy chọn file khác.';
+
+/** A new item whose text id (a slug: destinations, cuisines) another item has. */
+export const ID_TAKEN = 'Mã này đã có. Hãy chọn mã khác.';
+/** A delete that a foreign key refused after refuseDelete found nothing (a row added by a path it does not know). */
+export const STILL_IN_USE = 'Mục này còn được dùng ở nơi khác nên không xóa được. Hãy ẩn nó thay vì xóa.';
 
 export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
   const cast = `::${def.idType}`;
@@ -201,17 +214,26 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
   }
 
   return {
-    /** "Thêm …": appended to the end of the list. */
+    /**
+     * "Thêm …": appended to the end of the list. A list whose id is text (a
+     * slug) takes it from toRow's `id`, once: no save changes it later (it is
+     * in URLs and filters), and one already taken is the id field's error.
+     */
     async create(pool: Pool, actor: AuditActor, input: I): Promise<ListResult<{ id: string }>> {
       return write(pool, async (client) => {
         await lockList(client, options.listKey);
         const row = options.toRow(input);
+        const textId = def.idType === 'text' ? String(row.id ?? '') : null;
+        // Under the list's lock, as every write of the list: no other create can take the id between this check and the INSERT.
+        if (textId !== null && (await client.query(`SELECT 1 FROM ${def.table} WHERE id = $1${cast}`, [textId])).rowCount) {
+          return { ok: false, code: 'invalid', fieldErrors: { id: [ID_TAKEN] } };
+        }
         const refused =
           (await options.validate?.(client, { row, i18n: options.toI18n ? i18nRows(options.toI18n(input)) : [] }, 'save')) ??
           (await overLimit(client, row.is_published, null)) ??
           (await deadMedia(client, row));
         if (refused) return refused;
-        const cols = columnsOf(row);
+        const cols = textId !== null ? ['id', ...columnsOf(row)] : columnsOf(row);
         const { rows } = await client.query<{ id: string }>(
           `INSERT INTO ${def.table} (${cols.join(', ')}, sort_order, updated_by)
            SELECT ${cols.map((c) => `r.${c}`).join(', ')}, (SELECT coalesce(max(sort_order), 0) + 10 FROM ${def.table}), $2
@@ -253,13 +275,18 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
       });
     },
 
-    /** The list's show/hide switch for one item: an update of that item alone. */
+    /**
+     * The list's show/hide switch for one item: an update of that item alone,
+     * under the same rules as a save of it (a rule may depend on the switch:
+     * at most one destination teaser shown).
+     */
     async setPublished(pool: Pool, actor: AuditActor, id: string, token: string, published: boolean): Promise<ListResult> {
       return write(pool, async (client) => {
         await lockList(client, options.listKey);
         const locked = await lockedItem(client, id, token);
         if (fail(locked)) return locked;
-        const limited = await overLimit(client, published, id);
+        const candidate = { row: { ...locked.snapshot.row, is_published: published }, i18n: locked.snapshot.i18n };
+        const limited = (await options.validate?.(client, candidate, 'save')) ?? (await overLimit(client, published, id));
         if (limited) return limited;
         await client.query(`UPDATE ${def.table} SET is_published = $2, updated_at = now(), updated_by = $3 WHERE id = $1${cast}`, [id, published, actor.id]);
         await settled(client);
@@ -283,16 +310,24 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
     },
 
     async remove(pool: Pool, actor: AuditActor, id: string, token: string): Promise<ListResult<{ meta: Row | null }>> {
-      return write(pool, async (client) => {
-        await lockList(client, options.listKey);
-        const locked = await lockedItem(client, id, token);
-        if (fail(locked)) return locked;
-        const meta = (await options.beforeDelete?.(client, id, actor)) ?? null;
-        await client.query(`DELETE FROM ${def.table} WHERE id = $1${cast}`, [id]);
-        await settled(client);
-        await audited(client, actor, 'delete', id, meta ? { ...locked.snapshot, meta } : locked.snapshot, null);
-        return { ok: true, data: { meta } };
-      });
+      try {
+        return await write(pool, async (client): Promise<ListResult<{ meta: Row | null }>> => {
+          await lockList(client, options.listKey);
+          const locked = await lockedItem(client, id, token);
+          if (fail(locked)) return locked;
+          const refused = await options.refuseDelete?.(client, id);
+          if (refused) return refused;
+          const meta = (await options.beforeDelete?.(client, id, actor)) ?? null;
+          await client.query(`DELETE FROM ${def.table} WHERE id = $1${cast}`, [id]);
+          await settled(client);
+          await audited(client, actor, 'delete', id, meta ? { ...locked.snapshot, meta } : locked.snapshot, null);
+          return { ok: true, data: { meta } };
+        });
+      } catch (err) {
+        // A row refuseDelete does not know still points at it (NO ACTION / RESTRICT): refused, the transaction rolled back.
+        if (isForeignKeyViolation(err)) return { ok: false, code: 'invalid', fieldErrors: { [WHOLE_ITEM]: [STILL_IN_USE] } };
+        throw err;
+      }
     },
 
     /**

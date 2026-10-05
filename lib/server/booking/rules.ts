@@ -21,28 +21,34 @@ export type LoadedRules = { rules: BookingRules; groupPhone: GroupPhone | null }
 /**
  * SQL: the number guests call about the restaurant aliased `restaurant`: its
  * own (restaurants.phone_*, migration 008), else its destination's, else the
- * first destination that has one (phase-4 R11); the order of a restaurant
- * page's CALL (spec §6.4), which stops before the last step. The booking
- * emails print the same number (lib/server/email/booking/load.ts). NULL only
- * when no number exists at all. restaurants_phone_pair keeps both forms
- * together, so testing one of them is enough.
+ * first shown destination that has one (phase-4 R11); the order of a
+ * restaurant page's CALL (spec §6.4), which stops before the last step. A
+ * hidden destination's number is never offered for another restaurant
+ * (phase-6 ledger L7-2); its own restaurants keep it, for the staff bookings
+ * made there. The booking emails print the same number
+ * (lib/server/email/booking/load.ts). NULL only when no number exists at all.
+ * restaurants_phone_pair keeps both forms together, so testing one of them
+ * is enough.
  */
 export const groupPhoneSql = (restaurant: string) => `coalesce(
               CASE WHEN ${restaurant}.phone_e164 IS NOT NULL
                    THEN json_build_object('display', ${restaurant}.phone_display, 'tel', ${restaurant}.phone_e164) END,
               (SELECT json_build_object('display', d.phone_display, 'tel', d.phone_e164)
                  FROM destinations d
-                WHERE d.phone_e164 IS NOT NULL
+                WHERE d.phone_e164 IS NOT NULL AND (d.is_published OR d.id = ${restaurant}.destination_id)
                 ORDER BY (d.id = ${restaurant}.destination_id) DESC, d.sort_order, d.id
                 LIMIT 1))`;
 
 /**
  * "Guests may book it online" in SQL, for restaurants row `r`: its switch is
- * on, and guests see it (published, not archived: migration 008). The one
- * definition for the booking rules below and for the overview's "no
- * recipient" alarm (lib/server/email/recipients.ts, phase-6 ledger L7-4).
+ * on, and guests see it (published, not archived: migration 008; at a
+ * published destination: phase-6 ledger D1, L7-2). The one definition for the
+ * booking rules below and for the overview's "no recipient" alarm
+ * (lib/server/email/recipients.ts, phase-6 ledger L7-4).
  */
-export const bookableSql = (r: string) => `(${r}.booking_enabled AND ${r}.is_published AND ${r}.archived_at IS NULL)`;
+export const bookableSql = (r: string) =>
+  `(${r}.booking_enabled AND ${r}.is_published AND ${r}.archived_at IS NULL
+     AND EXISTS (SELECT 1 FROM destinations bd WHERE bd.id = ${r}.destination_id AND bd.is_published))`;
 
 type RulesRow = {
   id: string;
@@ -67,7 +73,7 @@ type RulesRow = {
  * hides its reason. Unknown ids are simply missing from the map.
  *
  * bookingEnabled is "guests may book it online": its switch, and it is
- * published and not archived (migration 008), so the availability API and the
+ * published, not archived and at a published destination (bookableSql), so the availability API and the
  * guest's submit answer restaurant_unavailable for a hidden restaurant. Staff
  * bookings go through planDay, which ignores it. The destination is
  * destination_id; nothing reads the phase-1 restaurants.destination (R10).

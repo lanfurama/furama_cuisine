@@ -177,23 +177,6 @@ export async function listRestaurantOptions(pool: Pool): Promise<{ id: string; n
   return rows;
 }
 
-/**
- * The destinations staff pick from (a closure's or a recipient's scope) and
- * the names the admin prints for them (R1: DESTS is gone): every venue,
- * published or not, by its name in the default language, in display order.
- * The teaser card ("Future Locations") is not a place, so it is left out.
- */
-export async function listDestinationOptions(pool: Pool): Promise<{ id: string; name: string }[]> {
-  const { rows } = await pool.query<{ id: string; name: string }>(
-    `SELECT d.id, coalesce(dt.name, d.id) AS name
-       FROM destinations d
-       LEFT JOIN destination_i18n dt ON dt.destination_id = d.id AND dt.locale = (SELECT code FROM locales WHERE is_default)
-      WHERE d.kind = 'venue'
-      ORDER BY d.sort_order, d.id`,
-  );
-  return rows;
-}
-
 export type GuestContact = { reference: string; name: string; phone: string };
 
 /** Whom to phone, and on which number, for these bookings, in the order of `ids` (a bulk cancel's unemailed guests). */

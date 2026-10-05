@@ -72,10 +72,6 @@ const PENDING: Record<string, string> = {
   "components/detail/RestaurantHero.tsx: RESERVE A TABLE": "ui.reserve_table",
   "components/home/Cuisines.tsx: ALL CUISINES →": "cuisines.all",
   "components/home/Cuisines.tsx: Explore by Cuisine": "cuisines.title",
-  "components/home/Destinations.tsx: Coming soon": "common.coming_soon",
-  "components/home/Destinations.tsx: Different places. One culinary family.": "destinations.lede",
-  "components/home/Destinations.tsx: Our Destinations": "destinations.title",
-  "components/home/Destinations.tsx: restaurants →": "destinations.count ('{count, plural, one {# restaurant} other {# restaurants}}')",
   "components/home/Experiences.tsx: A meaningful experience.": "experiences.title_2",
   "components/home/Experiences.tsx: Experiences": "experiences.eyebrow",
   "components/home/Experiences.tsx: More than a meal.": "experiences.title_1",
@@ -182,9 +178,10 @@ describe('guest-visible text lives in the registry or the database (spec §13)',
 
   it('PENDING only shrinks during phase 7 (the number in the plan’s task table)', () => {
     // 161 found by the phase-7 spike, less the six offers.* literals moved in plan 7A task A3, the
-    // thirteen hero.* and film.* ones moved in A9, the thirteen detail.* ones moved in A10 and the
-    // thirteen restaurants.* ones moved in A11. Plan 7B empties it.
-    expect(Object.keys(PENDING).length).toBeLessThanOrEqual(116);
+    // thirteen hero.* and film.* ones moved in A9, the thirteen detail.* ones moved in A10, the
+    // thirteen restaurants.* ones moved in A11, and the four of the destinations section moved in plan
+    // 7B task B1. Plan 7B empties it.
+    expect(Object.keys(PENDING).length).toBeLessThanOrEqual(112);
   });
 });
 

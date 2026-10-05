@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getPool } from '@/db/client';
-import { listDestinationOptions, listLocales, listRestaurantOptions } from '@/lib/server/booking/queries';
+import { listLocales, listRestaurantOptions } from '@/lib/server/booking/queries';
+import { listDestinationOptions } from '@/lib/server/content-admin/destinations';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { deliveryModeNotice } from '@/lib/server/email/mode';
 import { getSharedInbox, listRecipients, restaurantsWithoutRecipient } from '@/lib/server/email/recipients';

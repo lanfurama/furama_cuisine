@@ -43,6 +43,7 @@ const ENTITIES: Record<string, string> = {
   email_outbox: 'Email',
   // Content (phase 7): a list item and its order (entity_id NULL), a registry key, a policy version.
   offers: 'Ưu đãi',
+  destinations: 'Điểm đến',
   sections: 'Section trang chủ',
   // A restaurant's content (the row, its translations, cuisines and highlights as one aggregate).
   restaurants: 'Nhà hàng',

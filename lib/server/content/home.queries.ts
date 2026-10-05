@@ -67,7 +67,8 @@ export async function loadStories(locale: string): Promise<Story[]> {
 
 /**
  * The offers on show today in Da Nang (spec §5.2, §6.2): published, their
- * restaurant published and not archived, and today between valid_from and
+ * restaurant published, not archived and at a published destination
+ * (phase-6 ledger L7-2), and today between valid_from and
  * valid_until (both days included; either may be open). Only the date makes
  * this list change by itself: its cached wrapper lives for hours, and the
  * daily cron revalidates content:offers. The detail line is formatted here,
@@ -92,6 +93,7 @@ export async function loadOffers(locale: string): Promise<Offer[]> {
             o.price_amount::text AS price_amount, o.currency, o.price_basis
        FROM offers o CROSS JOIN lc
        JOIN restaurants r ON r.id = o.restaurant_id AND r.is_published AND r.archived_at IS NULL
+                         AND EXISTS (SELECT 1 FROM destinations od WHERE od.id = r.destination_id AND od.is_published)
        ${i18nJoin('offer_i18n', 'ot', 'offer_id', 'o.id')}
       WHERE o.is_published AND ${tr('ot', 'title')} IS NOT NULL
         AND (o.valid_from IS NULL OR o.valid_from <= ${VENUE_TODAY})

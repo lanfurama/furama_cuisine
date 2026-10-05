@@ -112,9 +112,9 @@ export const RestoreForm = z.object({
   token: Token,
 });
 
-export const OrderForm = z.object({
-  token: Token,
-  order: z
+/** A list's new order as SortableList posts it: every id, in order, as one JSON field. */
+const orderOf = (id: z.ZodType<string>) =>
+  z
     .string()
     .transform((v, ctx) => {
       try {
@@ -124,8 +124,20 @@ export const OrderForm = z.object({
         return z.NEVER;
       }
     })
-    .pipe(z.array(ListId).max(100)),
-});
+    .pipe(z.array(id).max(100));
+
+export const OrderForm = z.object({ token: Token, order: orderOf(ListId) });
+
+/**
+ * The id of a list whose id is its slug (destinations, cuisines): chosen when
+ * the item is added (makeListEditor create), never changed. Digits alone also
+ * match, so this is never used for a bigint list.
+ */
+export const SlugId = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(60);
+/** RecordRef, PublishForm and OrderForm for a list whose id is a slug. */
+export const SlugRecordRef = z.object({ id: SlugId, token: Token });
+export const SlugPublishForm = SlugRecordRef.extend({ publish: z.enum(['0', '1']).transform((v) => v === '1') });
+export const SlugOrderForm = z.object({ token: Token, order: orderOf(SlugId) });
 
 /** A restore of one registry key (spec §7.5): the key, and its row's token as the page drew it ('' while the default shows). */
 export const StringRestoreForm = z.object({
@@ -307,4 +319,48 @@ export const RestaurantForm = z
       return { ...h, title: { en: title || null }, detail: { en: detail || null } };
     });
     return { ...v, phoneE164, highlights };
+  });
+
+/** An email as typed, '' → null (destinations.email has a CHECK for one @ with no spaces; z.email is stricter). */
+const optionalEmail = z
+  .string()
+  .trim()
+  .transform((v) => (v === '' ? null : v))
+  .pipe(z.email({ error: 'Email không hợp lệ.' }).max(254, tooLong(254)).nullable());
+
+/**
+ * One destination (spec §7.2 content/destinations): its card (picture, two
+ * title lines, two blurb lines), the name the dropdowns, the footer and
+ * "More at …" print, and the venue's contact lines (address, phone, map,
+ * email, footer switch). The id is its slug, typed once when it is added
+ * (CHECK destinations_id: a lowercase letter first). The phone is typed once
+ * and stored in both forms (CHECK destinations_phone_pair). What a venue
+ * needs (an EN name) and how many teasers may show are rules of the save
+ * (lib/server/content-admin/destinations.ts).
+ */
+export const DestinationForm = z
+  .object({
+    id: z
+      .string()
+      .trim()
+      .regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/, 'Chỉ chữ thường không dấu, số và gạch nối, bắt đầu bằng một chữ, ví dụ dining-house.')
+      .max(40, tooLong(40)),
+    kind: z.enum(['venue', 'teaser'], { error: 'Chọn loại thẻ.' }),
+    isPublished: checkbox,
+    showInFooter: checkbox,
+    cardImageId: optionalMedia,
+    phoneDisplay: optionalText(30),
+    email: optionalEmail,
+    mapUrl: httpsUrl(2000),
+    name: translatable(80),
+    cardTitle1: translatable(40),
+    cardTitle2: translatable(40),
+    cardBlurb1: translatable(60),
+    cardBlurb2: translatable(60),
+    address: translatable(200),
+  })
+  .transform((v, ctx) => {
+    const phoneE164 = v.phoneDisplay ? toE164(v.phoneDisplay) : null;
+    if (v.phoneDisplay && !phoneE164) ctx.addIssue({ code: 'custom', path: ['phoneDisplay'], message: 'Số điện thoại không hợp lệ.' });
+    return { ...v, phoneE164 };
   });

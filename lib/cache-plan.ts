@@ -122,11 +122,12 @@ export const LOADERS = {
   heroSlides: { reads: ['locales', 'hero_slides', 'media', 'media_i18n'], tags: [TAGS.contentHero, TAGS.media] },
   experiences: { reads: ['locales', 'experiences', 'experience_i18n'], tags: [TAGS.contentExperiences] },
   stories: { reads: ['locales', 'stories', 'story_i18n', 'media', 'media_i18n'], tags: [TAGS.contentStories, TAGS.media] },
-  // cacheLife('hours') and the daily cron. The venue is the restaurant's name, and a hidden restaurant hides its offers.
-  // The price wording is the offers screen's registry keys (offers.price_*), hence content_strings and content:ui.
+  // cacheLife('hours') and the daily cron. The venue is the restaurant's name, and a hidden restaurant hides its offers,
+  // as does a hidden destination (L7-2). The price wording is the offers screen's registry keys (offers.price_*),
+  // hence content_strings and content:ui.
   offers: {
-    reads: ['locales', 'offers', 'offer_i18n', 'restaurants', 'content_strings'],
-    tags: [TAGS.contentOffers, TAGS.restaurants, TAGS.contentUi],
+    reads: ['locales', 'offers', 'offer_i18n', 'restaurants', 'destinations', 'content_strings'],
+    tags: [TAGS.contentOffers, TAGS.restaurants, TAGS.contentDestinations, TAGS.contentUi],
   },
   // Plus restaurant:<id>, added once the query has found the restaurant.
   detail: {
@@ -143,8 +144,8 @@ export const LOADERS = {
     ],
     tags: [TAGS.restaurants, TAGS.contentDestinations, TAGS.media],
   },
-  // "Has a page" needs a live portrait (L7-3): the slugs read media too.
-  detailSlugs: { reads: ['restaurants', 'media'], tags: [TAGS.restaurants, TAGS.media] },
+  // "Has a page" needs a live portrait (L7-3) and a shown destination (L7-2): the slugs read media and destinations too.
+  detailSlugs: { reads: ['restaurants', 'destinations', 'media'], tags: [TAGS.restaurants, TAGS.contentDestinations, TAGS.media] },
 } as const satisfies Record<string, Loader>;
 
 export type LoaderName = keyof typeof LOADERS;

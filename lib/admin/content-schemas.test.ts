@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AutoplayForm,
   checkbox,
+  DestinationForm,
   NewRestaurantForm,
   OfferForm,
   OrderForm,
@@ -14,6 +15,9 @@ import {
   RestoreForm,
   SectionForm,
   SlideForm,
+  SlugOrderForm,
+  SlugPublishForm,
+  SlugRecordRef,
 } from './content-schemas';
 import { z } from './zod';
 
@@ -193,5 +197,57 @@ describe('content form schemas (spec §7.3, §7.4)', () => {
     expect(RestaurantSwitchForm.safeParse({ id: 'taya house', token, value: '1' }).success).toBe(false);
     expect(RestaurantOrderForm.parse({ token, order: '["the-fan","taya-house"]' }).order).toEqual(['the-fan', 'taya-house']);
     expect(RestaurantOrderForm.safeParse({ token, order: '["../x"]' }).success).toBe(false);
+  });
+
+  it('a destination: its slug starts with a letter; the phone is typed once and stored in both forms; an email or nothing (plan 7B B1)', () => {
+    const base = {
+      id: 'hoi-an',
+      kind: 'venue',
+      isPublished: 'on',
+      cardImageId: '',
+      phoneDisplay: ' 0236 3000 000 ',
+      email: '',
+      mapUrl: '',
+      'name.en': ' Furama Hội An ',
+      'cardTitle1.en': 'Furama',
+      'cardTitle2.en': '',
+      'cardBlurb1.en': '',
+      'cardBlurb2.en': '',
+      'address.en': '',
+    };
+    expect(DestinationForm.parse(readForm(form(base)))).toEqual({
+      id: 'hoi-an',
+      kind: 'venue',
+      isPublished: true,
+      showInFooter: false,
+      cardImageId: null,
+      phoneDisplay: '0236 3000 000',
+      phoneE164: '+842363000000',
+      email: null,
+      mapUrl: null,
+      name: { en: 'Furama Hội An' },
+      cardTitle1: { en: 'Furama' },
+      cardTitle2: { en: null },
+      cardBlurb1: { en: null },
+      cardBlurb2: { en: null },
+      address: { en: null },
+    });
+    expect(fieldErrors(DestinationForm.safeParse(readForm(form({ ...base, id: '2-cities', kind: 'shop', phoneDisplay: '12', email: 'desk', mapUrl: 'http://x' }))).error)).toEqual({
+      id: ['Chỉ chữ thường không dấu, số và gạch nối, bắt đầu bằng một chữ, ví dụ dining-house.'],
+      kind: ['Chọn loại thẻ.'],
+      email: ['Email không hợp lệ.'],
+      mapUrl: ['Đường dẫn phải bắt đầu bằng https://'],
+    });
+    // The phone is checked once the fields are valid (the transform runs after them).
+    expect(fieldErrors(DestinationForm.safeParse(readForm(form({ ...base, phoneDisplay: '12' }))).error)).toEqual({ phoneDisplay: ['Số điện thoại không hợp lệ.'] });
+  });
+
+  it('a list whose id is a slug (destinations, cuisines): its ref, switch and order take slugs, never a path', () => {
+    const token = 'e'.repeat(32);
+    expect(SlugRecordRef.parse({ id: 'dining-house', token })).toEqual({ id: 'dining-house', token });
+    expect(SlugPublishForm.parse({ id: 'future', token, publish: '0' })).toEqual({ id: 'future', token, publish: false });
+    expect(SlugOrderForm.parse({ token, order: '["mm","resort"]' }).order).toEqual(['mm', 'resort']);
+    for (const id of ['Dining House', '../x', '']) expect(SlugRecordRef.safeParse({ id, token }).success, id).toBe(false);
+    expect(SlugOrderForm.safeParse({ token, order: '["mm","../x"]' }).success).toBe(false);
   });
 });

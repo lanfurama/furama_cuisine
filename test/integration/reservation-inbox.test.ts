@@ -4,13 +4,13 @@ import {
   INBOX_PAGE_SIZE,
   daySheet,
   getReservation,
-  listDestinationOptions,
   listEvents,
   listInbox,
   listLocales,
   listNotes,
   overviewCounts,
 } from '@/lib/server/booking/queries';
+import { listDestinationOptions } from '@/lib/server/content-admin/destinations';
 import { TEST_DATABASE_URL } from '../helpers/db';
 
 /*

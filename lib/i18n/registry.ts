@@ -754,6 +754,39 @@ export const REGISTRY = {
     screen: 'restaurants',
     label: 'Link xem mọi nhà hàng',
   },
+  // ── Our Destinations (spec §7.2 content/destinations): the home page reads them on the server and hands them to
+  // the section (page props); the cards themselves are destinations rows ──
+  'destinations.title': {
+    en: 'Our Destinations',
+    maxLength: 32,
+    context: 'Home page, title of the destinations section (one card per place: the resort, the dining house …).',
+    screen: 'destinations',
+    label: 'Tiêu đề mục Our Destinations',
+  },
+  'destinations.lede': {
+    en: 'Different places. One culinary family.',
+    maxLength: 100,
+    context: 'Home page, one sentence under the destinations title.',
+    screen: 'destinations',
+    label: 'Câu dẫn mục Our Destinations',
+  },
+  'destinations.count': {
+    en: '{count, plural, one {# restaurant} other {# restaurants}}',
+    maxLength: 80,
+    vars: ['count'],
+    context:
+      'A destination card, how many restaurants guests can see there; the card filters the restaurants by that place. ICU plural: keep {count, plural, …} and # (the number). An arrow follows it.',
+    screen: 'destinations',
+    label: 'Số nhà hàng trên thẻ (số ít / số nhiều)',
+  },
+  // ── Words several parts of the site share (spec §7.2 ui-text: common.*): chrome and client sections (CLIENT_KEYS) ──
+  'common.coming_soon': {
+    en: 'Coming soon',
+    maxLength: 24,
+    context: 'A place still to open: the teaser destination card, and the finder’s “More cities” choice. Short.',
+    screen: 'ui-text',
+    label: 'Sắp có',
+  },
   // ── Search overlay: a client component of the chrome (CLIENT_KEYS) ──
   'search.aria': {
     en: 'Search',
@@ -1118,10 +1151,13 @@ export const KEY_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/;
  * server: a page's own section copy (pageKeys), metadata (seo.*), the policy
  * page (legal.*) and emails (email.*).
  */
-const CLIENT_PREFIXES = ['error.', 'booking.', 'search.', 'meal.', 'finder.', 'film.', 'detail.', 'restaurants.'] as const;
+const CLIENT_PREFIXES = ['error.', 'booking.', 'search.', 'meal.', 'finder.', 'film.', 'detail.', 'restaurants.', 'common.'] as const;
 /** Single keys the chrome needs beyond the prefixes: the policy link (form, footer), VIEW OFFER's note (form). */
 const CLIENT_SINGLES = ['legal.link', 'offers.note'] as const;
-export type ClientKey = Extract<StringKey, `${'error' | 'booking' | 'search' | 'meal' | 'finder' | 'film' | 'detail' | 'restaurants'}.${string}` | (typeof CLIENT_SINGLES)[number]>;
+export type ClientKey = Extract<
+  StringKey,
+  `${'error' | 'booking' | 'search' | 'meal' | 'finder' | 'film' | 'detail' | 'restaurants' | 'common'}.${string}` | (typeof CLIENT_SINGLES)[number]
+>;
 
 export const CLIENT_KEYS = STRING_KEYS.filter(
   (k): k is ClientKey => CLIENT_PREFIXES.some((p) => k.startsWith(p)) || (CLIENT_SINGLES as readonly string[]).includes(k),
@@ -1136,7 +1172,7 @@ export function sectionKeys<P extends string>(prefix: P): SectionKey<P>[] {
 }
 
 /** The home sections whose copy the home page reads on the server and passes down as props. */
-export const HOME_SECTIONS = ['hero', 'stories', 'heritage', 'offers'] as const;
+export const HOME_SECTIONS = ['hero', 'destinations', 'stories', 'heritage', 'offers'] as const;
 export const HOME_KEYS = HOME_SECTIONS.flatMap((s) => sectionKeys(s));
 
 /** Every key one admin screen edits. */

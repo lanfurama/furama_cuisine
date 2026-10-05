@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { getPool } from '@/db/client';
 import { detailPageWarnings } from '@/lib/admin/content-rules';
 import { formatDateTimeVi } from '@/lib/admin/format';
-import { listDestinationOptions } from '@/lib/server/booking/queries';
+import { listDestinationOptions } from '@/lib/server/content-admin/destinations';
 import { listHistory } from '@/lib/server/content-admin/history';
 import { listMediaOptions } from '@/lib/server/content-admin/media-options';
 import { getRestaurantEditor, listCuisineOptions } from '@/lib/server/content-admin/restaurants';

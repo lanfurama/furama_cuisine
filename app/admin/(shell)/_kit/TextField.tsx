@@ -5,7 +5,8 @@ import { checkLength } from '@/lib/admin/content-rules';
 
 /*
  * A plain (not translated) text field with the kit's counter and error
- * wiring: a restaurant's name (spec §6.5: over 24 warns), slug, phone, links.
+ * wiring: a restaurant's name (spec §6.5: over 24 warns), slug, phone, links,
+ * a destination's email.
  * Uncontrolled: the form posts `name`.
  */
 export function TextField({
@@ -30,7 +31,7 @@ export function TextField({
   hint?: string;
   error?: string;
   required?: boolean;
-  type?: 'text' | 'url' | 'tel';
+  type?: 'text' | 'url' | 'tel' | 'email';
   wide?: boolean;
 }) {
   const id = useId();
