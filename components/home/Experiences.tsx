@@ -2,9 +2,10 @@
 
 import type { Experience } from '@/lib/content/types';
 import { useSite } from '@/components/site/SiteProvider';
+import { CmsImage } from '@/components/ui/CmsImage';
 import { useReveal } from '@/lib/motion';
 
-/** The rows (experiences) come from the page; the picture is the section's own (sections.image_id), a plain <img> (R3). */
+/** The rows (experiences) come from the page; the picture is the section's own (sections.image_id), optimised by next/image (CmsImage). */
 export function Experiences({ items }: { items: Experience[] }) {
   const { site } = useSite();
   const image = site.sections.experiences.image;
@@ -15,7 +16,7 @@ export function Experiences({ items }: { items: Experience[] }) {
   return (
     <section id="experiences" className="experiences">
       <div ref={media} data-reveal="wipe" className="experiences-media">
-        {image && <img src={image.url} alt={image.alt} className="fill" loading="lazy" />}
+        {image && <CmsImage media={image} width={image.width} height={image.height} sizes="(max-width: 759px) 100vw, 50vw" className="fill" />}
       </div>
 
       <div className="experiences-body">

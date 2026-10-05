@@ -107,7 +107,8 @@ test('switching has_detail_page on opens a working page for another restaurant, 
       await expect(hero.locator('.taya-kicker')).toHaveText('Steak & Wine · Furama Dining House');
       await expect(hero.locator('.taya-story-label')).toHaveText('Brand Story');
       await expect(hero.locator('.taya-story')).toContainText('three floors above An Thượng');
-      await expect(visitor.locator('.taya-portrait img')).toHaveAttribute('src', '/assets/r-the-fan.jpg');
+      // Optimised through next/image since phase 7 (CmsImage, R3): the file is named in the optimiser's URL.
+      await expect(visitor.locator('.taya-portrait img')).toHaveAttribute('src', /^\/_next\/image\?url=%2Fassets%2Fr-the-fan\.jpg&/);
       // CALL is the dining house's number; no map link anywhere, so no MAP.
       await expect(hero.getByRole('link', { name: 'CALL' })).toHaveAttribute('href', 'tel:+84859555759');
       await expect(hero.getByRole('link', { name: 'MAP' })).toHaveCount(0);

@@ -21,6 +21,19 @@ test('search matches a cuisine by its label', async ({ page }) => {
   await expect(page.locator('.search-result-name')).toHaveText(['V-Senses Cafe', 'Hải Vân Lounge']);
 });
 
+test('a search result’s thumbnail comes through the image optimiser, never as the file’s own URL (L7-8)', async ({ page, request }) => {
+  await page.goto(HOME_PATH);
+  await page.locator('.hdr-full .hdr-link', { hasText: 'SEARCH' }).click();
+  await page.locator('.search-chip', { hasText: 'Café & Lounge' }).click();
+  const background = await page.locator('.search-thumb').first().evaluate((el) => (el as HTMLElement).style.backgroundImage);
+  // A Blob URL in a CSS url() would need escaping and the Blob host in img-src; the optimiser's own path needs neither.
+  const src = /^url\("(\/_next\/image\?url=%2Fassets%2F[a-z0-9-]+\.(?:jpg|png|webp)&w=\d+&q=\d+)"\)$/.exec(background)?.[1];
+  expect(src, background).toBeDefined();
+  const res = await request.get(src!);
+  expect(res.status()).toBe(200);
+  expect(res.headers()['content-type']).toMatch(/^image\//);
+});
+
 test('search ignores accents and đ, and matches type, cuisine and destination as the database names them', async ({ page }) => {
   await page.goto(HOME_PATH);
   await page.locator('.hdr-full .hdr-link', { hasText: 'SEARCH' }).click();

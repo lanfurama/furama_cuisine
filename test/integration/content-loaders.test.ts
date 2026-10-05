@@ -108,6 +108,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
       expect(s.heritage).toMatchObject({ image: { url: SECTIONS_AT_8FE98F5.heritage.image, alt: '' }, link: SECTIONS_AT_8FE98F5.heritage.link });
       expect(s.film).toMatchObject({ image: { url: SECTIONS_AT_8FE98F5.film.image }, link: null });
       expect(s.hero).toEqual({ visible: true, image: null, link: null });
+      // The static files have no blur placeholder: the picture is exactly phase 6's (no placeholder="blur").
+      expect(Object.keys(s.experiences.image!).sort()).toEqual(['alt', 'height', 'url', 'width']);
     });
 
     it('hero slides: the three pictures in order, the first with its phone crop and the only alt text', async () => {
@@ -281,6 +283,16 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
       const s = await loadSections('vi');
       expect(s.experiences.image?.alt).toBe('Đầu bếp Furama');
       expect(s.heritage.image?.alt).toBe('');
+    });
+
+    it('an uploaded picture brings its blur placeholder along (spec §6.3 item 7: CmsImage draws it)', async () => {
+      const blur = 'data:image/webp;base64,UklGRhYAAABXRUJQVlA4IAoAAAAwAQCdASoBAAEAAQAcJaQAA3AA/v3AgAA=';
+      try {
+        await sql(`UPDATE media SET blur_data_url = $1 WHERE pathname = '/assets/chef.jpg'`, [blur]);
+        expect((await loadSections('en')).experiences.image).toMatchObject({ url: SECTIONS_AT_8FE98F5.experiences.image, blur });
+      } finally {
+        await sql(`UPDATE media SET blur_data_url = NULL WHERE pathname = '/assets/chef.jpg'`);
+      }
     });
 
     it('an offer translated in part keeps the default language’s other fields; its venue override beats the restaurant’s name', async () => {

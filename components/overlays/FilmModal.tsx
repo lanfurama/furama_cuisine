@@ -1,6 +1,7 @@
 'use client';
 
 import { useSite } from '@/components/site/SiteProvider';
+import { CmsImage } from '@/components/ui/CmsImage';
 import { homeSections } from '@/lib/content/home-sections';
 import { useOpenAnimation } from '@/lib/motion';
 
@@ -29,7 +30,7 @@ export function FilmModal() {
       </button>
 
       <div data-anim="film" className="film-frame">
-        {poster && <img src={poster.url} alt="" className="fill" />}
+        {poster && <CmsImage media={poster} decorative width={poster.width} height={poster.height} sizes="(max-width: 1100px) 100vw, 1100px" className="fill" />}
         <div className="film-overlay">
           <span className="film-play">
             <span className="film-play-tri" />

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { homeSections } from '@/lib/content/home-sections';
 import type { HeroSlide } from '@/lib/content/types';
 import { useSite } from '@/components/site/SiteProvider';
+import { CmsImage, cmsPictureProps } from '@/components/ui/CmsImage';
 import { readMotionLevel } from '@/lib/motion';
 
 /**
@@ -32,7 +33,8 @@ export function HeroHeading() {
  * #top anchor instead of duplicating the section per breakpoint. The slides
  * (hero_slides) come from the page; the pace (site_settings.hero_autoplay_ms)
  * and which buttons show (the film and finder sections, homeSections) from the chrome.
- * Pictures stay plain <img> (R3; components/ui/CmsImage.tsx).
+ * Pictures go through next/image's optimiser (R3; components/ui/CmsImage.tsx); slide 1
+ * is an art-directed <picture> of both files' optimised srcsets.
  */
 export function Hero({ slides }: { slides: HeroSlide[] }) {
   const { site, open, overlay, scrollToId } = useSite();
@@ -66,12 +68,9 @@ export function Hero({ slides }: { slides: HeroSlide[] }) {
             <div className="hero-slide-zoom">
               {i === 0 ? (
                 // Phones show only this slide, in its own crop (spec §6.5).
-                <picture>
-                  {s.mobile && <source media="(max-width: 759px)" srcSet={s.mobile.url} />}
-                  <img src={s.image.url} alt={s.image.alt} className="fill" fetchPriority="high" decoding="async" />
-                </picture>
+                <FirstSlide slide={s} />
               ) : (
-                <img src={s.image.url} alt={s.image.alt} className="fill" loading="lazy" decoding="async" />
+                <CmsImage media={s.image} sizes="100vw" width={s.image.width} height={s.image.height} className="fill" loading="lazy" />
               )}
             </div>
           </div>
@@ -149,5 +148,16 @@ export function Hero({ slides }: { slides: HeroSlide[] }) {
         </div>
       </div>
     </section>
+  );
+}
+
+/** Slide 1: the art-directed <picture> (desktop file + phone crop), both optimised (components/ui/CmsImage.tsx). */
+function FirstSlide({ slide }: { slide: HeroSlide }) {
+  const { img, mobileSrcSet } = cmsPictureProps(slide.image, slide.mobile, { sizes: '100vw', priority: true });
+  return (
+    <picture>
+      {mobileSrcSet && <source media="(max-width: 759px)" srcSet={mobileSrcSet} sizes="100vw" />}
+      <img {...img} alt={slide.image.alt} className="fill" />
+    </picture>
   );
 }

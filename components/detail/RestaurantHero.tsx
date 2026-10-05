@@ -2,6 +2,7 @@
 
 import type { RestaurantDetail } from '@/lib/content/types';
 import { useSite } from '@/components/site/SiteProvider';
+import { CmsImage } from '@/components/ui/CmsImage';
 import { openMenu } from '@/components/site/MobileBar';
 import { useReveal } from '@/lib/motion';
 
@@ -87,8 +88,16 @@ export function RestaurantHero({ detail }: { detail: RestaurantDetail }) {
           </div>
 
           <div className="taya-portrait" data-intro="1" data-intro-kind="clip">
-            {/* A plain <img> (R3): the page's LCP image, at the pixels the baselines were taken with. */}
-            <img src={detail.portrait.url} alt={detail.portrait.alt} className="fill" fetchPriority="high" />
+            {/* The page's LCP image: preloaded, fetched first, optimised by next/image (CmsImage). */}
+            <CmsImage
+              media={detail.portrait}
+              width={detail.portrait.width}
+              height={detail.portrait.height}
+              sizes="(max-width: 759px) 100vw, 45vw"
+              className="fill"
+              preload
+              fetchPriority="high"
+            />
           </div>
         </div>
 

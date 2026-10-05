@@ -1,10 +1,23 @@
 'use client';
 
+import { getImageProps } from 'next/image';
 import { useEffect, useRef } from 'react';
 import { fold } from '@/lib/booking';
+import type { Media } from '@/lib/content/types';
 import { formatMessage } from '@/lib/i18n/format';
 import { useSite } from '@/components/site/SiteProvider';
 import { useOpenAnimation } from '@/lib/motion';
+
+/**
+ * A result's thumbnail (an 80×60 CSS background) as next/image's optimiser
+ * serves it (phase-6 ledger L7-8): a /_next/image URL with the file's address
+ * encoded in its query, so an uploaded file's Blob URL never lands in a CSS
+ * url() (no escaping to get wrong, and no Blob host for the guest CSP's
+ * img-src). getImageProps: node_modules/next/dist/docs/01-app/03-api-reference/02-components/image.md:1009.
+ */
+function thumbSrc(image: Media): string {
+  return getImageProps({ src: image.url, alt: '', width: 80, height: 60 }).props.src;
+}
 
 export function SearchOverlay() {
   const { site, destName, restaurants, overlay, close, query, setQuery, openRestaurant, strings, locale } = useSite();
@@ -81,7 +94,7 @@ export function SearchOverlay() {
                 >
                   <span
                     className="search-thumb"
-                    style={r.image ? { backgroundImage: `url('${r.image.url}')` } : undefined}
+                    style={r.image ? { backgroundImage: `url("${thumbSrc(r.image)}")` } : undefined}
                     aria-hidden="true"
                   />
                   <span className="search-result-copy">

@@ -106,9 +106,9 @@ describe.skipIf(!TEST_DATABASE_URL)('move-assets-to-blob (test database + fake s
     expect((await pool.query(`SELECT count(*)::int AS n FROM media WHERE storage = 'static'`)).rows[0].n).toBe(0);
     expect((await pool.query(`SELECT count(*)::int AS n FROM audit_log WHERE actor_email = 'script:move-assets-to-blob'`)).rows[0].n).toBe(statics[0].n);
 
-    // The section that shows the chef now serves the Blob copy (same id, so every reference holds).
+    // The section that shows the chef now serves the Blob copy (same id, so every reference holds), with its placeholder.
     const sections = await loadSections('en');
-    expect(sections.experiences.image).toMatchObject({ url: row.url, width: 456, height: 378 });
+    expect(sections.experiences.image).toMatchObject({ url: row.url, width: 456, height: 378, blur: row.blur_data_url });
   });
 
   it('a second --apply sends nothing and changes nothing', async () => {

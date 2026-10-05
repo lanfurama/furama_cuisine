@@ -6,8 +6,12 @@
  * props, and the (guarded) layout passes the site-wide ones to SiteProvider.
  */
 
-/** An image as a component draws it: alt already chosen ("" for a decorative one). */
-export type Media = { url: string; alt: string; width: number; height: number };
+/**
+ * An image as a component draws it: alt already chosen ("" for a decorative
+ * one); `blur` is the upload's tiny placeholder (media.blur_data_url), absent
+ * for the static files.
+ */
+export type Media = { url: string; alt: string; width: number; height: number; blur?: string };
 
 /** A dialable number (E.164) and the way it is printed. */
 export type Phone = { tel: string; display: string };

@@ -34,14 +34,17 @@ export function i18nJoin(table: string, alias: string, fk: string, parent: strin
 export const tr = (alias: string, column: string) => `coalesce(${alias}.${column}, ${alias}_d.${column})`;
 
 /**
- * An image as JSON ({url, alt, width, height}) or NULL, for `idExpr`: alt in
- * $1, else the default language's, and "" for a decorative image. Use as
- * `LEFT JOIN LATERAL ${mediaJson('x.image_id')} AS img ON true` and select img.j.
+ * An image as JSON ({url, alt, width, height, blur?}) or NULL, for `idExpr`:
+ * alt in $1, else the default language's, and "" for a decorative image. Use
+ * as `LEFT JOIN LATERAL ${mediaJson('x.image_id')} AS img ON true` and select
+ * img.j. `blur` (blur_data_url, phase 7 uploads) is present only when the
+ * file has one: the static files have none, and their shape stays as it was.
  */
 export function mediaJson(idExpr: string): string {
-  return `(SELECT json_build_object(
+  return `(SELECT jsonb_build_object(
             'url', m.url, 'width', m.width, 'height', m.height,
-            'alt', CASE WHEN m.is_decorative THEN '' ELSE coalesce(ma.alt, ma_d.alt, '') END) AS j
+            'alt', CASE WHEN m.is_decorative THEN '' ELSE coalesce(ma.alt, ma_d.alt, '') END)
+          || CASE WHEN m.blur_data_url IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('blur', m.blur_data_url) END AS j
      FROM media m
      ${i18nJoin('media_i18n', 'ma', 'media_id', 'm.id')}
     WHERE m.id = ${idExpr} AND m.deleted_at IS NULL)`;

@@ -2,6 +2,7 @@
 
 import type { Copy } from '@/lib/i18n/registry';
 import { useSite } from '@/components/site/SiteProvider';
+import { CmsImage } from '@/components/ui/CmsImage';
 import { useReveal } from '@/lib/motion';
 
 /**
@@ -17,9 +18,18 @@ export function Heritage({ copy }: { copy: Copy<'heritage'> }) {
 
   return (
     <section id="heritage" className="heritage">
-      {/* A background: alt="" whatever the file says, a plain <img> (R3). */}
+      {/* A background: alt="" whatever the file says. No `fill`: the parallax CSS sizes and moves it. */}
       {image && (
-        <img src={image.url} alt="" className="heritage-img" data-parallax="0.2" data-parallax-max="0.11" loading="lazy" />
+        <CmsImage
+          media={image}
+          decorative
+          width={image.width}
+          height={image.height}
+          sizes="100vw"
+          className="heritage-img"
+          data-parallax="0.2"
+          data-parallax-max="0.11"
+        />
       )}
       <div className="heritage-scrim" aria-hidden="true" />
 
