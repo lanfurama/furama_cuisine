@@ -38,6 +38,8 @@ export type NavInput = {
 
 export const NAV_NEEDS_LABEL = `Nhập nhãn tiếng Anh, tối đa ${LENGTHS.navLabel.max} ký tự.`;
 export const NAV_TARGET_TAKEN = 'Đã có một mục trỏ tới section này. Sửa mục đó, hoặc chọn section khác.';
+/** The same rule on a restore, which cannot pick another section: the other item has to go or move first. */
+export const NAV_RESTORE_TARGET_TAKEN = 'Đã có một mục trỏ tới section này: xóa mục đó hoặc đổi section của nó trước, rồi khôi phục lại.';
 export const NAV_TARGET_INVALID = 'Menu chỉ trỏ được tới các section có trong thanh menu.';
 
 const nav = makeListEditor<NavInput>(NAV_ITEM, {
@@ -46,7 +48,7 @@ const nav = makeListEditor<NavInput>(NAV_ITEM, {
   toRow: (input) => ({ id: input.id, target_section: input.targetSection, is_published: input.isPublished }),
   toI18n: (input) => Object.fromEntries(Object.keys(input.label).map((locale) => [locale, { label: input.label[locale] ?? null }])),
   // Today's rules, on a save and on a restore alike (code rule 5).
-  async validate(client, { row, i18n }): Promise<ListFailure | null> {
+  async validate(client, { row, i18n }, mode): Promise<ListFailure | null> {
     const label = i18n.find((r) => r.locale === 'en')?.label;
     if (typeof label !== 'string' || !label.trim() || [...label].length > LENGTHS.navLabel.max) {
       return { ok: false, code: 'invalid', fieldErrors: { label: [NAV_NEEDS_LABEL] } };
@@ -59,7 +61,8 @@ const nav = makeListEditor<NavInput>(NAV_ITEM, {
       row.target_section,
       id,
     ]);
-    return rowCount ? { ok: false, code: 'invalid', fieldErrors: { targetSection: [NAV_TARGET_TAKEN] } } : null;
+    if (!rowCount) return null;
+    return { ok: false, code: 'invalid', fieldErrors: { targetSection: [mode === 'restore' ? NAV_RESTORE_TARGET_TAKEN : NAV_TARGET_TAKEN] } };
   },
 });
 

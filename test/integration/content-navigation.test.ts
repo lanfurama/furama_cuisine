@@ -8,6 +8,7 @@ import {
   listNavAdmin,
   NAV_ITEM,
   NAV_NEEDS_LABEL,
+  NAV_RESTORE_TARGET_TAKEN,
   NAV_TARGET_TAKEN,
   reorderNavItems,
   restoreNavItem,
@@ -150,11 +151,13 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('navigation editor (database)', 
     // Someone gives the section a new item meanwhile: the old one cannot come back beside it (one per section).
     const created = await createNavItem(pool, ACTOR, { id: null, targetSection: 'stories', isPublished: true, label: { en: 'Journal' } });
     expect(created.ok).toBe(true);
+    // A restore cannot pick another section, so its refusal says what to do instead (not the form's "chọn section khác").
     expect(await restoreNavItem(pool, OTHER, { id: gone.id, auditId: gone.auditId, side: 'before', token: 'deleted' })).toEqual({
       ok: false,
       code: 'invalid',
-      fieldErrors: { targetSection: [NAV_TARGET_TAKEN] },
+      fieldErrors: { targetSection: [NAV_RESTORE_TARGET_TAKEN] },
     });
+    expect(NAV_RESTORE_TARGET_TAKEN).not.toMatch(/chọn section khác/);
     expect(await deleteNavItem(pool, ACTOR, (await item('stories')).id, (await item('stories')).token)).toMatchObject({ ok: true });
     expect(await restoreNavItem(pool, OTHER, { id: gone.id, auditId: gone.auditId, side: 'before', token: 'deleted' })).toEqual({ ok: true, data: null });
     expect((await listNavAdmin(pool)).items.map((n) => n.id)).toEqual(before);

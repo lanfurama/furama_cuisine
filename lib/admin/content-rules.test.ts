@@ -9,7 +9,9 @@ import {
   followRename,
   LIMITS,
   limitError,
+  LENGTHS,
   limitWarnings,
+  NAV_LABEL_WARNING,
   NAV_TARGETS,
   offerPageTitle,
   sectionErrors,
@@ -26,6 +28,10 @@ describe('content rules (spec §6.5)', () => {
     expect(checkLength('A'.repeat(15), 18, 14)).toEqual({ level: 'warn', count: 15 });
     expect(checkLength('A'.repeat(18), 18, 14).level).toBe('warn');
     expect(checkLength('A'.repeat(19), 18, 14)).toEqual({ level: 'error', count: 19 });
+  });
+
+  it("the nav label's warning names the length it warns past, so it cannot go stale", () => {
+    expect(NAV_LABEL_WARNING).toContain(`Dài hơn ${String(LENGTHS.navLabel.warn)} ký tự`);
   });
 
   it('holds the layout limits of spec §6.5', () => {

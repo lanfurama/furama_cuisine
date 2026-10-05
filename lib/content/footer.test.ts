@@ -34,5 +34,7 @@ describe('the footer (plan 7B B5)', () => {
     expect(footerVenueText({ name: null, address: null, phone: PHONE })).toBe('');
     expect(footerVenueText({ name: null, address: '105 Vo Nguyen Giap', phone: PHONE })).toBe('105 Vo Nguyen Giap · ');
     expect(footerVenueText({ name: 'Dining House', address: '  ', phone: null })).toBe('Dining House');
+    // The contact screen's preview (app/admin/(shell)/content/contact/page.tsx) prints this, then the phone, as the footer does.
+    expect(footerVenueText({ name: 'Dining House', address: '  ', phone: PHONE }) + PHONE.display).toBe('Dining House · +84 236 3847 333');
   });
 });

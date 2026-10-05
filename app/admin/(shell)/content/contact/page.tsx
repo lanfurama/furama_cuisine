@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getPool } from '@/db/client';
 import { LIMITS, limitWarnings } from '@/lib/admin/content-rules';
-import { SOCIAL_PLATFORMS, type SocialPlatform } from '@/lib/content/footer';
+import { footerVenueText, SOCIAL_PLATFORMS, type SocialPlatform } from '@/lib/content/footer';
 import { roleCan } from '@/lib/server/auth/permissions';
 import { listDestinationsAdmin } from '@/lib/server/content-admin/destinations';
 import { listDeleted, listHistory } from '@/lib/server/content-admin/history';
@@ -143,12 +143,16 @@ export default async function ContactPage() {
           <p className="a-muted">Không điểm đến nào hiện ở chân trang.</p>
         ) : (
           <ul className="a-list" aria-label="Dòng địa chỉ ở chân trang">
-            {venues.map((d) => (
-              <li key={d.id} className="a-list-item a-list-item--stack">
-                <span>{[d.values.name.en, d.values.address.en, d.values.phoneDisplay].filter(Boolean).join(' · ')}</span>
-                {d.isPublished ? null : <span className="a-muted">Điểm đến đang ẩn: dòng này không hiện.</span>}
-              </li>
-            ))}
+            {venues.map((d) => {
+              // The footer's own rule (components/site/Footer.tsx): a blank part is left out, and the phone shows only with both its numbers.
+              const phone = d.values.phoneE164 && d.values.phoneDisplay ? { tel: d.values.phoneE164, display: d.values.phoneDisplay } : null;
+              return (
+                <li key={d.id} className="a-list-item a-list-item--stack">
+                  <span>{`${footerVenueText({ name: d.values.name.en, address: d.values.address.en, phone })}${phone?.display ?? ''}`}</span>
+                  {d.isPublished ? null : <span className="a-muted">Điểm đến đang ẩn: dòng này không hiện.</span>}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

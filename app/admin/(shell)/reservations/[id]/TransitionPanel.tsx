@@ -59,7 +59,8 @@ export function TransitionPanel({
   const [draft, setDraft] = useState({ state, reason: '', notify: true });
   if (draft.state !== state) setDraft(state?.ok ? { state, reason: '', notify: true } : { ...draft, state });
   const done = state?.ok ? state.data : null;
-  const emailNote = done?.emailed ? ' Email báo khách đang được gửi.' : hasEmail && sittingPassed ? ' Không gửi email cho khách: đã qua giờ hẹn.' : '';
+  // The past-sitting reason only after a change that would have emailed the guest (the server says which).
+  const emailNote = done?.emailed ? ' Email báo khách đang được gửi.' : hasEmail && done?.pastSitting ? ' Không gửi email cho khách: đã qua giờ hẹn.' : '';
   const success = done ? `Đã chuyển sang “${STATUS_LABELS[done.status]}”.${emailNote}` : undefined;
   if (options.length === 0) {
     // A change that ended the booking (a cancel) still says what it did, and whether the guest is being emailed.

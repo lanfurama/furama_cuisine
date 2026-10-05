@@ -2,6 +2,7 @@ import { randomInt } from 'node:crypto';
 import { test as base, expect, type Browser, type Page, type TestInfo } from '@playwright/test';
 import { hashPassword } from 'better-auth/crypto';
 import pg from 'pg';
+import { expectHydrated } from './csp';
 
 /*
  * Staff for the admin specs, written straight into the local _test database
@@ -155,6 +156,18 @@ export async function signInAs(page: Page, who: { email: string; password: strin
   await page.goto('/admin/sign-in');
   await signIn(page, who.email, who.password);
   await expect(page).toHaveURL(/\/admin$/);
+}
+
+/**
+ * Opens an admin screen on a 375 px phone with every <details> open (the item forms, pickers, History), so a
+ * row or field too wide for a phone shows: its page's scroll width against its viewport's (UX-5, UX-6).
+ */
+export async function openOnPhone(page: Page, path: string): Promise<{ scrollWidth: number; clientWidth: number }> {
+  await page.setViewportSize({ width: 375, height: 860 });
+  await page.goto(path);
+  await expectHydrated(page);
+  await page.locator('details').evaluateAll((all) => all.forEach((d) => ((d as HTMLDetailsElement).open = true)));
+  return page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
 }
 
 /**

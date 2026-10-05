@@ -593,6 +593,13 @@ body.admin {
   font: inherit;
 }
 
+/* A select is as wide as its longest option, which on a phone is wider than the screen (UX-6). It stops at
+   its field; min-width: 0 because it is a grid item of .a-field, whose minimum would be that full width. */
+.a-field select {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .a-list-item--stack {
   display: grid;
   justify-content: start;
@@ -1234,8 +1241,15 @@ fieldset.a-field legend {
   width: 96px;
 }
 
+/* The text column may shrink below its longest word, so a long link wraps instead of pushing
+   "Ẩn"/"Xóa" off a phone's screen (UX-5). */
+.a-item-row > :nth-child(2) {
+  min-width: 0;
+}
+
 .a-item-row p {
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .a-details-history > summary {

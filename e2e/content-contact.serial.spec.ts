@@ -1,14 +1,15 @@
 import type { Browser, Page } from '@playwright/test';
 import { expectHydrated, watchCsp } from './csp';
 import { HOME_PATH } from './paths';
-import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures';
+import { STAFF, expect, one, openOnPhone, seedStaff, signInAs, test } from './staff-fixtures';
 
 /*
  * The contact screen in a browser (spec §7.2 content/contact): an Editor
  * gives the footer's Facebook link a new address and guests follow it within
  * seconds, then History puts it back; the footer's tagline is a footer.* key
  * (also at the foot of the phone menu), put back with "Khôi phục mặc định".
- * The shared email is shown, never edited, here (R10).
+ * The shared email is shown, never edited, here (R10). On a 375 px phone a
+ * long link wraps in its row and "Ẩn"/"Xóa" stay on screen (UX-5).
  *
  * Serial (desktop-serial): every guest page carries the footer; afterAll
  * repairs by SQL, then a save, only if a step failed half-way.
@@ -153,4 +154,13 @@ test('the footer’s tagline is a footer.* key: an edit reaches the footer and t
     await visitor.context().close();
     await phone.context().close();
   }
+});
+
+test('the contact screen fits a 375 px phone: a long link breaks inside its row, and “Ẩn”/“Xóa” stay on screen (UX-5)', async ({ page }) => {
+  await signInAs(page, STAFF.editor);
+  const { scrollWidth, clientWidth } = await openOnPhone(page, '/admin/content/contact');
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  const row = page.getByRole('list', { name: 'Thứ tự mạng xã hội' }).getByRole('listitem').first();
+  const remove = await row.getByRole('button', { name: /^Xóa “/ }).boundingBox();
+  expect(remove!.x + remove!.width).toBeLessThanOrEqual(375);
 });

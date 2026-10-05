@@ -195,7 +195,7 @@ test('the inbox keeps five searches: Back to the first still shows it; an expire
   await lapsed.context().close();
 });
 
-test('“Báo khách” is gone once the sitting has started, and the notice says why no email went (phase-5 residual)', async ({ page }) => {
+test('“Báo khách” is gone once the sitting has started, and the notice says why no email went, only after a change that emails the guest (phase-5 residual)', async ({ page }) => {
   // Tàya House yesterday at 19:00: "Hủy" has no time window, but no booking email goes out once the sitting has started.
   const r = await seedReservation({ status: 'confirmed', date: venueDay(-1), time: '19:00' });
   await one(`UPDATE reservations SET email = $2 WHERE id = $1`, [r.id, `late-${r.reference.toLowerCase()}@example.com`]);
@@ -211,6 +211,15 @@ test('“Báo khách” is gone once the sitting has started, and the notice say
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Đã hủy');
   await expect(main(page).getByRole('status')).toHaveText('Đã chuyển sang “Đã hủy”. Không gửi email cho khách: đã qua giờ hẹn.');
   expect(await one(`SELECT count(*)::int AS n FROM email_outbox WHERE reservation_id = $1`, [r.id])).toEqual({ n: 0 });
+
+  // "Đã đến" never emails the guest, so the notice gives no past-sitting reason for an email that was never due.
+  const seated = await seedReservation({ status: 'confirmed', date: venueDay(-1), time: '19:00' });
+  await one(`UPDATE reservations SET email = $2 WHERE id = $1`, [seated.id, `late-${seated.reference.toLowerCase()}@example.com`]);
+  await page.goto(`/admin/reservations/${seated.id}`);
+  await expectHydrated(page);
+  await main(page).getByRole('button', { name: 'Đã đến', exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Đã đến');
+  await expect(main(page).getByRole('status')).toHaveText('Đã chuyển sang “Đã đến”.');
 });
 
 test('each “Gửi lại” names its recipient and stays off once pressed; the audit row names the email and its booking, and leads to it', async ({ page }) => {

@@ -35,8 +35,13 @@ import { refuseVoidAction, requirePermission } from '@/lib/server/dal/session';
 
 const field = (formData: FormData, name: string) => formData.get(name) ?? undefined;
 
-/** The status a change reached, and whether a guest email is on its way: the panel's notice says both. */
-export type StatusChange = { status: ReservationStatus; emailed: boolean };
+/**
+ * The status a change reached, and whether a guest email is on its way: the panel's notice says both.
+ * `pastSitting`: this change emails the guest (its transition carries a guest email: a confirm, a decline,
+ * a cancel), but none goes because the sitting has started, so the notice says why. "Đã đến" and "Không đến"
+ * never email, so they never give that reason (R40: the server's transition table decides, not the client).
+ */
+export type StatusChange = { status: ReservationStatus; emailed: boolean; pastSitting: boolean };
 
 export async function changeStatus(_prev: ActionResult<StatusChange> | null, formData: FormData): Promise<ActionResult<StatusChange>> {
   try {
@@ -49,13 +54,25 @@ export async function changeStatus(_prev: ActionResult<StatusChange> | null, for
       notifyGuest: field(formData, 'notifyGuest'),
     });
     const effects = outboxEffects();
-    const result = await transitionReservation(getPool(), staffActor(staff), input, { effects });
+    // Not what was queued: past the sitting the panel no longer offers "Báo khách", so a cancel queues
+    // nothing there, yet it is a change that would have emailed the guest. The transition says so.
+    let mailsGuest = false;
+    const result = await transitionReservation(getPool(), staffActor(staff), input, {
+      effects: {
+        ...effects,
+        afterTransition: (client, change) => {
+          mailsGuest = change.transition.guestEmail !== null;
+          return effects.afterTransition(client, change);
+        },
+      },
+    });
     if (!result.ok) return result;
     drainAfterCommit(effects.queued);
     refresh();
     // Queued is not enough: the sender skips a booking email once its sitting has started (F5), so the
     // notice promises one only while the sitting is still ahead, by the sender's own rule.
-    return { ok: true, data: { status: result.data.status, emailed: effects.queued.length > 0 && sittingAhead(result.data) } };
+    const ahead = sittingAhead(result.data);
+    return { ok: true, data: { status: result.data.status, emailed: effects.queued.length > 0 && ahead, pastSitting: mailsGuest && !ahead } };
   } catch (err) {
     return actionError(err);
   }

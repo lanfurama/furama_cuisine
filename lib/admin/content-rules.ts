@@ -31,8 +31,8 @@ export const LENGTHS = {
   restaurantName: { warn: 24, max: 60 },
 } as const;
 
-/** The menu label's warning past LENGTHS.navLabel.warn (spec §6.5). */
-export const NAV_LABEL_WARNING = 'Dài hơn 14 ký tự: thanh menu trên máy tính có thể chật.';
+/** The menu label's warning past LENGTHS.navLabel.warn (spec §6.5); the number comes from LENGTHS so the two cannot drift apart. */
+export const NAV_LABEL_WARNING = `Dài hơn ${LENGTHS.navLabel.warn} ký tự: thanh menu trên máy tính có thể chật.`;
 
 /**
  * The sections a menu item may scroll to: every home section but the hero,

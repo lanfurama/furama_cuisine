@@ -1,7 +1,7 @@
 import type { Browser, Page } from '@playwright/test';
 import { expectHydrated, watchCsp } from './csp';
 import { HOME_PATH } from './paths';
-import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures';
+import { STAFF, expect, one, openOnPhone, seedStaff, signInAs, test } from './staff-fixtures';
 
 /*
  * The destinations editor in a browser (spec §7.2 content/destinations): an
@@ -9,6 +9,7 @@ import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures'
  * History puts it back; hiding a destination (phase-6 ledger D1, L7-2) asks
  * first, naming how many restaurants go with it, and takes its card, its
  * restaurants and their online booking off the site until it shows again.
+ * With every form open, the screen fits a 375 px phone (UX-6).
  *
  * Serial (desktop-serial): it changes what every guest page reads, and puts
  * it back through the same screen; afterAll repairs by SQL, then a save, only
@@ -130,4 +131,10 @@ test('hiding a destination says how many restaurants go with it, then takes them
   } finally {
     await visitor.context().close();
   }
+});
+
+test('the destinations screen fits a 375 px phone with every form open: the card-kind select stays inside its field (UX-6)', async ({ page }) => {
+  await signInAs(page, STAFF.editor);
+  const { scrollWidth, clientWidth } = await openOnPhone(page, '/admin/content/destinations');
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
 });
