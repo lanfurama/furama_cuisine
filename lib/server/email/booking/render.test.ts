@@ -24,6 +24,7 @@ const booking: BookingEmailData = {
   phone: '0905 123 456',
   email: 'anh.nguyen@guest.vn',
   note: 'Bàn gần cửa sổ.',
+  offerTitle: null,
   groupPhone: { display: '+84 236 651 9999', tel: '+842366519999' },
   anonymized: false,
 };
@@ -157,6 +158,16 @@ describe('booking emails', () => {
     expect(auto.text).toContain('Đặt bàn đã được tự động xác nhận.');
     expect(auto.text).not.toContain('Yêu cầu của khách');
     expect(auto.text).not.toMatch(/^Email\s/m);
+  });
+
+  it('staff.new names the offer the guest booked from, and only staff.new (L7-11)', async () => {
+    const withOffer = { ...booking, offerTitle: 'Vietnamese Cooking Class' };
+    const vi = await render('staff.new', VI, withOffer);
+    for (const out of [vi.html, vi.text]) expect(out).toContain('Vietnamese Cooking Class');
+    expect(vi.text).toMatch(/Ưu đãi\s+Vietnamese Cooking Class/);
+    expect((await render('staff.new', EN, withOffer)).text).toMatch(/Offer\s+Vietnamese Cooking Class/);
+    expect((await render('staff.new', VI)).text).not.toContain('Ưu đãi');
+    expect((await render('guest.confirmed', EN, withOffer)).text).not.toContain('Vietnamese Cooking Class');
   });
 
   it('staff.new in English says "party of", so one guest still reads right', async () => {

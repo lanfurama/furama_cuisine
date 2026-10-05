@@ -160,6 +160,19 @@ describe.skipIf(!TEST_DATABASE_URL)('reservation inbox (database)', () => {
     expect(await listNotes(pool, [])).toEqual(new Map());
   });
 
+  it('names the offer a booking came from, in the inbox and on its page; none for a plain booking (L7-11)', async () => {
+    const plain = await seed({ date: '2026-10-04' });
+    const fromOffer = await seed({ date: '2026-10-05' });
+    await pool.query('UPDATE reservations SET offer_id = 2 WHERE id = $1', [fromOffer]);
+    const rows = (await listInbox(pool, { tab: 'all', today: TODAY })).rows.map((r) => [r.id, r.offerTitle]);
+    expect(rows).toEqual([
+      [fromOffer, 'Vietnamese Cooking Class'],
+      [plain, null],
+    ]);
+    expect((await getReservation(pool, fromOffer))?.offerTitle).toBe('Vietnamese Cooking Class');
+    expect((await getReservation(pool, plain))?.offerTitle).toBeNull();
+  });
+
   it('overview: pending requests, and today’s bookings and covers that hold seats', async () => {
     await seed({ status: 'requested' });
     await seed({ date: TODAY, guests: 4, status: 'confirmed' });

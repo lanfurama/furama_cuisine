@@ -27,6 +27,7 @@ export function sampleBooking(now: Date = new Date()): BookingEmailData {
     phone: '0905 000 000',
     email: 'khach.mau@example.com',
     note: 'Bàn gần cửa sổ, có một ghế trẻ em.',
+    offerTitle: 'Vietnamese Cooking Class',
     groupPhone: { display: '+84 236 651 9999', tel: '+842366519999' },
     anonymized: false,
   };

@@ -36,6 +36,8 @@ export type InboxRow = {
   overCapacity: boolean;
   isTest: boolean;
   createdAt: Date;
+  /** The offer the guest booked from (reservations.offer_id), by its default-language title; null without one (L7-11). */
+  offerTitle: string | null;
   /** The row's sort key, opaque to the page. */
   cursor: string;
 };
@@ -45,7 +47,8 @@ const CREATED_CURSOR = /^(\d{1,17})_(\d{1,18})$/;
 
 const COLUMNS = `r.id::text, r.reference, r.restaurant_id AS "restaurantId", t.name AS "restaurantName",
   to_char(r.reserved_on, 'YYYY-MM-DD') AS date, r.reserved_at AS time, r.guests, r.guest_name AS name, r.phone, r.email,
-  r.status, r.source, r.version, r.over_capacity AS "overCapacity", r.is_test AS "isTest", r.created_at AS "createdAt"`;
+  r.status, r.source, r.version, r.over_capacity AS "overCapacity", r.is_test AS "isTest", r.created_at AS "createdAt",
+  (SELECT oi.title FROM offer_i18n oi JOIN locales l ON l.code = oi.locale AND l.is_default WHERE oi.offer_id = r.offer_id) AS "offerTitle"`;
 
 /**
  * One page of a tab, or of a search. Cần xử lý: requested, soonest sitting

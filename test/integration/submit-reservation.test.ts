@@ -450,6 +450,12 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('submitReservation v2 (database)
       expect((await sql(`SELECT offer_id FROM reservations`)).rows).toEqual([{ offer_id: '2' }]);
     });
 
+    it('keeps an offer whose first day is the booked date (valid_from is inclusive, L7-11)', async () => {
+      await sql(`UPDATE offers SET valid_from = '2026-10-02', valid_until = NULL WHERE id = 2`);
+      expect(await submitReservation({ ...request, offerId: 2 })).toMatchObject({ ok: true });
+      expect((await sql(`SELECT offer_id FROM reservations`)).rows).toEqual([{ offer_id: '2' }]);
+    });
+
     it('books without it when the offer is another restaurant’s, unknown, unpublished, or not running on the booked date', async () => {
       const cases: [label: string, offerId: number, setup?: string][] = [
         ['another restaurant’s', 1],

@@ -96,7 +96,10 @@ export default async function ReservationsPage({ searchParams }: { searchParams:
                   {r.name}
                   <small className="a-sub">{r.phone}</small>
                 </td>
-                <td>{r.restaurantName}</td>
+                <td>
+                  {r.restaurantName}
+                  {r.offerTitle ? <small className="a-sub">{`Ưu đãi: ${r.offerTitle}`}</small> : null}
+                </td>
                 <td>{`${formatIsoDayVi(r.date)} ${r.time}`}</td>
                 <td>
                   {r.guests}

@@ -301,6 +301,8 @@ export function SiteProvider({
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   /* The offer the form was opened from, and its restaurant (R9): sent only while that is the restaurant chosen. */
   const [offer, setOffer] = useState<{ id: number; restaurant: string } | null>(null);
+  /* The note an offer last filled in: VIEW OFFER on another offer replaces it, a note the guest typed stays (L7-11). */
+  const offerNote = useRef<string | null>(null);
   /* A move note belongs to the drawer visit it was shown in. Many paths close
      the overlay (×, Escape, a link), so the drop happens here, on the change,
      adjusting state during render; a move made from the booking bar while the
@@ -544,7 +546,9 @@ export function SiteProvider({
       if (from) {
         // The note still names the offer, as before phase 6; reservations.offer_id now says it for staff.
         const note = `Offer: ${from.title}`;
-        setForm((f) => (f.note ? f : { ...f, note }));
+        const filled = offerNote.current;
+        setForm((f) => (!f.note || f.note === filled ? { ...f, note } : f));
+        offerNote.current = note;
         setOffer({ id: from.id, restaurant: preset?.restaurant ?? next.restaurant });
       }
       setBookingState(next);

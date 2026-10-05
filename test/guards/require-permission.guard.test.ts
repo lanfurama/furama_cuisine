@@ -102,7 +102,17 @@ const BOOKING_ACTIONS: Record<string, Record<string, { permission: object; edito
  * the test after the matrix fails while a content screen's action file has
  * no rows.
  */
-const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; editor: boolean }>> = {};
+const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; editor: boolean }>> = {
+  'app/admin/(shell)/content/offers/actions.ts': {
+    createOfferAction: { permission: { content: ['update'] }, editor: true },
+    saveOfferAction: { permission: { content: ['update'] }, editor: true },
+    toggleOfferAction: { permission: { content: ['update'] }, editor: true },
+    deleteOfferAction: { permission: { content: ['update'] }, editor: true },
+    reorderOffersAction: { permission: { content: ['update'] }, editor: true },
+    restoreOfferAction: { permission: { content: ['restore'] }, editor: true },
+    restoreOfferOrderAction: { permission: { content: ['restore'] }, editor: true },
+  },
+};
 
 /** Where content editors keep their Server Actions (spec §7.2): every 'use server' file here needs CONTENT_ACTIONS rows. */
 const CONTENT_SCREENS = ['app/admin/(shell)/content/', 'app/admin/(shell)/media/', 'app/admin/(shell)/restaurants/[id]/actions.ts', 'app/admin/(shell)/restaurants/actions.ts'];

@@ -10,9 +10,12 @@ import { orderToken, readItem, readItems, snapshotToken, type ItemDef, type Item
  *
  * Deleting an offer (phase-6 R5): reservations.offer_id is ON DELETE SET NULL,
  * so the bookings keep their date, time, party and "Offer: …" note and lose
- * only the link. The delete records those booking ids in its audit row
- * (before.meta.unlinked_reservations), and a restore brings the offer back
- * under its id without relinking them.
+ * only the link. That SET NULL is an UPDATE, which bumps each booking's
+ * version (reservations_before_write) without saying why (L7-12), so the
+ * delete writes one reservation_event 'edited' per unlinked booking, by the
+ * staff member who deleted it (R9; spec §7.4 puts booking-side effects
+ * there), and keeps the ids in its audit row (before.meta.unlinked_reservations).
+ * A restore brings the offer back under its id without relinking them.
  */
 
 export const OFFER: ItemDef = {
@@ -67,10 +70,18 @@ const offers = makeListEditor<OfferInput>(OFFER, {
     const { rowCount } = await client.query('SELECT 1 FROM restaurants WHERE id = $1', [row.restaurant_id]);
     return rowCount ? null : { ok: false, code: 'invalid', fieldErrors: { restaurantId: ['Nhà hàng này không còn nữa.'] } };
   },
-  async beforeDelete(client, id) {
-    // Before the delete: the bookings its SET NULL is about to unlink (L7-12, phase-6 R5).
-    const { rows } = await client.query<{ id: string }>('SELECT id::text FROM reservations WHERE offer_id = $1::bigint ORDER BY id', [id]);
-    return { unlinked_reservations: rows.map((r) => r.id) };
+  async beforeDelete(client, id, actor) {
+    // Before the delete: the bookings its SET NULL is about to unlink, each told why in its timeline (R9).
+    const { rows } = await client.query<{ id: string }>(
+      `INSERT INTO reservation_events (reservation_id, actor_kind, actor_id, actor_label, type, changes)
+       SELECT r.id, 'staff', $2, $3, 'edited',
+              jsonb_build_object('offer', jsonb_build_array((SELECT t.title FROM offer_i18n t WHERE t.offer_id = r.offer_id AND t.locale = 'en'), NULL))
+         FROM reservations r
+        WHERE r.offer_id = $1::bigint
+       RETURNING reservation_id::text AS id`,
+      [id, actor.id, `${actor.name ?? actor.email} (${actor.email})`],
+    );
+    return { unlinked_reservations: rows.map((r) => r.id).sort((a, b) => Number(a) - Number(b)) };
   },
 });
 

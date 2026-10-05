@@ -35,6 +35,7 @@ const booking = (over: Partial<BookingEmailData> = {}): BookingEmailData => ({
   phone: '0905 123 456',
   email: 'anh.nguyen@guest.vn',
   note: null,
+  offerTitle: null,
   groupPhone: null,
   anonymized: false,
   ...over,

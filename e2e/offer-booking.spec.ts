@@ -83,3 +83,32 @@ test('a plain RESERVE sends no offer', async ({ page }) => {
   expect(args).toMatchObject({ restaurant: 'taya-house', note: '' });
   expect(args).not.toHaveProperty('offerId');
 });
+
+test('VIEW OFFER on a second offer replaces the first one’s note; a note the guest typed stays (L7-11)', async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.setItem('fc-intro-seen', '1'));
+  await page.clock.setFixedTime(NOW);
+  await mockAvailability(page, { today: () => '2026-10-02', now: () => NOW.toISOString() });
+  await page.goto(HOME_PATH);
+  const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
+  const note = drawer.getByRole('textbox', { name: /^Special requests/ });
+  const viewOffer = async (title: string) => {
+    await page.locator('#offers .offer', { hasText: title }).getByRole('button', { name: /VIEW OFFER/ }).click();
+    await expect(drawer).toBeVisible();
+  };
+  const close = async () => {
+    await page.keyboard.press('Escape');
+    await expect(drawer).toBeHidden();
+  };
+
+  await viewOffer('Seafood & Steak Buffet Dinner');
+  await expect(note).toHaveValue('Offer: Seafood & Steak Buffet Dinner');
+  await close();
+  await viewOffer('Vietnamese Cooking Class');
+  await expect(drawer.locator('.drawer-name')).toHaveText('Tàya House');
+  await expect(note).toHaveValue('Offer: Vietnamese Cooking Class');
+
+  await note.fill('A table by the window, please.');
+  await close();
+  await viewOffer('Afternoon Tea & Dessert Buffet');
+  await expect(note).toHaveValue('A table by the window, please.');
+});

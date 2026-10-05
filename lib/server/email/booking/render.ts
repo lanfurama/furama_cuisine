@@ -56,6 +56,7 @@ const EVENT_KEYS = {
     'email.staff.new.label_phone',
     'email.staff.new.label_email',
     'email.staff.new.label_note',
+    'email.staff.new.label_offer',
     'email.staff.new.button',
     'email.common.footer_staff',
   ],
@@ -134,6 +135,8 @@ export function buildBookingEmail(
         { label: t('email.staff.new.label_guest'), value: data.guestName },
         { label: t('email.staff.new.label_phone'), value: data.phone },
         ...(data.email ? [{ label: t('email.staff.new.label_email'), value: data.email }] : []),
+        // The offer the guest booked from (L7-11); its title is content, so it stays in the default language.
+        ...(data.offerTitle ? [{ label: t('email.staff.new.label_offer'), value: data.offerTitle }] : []),
       ],
       quotes: data.note ? [{ label: t('email.staff.new.label_note'), text: data.note }] : [],
       button: { label: t('email.staff.new.button'), href },

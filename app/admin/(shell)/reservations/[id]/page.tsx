@@ -45,6 +45,8 @@ const FIELD_LABELS: Record<string, string> = {
   email: 'Email',
   note: 'Yêu cầu của khách',
   over_capacity: 'Vượt sức chứa',
+  // An offer deleted while the booking was linked to it (R9).
+  offer: 'Ưu đãi',
 };
 
 /** "Giờ: 19:00 → 19:30 · Số khách: 2 → 4" from an edited event's changes. */
@@ -118,6 +120,12 @@ export default async function ReservationPage({ params }: { params: Promise<{ id
           {reservation.name} · <a href={`tel:${reservation.phone.replace(/[^\d+]/g, '')}`}>{reservation.phone}</a>
           {reservation.email ? ` · ${reservation.email}` : null}
         </dd>
+        {reservation.offerTitle ? (
+          <>
+            <dt>Ưu đãi</dt>
+            <dd>{reservation.offerTitle}</dd>
+          </>
+        ) : null}
         <dt>Yêu cầu của khách</dt>
         <dd>{reservation.note ?? '—'}</dd>
         <dt>Nguồn · ngôn ngữ</dt>

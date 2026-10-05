@@ -28,6 +28,8 @@ export type BookingEmailData = {
   email: string | null;
   /** The guest's own request from the form. */
   note: string | null;
+  /** The offer the guest booked from, by its default-language title; staff.new names it (L7-11). */
+  offerTitle: string | null;
   /** The restaurant's number, else its destination's, which guests call (lib/server/booking/rules.ts groupPhoneSql). */
   groupPhone: GroupPhone | null;
   /** Phase 10's anonymiser ran: nothing is sent about it any more. */
@@ -47,6 +49,7 @@ type DataRow = {
   phone: string;
   email: string | null;
   note: string | null;
+  offer_title: string | null;
   group_phone: GroupPhone | null;
   anonymized: boolean;
 };
@@ -56,6 +59,7 @@ export async function loadBookingEmailData(db: Pool | PoolClient, reservationId:
   const { rows } = await db.query<DataRow>(
     `SELECT r.id::text, r.reference, t.name AS restaurant_name, to_char(r.reserved_on, 'YYYY-MM-DD') AS date,
             r.reserved_at AS time, r.guests, r.status, r.status_reason, r.guest_name, r.phone, r.email, r.note,
+            (SELECT oi.title FROM offer_i18n oi JOIN locales l ON l.code = oi.locale AND l.is_default WHERE oi.offer_id = r.offer_id) AS offer_title,
             ${groupPhoneSql('t')} AS group_phone, r.anonymized_at IS NOT NULL AS anonymized
        FROM reservations r JOIN restaurants t ON t.id = r.restaurant_id
       WHERE r.id = $1`,
@@ -76,6 +80,7 @@ export async function loadBookingEmailData(db: Pool | PoolClient, reservationId:
     phone: r.phone,
     email: r.email,
     note: r.note,
+    offerTitle: r.offer_title,
     groupPhone: r.group_phone,
     anonymized: r.anonymized,
   };

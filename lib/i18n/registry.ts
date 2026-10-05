@@ -591,6 +591,13 @@ export const REGISTRY = {
     context: 'Staff notification, label of the note the guest typed in the form (never staff notes).',
     screen: 'emails',
   },
+  'email.staff.new.label_offer': {
+    en: 'Offer',
+    vi: 'Ưu đãi',
+    maxLength: 40,
+    context: 'Staff notification, label of the offer the guest booked from (VIEW OFFER on the home page); the offer’s title follows it.',
+    screen: 'emails',
+  },
   'email.staff.new.button': {
     en: 'Open the booking',
     vi: 'Mở đặt bàn',

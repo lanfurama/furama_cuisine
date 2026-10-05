@@ -126,8 +126,13 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content editors: save flow, his
       expect(await deleteOffer(pool, ACTOR, '2', await offerToken('2'))).toEqual({ ok: true, data: { meta: { unlinked_reservations: [rows[0].id] } } });
       expect(await titles()).toEqual(['Seafood & Steak Buffet Dinner', 'Afternoon Tea & Dessert Buffet']);
       expect(await getOfferEditor(pool, '2')).toBeNull();
-      const booking = (await pool.query('SELECT offer_id, note FROM reservations WHERE id = $1', [rows[0].id])).rows[0];
-      expect(booking).toEqual({ offer_id: null, note: 'Offer: Vietnamese Cooking Class' });
+      const booking = (await pool.query('SELECT offer_id, note, version FROM reservations WHERE id = $1', [rows[0].id])).rows[0];
+      expect(booking).toEqual({ offer_id: null, note: 'Offer: Vietnamese Cooking Class', version: 2 });
+      // R9: the booking's timeline says why its version moved, and who did it (L7-12).
+      const events = (await pool.query(`SELECT actor_kind, actor_id, actor_label, type, changes FROM reservation_events WHERE reservation_id = $1 ORDER BY id`, [rows[0].id])).rows;
+      expect(events).toEqual([
+        { actor_kind: 'staff', actor_id: ACTOR.id, actor_label: 'Mai (mai@furama.test)', type: 'edited', changes: { offer: ['Vietnamese Cooking Class', null] } },
+      ]);
       const del = (await audit()).at(-1);
       expect(del).toMatchObject({ action: 'delete', entity_id: '2', after: null, before: { row: { id: 2 }, meta: { unlinked_reservations: [rows[0].id] } } });
       expect(del.before.i18n).toEqual([expect.objectContaining({ locale: 'en', title: 'Vietnamese Cooking Class', schedule: 'Daily 11:00 or 14:00' })]);
@@ -140,11 +145,13 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content editors: save flow, his
       expect(await titles()).toEqual(['Seafood & Steak Buffet Dinner', 'Vietnamese Cooking Class', 'Afternoon Tea & Dessert Buffet']);
       expect((await loadOffers('en'))[1]).toMatchObject({ id: 2, restaurantId: 'taya-house', detail: 'VND 799,000++ per guest · Daily 11:00 or 14:00' });
       expect((await pool.query('SELECT offer_id FROM reservations WHERE id = $1', [rows[0].id])).rows[0].offer_id).toBeNull();
+      expect((await pool.query('SELECT count(*)::int AS n FROM reservation_events WHERE reservation_id = $1', [rows[0].id])).rows[0].n).toBe(1);
       expect(await listDeleted(pool, OFFER)).toEqual([]);
 
       // The same delete row restored twice: the offer exists now, so the page's 'deleted' token is stale.
       expect(await restoreOffer(pool, ACTOR, { id: '2', auditId: del.id, side: 'before', token: 'deleted' })).toMatchObject({ ok: false, code: 'conflict' });
       expect((await audit()).map((a) => a.action)).toEqual(['update', 'restore', 'delete', 'restore']);
+      await pool.query('DELETE FROM reservation_events WHERE reservation_id = $1', [rows[0].id]);
       await pool.query('DELETE FROM reservations WHERE id = $1', [rows[0].id]);
     });
 
