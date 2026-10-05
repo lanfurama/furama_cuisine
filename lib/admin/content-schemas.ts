@@ -102,6 +102,9 @@ export const OfferForm = z
 /** The fields every write of an existing list item carries: which one, and the page's token. */
 export const RecordRef = z.object({ id: ListId, token: Token });
 
+/** A list's show/hide switch: the item, and publish '1' (show) or '0' (hide). A missing or other value is invalid, never "hide". */
+export const PublishForm = RecordRef.extend({ publish: z.enum(['0', '1']).transform((v) => v === '1') });
+
 export const RestoreForm = z.object({
   id: z.string().min(1).max(100),
   auditId: z.string().regex(/^\d{1,18}$/),
@@ -288,6 +291,11 @@ export const RestaurantForm = z
   .transform((v, ctx) => {
     const phoneE164 = v.phoneDisplay ? toE164(v.phoneDisplay) : null;
     if (v.phoneDisplay && !phoneE164) ctx.addIssue({ code: 'custom', path: ['phoneDisplay'], message: 'Số điện thoại không hợp lệ.' });
+    // Only a crafted form repeats these (the pickers cannot): a cuisine twice would hit restaurant_cuisines' key as a raw 500,
+    // a highlight id twice would write one highlight in two places.
+    if (new Set(v.cuisines).size !== v.cuisines.length) ctx.addIssue({ code: 'custom', path: ['cuisines'], message: 'Mỗi ẩm thực chỉ chọn một lần.' });
+    const ids = v.highlights.flatMap((h) => (h.id === null ? [] : [h.id]));
+    if (new Set(ids).size !== ids.length) ctx.addIssue({ code: 'custom', path: ['highlights'], message: 'Dữ liệu không hợp lệ, hãy tải lại trang.' });
     const highlights = v.highlights.map((h, i) => {
       const title = h.title.en?.trim() ?? '';
       const detail = h.detail.en?.trim() ?? '';

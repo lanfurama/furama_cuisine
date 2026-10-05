@@ -36,6 +36,17 @@ export async function currentPolicyVersion(db: Db): Promise<PolicyVersion & { sh
 }
 
 /**
+ * Whether this deployment must not write agreed text (and so no new policy
+ * version): a Preview shares production's database (2026-10-05) but hashes
+ * the agreed text through its own branch's registry defaults, so its version
+ * row would stamp every production booking with a wording production does
+ * not show. Other keys still save on a Preview.
+ */
+export function policyWritesRefused(env: Record<string, string | undefined> = process.env): boolean {
+  return env.VERCEL_ENV === 'preview';
+}
+
+/**
  * Inside a save's transaction, after its writes: adds a version when the
  * agreed English text no longer matches the newest row, and returns it (null
  * when the text is unchanged: a save that only touched other keys, or put back

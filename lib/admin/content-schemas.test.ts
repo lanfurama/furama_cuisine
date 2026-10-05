@@ -5,6 +5,7 @@ import {
   NewRestaurantForm,
   OfferForm,
   OrderForm,
+  PublishForm,
   readForm,
   RecordRef,
   RestaurantForm,
@@ -111,6 +112,13 @@ describe('content form schemas (spec §7.3, §7.4)', () => {
     for (const seconds of ['2', '21', '7.5', '']) expect(AutoplayForm.safeParse({ token, seconds }).success, seconds).toBe(false);
   });
 
+  it('a list’s show/hide switch posts publish 1 or 0; anything else is invalid, never “hide”', () => {
+    const token = 'c'.repeat(32);
+    expect(PublishForm.parse({ id: '4', token, publish: '1' })).toEqual({ id: '4', token, publish: true });
+    expect(PublishForm.parse({ id: '4', token, publish: '0' })).toEqual({ id: '4', token, publish: false });
+    for (const publish of [undefined, '', 'yes', 'true', '2']) expect(PublishForm.safeParse({ id: '4', token, publish }).success, String(publish)).toBe(false);
+  });
+
   it('a restaurant: the phone is stored in both forms; highlights are checked one by one with their number; the menu is a file or a link', () => {
     const base = {
       token: 'a'.repeat(32),
@@ -154,6 +162,16 @@ describe('content form schemas (spec §7.3, §7.4)', () => {
     expect(fieldErrors(RestaurantForm.safeParse(readForm(form({ ...base, highlights: '[]', 'menuPdfUrl.en': 'http://x' }))).error).menuPdfUrl).toEqual([
       'Đường dẫn phải bắt đầu bằng https://',
     ]);
+    // A crafted form: a cuisine twice (the restaurant_cuisines key would refuse it as a raw 500), a highlight id twice.
+    expect(fieldErrors(RestaurantForm.safeParse(readForm(form({ ...base, highlights: '[]', cuisines: '["vietnamese","vietnamese"]' }))).error).cuisines).toEqual([
+      'Mỗi ẩm thực chỉ chọn một lần.',
+    ]);
+    const highlight = (id: string | null) => ({ id, imageId: base.cardImageId, isPublished: true, title: { en: 'Garden' }, detail: { en: null } });
+    expect(fieldErrors(RestaurantForm.safeParse(readForm(form({ ...base, highlights: JSON.stringify([highlight('5'), highlight('5')]) }))).error).highlights).toEqual([
+      'Dữ liệu không hợp lệ, hãy tải lại trang.',
+    ]);
+    // Two new highlights (id null) are not duplicates.
+    expect(RestaurantForm.safeParse(readForm(form({ ...base, highlights: JSON.stringify([highlight(null), highlight(null), highlight('5')]) }))).success).toBe(true);
     // A hidden draft (R22) has no card picture and no type yet: the save's rules ask for them when it shows.
     const { isPublished: _shown, ...hidden } = base;
     expect(RestaurantForm.parse(readForm(form({ ...hidden, highlights: '[]', cardImageId: '', 'typeLabel.en': '' })))).toMatchObject({

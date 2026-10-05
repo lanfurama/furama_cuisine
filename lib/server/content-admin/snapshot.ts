@@ -57,7 +57,10 @@ const I18N_META = ['status', 'origin', 'ai_model', 'source_hash', 'reviewed_by',
 
 const cast = (def: ItemDef) => `::${def.idType}`;
 
-/** The SELECT list of one item: the row as jsonb and its translations ordered by locale ('[]' without i18n). */
+/**
+ * The SELECT list of one item: the row as jsonb and its translations ordered by locale ('[]' without i18n).
+ * scripts/move-assets-to-blob.mjs SNAPSHOT copies this SELECT; change both together.
+ */
 function itemColumns(def: ItemDef): string {
   const i18n = def.i18n
     ? `coalesce((SELECT jsonb_agg(to_jsonb(t) ORDER BY t.locale) FROM ${def.i18n.table} t WHERE t.${def.i18n.fk} = m.id), '[]'::jsonb)`
@@ -90,16 +93,35 @@ function canonical(value: unknown): unknown {
   return value;
 }
 
+/** Bookkeeping of the main row that is not the item's content: who saved last, when, and its place in the list. */
+const ROW_BOOKKEEPING = ['updated_at', 'updated_by', 'sort_order'];
+/** Bookkeeping of each translation row (its review state, R3, is content: a restore puts it back). */
+const I18N_BOOKKEEPING = ['updated_at', 'updated_by'];
+
+const without = (row: unknown, keys: readonly string[]) =>
+  row && typeof row === 'object' ? Object.fromEntries(Object.entries(row as Row).filter(([k]) => !keys.includes(k))) : row;
+
 /**
- * The concurrency token of an editor (spec §7.3 SaveBar, R2): a hash of what
- * the page showed, so any change to the item or one of its languages since
- * then is a conflict, and a write that only touched another screen's columns
- * is not. 'deleted' for an item that is gone (its restore page).
+ * The concurrency token of an editor (spec §7.3 SaveBar, R2): a hash of the
+ * content the page showed, so a change to the item or one of its languages
+ * since then is a conflict, and a write that only touched another screen's
+ * columns is not. The top-level row's updated_at, updated_by and sort_order
+ * and each translation's updated_at, updated_by are left out: a reorder of
+ * the list (which moves sort_order and stamps every moved row) is no conflict
+ * for an open item editor, and History does not offer back a version whose
+ * content equals the current one. An aggregate's child lists (a restaurant's
+ * highlights, with their sort_order) stay whole: reordering them is a content
+ * edit. 'deleted' for an item that is gone (its restore page).
  */
 export function snapshotToken(snapshot: object | null): string {
   if (!snapshot) return 'deleted';
-  const { meta: _meta, ...data } = snapshot as { meta?: unknown };
-  return createHash('sha256').update(JSON.stringify(canonical(data))).digest('hex').slice(0, 32);
+  const { meta: _meta, ...data } = snapshot as { meta?: unknown; row?: unknown; i18n?: unknown };
+  const content = {
+    ...data,
+    ...('row' in data ? { row: without(data.row, ROW_BOOKKEEPING) } : {}),
+    ...(Array.isArray(data.i18n) ? { i18n: data.i18n.map((t) => without(t, I18N_BOOKKEEPING)) } : {}),
+  };
+  return createHash('sha256').update(JSON.stringify(canonical(content))).digest('hex').slice(0, 32);
 }
 
 /** One writer per list at a time: create, edit, show/hide, reorder, delete and restore all take it. */
@@ -107,9 +129,16 @@ export async function lockList(client: PoolClient, key: string): Promise<void> {
   await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`content:${key}`]);
 }
 
-/** A list in display order. */
+/**
+ * A list in display order. Ties on sort_order are ordered by the id itself
+ * (m.id: a bigint orders 2 before 10), as every loader and list page orders
+ * them; a bare `id` would name the id::text output column and order them as
+ * text, so the page's token would never match.
+ */
 export async function readOrder(db: Db, def: ItemDef): Promise<OrderSnapshot> {
-  const { rows } = await db.query<{ id: string; sort_order: number }>(`SELECT id::text, sort_order FROM ${def.table} ORDER BY sort_order, id`);
+  const { rows } = await db.query<{ id: string; sort_order: number }>(
+    `SELECT m.id::text AS id, m.sort_order FROM ${def.table} m ORDER BY m.sort_order, m.id`,
+  );
   return { v: 1, order: rows };
 }
 
@@ -136,17 +165,23 @@ export async function writeOrder(client: PoolClient, def: ItemDef, ids: readonly
  * else updated column by column), then exactly the snapshot's languages. A
  * language deleted since then is skipped (its FK would refuse the row). The
  * restorer becomes updated_by; created_at stays the original's.
+ *
+ * An item that still exists keeps its sort_order: restoring a version of one
+ * item never moves it (the list's own History restores the order, and a
+ * stored sort_order could tie with a place another item took since). A
+ * deleted one comes back in its old place. `order: true` writes the
+ * snapshot's sort_order anyway, for an aggregate whose child list's order is
+ * part of the version (a restaurant's highlights).
  */
-export async function writeItem(client: PoolClient, def: ItemDef, snapshot: ItemSnapshot, actorId: string): Promise<void> {
+export async function writeItem(client: PoolClient, def: ItemDef, snapshot: ItemSnapshot, actorId: string, options: { order?: boolean } = {}): Promise<void> {
   const id = String(snapshot.row.id);
-  const cols = def.columns.join(', ');
-  const fromSnap = def.columns.map((c) => `r.${c}`).join(', ');
   const exists = (await client.query(`SELECT 1 FROM ${def.table} WHERE id = $1${cast(def)}`, [id])).rowCount === 1;
   if (exists) {
+    const columns = options.order ? def.columns : def.columns.filter((c) => c !== 'sort_order');
     // jsonb_populate_record(m, …): a column the snapshot lacks (added by a later migration) keeps today's value.
     await client.query(
       `UPDATE ${def.table} m
-          SET (${cols}) = (SELECT ${fromSnap} FROM jsonb_populate_record(m, $2::jsonb) r),
+          SET (${columns.join(', ')}) = (SELECT ${columns.map((c) => `r.${c}`).join(', ')} FROM jsonb_populate_record(m, $2::jsonb) r),
               updated_at = now(), updated_by = $3
         WHERE m.id = $1${cast(def)}`,
       [id, JSON.stringify(snapshot.row), actorId],
@@ -154,9 +189,9 @@ export async function writeItem(client: PoolClient, def: ItemDef, snapshot: Item
   } else {
     // A column the snapshot lacks comes back NULL here: code rule 4 (every content column added later has a DEFAULT or is nullable).
     await client.query(
-      `INSERT INTO ${def.table} (id, created_at, updated_at, updated_by, ${cols})
+      `INSERT INTO ${def.table} (id, created_at, updated_at, updated_by, ${def.columns.join(', ')})
        ${def.idType === 'bigint' ? 'OVERRIDING SYSTEM VALUE' : ''}
-       SELECT r.id, coalesce(r.created_at, now()), now(), $2, ${fromSnap}
+       SELECT r.id, coalesce(r.created_at, now()), now(), $2, ${def.columns.map((c) => `r.${c}`).join(', ')}
          FROM jsonb_populate_record(NULL::${def.table}, $1::jsonb) r`,
       [JSON.stringify(snapshot.row), actorId],
     );
@@ -211,6 +246,12 @@ export async function upsertTranslation(
 /** Postgres' foreign_key_violation: a restore pointing at a restaurant or file that is gone. */
 export function isForeignKeyViolation(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { code?: string }).code === '23503';
+}
+
+/** check_violation (23514) or not_null_violation (23502): a stored version today's schema refuses. */
+export function isRuleViolation(err: unknown): boolean {
+  const code = typeof err === 'object' && err !== null ? (err as { code?: string }).code : undefined;
+  return code === '23514' || code === '23502';
 }
 
 /** unique_violation, with the constraint it names. */

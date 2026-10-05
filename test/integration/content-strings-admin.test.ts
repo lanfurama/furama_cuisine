@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getPool, query } from '@/db/client';
 import { TAGS } from '@/lib/cache-tags';
 import { REGISTRY } from '@/lib/i18n/registry';
@@ -121,6 +121,52 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content strings editor (databas
     const clash = await saveStrings(getPool(), LAN, lan.input({ 'search.popular': 'FAVOURITES' }));
     expect(clash).toMatchObject({ ok: false, code: 'conflict', params: { by: 'Mai' } });
     expect(await guestSees('search.popular')).toBe('TOP CUISINES');
+  });
+
+  it('a stale key refuses the whole save: a key checked earlier is not written, nor audited', async () => {
+    const lan = await screen('ui-text');
+    const mai = await screen('ui-text');
+    expect((await saveStrings(getPool(), MAI, mai.input({ 'search.view': 'Open' }))).ok).toBe(true);
+    // Lan's page predates Mai's save of search.view; her search.popular comes first in the screen's order.
+    const clash = await saveStrings(getPool(), LAN, lan.input({ 'search.popular': 'FAVOURITES', 'search.view': 'See' }));
+    expect(clash).toMatchObject({ ok: false, code: 'conflict', params: { by: 'Mai' } });
+    expect(await query(`SELECT value FROM content_strings WHERE key = 'search.popular'`)).toEqual([]);
+    expect(await query(`SELECT 1 FROM audit_log WHERE entity_type = 'content_strings' AND entity_id = 'search.popular'`)).toEqual([]);
+    expect(await guestSees('search.popular')).toBe(REGISTRY['search.popular'].en);
+  });
+
+  describe('on a Preview (VERCEL_ENV=preview), whose database is production’s', () => {
+    const REFUSED = 'Chữ khách đồng ý (chính sách, câu đồng ý) chỉ sửa trên trang chính thức: bản preview dùng chung dữ liệu với Production.';
+    beforeEach(() => {
+      vi.stubEnv('VERCEL_ENV', 'preview');
+    });
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('refuses to save or restore agreed text (its hash would come from the branch’s registry); other keys still save', async () => {
+      const versions = async () => (await query(`SELECT version FROM legal_versions ORDER BY version`)).length;
+      const before = await versions();
+      const saved = await saveStrings(getPool(), LAN, (await screen('legal')).input({ 'legal.title': 'Privacy' }));
+      expect(saved).toEqual({ ok: false, code: 'invalid', fieldErrors: { 'v:legal.title': [REFUSED] } });
+      expect(await query(`SELECT 1 FROM content_strings`)).toEqual([]);
+      expect(await versions()).toBe(before);
+
+      const { rows } = await getPool().query<{ id: string }>(
+        `INSERT INTO audit_log (action, entity_type, entity_id, locale, before, after)
+         VALUES ('update', 'content_strings', 'booking.consent', 'en', '{"value":"I agree.","overridden":true}', '{"value":"I agree to it.","overridden":true}')
+         RETURNING id::text`,
+      );
+      const restored = await restoreString(getPool(), LAN, { key: 'booking.consent', auditId: rows[0].id, side: 'before', token: '' });
+      expect(restored).toEqual({ ok: false, code: 'invalid', fieldErrors: { 'v:booking.consent': [REFUSED] } });
+      expect(await query(`SELECT 1 FROM content_strings`)).toEqual([]);
+      expect(await versions()).toBe(before);
+
+      expect(await saveStrings(getPool(), LAN, (await screen('ui-text')).input({ 'search.popular': 'TOP CUISINES' }))).toEqual({
+        ok: true,
+        data: { changed: ['search.popular'], policyVersion: null },
+      });
+    });
   });
 
   it('changing the policy text adds a version once; a save that leaves it as it was adds none', async () => {

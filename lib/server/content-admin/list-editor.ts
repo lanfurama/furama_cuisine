@@ -7,6 +7,7 @@ import { assertLiveMedia, reviveMedia } from '@/lib/server/media/library';
 import { getAuditRow } from './history';
 import {
   isForeignKeyViolation,
+  isRuleViolation,
   lockList,
   orderToken,
   readItem,
@@ -103,6 +104,11 @@ function isOrderSnapshot(value: unknown): value is OrderSnapshot {
 function i18nRows(translations: Translations): I18nRow[] {
   return Object.entries(translations).map(([locale, values]) => ({ ...values, locale }));
 }
+
+/** The fieldErrors key of an error about the whole item rather than one field. */
+export const WHOLE_ITEM = '_';
+/** A restored version that a CHECK or NOT NULL of today's schema refuses. */
+export const VERSION_INVALID = 'Phiên bản này không còn hợp lệ theo luật hôm nay.';
 
 /** The field error of a save that points at a file no longer in the library (code rule 2). */
 export const MEDIA_GONE = 'File này đã bị xóa khỏi thư viện. Hãy chọn file khác.';
@@ -329,6 +335,8 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
         });
       } catch (err) {
         if (isForeignKeyViolation(err)) return { ok: false, code: 'missing_reference' };
+        // A stored version that today's CHECK or NOT NULL refuses (code rule 5): refused cleanly, the transaction rolled back.
+        if (isRuleViolation(err)) return { ok: false, code: 'invalid', fieldErrors: { [WHOLE_ITEM]: [VERSION_INVALID] } };
         throw err;
       }
     },

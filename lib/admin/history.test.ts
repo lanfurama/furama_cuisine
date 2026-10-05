@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { snapshotToken } from '@/lib/server/content-admin/snapshot';
 import { changedFields, restoreChoices, type HistoryRow, type Snap } from './history';
 
 const snap = (row: Record<string, unknown>, i18n: Record<string, unknown>[] = [], extra: Record<string, unknown> = {}) => ({ v: 1, row, i18n, ...extra });
@@ -82,5 +83,16 @@ describe('history: which versions a row offers back', () => {
 
   it('a record created in the admin has no version before its first row', () => {
     expect(restoreChoices([{ id: '1', action: 'create', before: null, after: v(1) }], token(v(1)), token)).toEqual([[]]);
+  });
+
+  it('an item’s token is its content: updated_at/by and sort_order never count, so an identical version is not offered back', () => {
+    const before = snap({ id: 2, title_id: 7, sort_order: 20, updated_at: 'a', updated_by: 'lan' }, [{ locale: 'en', title: 'A', updated_at: 'a', updated_by: 'lan' }]);
+    const after = snap({ id: 2, title_id: 7, sort_order: 10, updated_at: 'b', updated_by: 'mai' }, [{ locale: 'en', title: 'A', updated_at: 'b', updated_by: 'mai' }]);
+    expect(snapshotToken(before)).toBe(snapshotToken(after));
+    expect(restoreChoices([{ id: '1', action: 'update', before, after }], snapshotToken(after), snapshotToken)).toEqual([[]]);
+    // Content still counts: a title, and a highlight's sort_order below the row (a highlight reorder is a content edit).
+    expect(snapshotToken(snap({ id: 2 }, [{ locale: 'en', title: 'B' }]))).not.toBe(snapshotToken(snap({ id: 2 }, [{ locale: 'en', title: 'A' }])));
+    const withHighlights = (order: number) => snap({ id: 'taya-house' }, [], { highlights: [snap({ id: 1, sort_order: order })] });
+    expect(snapshotToken(withHighlights(10))).not.toBe(snapshotToken(withHighlights(20)));
   });
 });

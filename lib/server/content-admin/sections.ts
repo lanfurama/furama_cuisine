@@ -195,11 +195,20 @@ export async function getAutoplayEditor(db: Db): Promise<{ ms: number; token: st
   return { ms: Number(snapshot.row.hero_autoplay_ms), token: snapshotToken(snapshot) };
 }
 
+/**
+ * The pace's lock and token. site_settings.updated_at/by belong to the shared
+ * inbox's form (its token, phase 5), which a pace save leaves alone, so a
+ * conflict names who last wrote the pace from its own History row.
+ */
 async function lockAutoplay(client: PoolClient, token: string): Promise<{ snapshot: ItemSnapshot } | Conflict> {
-  const { rows } = await client.query<{ updated_by: string | null; updated_at: Date }>('SELECT updated_by, updated_at FROM site_settings WHERE id FOR UPDATE');
+  await client.query('SELECT 1 FROM site_settings WHERE id FOR UPDATE');
   const snapshot = await readAutoplay(client);
-  if (snapshotToken(snapshot) !== token) return conflictBy(client, rows[0].updated_by, rows[0].updated_at);
-  return { snapshot };
+  if (snapshotToken(snapshot) === token) return { snapshot };
+  const { rows } = await client.query<{ actor_id: string | null; at: Date }>(
+    `SELECT actor_id, at FROM audit_log WHERE entity_type = 'site_settings' AND entity_id = $1 ORDER BY at DESC, id DESC LIMIT 1`,
+    [AUTOPLAY],
+  );
+  return conflictBy(client, rows[0]?.actor_id ?? null, rows[0]?.at ?? new Date());
 }
 
 const autoplayError = (ms: number): Fail | null =>
@@ -207,8 +216,9 @@ const autoplayError = (ms: number): Fail | null =>
     ? null
     : { ok: false, code: 'invalid', fieldErrors: { seconds: [`Từ ${HERO_AUTOPLAY_MS.min / 1000} đến ${HERO_AUTOPLAY_MS.max / 1000} giây.`] } };
 
+/** Writes the pace alone: updated_at/by are the shared inbox's token (lockAutoplay); who and when live in the audit row. */
 async function writeAutoplay(client: PoolClient, actor: AuditActor, action: 'update' | 'restore', before: ItemSnapshot, ms: number, meta?: Row) {
-  await client.query('UPDATE site_settings SET hero_autoplay_ms = $1, updated_at = now(), updated_by = $2 WHERE id', [ms, actor.id]);
+  await client.query('UPDATE site_settings SET hero_autoplay_ms = $1 WHERE id', [ms]);
   const after = await readAutoplay(client);
   await insertAudit(client, actor, { action, entityType: 'site_settings', entityId: AUTOPLAY, before, after: meta ? { ...after, meta } : after });
 }

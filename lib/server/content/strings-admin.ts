@@ -7,7 +7,7 @@ import { AGREED_KEYS, PRIVACY_KEYS } from '@/lib/legal';
 import { insertAudit, withTransaction, type AuditActor } from '../audit';
 import { getAuditRow, HISTORY_LIMIT, type HistoryEntry } from '../content-admin/history';
 import { US, conflictBy, type Conflict } from '../booking/config';
-import { recordPolicyVersion } from './policy-version';
+import { policyWritesRefused, recordPolicyVersion } from './policy-version';
 
 /*
  * The content_strings editor (spec §7.2 screens that edit registry keys,
@@ -80,11 +80,23 @@ export function validateValue(key: StringKey, value: string): string[] {
 }
 
 /**
- * Validates every submitted key of the screen, then, in one transaction, writes
- * the changed ones with their audit rows; and when the change touches what a
- * guest agrees to, records the policy's new version in the same transaction (R21).
+ * The refusal of a write to agreed text on a Preview (policyWritesRefused):
+ * the version every production booking is stamped with would hash the
+ * branch's registry defaults.
+ */
+export const AGREED_ON_PREVIEW = 'Chữ khách đồng ý (chính sách, câu đồng ý) chỉ sửa trên trang chính thức: bản preview dùng chung dữ liệu với Production.';
+
+const isAgreed = (key: StringKey) => (AGREED_KEYS as readonly string[]).includes(key);
+
+/**
+ * Validates every submitted key of the screen, then, in one transaction, takes
+ * every changed key's lock and checks its token before writing any (one stale
+ * key refuses the whole save, so nothing is half-saved), writes them with
+ * their audit rows, and when the change touches what a guest agrees to,
+ * records the policy's new version in the same transaction (R21).
  */
 export async function saveStrings(pool: Pool, actor: AuditActor, input: StringsInput): Promise<{ ok: true; data: StringsSaved } | Invalid | Conflict> {
+  const preview = policyWritesRefused();
   const allowed = new Set<string>(keysForScreen(input.screen));
   const fieldErrors: Record<string, string[]> = {};
   const submitted: [StringKey, string][] = [];
@@ -98,20 +110,26 @@ export async function saveStrings(pool: Pool, actor: AuditActor, input: StringsI
     const value = normalise(raw);
     // Untouched by this editor: nothing to save, whatever the database holds now.
     if (value === normalise(input.originals[key] ?? '')) continue;
-    const errors = validateValue(key, value);
+    const errors = preview && isAgreed(key) ? [AGREED_ON_PREVIEW] : validateValue(key, value);
     if (errors.length) fieldErrors[fieldName(key)] = errors;
     else submitted.push([key, value]);
   }
   if (Object.keys(fieldErrors).length) return { ok: false, code: 'invalid', fieldErrors };
+  // Locks in one order (by key) for every save, so two multi-key saves cannot deadlock.
+  submitted.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 
   return withTransaction(pool, async (client) => {
-    const changed: StringKey[] = [];
+    const writes: { key: StringKey; value: string; row: StringRow | null }[] = [];
     for (const [key, value] of submitted) {
       const row = await lockedString(client, key);
       if ((row?.value ?? REGISTRY[key].en) === value) continue;
       if ((row?.token ?? '') !== (input.tokens[key] ?? '')) {
         return row ? conflictBy(client, row.updated_by, row.updated_at) : conflictBy(client, null, new Date());
       }
+      writes.push({ key, value, row });
+    }
+    const changed: StringKey[] = [];
+    for (const { key, value, row } of writes) {
       await writeString(client, actor, key, value, row, null);
       changed.push(key);
     }
@@ -187,6 +205,7 @@ export async function restoreString(
 ): Promise<{ ok: true; data: StringsSaved } | Invalid | Conflict | NotFound> {
   const { key } = input;
   if (!isStringKey(key)) return { ok: false, code: 'not_found' };
+  if (isAgreed(key) && policyWritesRefused()) return { ok: false, code: 'invalid', fieldErrors: { [fieldName(key)]: [AGREED_ON_PREVIEW] } };
   return withTransaction(pool, async (client): Promise<{ ok: true; data: StringsSaved } | Invalid | Conflict | NotFound> => {
     const row = await lockedString(client, key);
     const audit = await getAuditRow(client, input.auditId);
@@ -242,5 +261,5 @@ export function tagsForStrings(keys: readonly StringKey[], policyVersionChanged 
 
 /** Whether a write touched what a guest agrees to (lib/legal.ts AGREED_KEYS). */
 function agreedChanged(keys: readonly StringKey[]): boolean {
-  return keys.some((k) => (AGREED_KEYS as readonly string[]).includes(k));
+  return keys.some(isAgreed);
 }

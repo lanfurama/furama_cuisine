@@ -276,4 +276,18 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('sections and hero editors (data
     expect((await loadSiteSettings(pool))!.heroAutoplayMs).toBe(7000);
     expect((await loadSiteSettings(pool))!.email).toBe('events@furama.test');
   });
+
+  it('the slide pace leaves site_settings.updated_at alone: the shared inbox’s page token survives a pace save', async () => {
+    const inbox = await getSharedInbox(pool);
+    expect(await saveAutoplay(pool, ACTOR, { token: (await getAutoplayEditor(pool)).token, ms: 9000 })).toEqual({ ok: true, data: null });
+    expect(await saveSharedInbox(pool, OTHER, { email: 'events@furama.test', token: inbox.token })).toEqual({ ok: true, data: null });
+    expect((await loadSiteSettings(pool))!).toMatchObject({ heroAutoplayMs: 9000, email: 'events@furama.test' });
+  });
+
+  it('a stale pace save names who saved the pace (its History), not who saved the inbox since', async () => {
+    const seen = await getAutoplayEditor(pool);
+    expect(await saveAutoplay(pool, ACTOR, { token: seen.token, ms: 9000 })).toEqual({ ok: true, data: null });
+    expect(await saveSharedInbox(pool, OTHER, { email: 'events@furama.test', token: (await getSharedInbox(pool)).token })).toEqual({ ok: true, data: null });
+    expect(await saveAutoplay(pool, OTHER, { token: seen.token, ms: 5000 })).toMatchObject({ ok: false, code: 'conflict', params: { by: 'Lan' } });
+  });
 });

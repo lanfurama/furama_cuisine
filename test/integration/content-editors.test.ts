@@ -247,6 +247,50 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content editors: save flow, his
       expect((await listHistory(pool, 'offers', null)).map((h) => h.action)).toEqual(['restore', 'reorder']);
     });
 
+    it('reorder: ids tied on sort_order are ordered by number, as the page orders them (10 after 2), so the page’s token holds', async () => {
+      await pool.query(`INSERT INTO offers (id, restaurant_id, sort_order, is_published) OVERRIDING SYSTEM VALUE VALUES (10, 'taya-house', 20, false)`);
+      await pool.query(`INSERT INTO offer_i18n (offer_id, locale, title) VALUES (10, 'en', 'Tied Offer')`);
+      const { items, token } = await listOffersAdmin(pool);
+      expect(items.map((i) => i.id)).toEqual(['1', '2', '10', '3']);
+      expect(await reorderOffers(pool, ACTOR, token, ['3', '2', '10', '1'])).toEqual({ ok: true, data: null });
+      expect((await listOffersAdmin(pool)).items.map((i) => i.id)).toEqual(['3', '2', '10', '1']);
+    });
+
+    it('restoring an item’s older version never moves it: the list’s own History restores order', async () => {
+      const values = (await getOfferEditor(pool, '2'))!.values;
+      expect(await updateOffer(pool, ACTOR, '2', await offerToken('2'), { ...values, title: { en: 'Cooking Class' } })).toMatchObject({ ok: true });
+      const [edit] = await audit();
+      expect(await reorderOffers(pool, ACTOR, (await listOffersAdmin(pool)).token, ['2', '3', '1'])).toMatchObject({ ok: true });
+      expect(await restoreOffer(pool, ACTOR, { id: '2', auditId: edit.id, side: 'before', token: await offerToken('2') })).toEqual({ ok: true, data: null });
+      expect((await pool.query('SELECT id::text, sort_order FROM offers ORDER BY id')).rows).toEqual([
+        { id: '1', sort_order: 30 },
+        { id: '2', sort_order: 10 },
+        { id: '3', sort_order: 20 },
+      ]);
+      expect(await titles()).toEqual(['Vietnamese Cooking Class', 'Afternoon Tea & Dessert Buffet', 'Seafood & Steak Buffet Dinner']);
+    });
+
+    it('an item’s token is its content: a reorder of the list since the editor opened is no conflict', async () => {
+      const opened = await getOfferEditor(pool, '2');
+      expect(await reorderOffers(pool, OTHER, (await listOffersAdmin(pool)).token, ['2', '1', '3'])).toMatchObject({ ok: true });
+      expect(await updateOffer(pool, ACTOR, '2', opened!.token, { ...opened!.values, title: { en: 'Cooking Class' } })).toEqual({ ok: true, data: null });
+      expect(await titles()).toEqual(['Cooking Class', 'Seafood & Steak Buffet Dinner', 'Afternoon Tea & Dessert Buffet']);
+    });
+
+    it('a version that today’s CHECK refuses is invalid, rolled back, with no audit row (code rule 5), not a server error', async () => {
+      const current = (await readItem(pool, OFFER, '2'))!;
+      // offers_price_pair (008): a price without its basis.
+      const broken = { ...current, row: { ...current.row, price_basis: null } };
+      const { rows } = await pool.query<{ id: string }>(
+        `INSERT INTO audit_log (action, entity_type, entity_id, before, after) VALUES ('update', 'offers', '2', $1, $2) RETURNING id::text`,
+        [JSON.stringify(broken), JSON.stringify(current)],
+      );
+      const result = await restoreOffer(pool, ACTOR, { id: '2', auditId: rows[0].id, side: 'before', token: await offerToken('2') });
+      expect(result).toEqual({ ok: false, code: 'invalid', fieldErrors: { _: ['Phiên bản này không còn hợp lệ theo luật hôm nay.'] } });
+      expect((await readItem(pool, OFFER, '2'))!.row).toMatchObject({ price_amount: 799000, price_basis: 'plus_plus' });
+      expect((await audit()).map((a) => a.id)).toEqual([rows[0].id]);
+    });
+
     it('a version that lacks its EN title, or whose restaurant is gone, cannot be restored', async () => {
       const current = (await readItem(pool, OFFER, '1'))!;
       const noTitle = { ...current, i18n: [] };

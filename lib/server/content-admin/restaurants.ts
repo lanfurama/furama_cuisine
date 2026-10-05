@@ -462,21 +462,7 @@ export async function restoreRestaurant(
     const current = locked.snapshot;
     const row = snapshot.row;
     const str = (v: unknown) => (v === null || v === undefined ? null : String(v));
-    const menuFileEn = str(enOf(snapshot.i18n, 'menu_pdf_media_id'));
-    const refused = invalid(
-      await ruleErrors(client, input.id, {
-        slug: String(row.slug),
-        isPublished: Boolean(row.is_published),
-        hasDetailPage: Boolean(row.has_detail_page),
-        cardImageId: str(row.card_image_id),
-        detailImageId: str(row.detail_image_id),
-        typeEn: enOf(snapshot.i18n, 'type_label'),
-        storyEn: enOf(snapshot.i18n, 'story'),
-        menuFileEn,
-        menuLinkEn: enOf(snapshot.i18n, 'menu_pdf_url'),
-        shownHighlights: snapshot.highlights.filter((h) => h.row.is_published).length,
-      }),
-    );
+    const refused = invalid(await ruleErrors(client, input.id, versionOf(snapshot)));
     if (refused) return refused;
     // C7: files this version shows that are now in the trash come back with it; a purged one cannot.
     const files = [
@@ -500,7 +486,8 @@ export async function restoreRestaurant(
     await client.query('DELETE FROM restaurant_highlights WHERE restaurant_id = $1 AND NOT (id = ANY ($2::bigint[]))', [input.id, keep]);
     for (const h of snapshot.highlights) {
       // A highlight that moved to another restaurant since cannot: its row says which restaurant it is.
-      await writeItem(client, HIGHLIGHT, { v: 1, row: { ...h.row, restaurant_id: input.id }, i18n: h.i18n }, actor.id);
+      // The highlights' order is part of the restaurant's version (a reorder of them is a content edit), so it comes back too.
+      await writeItem(client, HIGHLIGHT, { v: 1, row: { ...h.row, restaurant_id: input.id }, i18n: h.i18n }, actor.id, { order: true });
     }
     const altChanged = await followCardAlt(client, actor, current.row, { name: String(row.name), cardImageId: str(row.card_image_id) });
     const after = await readRestaurant(client, input.id);
@@ -517,7 +504,7 @@ export async function restoreRestaurant(
 
 // ── the list (A11) ────────────────────────────────────────────────────────
 
-/** A snapshot's version as the rules read it (shared by showing, archiving and their restores). */
+/** A snapshot's version as the rules read it (ruleErrors): a restore's, and a switch's (shown, archived) applied to the current one. */
 function versionOf(snapshot: { row: Row; i18n: readonly I18nRow[]; highlights: readonly ItemSnapshot[] }): Version {
   const str = (v: unknown) => (v === null || v === undefined ? null : String(v));
   return {

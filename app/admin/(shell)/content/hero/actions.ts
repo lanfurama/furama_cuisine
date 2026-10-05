@@ -2,7 +2,7 @@
 
 import { updateTag } from 'next/cache';
 import { getPool } from '@/db/client';
-import { AutoplayForm, OrderForm, readForm, RecordRef, RestoreForm, SlideForm } from '@/lib/admin/content-schemas';
+import { AutoplayForm, OrderForm, PublishForm, readForm, RecordRef, RestoreForm, SlideForm } from '@/lib/admin/content-schemas';
 import { tagsForSave } from '@/lib/cache-plan';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
 import {
@@ -67,9 +67,8 @@ export async function saveSlideAction(_prev: ActionResult | null, formData: Form
 export async function toggleSlideAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
     const staff = await requirePermission({ content: ['update'] });
-    const fields = readForm(formData);
-    const { id, token } = RecordRef.parse(fields);
-    const result = await setSlidePublished(getPool(), auditActor(staff), id, token, fields.publish === '1');
+    const { id, token, publish } = PublishForm.parse(readForm(formData));
+    const result = await setSlidePublished(getPool(), auditActor(staff), id, token, publish);
     if (!result.ok) return result;
     expireSlides();
     return result;
