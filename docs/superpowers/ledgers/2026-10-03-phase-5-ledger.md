@@ -22,7 +22,7 @@ Final gate:
 Owner decisions recorded:
 - Traditional SMTP replaces Resend (2026-10-02).
 - Vercel is on Pro.
-- Neon is already on a paid plan, so the 5-minute outbox cron stays (2026-10-03).
+- Neon is already on a paid plan, so the 5-minute outbox cron stays (2026-10-03). **Superseded 2026-10-05:** the Neon resource is on the Free plan (owner confirmed), so the outbox cron runs hourly (`0 * * * *`); spec §10.4 and the README were amended. Phase 9's 5-minute `/api/cron/ai-jobs` (spec §9) must be revisited the same way.
 - Proceed with the plan's recommended rulings R1–R23.
 
 Launch-A owner steps (README "Before launch A"):

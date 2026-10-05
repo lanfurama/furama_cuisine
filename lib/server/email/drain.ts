@@ -12,7 +12,7 @@ import { EmailSendError, describeEmailError, type SendEmailResult } from './type
 
 /*
  * The outbox sender (spec §10.4). Called by after() once a booking change has
- * committed, by the cron every 5 minutes, and by "Gửi lại".
+ * committed, by the hourly cron, and by "Gửi lại".
  *
  * SMTP has no idempotency key, so delivery is AT LEAST ONCE (R1):
  *   1. claim one due row: FOR UPDATE SKIP LOCKED, then status 'sending', a

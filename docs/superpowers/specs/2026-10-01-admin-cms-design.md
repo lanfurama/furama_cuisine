@@ -526,7 +526,7 @@ Mỗi lần lưu cấu hình đều ghi audit và gọi `updateTag('ai-settings'
 - Kết quả điền vào form. Người dùng bấm lưu thì ghi `reviewed`.
 
 **Dịch hàng loạt:**
-- Cron `/api/cron/ai-jobs` chạy mỗi 5 phút, chỉ ở Production, bảo vệ bằng `CRON_SECRET`.
+- Cron `/api/cron/ai-jobs` chạy mỗi 5 phút, chỉ ở Production, bảo vệ bằng `CRON_SECRET`. *(Ghi chú 2026-10-05: Neon đang ở gói Free; phase 9 phải xem lại nhịp này như cron outbox ở §10.4, ví dụ chỉ chạy khi có job hoặc chạy thưa hơn.)*
 - Mỗi lần chạy lấy job `queued` hoặc `running` bằng `FOR UPDATE SKIP LOCKED`, rồi dịch tối đa 20 tài liệu.
 - Kiểm tra ngân sách trước mỗi phần. Ghi kết quả với `status='machine'`. Cập nhật `progress`. Gọi `revalidateTag('i18n:<code>', 'max')`.
 - Hết ngân sách hoặc Vertex lỗi thì chuyển sang `paused` và ghi `error`. Màn `/admin/translations` có nút Tiếp tục và Hủy.
@@ -671,11 +671,11 @@ Mỗi lần lưu cấu hình đều ghi audit và gọi `updateTag('ai-settings'
 - Idempotency key là `outbox:{id}` (UNIQUE). SMTP không có idempotency key, nên email được gửi **ít nhất một lần**: bộ gửi giữ hàng bằng lease trước khi gửi và đánh dấu `sent` ngay sau đó; mọi lần gửi của một hàng dùng cùng Message-ID `<outbox-{id}.{12 ký tự hex}@{tên miền gửi}>`. Nếu tiến trình chết giữa lúc máy chủ SMTP nhận thư và lúc đánh dấu, người nhận có thể nhận hai bản giống hệt.
 - Bộ gửi lấy hàng bằng `FOR UPDATE SKIP LOCKED` và đọc lại đặt bàn trước khi gửi. Nếu sự kiện không còn khớp trạng thái thì đánh dấu `skipped`.
 - Gửi lần đầu ngay sau commit. Lỗi thì thử lại sau 1 phút, 5 phút, 15 phút, 1 giờ, 6 giờ, 12 giờ, tức tối đa 7 lần gửi. Mọi lần gửi nằm trong khoảng 19,4 giờ. Hết số lần thì đánh dấu `failed` và hiện trên Tổng quan.
-- Mốc dưới 5 phút được xử lý ở lần chạy cron kế tiếp, hoặc sớm hơn nếu `after()` của một thao tác khác chạy bộ gửi.
+- Một mốc thử lại đến hạn giữa hai lần chạy cron được xử lý ở lần chạy cron kế tiếp (chậm tối đa 1 giờ), hoặc sớm hơn nếu `after()` của một thao tác khác chạy bộ gửi.
 
 **Kích hoạt bộ gửi:**
 - `after()` sau mỗi lần ghi.
-- Cron `/api/cron/outbox` mỗi 5 phút (cần Vercel Pro), bảo vệ bằng `CRON_SECRET`.
+- Cron `/api/cron/outbox` mỗi giờ (`0 * * * *`), bảo vệ bằng `CRON_SECRET`. *(Sửa 2026-10-05: Neon ở gói Free tự tắt compute sau 5 phút không dùng; cron 5 phút sẽ giữ DB chạy suốt ngày đêm và vượt hạn mức. Nếu nâng lên Launch có thể quay lại 5 phút.)*
 - Nút "Gửi lại" trong admin.
 - Nút **"Gửi email thử"** ở `/admin/settings/notifications`.
 

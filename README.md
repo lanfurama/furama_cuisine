@@ -587,7 +587,8 @@ in-process server on `127.0.0.1`.
   booking's language. A failed email never fails the booking.
 - **Sent after commit, at least once.** `after()` sends the new rows once the
   response is out (at most 10 rows or 25 s), and `GET /api/cron/outbox` runs
-  every 5 minutes (`vercel.json`, Production only) for whatever is due. SMTP
+  hourly, on the hour (`vercel.json`, Production only), for whatever is due;
+  a retry that comes due between runs also goes out with the next write. SMTP
   has no idempotency key, so a row is claimed with a 120-second lease and
   sent with a Message-ID fixed at its first claim
   (`<outbox-<id>.<12 hex>@<EMAIL_FROM domain>>`); if a function dies between
@@ -668,17 +669,19 @@ a new deployment.
    order: dev branch, then the preview's branch, then production, each time
    before the deploy that builds on it; with Vercel's Git integration,
    pushing or merging `main` is the Production deploy.
-2. **Neon plan:** the 5-minute cron queries the production branch around the
-   clock, so its compute never scales to zero: about 183 CU-hours a month at
-   the 0.25 CU minimum, roughly $19 a month on Launch at $0.106 per CU-hour.
-   Check the current prices on neon.tech/pricing. The Free plan's monthly
-   compute allowance runs out partway through the month; Neon then suspends
-   the compute, and bookings and the admin stop working. Before the first
-   Production deploy, confirm in Vercel → Storage → Neon that the project is
-   on Launch or higher. (Phase 9 adds a second 5-minute cron; nothing
-   changes.) A quieter overnight schedule is a spec change (§10.4) that
-   stalls retries; if the owner wants one anyway, Vercel cron times are UTC,
-   so Vietnam 06:00–23:59 is `*/5 0-16,23 * * *`.
+2. **Neon plan:** the project is on Neon Free (owner, 2026-10-05). Free
+   suspends an idle compute after 5 minutes, and its monthly compute
+   allowance is limited; once it runs out, Neon suspends the compute and
+   bookings and the admin stop working. The outbox cron therefore runs
+   hourly, not every 5 minutes: a 5-minute cron would keep the production
+   compute awake around the clock (about 183 CU-hours a month at the
+   0.25 CU minimum). The cost is that a failed email is retried up to an hour
+   late. Each preview branch also uses compute: delete old preview branches
+   in Neon. Watch the usage in Vercel → Storage → Neon during the first
+   month; if it nears the allowance, move to Launch (check
+   neon.tech/pricing) and the cron can go back to `*/5 * * * *` (change
+   `vercel.json` and `test/guards/vercel-crons.guard.test.ts` together).
+   Phase 9's AI-jobs cron must follow the same rule.
 3. **Vercel project settings, before the first deploy:** turn on
    "Automatically expose System Environment Variables" and OIDC Federation,
    and keep Fluid Compute on (the default). BotID's browser half needs
@@ -755,8 +758,8 @@ a new deployment.
       book. Neither gets "We could not accept this request online".
 11. **Production deploy and crons:** 008 is already on production (step 1);
     merge into `main` (Production starts on redirect). After that deploy, Project → Settings →
-    Cron Jobs shows both crons: `/api/cron/outbox` every 5 minutes (Vercel
-    Pro), and `/api/cron/daily` at `5 17 * * *`, 00:05 in Da Nang.
+    Cron Jobs shows both crons: `/api/cron/outbox` hourly (`0 * * * *`),
+    and `/api/cron/daily` at `5 17 * * *`, 00:05 in Da Nang.
 12. **Recipients:** in `/admin/settings/notifications`, add the notification
     emails per restaurant or destination (spec §15 item 15), and confirm
     `fb@furamavietnam.com` as the shared inbox (the fallback, and where
@@ -772,7 +775,7 @@ a new deployment.
       (not "chuyển hướng tới hộp thư thử nghiệm"), and the email arrives
       there;
     - both crons log 200, not 401, in Vercel → Settings → Cron Jobs:
-      `/api/cron/outbox` within 5 minutes, and `/api/cron/daily` after its
+      `/api/cron/outbox` within the hour, and `/api/cron/daily` after its
       next run at 00:05 in Da Nang;
     - a test booking made with an address you read: its `guest.ack` (or
       `guest.confirmed`, where the restaurant confirms automatically) reads
@@ -822,7 +825,7 @@ bootstrapping production is what you mean to do.
 | `/taya-house` | Redirect | 308 to `/en/restaurants/taya-house` (`next.config.ts`) |
 | `/en/privacy` | Static, revalidated hourly (the layout reads today's offers for the nav), tag `content:legal` | The privacy policy (`legal.*`), linked from the footer and the reserve drawer's consent box |
 | `/api/availability` | Dynamic, `no-store` | `?restaurant=&lang=[&from=&to=]`: each day's state (open, full, past, closed, too_large, outside) and public closure reason, with the clock, the party limit and the number to call; `?restaurant=&date=&lang=[&guests=]`: one day's services and slots with the covers left. 404 for an unknown restaurant or one with online booking off; a range given in full that is backwards or too long (400) and an id that cannot exist (404) are answered before any query. `scripts/check-prerender.mjs` fails if it is ever prerendered, or missing from the build |
-| `/api/cron/outbox` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, every 5 minutes: sends the due outbox rows of its environment (at most 500 or 240 s) and answers only the counts. 401 without `Authorization: Bearer $CRON_SECRET` |
+| `/api/cron/outbox` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, hourly: sends the due outbox rows of its environment (at most 500 or 240 s) and answers only the counts. 401 without `Authorization: Bearer $CRON_SECRET` |
 | `/api/cron/daily` | Dynamic, `no-store`, `maxDuration` 60 | Vercel Cron, daily at 17:05 UTC (00:05 in Da Nang): `revalidateTag('content:offers', 'max')`, so the home page drops an offer past its `valid_until` and shows one whose `valid_from` has come, and on a day with no offer every guest page's header and menu drop Offers. The first visit to each page after it may still get yesterday's offers and nav once; in exchange, a database that is down then cannot break a guest page. 401 without `Authorization: Bearer $CRON_SECRET` |
 | `/admin/sign-in`, `/admin/accept-invite`, `/admin/reset-password` | Request time, nonce CSP | The only admin pages open without a session cookie |
 | `/admin`, `/admin/users`, `/admin/audit` | Request time, nonce CSP | Overview (with pending and today's bookings); staff and invitations (Admin); audit log of `audit_log` and booking events, paged with `?truoc=`/`?sau=` (Admin). Without a session cookie the proxy sends them to sign-in (307, `?next=` kept) |
