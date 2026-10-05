@@ -97,6 +97,13 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('restaurants list (database)', (
       code: 'invalid',
       fieldErrors: { destinationId: [expect.any(String)] },
     });
+    // The teaser card is not a place (SEC-5): the select lists venues only, and a crafted post is refused the same way.
+    expect(await createRestaurant(pool, ACTOR, { name: 'Soon', slug: 'test-a11-soon', destinationId: 'future' })).toMatchObject({
+      ok: false,
+      code: 'invalid',
+      fieldErrors: { destinationId: [expect.any(String)] },
+    });
+    expect(await audit()).toHaveLength(1);
   });
 
   it('showing a restaurant needs its card picture and an EN type; then it is in the catalogue, and hiding takes it out', async () => {

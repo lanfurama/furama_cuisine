@@ -170,6 +170,27 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('restaurant content editor (data
     expect((await loadRestaurants('en')).map((r) => r.id)).not.toContain('taya-house');
   });
 
+  it('a restaurant sits at a venue: a save or a restore that puts it at the teaser card is refused (SEC-5); nothing is written', async () => {
+    expect(await saveRestaurantContent(pool, ACTOR, 'taya-house', await tayaToken(), await tayaInput({ destinationId: 'future' }))).toEqual({
+      ok: false,
+      code: 'invalid',
+      fieldErrors: { destinationId: [expect.stringMatching(/không phải thẻ teaser/)] },
+    });
+    // A version at the teaser (forged: no save could write one) cannot come back either.
+    const atTeaser = { ...seedTaya, row: { ...seedTaya.row, destination_id: 'future' } };
+    const { rows } = await pool.query<{ id: string }>(
+      `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, before, after) VALUES ($1, 'update', 'restaurants', 'taya-house', $2, $2) RETURNING id::text`,
+      [ACTOR.id, JSON.stringify(atTeaser)],
+    );
+    expect(await restoreRestaurant(pool, ACTOR, { id: 'taya-house', auditId: rows[0].id, side: 'before', token: await tayaToken() })).toEqual({
+      ok: false,
+      code: 'invalid',
+      fieldErrors: { destinationId: [expect.stringMatching(/không phải thẻ teaser/)] },
+    });
+    expect((await audit()).map((a) => a.id)).toEqual([rows[0].id]);
+    expect((await readRestaurant(pool, 'taya-house'))!.row.destination_id).toBe('resort');
+  });
+
   it('highlights: remove one, add one, reorder and hide; the page follows; a restore brings the removed one back under its id', async () => {
     const base = await tayaInput();
     const [a, b, c, d] = base.highlights;

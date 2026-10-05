@@ -56,7 +56,14 @@ const FK_MATRIX: Record<string, Covered> = {
     ],
   },
   // Destinations (R26): refused while anything points at one, CASCADE included.
-  restaurants_destination_fk: { action: 'a', test: DESTINATION_IN_USE },
+  // The phase-1 column (dropped in phase 10): the delete clears it once no destination_id points at the destination.
+  restaurants_destination_fk: {
+    action: 'a',
+    test: [
+      'test/integration/content-destinations.test.ts',
+      'a destination its restaurants moved away from can be deleted: the phase-1 destination column that still names it is cleared',
+    ],
+  },
   restaurants_destination_id_fkey: { action: 'a', test: DESTINATION_IN_USE },
   closures_destination_id_fkey: { action: 'c', test: DESTINATION_IN_USE },
   notification_recipients_destination_id_fkey: { action: 'c', test: DESTINATION_IN_USE },

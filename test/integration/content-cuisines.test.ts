@@ -104,6 +104,21 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('cuisines editor (database)', ()
     expect(await reorderCuisines(pool, OTHER, stale, order)).toMatchObject({ ok: false, code: 'conflict', params: { by: 'Lan' } });
   });
 
+  it('the hide warning counts only the restaurants guests see; the delete’s count keeps every restaurant that lists it', async () => {
+    expect(await item('thai')).toMatchObject({ restaurants: 2, shownRestaurants: 2 });
+    try {
+      // Archived: no card a hide could remove.
+      await pool.query(`UPDATE restaurants SET archived_at = now() WHERE id = 'yum-food-village'`);
+      expect(await item('thai')).toMatchObject({ restaurants: 2, shownRestaurants: 1 });
+      // At a hidden destination: no card either (L7-2).
+      await pool.query(`UPDATE destinations SET is_published = false WHERE id = 'dining-house'`);
+      expect(await item('thai')).toMatchObject({ restaurants: 2, shownRestaurants: 0 });
+    } finally {
+      await pool.query(`UPDATE restaurants SET archived_at = NULL WHERE id = 'yum-food-village'`);
+      await pool.query(`UPDATE destinations SET is_published = true WHERE id = 'dining-house'`);
+    }
+  });
+
   it('hidden, it leaves the rail and the restaurants’ cuisines; shown again, it is back', async () => {
     expect(await cuisinesOf('thai-siam-kitchen')).toEqual(['thai']);
     expect(await setCuisinePublished(pool, ACTOR, 'thai', (await item('thai')).token, false)).toEqual({ ok: true, data: null });

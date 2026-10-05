@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { lang } from 'next/root-params';
 import { homeMetadata } from '@/lib/content/seo';
+import { guestSettings } from '@/lib/content/settings';
 import { CLIENT_KEYS } from '@/lib/i18n/registry';
 import { getSiteContent } from '@/lib/server/content/home-content';
 import { getEnabledLocales } from '@/lib/server/content/locales';
@@ -50,8 +51,9 @@ export default async function GuardedLayout({ children }: { children: React.Reac
     getStrings(locale, CLIENT_KEYS),
   ]);
 
+  // A default restaurant guests cannot see (a draft, or at a hidden destination) stays off the payload (L7-2).
   return (
-    <SiteProvider locale={locale} restaurants={restaurants} site={site} strings={strings}>
+    <SiteProvider locale={locale} restaurants={restaurants} site={{ ...site, settings: guestSettings(site.settings, restaurants) }} strings={strings}>
       <Chrome>{children}</Chrome>
     </SiteProvider>
   );

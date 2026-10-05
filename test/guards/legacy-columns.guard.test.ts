@@ -38,6 +38,13 @@ const LEGACY = ['type', 'destination', 'cuisines', 'meals', 'slot_capacity'];
 const SQL = /\b(?:SELECT|INSERT INTO|UPDATE|DELETE FROM|WHERE|JOIN)\b|\bAS "\w+"/i;
 const SOURCE = /\.(?:[cm]?[jt]s|[jt]sx)$/;
 const NOT_APP = /\.test\.[cm]?[jt]sx?$|\.d\.[cm]?ts$/;
+/**
+ * The one statement that may name a phase-1 column, word for word: a destination's delete clears the old id the
+ * restaurant editor (which writes destination_id only) leaves behind, or restaurants_destination_fk refuses the delete
+ * of a destination nothing points at any more (phase-7B final review F3). It reads nothing back into the app, and
+ * phase 10 drops it with the column.
+ */
+const CLEARS_LEGACY = ['UPDATE restaurants SET destination = NULL WHERE destination = $1'];
 
 type Node = { type: string; [key: string]: unknown };
 
@@ -102,7 +109,9 @@ function legacyReads(sql: string): string[] {
 describe('no app SQL reads the phase-1 columns of restaurants (R10)', () => {
   it('finds none in app, components, lib, db and scripts', () => {
     const found = SCAN.flatMap(files).flatMap((rel) =>
-      literals(rel, readFileSync(join(ROOT, rel), 'utf8')).flatMap((sql) => legacyReads(sql).map((col) => `${rel}: ${col}`)),
+      literals(rel, readFileSync(join(ROOT, rel), 'utf8'))
+        .filter((sql) => !CLEARS_LEGACY.includes(sql))
+        .flatMap((sql) => legacyReads(sql).map((col) => `${rel}: ${col}`)),
     );
     expect(found).toEqual([]);
   });

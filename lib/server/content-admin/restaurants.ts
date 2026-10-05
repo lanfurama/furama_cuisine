@@ -255,6 +255,7 @@ const seen = (row: Row) => Boolean(row.is_published) && row.archived_at == null;
 /** A version about to be written, as the rules see it (a form's or a snapshot's). */
 type Version = {
   slug: string;
+  destinationId: string;
   isPublished: boolean;
   hasDetailPage: boolean;
   cardImageId: string | null;
@@ -266,6 +267,8 @@ type Version = {
   shownHighlights: number;
 };
 
+const NOT_A_VENUE = 'Chọn một địa điểm (không phải thẻ teaser).';
+
 /** The rules a save and a restore both apply to the state they would write (code rule 5). */
 async function ruleErrors(client: PoolClient, id: string, v: Version): Promise<Record<string, string[]>> {
   const errors: Record<string, string[]> = { ...detailPageErrors({ hasDetailPage: v.hasDetailPage, detailImageId: v.detailImageId, storyEn: v.storyEn }) };
@@ -276,6 +279,11 @@ async function ruleErrors(client: PoolClient, id: string, v: Version): Promise<R
   if (limit) errors.highlights = [limit];
   const { rowCount } = await client.query('SELECT 1 FROM restaurants WHERE slug = $1 AND id <> $2', [v.slug, id]);
   if (rowCount) errors.slug = ['Đường dẫn này đã có nhà hàng khác dùng.'];
+  // The pickers list venues only: a restaurant at the teaser card would show under a card that is not a place (SEC-5).
+  // FOR KEY SHARE waits for a destination save in flight (its FOR UPDATE), so a destination becoming a teaser cannot race
+  // this check. A destination that is gone is the foreign key's answer (missing_reference).
+  const { rows: destination } = await client.query<{ kind: string }>('SELECT kind FROM destinations WHERE id = $1 FOR KEY SHARE', [v.destinationId]);
+  if (destination[0] && destination[0].kind !== 'venue') errors.destinationId = [NOT_A_VENUE];
   return errors;
 }
 
@@ -349,6 +357,7 @@ export async function saveRestaurantContent(
     const menuFileEn = input.menuPdfMediaId.en ?? null;
     const errors = await ruleErrors(client, id, {
       slug: input.slug,
+      destinationId: input.destinationId,
       isPublished: input.isPublished,
       hasDetailPage: input.hasDetailPage,
       cardImageId: input.cardImageId,
@@ -524,6 +533,7 @@ function versionOf(snapshot: { row: Row; i18n: readonly I18nRow[]; highlights: r
   const str = (v: unknown) => (v === null || v === undefined ? null : String(v));
   return {
     slug: String(snapshot.row.slug),
+    destinationId: String(snapshot.row.destination_id),
     isPublished: Boolean(snapshot.row.is_published),
     hasDetailPage: Boolean(snapshot.row.has_detail_page),
     cardImageId: str(snapshot.row.card_image_id),
@@ -548,7 +558,8 @@ export async function createRestaurant(pool: Pool, actor: AuditActor, input: New
     await lockList(client, 'restaurants');
     const { rowCount: taken } = await client.query('SELECT 1 FROM restaurants WHERE id = $1 OR slug = $1', [input.slug]);
     if (taken) return { ok: false, code: 'invalid', fieldErrors: { slug: ['Đường dẫn này đã có nhà hàng khác dùng.'] } };
-    const { rowCount: known } = await client.query('SELECT 1 FROM destinations WHERE id = $1', [input.destinationId]);
+    // A venue (SEC-5), held until the INSERT commits: the teaser card is not a place (NOT_A_VENUE).
+    const { rowCount: known } = await client.query("SELECT 1 FROM destinations WHERE id = $1 AND kind = 'venue' FOR KEY SHARE", [input.destinationId]);
     if (!known) return { ok: false, code: 'invalid', fieldErrors: { destinationId: ['Điểm đến này không còn nữa. Hãy tải lại trang.'] } };
     await client.query(
       `INSERT INTO restaurants (id, name, slug, destination_id, is_published, has_detail_page, booking_enabled, sort_order, updated_by)

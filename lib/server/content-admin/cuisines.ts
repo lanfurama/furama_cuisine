@@ -94,15 +94,24 @@ export type CuisineListItem = {
   values: CuisineInput;
   /** Restaurants that list it (any state): a delete is refused while there are any. */
   restaurants: number;
+  /** Of those, the ones guests see (the catalogue's rule: shown, not archived, at a shown destination): the cards a hide takes it off. */
+  shownRestaurants: number;
 };
 
 /** Every cuisine in its guest order, with its token and form values, and the list's token (the ids in order). */
 export async function listCuisinesAdmin(db: Db): Promise<{ items: CuisineListItem[]; token: string }> {
   const [snapshots, counts] = await Promise.all([
     readItems(db, CUISINE),
-    db.query<{ id: string; n: number }>('SELECT cuisine_id AS id, count(*)::int AS n FROM restaurant_cuisines GROUP BY cuisine_id'),
+    db.query<{ id: string; n: number; shown: number }>(
+      `SELECT rc.cuisine_id AS id, count(*)::int AS n,
+              (count(*) FILTER (WHERE r.is_published AND r.archived_at IS NULL AND d.is_published))::int AS shown
+         FROM restaurant_cuisines rc
+         JOIN restaurants r ON r.id = rc.restaurant_id
+         JOIN destinations d ON d.id = r.destination_id
+        GROUP BY rc.cuisine_id`,
+    ),
   ]);
-  const used = new Map(counts.rows.map((r) => [r.id, r.n]));
+  const used = new Map(counts.rows.map((r) => [r.id, r]));
   const items = snapshots.map((s) => {
     const values = cuisineValues(s);
     return {
@@ -111,7 +120,8 @@ export async function listCuisinesAdmin(db: Db): Promise<{ items: CuisineListIte
       isPublished: values.isPublished,
       token: snapshotToken(s),
       values,
-      restaurants: used.get(values.id) ?? 0,
+      restaurants: used.get(values.id)?.n ?? 0,
+      shownRestaurants: used.get(values.id)?.shown ?? 0,
     };
   });
   return { items, token: orderToken({ v: 1, order: items.map((i) => ({ id: i.id, sort_order: 0 })) }) };

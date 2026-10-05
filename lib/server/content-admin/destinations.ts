@@ -1,5 +1,5 @@
 import 'server-only';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import type { Db } from '@/lib/server/booking/rules';
 import { makeListEditor, WHOLE_ITEM, type ListFailure } from './list-editor';
 import { orderToken, readItems, snapshotToken, type ItemDef, type ItemSnapshot } from './snapshot';
@@ -90,6 +90,21 @@ const destinations = makeListEditor<DestinationInput>(DESTINATION, {
     if (row.kind === 'venue' && !i18n.some((r) => r.locale === 'en' && typeof r.name === 'string' && r.name.trim())) {
       return { ok: false, code: 'invalid', fieldErrors: { name: [VENUE_NEEDS_NAME] } };
     }
+    if (row.kind === 'teaser') {
+      // The pickers list venues only (listDestinationOptions): a restaurant at a teaser would silently move to the first
+      // venue on its next save, and a closure or recipient would lose its place. update, setPublished and the restore of
+      // a live row hold the row's FOR UPDATE here, which a restaurant move's FOR KEY SHARE waits for, so no move races
+      // the count; a deleted row has nothing pointing at it.
+      const { restaurants, closures, recipients } = await pointers(client, String(row.id));
+      const parts = [restaurants && `${restaurants} nhà hàng`, closures && `${closures} ngày đóng cửa`, recipients && `${recipients} người nhận thông báo`].filter(Boolean);
+      if (parts.length) {
+        return {
+          ok: false,
+          code: 'invalid',
+          fieldErrors: { kind: [`Một teaser không phải địa điểm: còn ${parts.join(', ')} trỏ tới điểm đến này. Chuyển chúng sang điểm đến khác trước.`] },
+        };
+      }
+    }
     if (row.kind === 'teaser' && row.is_published === true) {
       const { rowCount } = await client.query(`SELECT 1 FROM destinations WHERE kind = 'teaser' AND is_published AND id <> $1`, [String(row.id)]);
       if (rowCount) return { ok: false, code: 'invalid', fieldErrors: { isPublished: [ONE_TEASER] } };
@@ -97,13 +112,7 @@ const destinations = makeListEditor<DestinationInput>(DESTINATION, {
     return null;
   },
   async refuseDelete(client, id): Promise<ListFailure | null> {
-    const { rows } = await client.query<{ restaurants: number; closures: number; recipients: number }>(
-      `SELECT (SELECT count(*) FROM restaurants WHERE destination_id = $1)::int AS restaurants,
-              (SELECT count(*) FROM closures WHERE destination_id = $1)::int AS closures,
-              (SELECT count(*) FROM notification_recipients WHERE destination_id = $1)::int AS recipients`,
-      [id],
-    );
-    const { restaurants, closures, recipients } = rows[0];
+    const { restaurants, closures, recipients } = await pointers(client, id);
     const why: string[] = [];
     if (restaurants) why.push(`Điểm đến này còn ${restaurants} nhà hàng (kể cả nhà hàng đang ẩn hay lưu trữ). Chuyển chúng sang điểm đến khác trước, hoặc chỉ ẩn điểm đến.`);
     if (closures || recipients) {
@@ -111,7 +120,24 @@ const destinations = makeListEditor<DestinationInput>(DESTINATION, {
     }
     return why.length ? { ok: false, code: 'invalid', fieldErrors: { [WHOLE_ITEM]: why } } : null;
   },
+  // restaurants.destination is phase 1's column (dropped in phase 10); the editor moves a restaurant by destination_id
+  // alone, so the old id stays there with its foreign key. refuseDelete has proved no destination_id points here.
+  async beforeDelete(client, id) {
+    await client.query('UPDATE restaurants SET destination = NULL WHERE destination = $1', [id]);
+    return null;
+  },
 });
+
+/** The rows that point at a destination: what makes it a place (not a teaser) and what a delete would break or take along. */
+async function pointers(client: PoolClient, id: string): Promise<{ restaurants: number; closures: number; recipients: number }> {
+  const { rows } = await client.query<{ restaurants: number; closures: number; recipients: number }>(
+    `SELECT (SELECT count(*) FROM restaurants WHERE destination_id = $1)::int AS restaurants,
+            (SELECT count(*) FROM closures WHERE destination_id = $1)::int AS closures,
+            (SELECT count(*) FROM notification_recipients WHERE destination_id = $1)::int AS recipients`,
+    [id],
+  );
+  return rows[0];
+}
 
 export const createDestination = destinations.create;
 export const updateDestination = destinations.update;

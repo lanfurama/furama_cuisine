@@ -65,7 +65,7 @@ export default async function CuisinesPage() {
             token: c.token,
             meta: `${c.restaurants} nhà hàng`,
             thumb: thumbOf(c.values.imageId),
-            hideWarning: c.restaurants ? `Ẩm thực này biến khỏi thanh ẩm thực, bộ lọc và thẻ của ${c.restaurants} nhà hàng.` : null,
+            hideWarning: c.shownRestaurants ? `Ẩm thực này biến khỏi thanh ẩm thực, bộ lọc và thẻ của ${c.shownRestaurants} nhà hàng.` : null,
           }))}
           listToken={token}
           warnings={limitWarnings('cuisines', shown)}

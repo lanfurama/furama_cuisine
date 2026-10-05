@@ -330,6 +330,13 @@ const optionalEmail = z
   .pipe(z.email({ error: 'Email không hợp lệ.' }).max(254, tooLong(254)).nullable());
 
 /**
+ * The guest filters' "everything" (SiteProvider: cuisine and destination 'all'). A cuisine or destination with that id
+ * would show as picked before anyone picked it and list everything, and an id never changes (R31). Ids reach the server
+ * only through these schemas on create; a restore keeps an existing id.
+ */
+const FILTER_ALL = 'Mã “all” dành cho bộ lọc “tất cả”; chọn mã khác.';
+
+/**
  * One destination (spec §7.2 content/destinations): its card (picture, two
  * title lines, two blurb lines), the name the dropdowns, the footer and
  * "More at …" print, and the venue's contact lines (address, phone, map,
@@ -345,7 +352,8 @@ export const DestinationForm = z
       .string()
       .trim()
       .regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/, 'Chỉ chữ thường không dấu, số và gạch nối, bắt đầu bằng một chữ, ví dụ dining-house.')
-      .max(40, tooLong(40)),
+      .max(40, tooLong(40))
+      .refine((id) => id !== 'all', FILTER_ALL),
     kind: z.enum(['venue', 'teaser'], { error: 'Chọn loại thẻ.' }),
     isPublished: checkbox,
     showInFooter: checkbox,
@@ -376,7 +384,8 @@ export const CuisineForm = z.object({
     .string()
     .trim()
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Chỉ chữ thường không dấu, số và gạch nối, ví dụ korean.')
-    .max(40, tooLong(40)),
+    .max(40, tooLong(40))
+    .refine((id) => id !== 'all', FILTER_ALL),
   imageId: z.uuid({ error: 'Chọn ảnh cho ẩm thực.' }),
   isPublished: checkbox,
   label: translatable(40, 'Nhập tên ẩm thực tiếng Anh.'),

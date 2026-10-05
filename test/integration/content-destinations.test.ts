@@ -201,6 +201,58 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('destinations editor (database)'
     expect((await audit()).map((a) => a.action)).toEqual(['create']);
   });
 
+  it('a destination that restaurants, closures or recipients point at cannot become a teaser, hidden or not, on a save or a restore; nothing is written', async () => {
+    // Hidden, so the one-shown-teaser rule does not answer first; the pickers (venues only) must keep listing it.
+    expect(await setDestinationPublished(pool, ACTOR, 'mm', (await item('mm')).token, false)).toEqual({ ok: true, data: null });
+    const mm = await item('mm');
+    const asTeaser = await updateDestination(pool, ACTOR, 'mm', mm.token, { ...mm.values, kind: 'teaser' });
+    expect(asTeaser).toEqual({ ok: false, code: 'invalid', fieldErrors: { kind: [expect.stringMatching(/còn 2 nhà hàng trỏ tới điểm đến này/)] } });
+    expect((await listDestinationOptions(pool)).map((d) => d.id)).toContain('mm');
+
+    // A teaser version from History (forged: no save could write one) is refused the same way.
+    const teaserSnapshot = (await readItems(pool, DESTINATION)).find((s) => s.row.id === 'mm')!;
+    teaserSnapshot.row.kind = 'teaser';
+    const { rows } = await pool.query<{ id: string }>(
+      `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, before, after) VALUES ($1, 'update', 'destinations', 'mm', $2, $2) RETURNING id::text`,
+      [ACTOR.id, JSON.stringify(teaserSnapshot)],
+    );
+    const written = (await audit()).length;
+    expect(await restoreDestination(pool, OTHER, { id: 'mm', auditId: rows[0].id, side: 'before', token: mm.token })).toEqual(asTeaser);
+    expect(await audit()).toHaveLength(written);
+    expect((await item('mm')).kind).toBe('venue');
+
+    // Closures alone are enough (recipients too): the closures and recipients pickers list venues only.
+    await createDestination(pool, ACTOR, venue('test-b1-closed'));
+    await pool.query(`INSERT INTO closures (scope, destination_id, starts_on, ends_on) VALUES ('destination', 'test-b1-closed', '2026-12-24', '2026-12-25')`);
+    const closed = await item('test-b1-closed');
+    expect(await updateDestination(pool, ACTOR, 'test-b1-closed', closed.token, { ...closed.values, kind: 'teaser' })).toEqual({
+      ok: false,
+      code: 'invalid',
+      fieldErrors: { kind: [expect.stringMatching(/còn 1 ngày đóng cửa trỏ tới điểm đến này/)] },
+    });
+    expect((await item('test-b1-closed')).kind).toBe('venue');
+  });
+
+  it('a destination its restaurants moved away from can be deleted: the phase-1 destination column that still names it is cleared', async () => {
+    expect(await createDestination(pool, ACTOR, venue('test-b1-probe'))).toEqual({ ok: true, data: { id: 'test-b1-probe' } });
+    // As migrations 004 and 008 seeded every restaurant: both columns name the destination.
+    await pool.query(
+      `INSERT INTO restaurants (id, name, slug, destination, destination_id, is_published, has_detail_page, booking_enabled)
+       VALUES ('test-b1-probe-r', 'Probe', 'test-b1-probe-r', 'test-b1-probe', 'test-b1-probe', false, false, false)`,
+    );
+    try {
+      // The restaurant editor moves it by destination_id alone.
+      await pool.query(`UPDATE restaurants SET destination_id = 'resort' WHERE id = 'test-b1-probe-r'`);
+      expect(await deleteDestination(pool, ACTOR, 'test-b1-probe', (await item('test-b1-probe')).token)).toEqual({ ok: true, data: { meta: null } });
+      expect((await pool.query(`SELECT destination, destination_id FROM restaurants WHERE id = 'test-b1-probe-r'`)).rows[0]).toEqual({
+        destination: null,
+        destination_id: 'resort',
+      });
+    } finally {
+      await pool.query(`DELETE FROM restaurants WHERE id = 'test-b1-probe-r'`);
+    }
+  });
+
   it('the card’s picture must be live (code rule 2)', async () => {
     const { rows } = await pool.query<{ id: string }>(
       `INSERT INTO media (storage, url, pathname, content_type, width, height, bytes, deleted_at)

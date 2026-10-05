@@ -273,6 +273,16 @@ describe('content form schemas (spec §7.3, §7.4)', () => {
     });
   });
 
+  it('“all” is the guest filters’ “everything”, never a destination’s or a cuisine’s id (G7DAT-6)', () => {
+    const ALL = ['Mã “all” dành cho bộ lọc “tất cả”; chọn mã khác.'];
+    const teaser = { kind: 'teaser', cardImageId: '', phoneDisplay: '', email: '', mapUrl: '', 'name.en': '', 'cardTitle1.en': 'All', 'cardTitle2.en': '', 'cardBlurb1.en': '', 'cardBlurb2.en': '', 'address.en': '' };
+    expect(fieldErrors(DestinationForm.safeParse(readForm(form({ ...teaser, id: 'all' }))).error)).toEqual({ id: ALL });
+    expect(fieldErrors(CuisineForm.safeParse(readForm(form({ id: ' all ', imageId: '5b0b1f3a-2b1c-4c1e-9a43-3f1d2c7b9e10', 'label.en': 'All' }))).error)).toEqual({
+      id: ALL,
+    });
+    expect(DestinationForm.safeParse(readForm(form({ ...teaser, id: 'all-day' }))).success).toBe(true);
+  });
+
   it('an Experiences row: its EN title; a link is https or nothing (plan 7B B3)', () => {
     expect(ExperienceForm.parse(readForm(form({ isPublished: 'on', link: '', 'title.en': ' Furama Fabulous ', 'blurb.en': '' })))).toEqual({
       isPublished: true,
