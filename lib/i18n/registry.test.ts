@@ -19,6 +19,17 @@ describe('registry', () => {
     }
   });
 
+  it('every key has a Vietnamese label, unique on its screen, never its key (spec §7.3; UX-9)', () => {
+    const seen = new Map<string, string>();
+    for (const key of STRING_KEYS) {
+      const { label, screen } = REGISTRY[key];
+      expect(label.trim().length, key).toBeGreaterThan(3);
+      expect(label, key).not.toContain(key);
+      expect(seen.get(`${screen}|${label}`), `${key} and ${seen.get(`${screen}|${label}`)} share "${label}"`).toBeUndefined();
+      seen.set(`${screen}|${label}`, key);
+    }
+  });
+
   it('error.outside_window names no fixed span: each restaurant sets its own window, 1–90 days', () => {
     expect(REGISTRY['error.outside_window'].en).not.toMatch(/week|fortnight|\d+ days/i);
   });

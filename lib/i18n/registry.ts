@@ -45,10 +45,10 @@ export type StringDef = {
   screen: AdminScreen;
   /**
    * The field's name in the admin, in Vietnamese (spec §7.3: the admin speaks
-   * Vietnamese; `context` is for translators and the AI). PHASE 7: required on
-   * every key once the editors cover them; until then the key shows.
+   * Vietnamese; `context` is for translators and the AI). Required: every
+   * screen names each field by it, never by its key.
    */
-  label?: string;
+  label: string;
 };
 
 // `satisfies` keeps the literal key names, so StringKey is a real union.
@@ -60,6 +60,7 @@ export const REGISTRY = {
     context:
       'Reservation form and booking bar, when the chosen restaurant does not take online bookings at the moment (staff switched it off); there is no Try again. Must not suggest the restaurant has closed. {phone} is the restaurant’s number, shown as a link to call; keep it.',
     screen: 'ui-text',
+    label: 'Lỗi: nhà hàng đang ngừng nhận đặt online',
   },
   'error.party_too_large': {
     en: 'For more than {max} guests, please call us on {phone}.',
@@ -68,6 +69,7 @@ export const REGISTRY = {
     context:
       'Party size above the online limit. {max} is the largest party bookable online (booking rules), {phone} the restaurant’s number for larger groups; keep both as is.',
     screen: 'ui-text',
+    label: 'Lỗi: đoàn quá đông để đặt online',
   },
   'error.outside_window': {
     en: 'That date can’t be booked online — please choose one of the dates shown.',
@@ -75,6 +77,7 @@ export const REGISTRY = {
     context:
       'The date is outside this restaurant’s booking window (staff set it per restaurant, from 1 to 90 days), or is not a real date. Do not name a span of days or weeks: it differs per restaurant.',
     screen: 'ui-text',
+    label: 'Lỗi: ngày ngoài khoảng đặt online',
   },
   'error.slot_unavailable': {
     en: '{restaurant} does not serve at that time.',
@@ -82,6 +85,7 @@ export const REGISTRY = {
     vars: ['restaurant'],
     context: 'The time is not in the restaurant’s service hours. {restaurant} is the restaurant name; keep it as is.',
     screen: 'ui-text',
+    label: 'Lỗi: nhà hàng không phục vụ giờ đó',
   },
   'error.past': {
     en: 'That time can no longer be booked online — please choose a later time or another day.',
@@ -89,36 +93,42 @@ export const REGISTRY = {
     context:
       'The chosen sitting is too close to book online (the lead time before it), or online booking for today has closed (the same-day cut-off). Must read right for both.',
     screen: 'ui-text',
+    label: 'Lỗi: giờ đó đã quá muộn để đặt online',
   },
   'error.invalid_name': {
     en: 'Please enter your name.',
     maxLength: 140,
     context: 'Name field is empty or invalid.',
     screen: 'ui-text',
+    label: 'Lỗi: thiếu tên (dưới ô họ tên)',
   },
   'error.invalid_phone': {
     en: 'Please enter a valid phone number.',
     maxLength: 140,
     context: 'Phone field failed validation.',
     screen: 'ui-text',
+    label: 'Lỗi: số điện thoại không hợp lệ (dưới ô điện thoại)',
   },
   'error.invalid_email': {
     en: 'Please check your email address.',
     maxLength: 140,
     context: 'Email field failed validation.',
     screen: 'ui-text',
+    label: 'Lỗi: email không hợp lệ (dưới ô email)',
   },
   'error.full': {
     en: 'That slot just filled up — please choose another time.',
     maxLength: 140,
     context: 'No covers left at the chosen time.',
     screen: 'ui-text',
+    label: 'Lỗi: giờ đó vừa kín bàn',
   },
   'error.duplicate': {
     en: 'We already have a request for this table under your number.',
     maxLength: 140,
     context: 'The same phone number already has an active request for this restaurant, date and time.',
     screen: 'ui-text',
+    label: 'Lỗi: số điện thoại đã có yêu cầu cho bàn này',
   },
   'error.closed': {
     en: 'The restaurant is closed at that time — please choose another time or day.',
@@ -126,6 +136,7 @@ export const REGISTRY = {
     context:
       'A closure, or a day without service, covers the chosen date, or only the chosen meal while another meal that day still takes bookings. Must read right for both.',
     screen: 'ui-text',
+    label: 'Lỗi: nhà hàng đóng cửa giờ đó',
   },
   'error.consent_required': {
     en: 'Please tick the box to agree to how we use your details.',
@@ -133,6 +144,7 @@ export const REGISTRY = {
     context:
       'Under the consent checkbox of the reservation form, when the guest sends the request without ticking it (spec §11). Names the box, not the law.',
     screen: 'ui-text',
+    label: 'Lỗi: chưa đánh dấu ô đồng ý',
   },
   'error.too_many_requests': {
     en: 'This number already has {limit} table requests for that day. To book more, please call us on {phone}.',
@@ -141,6 +153,7 @@ export const REGISTRY = {
     context:
       'One phone number already holds the most active online requests allowed for that date, across all restaurants (spec §10.2 step 5). {limit} is that number, {phone} the restaurant’s number; keep both.',
     screen: 'ui-text',
+    label: 'Lỗi: số điện thoại đã đủ số yêu cầu trong ngày',
   },
   'error.bot_blocked': {
     en: 'We could not accept this request online. Please call us on {phone} to book.',
@@ -149,12 +162,22 @@ export const REGISTRY = {
     context:
       'The request looked automated (bot protection) and was refused. A real guest may see it: never accuse, always give the phone. {phone} is the restaurant’s number; keep it.',
     screen: 'ui-text',
+    label: 'Lỗi: yêu cầu bị chặn vì giống máy gửi',
   },
   'error.unknown': {
     en: 'Something went wrong with your request. Please try again.',
     maxLength: 140,
     context: 'Any server error not covered by another code.',
     screen: 'ui-text',
+    label: 'Lỗi: lỗi khác của máy chủ',
+  },
+  'error.restaurant_fallback': {
+    en: 'The restaurant',
+    maxLength: 40,
+    context:
+      'Stands for the restaurant’s name in a booking refusal that arrives without it (error.slot_unavailable’s {restaurant}). It starts the sentence: capital first letter.',
+    screen: 'ui-text',
+    label: 'Thay cho tên nhà hàng trong thông báo lỗi',
   },
   'error.network': {
     en: 'We could not reach the reservations desk. Please try again, or call us on {phone}.',
@@ -163,6 +186,7 @@ export const REGISTRY = {
     context:
       'The browser could not reach the server, or it could not answer (client side only): on sending the form (also when the bot check could not run), and in place of the dates or times when they could not be loaded, above Try again (booking.retry). {phone} is the restaurant’s number, shown as a link to call (spec §12); keep it.',
     screen: 'ui-text',
+    label: 'Lỗi: không kết nối được tới máy chủ',
   },
   'booking.day_closed': {
     en: 'Closed',
@@ -956,7 +980,7 @@ export const REGISTRY = {
     maxLength: 32,
     context: 'Restaurant page, the link beside “More at …” to every restaurant on the home page. Capitals; an arrow follows it.',
     screen: 'restaurants',
-    label: 'Link xem mọi nhà hàng',
+    label: 'Link xem mọi nhà hàng (cuối trang nhà hàng)',
   },
   // ── Experiences (spec §7.2 content/experiences): the home page reads them on the server and hands them to the
   // section (page props); the rows themselves are experiences rows ──
@@ -1509,6 +1533,7 @@ export const REGISTRY = {
     maxLength: 40,
     context: 'Booking emails, label of the booking reference (FC-7K3QH9XA) in the details table.',
     screen: 'emails',
+    label: 'Nhãn mã đặt bàn',
   },
   'email.common.label_restaurant': {
     en: 'Restaurant',
@@ -1516,6 +1541,7 @@ export const REGISTRY = {
     maxLength: 40,
     context: 'Booking emails, label of the restaurant name in the details table.',
     screen: 'emails',
+    label: 'Nhãn nhà hàng',
   },
   'email.common.label_date': {
     en: 'Date',
@@ -1523,6 +1549,7 @@ export const REGISTRY = {
     maxLength: 40,
     context: 'Booking emails, label of the date in the details table (the date itself is formatted for the language).',
     screen: 'emails',
+    label: 'Nhãn ngày',
   },
   'email.common.label_time': {
     en: 'Time',
@@ -1530,6 +1557,7 @@ export const REGISTRY = {
     maxLength: 40,
     context: 'Booking emails, label of the time in the details table.',
     screen: 'emails',
+    label: 'Nhãn giờ',
   },
   'email.common.time_value': {
     en: '{time} (Da Nang time, GMT+7)',
@@ -1538,6 +1566,7 @@ export const REGISTRY = {
     vars: ['time'],
     context: 'Booking emails, the time of the sitting. {time} is formatted for the language (7:00 PM, 19:00); keep it. Guests may read the email in another timezone.',
     screen: 'emails',
+    label: 'Giờ kèm múi giờ Đà Nẵng',
   },
   'email.common.label_guests': {
     en: 'Guests',
@@ -1545,6 +1574,7 @@ export const REGISTRY = {
     maxLength: 40,
     context: 'Booking emails, label of the party size in the details table (a number follows).',
     screen: 'emails',
+    label: 'Nhãn số khách',
   },
   'email.common.label_reason': {
     en: 'Reason',
@@ -1552,6 +1582,7 @@ export const REGISTRY = {
     maxLength: 40,
     context: 'Decline and cancellation emails, label of the reason staff gave (their text follows as typed).',
     screen: 'emails',
+    label: 'Nhãn lý do (email từ chối, hủy)',
   },
   'email.common.contact': {
     en: 'Questions or changes? Please call us on {phone}.',
@@ -1560,6 +1591,7 @@ export const REGISTRY = {
     vars: ['phone'],
     context: 'Guest booking emails, under the details. {phone} is the restaurant’s (its destination’s) number; keep it.',
     screen: 'emails',
+    label: 'Dòng liên hệ (email gửi khách)',
   },
   'email.common.footer_guest': {
     en: 'You are receiving this email because a table was booked with this address at Furama Cuisine.',
@@ -1567,6 +1599,7 @@ export const REGISTRY = {
     maxLength: 200,
     context: 'Guest booking emails, small print at the bottom.',
     screen: 'emails',
+    label: 'Chữ nhỏ cuối email gửi khách',
   },
   'email.common.footer_staff': {
     en: 'Automatic notification from the Furama Cuisine booking system.',
@@ -1574,6 +1607,7 @@ export const REGISTRY = {
     maxLength: 200,
     context: 'Staff notification emails, small print at the bottom.',
     screen: 'emails',
+    label: 'Chữ nhỏ cuối email gửi nhân viên',
   },
   'email.guest.ack.subject': {
     en: 'We have received your table request ({reference})',
@@ -1582,6 +1616,7 @@ export const REGISTRY = {
     vars: ['reference'],
     context: 'Subject of the email a guest gets right after booking online, while the request waits for staff. {reference} is the booking reference; keep it.',
     screen: 'emails',
+    label: 'Tiêu đề email (Khách: đã nhận yêu cầu)',
   },
   'email.guest.ack.heading': {
     en: 'Request received',
@@ -1589,6 +1624,7 @@ export const REGISTRY = {
     maxLength: 80,
     context: 'Heading of the "request received" email.',
     screen: 'emails',
+    label: 'Dòng tiêu đề trong email (Khách: đã nhận yêu cầu)',
   },
   'email.guest.ack.intro': {
     en: 'Your table request at {restaurant} has been received. Our team will contact you shortly to confirm.',
@@ -1598,6 +1634,7 @@ export const REGISTRY = {
     context:
       'First paragraph of the "request received" email. Must say the same as the reservation form’s done screen for a request (booking.done_requested). {restaurant} is the restaurant name; keep it.',
     screen: 'emails',
+    label: 'Đoạn mở đầu (Khách: đã nhận yêu cầu)',
   },
   'email.guest.confirmed.subject': {
     en: 'Your table is confirmed ({reference})',
@@ -1606,6 +1643,7 @@ export const REGISTRY = {
     vars: ['reference'],
     context: 'Subject of the email a guest gets when the booking is confirmed (by staff, automatically, or a phone booking). {reference}: keep it.',
     screen: 'emails',
+    label: 'Tiêu đề email (Khách: đã xác nhận)',
   },
   'email.guest.confirmed.heading': {
     en: 'Table confirmed',
@@ -1613,6 +1651,7 @@ export const REGISTRY = {
     maxLength: 80,
     context: 'Heading of the confirmation email.',
     screen: 'emails',
+    label: 'Dòng tiêu đề trong email (Khách: đã xác nhận)',
   },
   'email.guest.confirmed.intro': {
     en: 'Your table at {restaurant} is confirmed. We look forward to welcoming you.',
@@ -1622,6 +1661,7 @@ export const REGISTRY = {
     context:
       'First paragraph of the confirmation email. Must say the same as the reservation form’s done screen for a confirmed booking (booking.done_confirmed). {restaurant}: keep it.',
     screen: 'emails',
+    label: 'Đoạn mở đầu (Khách: đã xác nhận)',
   },
   'email.guest.declined.subject': {
     en: 'We could not confirm your table request ({reference})',
@@ -1630,6 +1670,7 @@ export const REGISTRY = {
     vars: ['reference'],
     context: 'Subject of the email a guest gets when staff decline the request. {reference}: keep it.',
     screen: 'emails',
+    label: 'Tiêu đề email (Khách: bị từ chối)',
   },
   'email.guest.declined.heading': {
     en: 'Request not confirmed',
@@ -1637,6 +1678,7 @@ export const REGISTRY = {
     maxLength: 80,
     context: 'Heading of the decline email.',
     screen: 'emails',
+    label: 'Dòng tiêu đề trong email (Khách: bị từ chối)',
   },
   'email.guest.declined.intro': {
     en: 'We are sorry, but we cannot confirm your table request at {restaurant}.',
@@ -1645,6 +1687,7 @@ export const REGISTRY = {
     vars: ['restaurant'],
     context: 'First paragraph of the decline email; the reason staff gave follows. {restaurant}: keep it.',
     screen: 'emails',
+    label: 'Đoạn mở đầu (Khách: bị từ chối)',
   },
   'email.guest.cancelled.subject': {
     en: 'Your reservation has been cancelled ({reference})',
@@ -1653,6 +1696,7 @@ export const REGISTRY = {
     vars: ['reference'],
     context: 'Subject of the email a guest gets when staff cancel the booking and tick "notify the guest". {reference}: keep it.',
     screen: 'emails',
+    label: 'Tiêu đề email (Khách: đã hủy)',
   },
   'email.guest.cancelled.heading': {
     en: 'Reservation cancelled',
@@ -1660,6 +1704,7 @@ export const REGISTRY = {
     maxLength: 80,
     context: 'Heading of the cancellation email.',
     screen: 'emails',
+    label: 'Dòng tiêu đề trong email (Khách: đã hủy)',
   },
   'email.guest.cancelled.intro': {
     en: 'Your reservation at {restaurant} has been cancelled.',
@@ -1668,6 +1713,7 @@ export const REGISTRY = {
     vars: ['restaurant'],
     context: 'First paragraph of the cancellation email; the reason staff gave follows. {restaurant}: keep it.',
     screen: 'emails',
+    label: 'Đoạn mở đầu (Khách: đã hủy)',
   },
   'email.staff.new.subject': {
     en: 'New booking {reference}: {restaurant}, {date} {time}, party of {guests}',
@@ -1676,6 +1722,7 @@ export const REGISTRY = {
     vars: ['reference', 'restaurant', 'date', 'time', 'guests'],
     context: 'Subject of the staff notification for a new online booking. Keep every placeholder; {date} is short (Mon, 5 Oct 2026), {guests} a number.',
     screen: 'emails',
+    label: 'Tiêu đề email (Báo nhân viên: đặt bàn mới)',
   },
   'email.staff.new.heading': {
     en: 'New online booking',
@@ -1683,6 +1730,7 @@ export const REGISTRY = {
     maxLength: 80,
     context: 'Heading of the staff notification for a new online booking.',
     screen: 'emails',
+    label: 'Dòng tiêu đề trong email (Báo nhân viên: đặt bàn mới)',
   },
   'email.staff.new.intro_requested': {
     en: 'A guest has requested a table. Please confirm or decline it in the admin.',
@@ -1690,6 +1738,7 @@ export const REGISTRY = {
     maxLength: 300,
     context: 'Staff notification, when the booking waits for staff (auto-confirm off).',
     screen: 'emails',
+    label: 'Đoạn mở đầu khi đặt bàn chờ xác nhận',
   },
   'email.staff.new.intro_confirmed': {
     en: 'A guest has booked a table. It was confirmed automatically.',
@@ -1697,6 +1746,7 @@ export const REGISTRY = {
     maxLength: 300,
     context: 'Staff notification, when auto-confirm already confirmed the booking.',
     screen: 'emails',
+    label: 'Đoạn mở đầu khi đặt bàn đã tự xác nhận',
   },
   'email.staff.new.label_guest': {
     en: 'Guest',
@@ -1704,6 +1754,7 @@ export const REGISTRY = {
     maxLength: 40,
     context: 'Staff notification, label of the guest’s name.',
     screen: 'emails',
+    label: 'Nhãn tên khách',
   },
   'email.staff.new.label_phone': {
     en: 'Phone',
@@ -1711,6 +1762,7 @@ export const REGISTRY = {
     maxLength: 40,
     context: 'Staff notification, label of the guest’s phone number.',
     screen: 'emails',
+    label: 'Nhãn điện thoại của khách',
   },
   'email.staff.new.label_email': {
     en: 'Email',
@@ -1718,6 +1770,7 @@ export const REGISTRY = {
     maxLength: 40,
     context: 'Staff notification, label of the guest’s email address.',
     screen: 'emails',
+    label: 'Nhãn email của khách',
   },
   'email.staff.new.label_note': {
     en: 'Guest’s request',
@@ -1725,6 +1778,7 @@ export const REGISTRY = {
     maxLength: 40,
     context: 'Staff notification, label of the note the guest typed in the form (never staff notes).',
     screen: 'emails',
+    label: 'Nhãn yêu cầu của khách',
   },
   'email.staff.new.label_offer': {
     en: 'Offer',
@@ -1732,6 +1786,7 @@ export const REGISTRY = {
     maxLength: 40,
     context: 'Staff notification, label of the offer the guest booked from (VIEW OFFER on the home page); the offer’s title follows it.',
     screen: 'emails',
+    label: 'Nhãn ưu đãi khách đặt kèm',
   },
   'email.staff.new.button': {
     en: 'Open the booking',
@@ -1739,6 +1794,7 @@ export const REGISTRY = {
     maxLength: 40,
     context: 'Staff notification, button linking to the booking in the admin.',
     screen: 'emails',
+    label: 'Nút mở đặt bàn trong trang quản trị',
   },
 } as const satisfies Record<string, StringDef>;
 

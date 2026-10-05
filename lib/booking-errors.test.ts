@@ -7,7 +7,7 @@ import { BOOKING_ERROR_CODES, bookingErrorParams, type BookingErrorCode, type Er
 const DEFAULT_ERROR_STRINGS = Object.fromEntries(BOOKING_ERROR_CODES.map((c) => [`error.${c}`, REGISTRY[`error.${c}`].en])) as ErrorStrings;
 
 const bookingErrorMessage = (code: BookingErrorCode, params: Record<string, string> = {}, strings = DEFAULT_ERROR_STRINGS) =>
-  formatMessage(strings[`error.${code}`], bookingErrorParams(params));
+  formatMessage(strings[`error.${code}`], bookingErrorParams(REGISTRY['error.restaurant_fallback'].en, params));
 
 describe('bookingErrorMessage', () => {
   it('has guest-facing copy for every code', () => {
@@ -22,8 +22,9 @@ describe('bookingErrorMessage', () => {
     );
   });
 
-  it('falls back to a generic subject when the restaurant is not given', () => {
+  it('falls back to a generic subject when the restaurant is not given: error.restaurant_fallback, as before plan 7B B8', () => {
     expect(bookingErrorMessage('slot_unavailable')).toBe('The restaurant does not serve at that time.');
+    expect(formatMessage(REGISTRY['error.slot_unavailable'].en, bookingErrorParams('Nhà hàng'))).toBe('Nhà hàng does not serve at that time.');
   });
 
   it('gives the party limit and the number to call, with defaults when the server sent none', () => {

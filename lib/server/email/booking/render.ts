@@ -61,12 +61,13 @@ const GUEST_EMAILS = {
   'guest.cancelled': { subject: 'email.guest.cancelled.subject', heading: 'email.guest.cancelled.heading', intro: 'email.guest.cancelled.intro', reason: true },
 } as const satisfies Record<GuestEvent, { subject: EmailKey; heading: EmailKey; intro: EmailKey; reason: boolean }>;
 
+/** Each guest event's keys, from GUEST_EMAILS alone: a new guest email is one row there. */
 function guestEventKeys(): Record<GuestEvent, readonly EmailKey[]> {
-  const keys = (e: GuestEvent): EmailKey[] => {
-    const g = GUEST_EMAILS[e];
-    return [g.subject, g.heading, g.intro, ...(g.reason ? (['email.common.label_reason'] as const) : []), 'email.common.contact', 'email.common.footer_guest'];
-  };
-  return { 'guest.ack': keys('guest.ack'), 'guest.confirmed': keys('guest.confirmed'), 'guest.declined': keys('guest.declined'), 'guest.cancelled': keys('guest.cancelled') };
+  const keys = {} as Record<GuestEvent, readonly EmailKey[]>;
+  for (const [event, g] of Object.entries(GUEST_EMAILS) as [GuestEvent, (typeof GUEST_EMAILS)[GuestEvent]][]) {
+    keys[event] = [g.subject, g.heading, g.intro, ...(g.reason ? (['email.common.label_reason'] as const) : []), 'email.common.contact', 'email.common.footer_guest'];
+  }
+  return keys;
 }
 
 const EVENT_KEYS = {

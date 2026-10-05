@@ -29,7 +29,7 @@ export async function StringsPanel({
     token: f.token,
     overridden: f.overridden,
     en: f.def.en,
-    label: f.def.label ?? f.key,
+    label: f.def.label,
     maxLength: f.def.maxLength,
     vars: [...(f.def.vars ?? [])],
     context: f.def.context,

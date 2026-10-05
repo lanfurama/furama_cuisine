@@ -49,7 +49,11 @@ export function StringsForm({
   fields: StringFieldView[];
   /** Keys under a titled fieldset each; keys no group takes come first, ungrouped. */
   groups?: readonly StringGroup[];
-  /** Extra controls inside the form, before the save bar. */
+  /**
+   * Extra controls inside the form, after the save bar: the save button stays
+   * the form's first submit button, so Enter in a field saves (the emails
+   * screen's "Xem trước" is a submit button too; 7A review).
+   */
   children?: React.ReactNode;
 }) {
   const version = fields.map((f) => f.token).join('|');
@@ -73,7 +77,6 @@ export function StringsForm({
     >
       <input type="hidden" name="screen" value={screen} />
       <StringFields key={save.token} fields={save.view} groups={groups ?? []} state={save.state} />
-      {children}
       <SaveBar
         state={save.state as ActionResult<unknown> | null}
         pending={save.pending}
@@ -83,6 +86,7 @@ export function StringsForm({
         success={success}
         label={`Lưu ${title.toLowerCase()}`}
       />
+      {children}
     </form>
   );
 }

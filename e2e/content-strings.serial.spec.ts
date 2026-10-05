@@ -201,7 +201,7 @@ test('the email screen previews unsaved text with the sample booking, and writes
   await expect(form.getByLabel('Loại email', { exact: true })).toHaveValue('staff.new');
   await expect(form.getByText('Có thay đổi chưa lưu.')).toHaveCount(0);
   await form.getByLabel('Loại email', { exact: true }).selectOption('guest.confirmed');
-  await form.getByLabel('email.guest.confirmed.subject', { exact: true }).fill('Table confirmed! {reference}');
+  await form.getByLabel('Tiêu đề email (Khách: đã xác nhận)', { exact: true }).fill('Table confirmed! {reference}');
   await expect(form.getByText('Có thay đổi chưa lưu.')).toBeVisible();
   // The frame is sandbox="" (no scripts, opaque origin), so the test reads what the server sent into it.
   const preview = (text: RegExp | string) =>
@@ -218,11 +218,27 @@ test('the email screen previews unsaved text with the sample booking, and writes
   expect(shown.headers()['content-security-policy']).toContain("frame-ancestors 'self'");
   expect(page.frames().some((f) => f.name() === 'email-preview' && f.url().endsWith('/api/admin/emails/preview'))).toBe(true);
   // Typed text is still in the form, and nothing reached the database.
-  await expect(form.getByLabel('email.guest.confirmed.subject', { exact: true })).toHaveValue('Table confirmed! {reference}');
+  await expect(form.getByLabel('Tiêu đề email (Khách: đã xác nhận)', { exact: true })).toHaveValue('Table confirmed! {reference}');
   expect(await one(`SELECT 1 FROM content_strings WHERE key LIKE 'email.%'`)).toBeUndefined();
 
   // A dropped variable is refused in the preview too.
-  await form.getByLabel('email.guest.confirmed.subject', { exact: true }).fill('Table confirmed!');
+  await form.getByLabel('Tiêu đề email (Khách: đã xác nhận)', { exact: true }).fill('Table confirmed!');
   const refused = await preview(/Thiếu biến \{reference\}/);
   expect(refused.status()).toBe(422);
+});
+
+test('Enter in an email field saves the screen, it does not open the preview (the save button is the form’s first)', async ({ page }) => {
+  await signInAs(page, STAFF.editor);
+  await page.goto('/admin/content/emails');
+  const form = page.getByRole('form', { name: 'Nội dung email' });
+  await expectHydrated(page);
+  const previews = { count: 0 };
+  page.on('request', (r) => {
+    if (r.url().endsWith('/api/admin/emails/preview')) previews.count += 1;
+  });
+  // Unchanged, so the save writes nothing and says so.
+  await form.locator('[name="v:email.guest.confirmed.subject"]').press('Enter');
+  await expect(form.getByRole('status').filter({ hasText: 'Không có gì thay đổi.' })).toBeVisible();
+  expect(previews.count).toBe(0);
+  expect(await one(`SELECT 1 FROM content_strings WHERE key LIKE 'email.%'`)).toBeUndefined();
 });

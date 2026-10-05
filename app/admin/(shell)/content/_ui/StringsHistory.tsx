@@ -42,7 +42,7 @@ export function StringsHistory({
             return (
               <li key={e.id} className="a-history-item">
                 <p>
-                  <strong>{field.def.label ?? field.key}</strong> · {auditActionLabel(e.action)} · {e.actor} · <time dateTime={new Date(e.at).toISOString()}>{when}</time>
+                  <strong>{field.def.label}</strong> · {auditActionLabel(e.action)} · {e.actor} · <time dateTime={new Date(e.at).toISOString()}>{when}</time>
                 </p>
                 <p className="a-muted">
                   <span lang="en">{text(e.before)}</span> → <span lang="en">{text(e.after)}</span>
@@ -58,7 +58,7 @@ export function StringsHistory({
                         side={c.side}
                         token={field.token}
                         label={c.label}
-                        when={`${field.def.label ?? field.key}, ${when}`}
+                        when={`${field.def.label}, ${when}`}
                       />
                     ))}
                   </div>

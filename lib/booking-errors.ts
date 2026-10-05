@@ -50,16 +50,17 @@ export const DEFAULT_PHONE: GroupPhone = { display: FALLBACK_PHONE.display, tel:
  * Used when a message arrives without its params (the server always sends them
  * for slot_unavailable and party_too_large). The drawer passes the chosen
  * restaurant's group phone ahead of these, so {phone} names the right desk.
+ * The restaurant's stand-in is a registry key (error.restaurant_fallback):
+ * words, so the caller passes its resolved text.
  */
 const DEFAULT_PARAMS: Record<string, string> = {
-  restaurant: 'The restaurant',
   max: '12',
   limit: String(PHONE_DAY_LIMIT),
   phone: DEFAULT_PHONE.display,
 };
 
 /** A message's params over the defaults, so no placeholder is left showing. */
-export function bookingErrorParams(params: Record<string, string> = {}): Record<string, string> {
-  return { ...DEFAULT_PARAMS, ...params };
+export function bookingErrorParams(restaurant: string, params: Record<string, string> = {}): Record<string, string> {
+  return { ...DEFAULT_PARAMS, restaurant, ...params };
 }
 

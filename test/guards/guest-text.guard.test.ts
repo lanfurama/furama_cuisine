@@ -13,7 +13,15 @@ import { findingId, looksLikeProse, scanGuestText, templateHasWord } from './gue
  * any more fails too, so the lists only shrink and never go stale.
  */
 
-/** Not content: brand marks, pages that render without a database, code tokens. */
+/**
+ * R35: the header's and the phone menu's language switcher is a placeholder
+ * that switches nothing; each language names itself by its own code and name,
+ * which the locales table already holds (short_label, native_name). Phase 8
+ * builds the real switcher on that table (/admin/locales).
+ */
+const LANGUAGE_SWITCHER = 'language switcher placeholder (R35): phase 8 builds it on the locales table (short_label, native_name)';
+
+/** Not content: brand marks, pages that render without a database, code tokens, the phase-8 language switcher. */
 const LOCKED: Record<string, string> = {
   "app/(site)/[lang]/(guarded)/privacy/page.tsx: UTC": "code token, not text",
   "app/(site)/[lang]/(guarded)/privacy/page.tsx: en-GB": "code token, not text",
@@ -31,16 +39,23 @@ const LOCKED: Record<string, string> = {
   "app/global-not-found.tsx: Page not found": "renders without the database or a language (spec §12): code text by design",
   "app/global-not-found.tsx: Page not found — Furama Cuisine": "renders without the database or a language (spec §12): code text by design",
   "components/overlays/Honeypot.tsx: Website": "honeypot label: hidden from people (aria-hidden, off-screen), bait for bots",
+  "components/overlays/MenuOverlay.tsx: EN": LANGUAGE_SWITCHER,
   "components/overlays/MenuOverlay.tsx: FURAMA CUISINE": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
+  "components/overlays/MenuOverlay.tsx: VI": LANGUAGE_SWITCHER,
   "components/overlays/ReserveDrawer.tsx: .daystrip .day[aria-pressed=\"true\"]": "code token, not text",
   "components/overlays/SearchOverlay.tsx: FURAMA CUISINE": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
   "components/site/Footer.tsx: FURAMA CUISINE": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
   "components/site/Header.tsx: CUISINE": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
+  "components/site/Header.tsx: EN": LANGUAGE_SWITCHER,
+  "components/site/Header.tsx: English": LANGUAGE_SWITCHER,
   "components/site/Header.tsx: FURAMA": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
   "components/site/Header.tsx: FURAMA CUISINE": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
+  "components/site/Header.tsx: Tiếng Việt": LANGUAGE_SWITCHER,
+  "components/site/Header.tsx: VI": LANGUAGE_SWITCHER,
   "components/site/IntroCurtain.tsx: CUISINE": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
   "components/site/IntroCurtain.tsx: FURAMA": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
   "components/site/PageCurtain.tsx: FURAMA": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
+  "components/site/SiteProvider.tsx: EN": LANGUAGE_SWITCHER,
   "components/site/SiteProvider.tsx: Escape": "code token, not text",
   "lib/booking.ts: NFD": "code token, not text",
   "lib/content/format.ts: UTC": "code token, not text",
@@ -48,17 +63,12 @@ const LOCKED: Record<string, string> = {
   "lib/motion.tsx: 0px 0px -8% 0px": "code token, not text",
 };
 
-/** Still inline. Each moves to the registry key named (proposed names; spec §5.1 item 2), or to its phase. */
-const PENDING: Record<string, string> = {
-  "components/overlays/MenuOverlay.tsx: EN": "phase 8: locales.short_label (language switcher)",
-  "components/overlays/MenuOverlay.tsx: VI": "phase 8: locales.short_label",
-  "components/site/Header.tsx: EN": "phase 8: locales.short_label",
-  "components/site/Header.tsx: English": "phase 8: locales.native_name",
-  "components/site/Header.tsx: Tiếng Việt": "phase 8: locales.native_name",
-  "components/site/Header.tsx: VI": "phase 8: locales.short_label",
-  "components/site/SiteProvider.tsx: EN": "phase 8: locales.short_label",
-  "lib/booking-errors.ts: The restaurant": "error.restaurant_fallback (the {restaurant} of error.slot_unavailable before the catalogue loads)",
-};
+/**
+ * Still inline, each with the registry key it moves to. Phase 7 emptied it
+ * (plan 7B task B8, spec §14.1 row 7 AC2): a new guest literal must become a
+ * key, or a LOCKED entry with its reason.
+ */
+const PENDING: Record<string, string> = {};
 
 const findings = scanGuestText();
 
@@ -73,6 +83,10 @@ describe('guest-visible text lives in the registry or the database (spec §13)',
     expect([...Object.keys(LOCKED), ...Object.keys(PENDING)].filter((id) => !found.has(id))).toEqual([]);
   });
 
+  it('PENDING is empty (AC2): every guest literal is a registry key, a database value, or LOCKED with its reason', () => {
+    expect(PENDING).toEqual({});
+  });
+
   it('PENDING only shrinks during phase 7 (the number in the plan’s task table)', () => {
     // 161 found by the phase-7 spike, less the six offers.* literals moved in plan 7A task A3, the
     // thirteen hero.* and film.* ones moved in A9, the thirteen detail.* ones moved in A10, the
@@ -81,9 +95,10 @@ describe('guest-visible text lives in the registry or the database (spec §13)',
     // moved in B3, the eighteen of the header, the phone menu and tab bar, the restaurant page's
     // and the reservation form's RESERVE A TABLE and the 404 page moved in B4, the twelve of the
     // footer and the phone menu's tagline moved in B5, the sixty-two of the booking bar, the
-    // finder and the reservation form moved in B6 and the seven of the metadata moved in B7 (the
-    // root layout's brand title is LOCKED). Plan 7B empties it.
-    expect(Object.keys(PENDING).length).toBeLessThanOrEqual(8);
+    // finder and the reservation form moved in B6, the seven of the metadata moved in B7 (the
+    // root layout's brand title is LOCKED), and in B8 error.restaurant_fallback and the seven of
+    // the language switcher (LOCKED, R35).
+    expect(Object.keys(PENDING).length).toBe(0);
   });
 });
 

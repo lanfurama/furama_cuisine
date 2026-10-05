@@ -29,8 +29,10 @@ export function BookingError({
 }: {
   code: BookingErrorCode;
   params?: Record<string, string>;
-  strings: Record<ErrorKey, string>;
+  strings: Record<ErrorKey | 'error.restaurant_fallback', string>;
   phone: GroupPhone | null;
 }) {
-  return <WithPhone template={strings[`error.${code}`]} params={bookingErrorParams(params)} phone={phone ?? DEFAULT_PHONE} />;
+  return (
+    <WithPhone template={strings[`error.${code}`]} params={bookingErrorParams(strings['error.restaurant_fallback'], params)} phone={phone ?? DEFAULT_PHONE} />
+  );
 }

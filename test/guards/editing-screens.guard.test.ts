@@ -16,7 +16,7 @@ import { walk } from './guest-text';
  * page's folder: <StringsPanel screen="ui-text" />).
  */
 
-/** Screens phase 7 has not built yet. The plan's tasks empty this list; the last task of phase 7 asserts it is []. */
+/** Screens phase 7 has not built yet: none (plan 7B task B8, X1); a later phase's screen names its phase instead. */
 const NOT_BUILT: readonly EditScreen[] = [];
 
 const CURRENT_PHASE = 7;
@@ -52,6 +52,11 @@ describe('every key, table and column guests see has an editing screen (spec §7
   const stringScreens = ADMIN_SCREENS.filter((s) => keysForScreen(s).length > 0 && existsSync(EDIT_SCREENS[s].page));
   it.each(stringScreens)('%s: the page renders its strings (screen="%s" in its folder)', (screen: AdminScreen) => {
     expect([...screenAttributes(dirname(EDIT_SCREENS[screen].page))]).toContain(screen);
+  });
+
+  it('every screen of spec §7.2 that phase 7 owns is built (X1): NOT_BUILT is empty', () => {
+    expect(NOT_BUILT).toEqual([]);
+    expect(used.filter((s) => EDIT_SCREENS[s].phase <= CURRENT_PHASE && !existsSync(EDIT_SCREENS[s].page))).toEqual([]);
   });
 
   it('NOT_BUILT lists only screens whose page is missing', () => {
