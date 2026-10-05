@@ -260,7 +260,8 @@ export function SiteProvider({
   const [scrolled, setScrolled] = useState(false);
   const [tab, setTab] = useState<SiteState['tab']>('explore');
   const [finder, setFinderState] = useState<Finder>({
-    location: 'Da Nang',
+    // The one city today; the finder prints its name (finder.city).
+    location: 'danang',
     cuisine: 'all',
     // site_settings.default_occasion; NULL: any occasion.
     occasion: site.settings.defaultOccasion ?? 'all',
@@ -325,6 +326,9 @@ export function SiteProvider({
      previous restaurant or date must not overwrite the current one. */
   const calendarSeq = useRef(0);
   const boardSeq = useRef(0);
+  /* The restaurant whose calendar request is on its way (the newest), else null:
+     REQUEST BOOKING does not restart it (a Try again in flight keeps its answer). */
+  const calendarInFlight = useRef<string | null>(null);
   /* Which answers did not arrive, and for what. Only the newest request of a
      kind sets or clears its flag, and the flag stays until a later request of
      that kind answers, so a Try again that fails again leaves the message (and
@@ -377,9 +381,11 @@ export function SiteProvider({
   const loadCalendar = useCallback(
     (restaurant: string) => {
       const seq = ++calendarSeq.current;
+      calendarInFlight.current = restaurant;
       getJson<CalendarResponse>(calendarUrl(restaurant, locale))
         .then((res) => {
           if (seq !== calendarSeq.current) return;
+          calendarInFlight.current = null;
           settleCalendar(restaurant, res.ok, !res.ok && res.gone);
           answered(restaurant);
           if (!res.ok) return;
@@ -397,6 +403,7 @@ export function SiteProvider({
         })
         .catch(() => {
           if (seq !== calendarSeq.current) return;
+          calendarInFlight.current = null;
           settleCalendar(restaurant, false);
           answered(restaurant);
         });
@@ -617,13 +624,14 @@ export function SiteProvider({
     if (restaurant && !calendarFor(ctx.calendar, restaurant)) {
       // No dates for this restaurant yet, so nothing to book. They failed: the
       // drawer already says so, so point the guest at it (one alert, not two)
-      // and ask again, unless the restaurant has stopped taking bookings. Or
-      // they are on their way: say so and wait (asking again would only
+      // and ask again, unless the restaurant has stopped taking bookings or a
+      // Try again is already asking (restarting it would only drop its answer).
+      // Or they are on their way: say so and wait (asking again would only
       // restart the request every click); their answer clears the note.
       setTried(true);
       if (failed.calendar?.restaurant === restaurant) {
         setFailureNudge((n) => n + 1);
-        if (!failed.calendar.gone) loadCalendar(restaurant);
+        if (!failed.calendar.gone && calendarInFlight.current !== restaurant) loadCalendar(restaurant);
       } else setWaitNote({ restaurant });
       return;
     }

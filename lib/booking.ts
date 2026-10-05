@@ -46,8 +46,6 @@ export function validate(form: BookingForm) {
   };
 }
 
-export const guestLabel = (n: number) => `${n} ${n === 1 ? 'guest' : 'guests'}`;
-
 /** Accent- and đ-insensitive fold, so "pho cuon" matches "Phố Cuốn". The SQL twin is fold_search() (migration 006). */
 export const fold = (x: string) =>
   String(x)

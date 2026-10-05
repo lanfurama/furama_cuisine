@@ -169,18 +169,21 @@ export const REGISTRY = {
     maxLength: 40,
     context: 'Reservation form, on a date that takes no bookings when the closure has no public reason. Short: it also fits a dropdown note.',
     screen: 'booking',
+    label: 'Ngày đóng cửa (không có lý do)',
   },
   'booking.day_full': {
     en: 'Fully booked',
     maxLength: 40,
     context: 'Reservation form, on a date with no tables left at any time. Short: it also fits a dropdown note.',
     screen: 'booking',
+    label: 'Ngày đã kín bàn',
   },
   'booking.day_past': {
     en: 'No more tables today',
     maxLength: 40,
     context: 'Reservation form, on today once every sitting has closed to online booking.',
     screen: 'booking',
+    label: 'Hôm nay đã hết giờ đặt online',
   },
   'booking.day_note': {
     en: '{date}: {reason}',
@@ -189,12 +192,14 @@ export const REGISTRY = {
     context:
       'Line under the date strip after a guest taps a date that takes no bookings, and that date’s spoken name. {date} is the formatted date, {reason} the public closure reason or one of booking.day_*; keep both.',
     screen: 'booking',
+    label: 'Ghi chú khi bấm vào ngày không đặt được',
   },
   'booking.meal_closed': {
     en: 'Not available on this date.',
     maxLength: 80,
     context: 'Under a meal heading (Lunch, Dinner…) when a closure takes out that meal only. The public reason, if any, follows on its own line.',
     screen: 'booking',
+    label: 'Bữa đóng trong ngày',
   },
   'booking.no_tables': {
     en: 'No tables left on this date — please choose another day.',
@@ -202,6 +207,7 @@ export const REGISTRY = {
     context:
       'Reservation form, under TIME, when every time of the chosen date is taken for this party size (the slots show struck through). Read out by screen readers when it appears.',
     screen: 'booking',
+    label: 'Hết bàn trong ngày đã chọn',
   },
   'booking.no_dates': {
     en: 'No dates are open for online booking. Please call us on {phone}.',
@@ -209,6 +215,7 @@ export const REGISTRY = {
     vars: ['phone'],
     context: 'Reservation form, when no date in the booking window takes bookings. {phone} is the restaurant’s number; keep it.',
     screen: 'booking',
+    label: 'Không còn ngày nào đặt online',
   },
   // ── "Gọi để đặt bàn" (R20, phase 6): when online booking is off, the number to call instead. ──
   'booking.all_offline': {
@@ -218,6 +225,7 @@ export const REGISTRY = {
     context:
       'Reservation form, in place of the whole form when staff have switched online booking off for every restaurant. {phone} is the resort’s number, shown as a link to call; keep it.',
     screen: 'booking',
+    label: 'Mọi nhà hàng tạm ngừng đặt online',
   },
   'booking.call_tag': {
     en: 'Call {phone}',
@@ -226,6 +234,7 @@ export const REGISTRY = {
     context:
       'Restaurant card on the home page, the tag shown on hover (in capitals by CSS; "→" follows), for a restaurant with no page of its own whose online booking staff have switched off: a tap calls it. {phone} is the restaurant’s number, else its destination’s, as printed; keep it.',
     screen: 'booking',
+    label: 'Nhãn “Gọi” kèm số điện thoại',
   },
   'booking.call_action': {
     en: 'Call',
@@ -233,6 +242,7 @@ export const REGISTRY = {
     context:
       'Search results, the action at the end of a row ("→" follows), for a restaurant with no page of its own whose online booking staff have switched off: a tap calls it. Short: the row is narrow on a phone.',
     screen: 'booking',
+    label: 'Nút “Gọi”',
   },
   'booking.day_outside': {
     en: 'Not open for booking yet',
@@ -240,6 +250,7 @@ export const REGISTRY = {
     context:
       'Reservation form: why a date cannot be booked when it lies beyond this restaurant’s booking window (staff set it per restaurant). Used as {reason} in booking.date_moved. Short.',
     screen: 'booking',
+    label: 'Ngày chưa mở đặt bàn',
   },
   'booking.date_moved': {
     en: '{date} can’t be booked ({reason}). Your table is now set for {to}.',
@@ -248,6 +259,7 @@ export const REGISTRY = {
     context:
       'Line under the date strip when the form had to move the chosen date: another restaurant was chosen (or fresh availability arrived) and it does not take that date, so the nearest open day was chosen instead. {date} is the date given up, {reason} the public closure reason or one of booking.day_* (booking.day_outside beyond the window), {to} the new date; keep all three.',
     screen: 'booking',
+    label: 'Thông báo ngày đã chọn bị đổi',
   },
   'booking.loading': {
     en: 'Checking tables…',
@@ -255,6 +267,7 @@ export const REGISTRY = {
     context:
       'Reservation form, while availability loads: under DATE before the first dates arrive, in place of the time slots, and beside REQUEST BOOKING when it is pressed before the dates have arrived.',
     screen: 'booking',
+    label: 'Đang kiểm tra bàn trống',
   },
   'booking.done_requested': {
     en: 'Your table request at {restaurant} has been received. Our team will contact you shortly to confirm.',
@@ -263,6 +276,7 @@ export const REGISTRY = {
     context:
       'Thank-you screen of the reservation form when the booking waits for staff to confirm it (status requested). {restaurant} is the restaurant name; keep it. Must say the same as the guest.ack email (phase 5).',
     screen: 'booking',
+    label: 'Màn cảm ơn: yêu cầu chờ xác nhận',
   },
   'booking.done_confirmed': {
     en: 'Your table at {restaurant} is confirmed. We look forward to welcoming you.',
@@ -271,6 +285,7 @@ export const REGISTRY = {
     context:
       'Thank-you screen of the reservation form when the restaurant confirms online bookings at once (auto-confirm; status confirmed): nobody will call to confirm. {restaurant} is the restaurant name; keep it. Must say the same as the guest.confirmed email (phase 5).',
     screen: 'booking',
+    label: 'Màn cảm ơn: đặt bàn đã xác nhận',
   },
   'booking.retry': {
     en: 'Try again',
@@ -278,10 +293,199 @@ export const REGISTRY = {
     context:
       'Reservation form, a button under error.network when the dates or the times could not be loaded (server error or no connection); it asks the server again.',
     screen: 'booking',
+    label: 'Nút “thử lại” khi không tải được ngày giờ',
   },
   // ── The privacy notice and consent (spec §11, Law 91/2025/QH15). English only until a reviewed ──
   // Vietnamese text exists (R17); lib/legal.test.ts pins a hash of these texts to PRIVACY_POLICY_VERSION.
   // booking.* so they reach the reservation form; legal.link reaches the browser too (form and footer).
+  // ── Booking bar and reservation form (client: SiteProvider) ──
+  'booking.title': {
+    en: 'Where would you like to dine?',
+    maxLength: 60,
+    context: 'The heading of the booking bar above the footer (home page). A question to the guest.',
+    screen: 'booking',
+    label: 'Tiêu đề thanh đặt bàn',
+  },
+  'booking.label_destination': {
+    en: 'Destination',
+    maxLength: 24,
+    context: 'Caption of the destination choice in the booking bar and the reservation form.',
+    screen: 'booking',
+    label: 'Nhãn ô điểm đến',
+  },
+  'booking.label_restaurant': {
+    en: 'Restaurant',
+    maxLength: 24,
+    context: 'Caption of the restaurant choice in the booking bar and the reservation form.',
+    screen: 'booking',
+    label: 'Nhãn ô nhà hàng',
+  },
+  'booking.label_date': {
+    en: 'Date',
+    maxLength: 24,
+    context: 'Caption of the date choice in the booking bar, and of the date line on the reservation form’s thank-you screen.',
+    screen: 'booking',
+    label: 'Nhãn ô ngày',
+  },
+  'booking.label_time': {
+    en: 'Time',
+    maxLength: 24,
+    context: 'Caption of the time choice in the booking bar, and of the time line on the thank-you screen.',
+    screen: 'booking',
+    label: 'Nhãn ô giờ',
+  },
+  'booking.label_guests': {
+    en: 'Guests',
+    maxLength: 24,
+    context: 'Caption of the party size choice in the booking bar, and of the party line on the thank-you screen.',
+    screen: 'booking',
+    label: 'Nhãn ô số khách',
+  },
+  'booking.label_reference': {
+    en: 'Reference',
+    maxLength: 24,
+    context: 'The thank-you screen: caption of the booking reference (a short code the guest quotes when calling).',
+    screen: 'booking',
+    label: 'Nhãn mã đặt bàn (màn cảm ơn)',
+  },
+  'booking.find_table': {
+    en: 'FIND A TABLE',
+    maxLength: 24,
+    context: 'The booking bar’s button that opens the reservation form with its choices (an arrow follows it). Capitals.',
+    screen: 'booking',
+    label: 'Nút “tìm bàn” của thanh đặt bàn',
+  },
+  'booking.slot_full': {
+    en: 'Full',
+    maxLength: 16,
+    context: 'Booking bar, time list: the note on a time with no table left for the party. One short word.',
+    screen: 'booking',
+    label: 'Ghi chú giờ đã kín (thanh đặt bàn)',
+  },
+  'booking.slot_left': {
+    en: '{count} left',
+    maxLength: 20,
+    vars: ['count'],
+    context: 'Booking bar, time list: the note on a time with few tables left (6 or fewer). {count} is the number of covers left; keep it. Short.',
+    screen: 'booking',
+    label: 'Ghi chú giờ sắp kín (thanh đặt bàn)',
+  },
+  'booking.slot_full_aria': {
+    en: '{time} — fully booked',
+    maxLength: 60,
+    vars: ['time'],
+    context: 'Reservation form, screen-reader name of a time button that is fully booked. {time} is the time (19:00); keep it.',
+    screen: 'booking',
+    label: 'Tên đọc màn hình của giờ đã kín',
+  },
+  'booking.slot_left_aria': {
+    en: '{time} — {count} covers left',
+    maxLength: 60,
+    vars: ['time', 'count'],
+    context: 'Reservation form, screen-reader name of a time button: the time and the covers left. Keep {time} and {count}.',
+    screen: 'booking',
+    label: 'Tên đọc màn hình của giờ còn chỗ',
+  },
+  'booking.guests_count': {
+    en: '{count, plural, one {# guest} other {# guests}}',
+    maxLength: 60,
+    vars: ['count'],
+    context: 'The party size as the booking bar, the reservation form and its thank-you screen write it ("2 guests"). ICU plural: keep the one/other forms and #.',
+    screen: 'booking',
+    label: 'Số khách (dạng số ít/số nhiều)',
+  },
+  'booking.drawer_aria': {
+    en: 'Reserve a table',
+    maxLength: 40,
+    context: 'Screen-reader name of the reservation form (a dialog).',
+    screen: 'booking',
+    label: 'Tên đọc màn hình của form đặt bàn',
+  },
+  'booking.thanks': {
+    en: 'Thank you, {name}.',
+    maxLength: 60,
+    vars: ['name'],
+    context: 'Reservation form, the thank-you screen’s heading. {name} is the name the guest typed, or booking.thanks_anon when empty; keep it.',
+    screen: 'booking',
+    label: 'Lời cảm ơn (màn cảm ơn)',
+  },
+  'booking.thanks_anon': {
+    en: 'you',
+    maxLength: 20,
+    context: 'Stands for the guest’s name in booking.thanks when the name field was empty ("Thank you, you."). Lower case.',
+    screen: 'booking',
+    label: 'Thay cho tên khách khi trống (lời cảm ơn)',
+  },
+  'booking.done': {
+    en: 'DONE',
+    maxLength: 16,
+    context: 'Reservation form, the thank-you screen’s button that closes it. Capitals.',
+    screen: 'booking',
+    label: 'Nút đóng màn cảm ơn',
+  },
+  'booking.fewer_guests': {
+    en: 'Fewer guests',
+    maxLength: 40,
+    context: 'Reservation form, screen-reader name of the − button of the party size.',
+    screen: 'booking',
+    label: 'Tên đọc màn hình của nút bớt khách',
+  },
+  'booking.more_guests': {
+    en: 'More guests',
+    maxLength: 40,
+    context: 'Reservation form, screen-reader name of the + button of the party size.',
+    screen: 'booking',
+    label: 'Tên đọc màn hình của nút thêm khách',
+  },
+  'booking.section_date': {
+    en: 'DATE',
+    maxLength: 20,
+    context: 'Reservation form, the label above the strip of dates. Capitals.',
+    screen: 'booking',
+    label: 'Nhãn phần chọn ngày (form đặt bàn)',
+  },
+  'booking.section_guests': {
+    en: 'GUESTS',
+    maxLength: 20,
+    context: 'Reservation form, the label of the party size stepper. Capitals.',
+    screen: 'booking',
+    label: 'Nhãn phần số khách (form đặt bàn)',
+  },
+  'booking.section_time': {
+    en: 'TIME',
+    maxLength: 20,
+    context: 'Reservation form, the label above the times. Capitals.',
+    screen: 'booking',
+    label: 'Nhãn phần chọn giờ (form đặt bàn)',
+  },
+  'booking.your_details': {
+    en: 'YOUR DETAILS',
+    maxLength: 30,
+    context: 'Reservation form, the label above the name, phone, email and requests. Capitals.',
+    screen: 'booking',
+    label: 'Nhãn phần thông tin khách (form đặt bàn)',
+  },
+  'booking.your_table': {
+    en: 'YOUR TABLE',
+    maxLength: 30,
+    context: 'Reservation form, the small label of the summary at the foot (date · time · guests). Capitals.',
+    screen: 'booking',
+    label: 'Nhãn phần tóm tắt cuối form',
+  },
+  'booking.sending': {
+    en: 'SENDING…',
+    maxLength: 24,
+    context: 'Reservation form, the send button while the request is on its way. Capitals.',
+    screen: 'booking',
+    label: 'Nút gửi khi đang gửi',
+  },
+  'booking.submit': {
+    en: 'REQUEST BOOKING',
+    maxLength: 24,
+    context: 'Reservation form, the button that sends the table request. Capitals.',
+    screen: 'booking',
+    label: 'Nút gửi yêu cầu đặt bàn',
+  },
   'booking.privacy_notice': {
     en: 'We use your name, phone number and email to arrange this booking and to contact you about it. To stop abuse, we also check how many online requests your phone number has made for the same day, and run an automated bot check.',
     maxLength: 240,
@@ -926,6 +1130,84 @@ export const REGISTRY = {
     screen: 'ui-text',
     label: 'Trang không tồn tại: link về trang chủ',
   },
+  'common.close': {
+    en: 'Close',
+    maxLength: 20,
+    context: 'Screen-reader name of the × buttons and the dark backdrop that close the reservation form and the phone finder.',
+    screen: 'ui-text',
+    label: 'Tên đọc màn hình của nút đóng (×)',
+  },
+  'common.today': {
+    en: 'Today',
+    maxLength: 20,
+    context: 'The first day of the reservation form’s date strip, and its note in the booking bar’s date list.',
+    screen: 'ui-text',
+    label: 'Chữ “hôm nay”',
+  },
+  'common.tomorrow': {
+    en: 'Tomorrow',
+    maxLength: 20,
+    context: 'The second day’s note in the booking bar’s date list.',
+    screen: 'ui-text',
+    label: 'Chữ “ngày mai”',
+  },
+  // ── Reservation form fields (client: SiteProvider) ──
+  'form.name': {
+    en: 'Full name *',
+    maxLength: 40,
+    context: 'Reservation form, caption of the name field; the * marks it as required.',
+    screen: 'ui-text',
+    label: 'Nhãn ô họ tên',
+  },
+  'form.phone': {
+    en: 'Phone *',
+    maxLength: 40,
+    context: 'Reservation form, caption of the phone field; the * marks it as required.',
+    screen: 'ui-text',
+    label: 'Nhãn ô điện thoại',
+  },
+  'form.email': {
+    en: 'Email',
+    maxLength: 40,
+    context: 'Reservation form, caption of the email field (optional).',
+    screen: 'ui-text',
+    label: 'Nhãn ô email',
+  },
+  'form.note': {
+    en: 'Special requests',
+    maxLength: 40,
+    context: 'Reservation form, caption of the free-text field for the guest’s requests.',
+    screen: 'ui-text',
+    label: 'Nhãn ô yêu cầu thêm',
+  },
+  'form.ph_name': {
+    en: 'Nguyễn Minh Anh',
+    maxLength: 60,
+    context: 'Reservation form, the example name shown greyed in the empty name field.',
+    screen: 'ui-text',
+    label: 'Chữ mẫu trong ô họ tên',
+  },
+  'form.ph_phone': {
+    en: '+84 905 000 000',
+    maxLength: 40,
+    context: 'Reservation form, the example number shown greyed in the empty phone field.',
+    screen: 'ui-text',
+    label: 'Chữ mẫu trong ô điện thoại',
+  },
+  'form.ph_email': {
+    en: 'you@example.com',
+    maxLength: 60,
+    context: 'Reservation form, the example address shown greyed in the empty email field.',
+    screen: 'ui-text',
+    label: 'Chữ mẫu trong ô email',
+  },
+  'form.ph_note': {
+    en: 'Occasion, dietary needs, seating preference',
+    maxLength: 80,
+    context: 'Reservation form, the example shown greyed in the empty requests field: what a guest may write there.',
+    screen: 'ui-text',
+    label: 'Chữ mẫu trong ô yêu cầu thêm',
+  },
   // ── Footer and the phone menu's foot: client components of the chrome (CLIENT_KEYS); the contact screen ──
   'footer.tagline': {
     en: 'PEOPLE | CULTURE | GREAT FOOD',
@@ -1119,6 +1401,62 @@ export const REGISTRY = {
     context: 'Finder, Destination dropdown: the choice that does not filter by place.',
     screen: 'booking',
     label: 'Lựa chọn “mọi điểm đến”',
+  },
+  'finder.title': {
+    en: 'Find a restaurant',
+    maxLength: 40,
+    context: 'The finder under the home page’s hero: its screen-reader name on desktop; on a phone, the title of the finder sheet.',
+    screen: 'booking',
+    label: 'Tiêu đề ô tìm nhà hàng',
+  },
+  'finder.location': {
+    en: 'Location',
+    maxLength: 24,
+    context: 'Finder, caption of the city choice (desktop).',
+    screen: 'booking',
+    label: 'Nhãn ô thành phố',
+  },
+  'finder.cuisine': {
+    en: 'Cuisine',
+    maxLength: 24,
+    context: 'Finder, caption of the cuisine choice (desktop dropdown and phone chips).',
+    screen: 'booking',
+    label: 'Nhãn ô ẩm thực',
+  },
+  'finder.occasion': {
+    en: 'Occasion',
+    maxLength: 24,
+    context: 'Finder, caption of the meal choice (desktop dropdown and phone chips).',
+    screen: 'booking',
+    label: 'Nhãn ô dịp (bữa)',
+  },
+  'finder.destination': {
+    en: 'Destination',
+    maxLength: 24,
+    context: 'Finder, caption of the destination choice (desktop dropdown and phone chips).',
+    screen: 'booking',
+    label: 'Nhãn ô điểm đến (ô tìm)',
+  },
+  'finder.city': {
+    en: 'Da Nang',
+    maxLength: 30,
+    context: 'Finder, the one city the site covers today (the Location choice).',
+    screen: 'booking',
+    label: 'Tên thành phố hiện có',
+  },
+  'finder.more_cities': {
+    en: 'More cities',
+    maxLength: 30,
+    context: 'Finder, Location choice: the greyed-out option for cities to come; common.coming_soon is its note.',
+    screen: 'booking',
+    label: 'Lựa chọn “thêm thành phố” (chưa mở)',
+  },
+  'finder.submit': {
+    en: 'SHOW RESTAURANTS',
+    maxLength: 30,
+    context: 'Finder, the button that filters the restaurant list and scrolls to it (an arrow follows it). Capitals.',
+    screen: 'booking',
+    label: 'Nút lọc nhà hàng (ô tìm)',
   },
   'email.common.label_reference': {
     en: 'Reference',
@@ -1369,20 +1707,20 @@ export const KEY_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/;
 /**
  * Keys the browser needs at first paint, passed to SiteProvider by the
  * (guarded) layout: the chrome's client components (header, phone menu and tab
- * bar: ui.*; footer: footer.*, social.*; reservation form, search, finder,
- * booking bar, film dialog), the
+ * bar: ui.*; footer: footer.*, social.*; reservation form: booking.*, form.*;
+ * search, finder, booking bar, film dialog), the
  * words they share (common.*), the restaurants section and its cards, a restaurant
  * page's client parts (its hero, tab bar and "More at") and the policy link. Everything
  * else is read on the
  * server: a page's own section copy (pageKeys), metadata (seo.*), the policy
  * page (legal.*) and emails (email.*).
  */
-const CLIENT_PREFIXES = ['error.', 'booking.', 'search.', 'meal.', 'finder.', 'film.', 'detail.', 'restaurants.', 'common.', 'ui.', 'footer.', 'social.'] as const;
+const CLIENT_PREFIXES = ['error.', 'booking.', 'form.', 'search.', 'meal.', 'finder.', 'film.', 'detail.', 'restaurants.', 'common.', 'ui.', 'footer.', 'social.'] as const;
 /** Single keys the chrome needs beyond the prefixes: the policy link (form, footer), VIEW OFFER's note (form). */
 const CLIENT_SINGLES = ['legal.link', 'offers.note'] as const;
 export type ClientKey = Extract<
   StringKey,
-  `${'error' | 'booking' | 'search' | 'meal' | 'finder' | 'film' | 'detail' | 'restaurants' | 'common' | 'ui' | 'footer' | 'social'}.${string}` | (typeof CLIENT_SINGLES)[number]
+  `${'error' | 'booking' | 'form' | 'search' | 'meal' | 'finder' | 'film' | 'detail' | 'restaurants' | 'common' | 'ui' | 'footer' | 'social'}.${string}` | (typeof CLIENT_SINGLES)[number]
 >;
 
 export const CLIENT_KEYS = STRING_KEYS.filter(

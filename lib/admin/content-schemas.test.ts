@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AutoplayForm,
+  BookingDefaultsForm,
   checkbox,
   CuisineForm,
   DestinationForm,
@@ -328,5 +329,22 @@ describe('content form schemas (spec §7.3, §7.4)', () => {
       href: ['Đường dẫn phải bắt đầu bằng https://'],
     });
     expect(fieldErrors(SocialForm.safeParse(readForm(form({ platform: 'x', href: '' }))).error)).toEqual({ href: ['Nhập đường dẫn https://'] });
+  });
+
+  it('the booking defaults: a restaurant id or none, a meal of the CHECK or none (plan 7B B6)', () => {
+    const token = 'a'.repeat(32);
+    expect(BookingDefaultsForm.parse(readForm(form({ token, defaultRestaurantId: 'taya-house', defaultOccasion: 'Lunch' })))).toEqual({
+      token,
+      defaultRestaurantId: 'taya-house',
+      defaultOccasion: 'Lunch',
+    });
+    expect(BookingDefaultsForm.parse(readForm(form({ token, defaultRestaurantId: '', defaultOccasion: '' })))).toEqual({
+      token,
+      defaultRestaurantId: null,
+      defaultOccasion: null,
+    });
+    expect(fieldErrors(BookingDefaultsForm.safeParse(readForm(form({ token, defaultRestaurantId: 'Taya House', defaultOccasion: 'Brunch' }))).error)).toMatchObject({
+      defaultOccasion: ['Chọn một bữa trong danh sách.'],
+    });
   });
 });

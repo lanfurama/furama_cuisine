@@ -9,36 +9,36 @@ export function Finder() {
   const { site, finder, setFinder, applyFinder, strings } = useSite();
 
   return (
-    <section className="finder" aria-label="Find a restaurant">
+    <section className="finder" aria-label={strings['finder.title']}>
       <div className="shell-wide finder-inner">
         <div className="finder-fields">
           <Dropdown
             id="fLocation"
-            label="Location"
+            label={strings['finder.location']}
             value={finder.location}
             onPick={(location) => setFinder({ location })}
             options={[
-              { value: 'Da Nang', label: 'Da Nang' },
-              { value: 'soon', label: 'More cities', note: 'Coming soon', disabled: true },
+              { value: 'danang', label: strings['finder.city'] },
+              { value: 'soon', label: strings['finder.more_cities'], note: strings['common.coming_soon'], disabled: true },
             ]}
           />
           <Dropdown
             id="fCuisine"
-            label="Cuisine"
+            label={strings['finder.cuisine']}
             value={finder.cuisine}
             onPick={(cuisine) => setFinder({ cuisine })}
             options={cuisineOptions(site.cuisines, strings)}
           />
           <Dropdown
             id="fOccasion"
-            label="Occasion"
+            label={strings['finder.occasion']}
             value={finder.occasion}
             onPick={(occasion) => setFinder({ occasion })}
             options={occasionOptions(strings)}
           />
           <Dropdown
             id="fDestination"
-            label="Destination"
+            label={strings['finder.destination']}
             value={finder.destination}
             onPick={(destination) => setFinder({ destination })}
             options={destinationOptions(site.destinations, strings)}
@@ -46,7 +46,8 @@ export function Finder() {
         </div>
 
         <button type="button" className="btn-green finder-submit" onClick={applyFinder}>
-          SHOW RESTAURANTS<span className="arrow">→</span>
+          {strings['finder.submit']}
+          <span className="arrow">→</span>
         </button>
       </div>
     </section>

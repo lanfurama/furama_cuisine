@@ -134,6 +134,11 @@ const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; edito
     saveAutoplayAction: { permission: { content: ['update'] }, editor: true },
     restoreAutoplayAction: { permission: { content: ['restore'] }, editor: true },
   },
+  // The booking screen's defaults (spec §7.2 content/booking, plan 7B task B6).
+  'app/admin/(shell)/content/booking/actions.ts': {
+    saveBookingDefaultsAction: { permission: { content: ['update'] }, editor: true },
+    restoreBookingDefaultsAction: { permission: { content: ['restore'] }, editor: true },
+  },
   // The footer's social links (spec §7.2 content/contact, plan 7B task B5).
   'app/admin/(shell)/content/contact/actions.ts': {
     createSocialLinkAction: { permission: { content: ['update'] }, editor: true },

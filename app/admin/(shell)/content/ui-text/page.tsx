@@ -23,6 +23,7 @@ export default async function Page() {
         groups={[
           { title: 'Đầu trang, menu điện thoại và thanh tab', prefix: 'ui.' },
           { title: 'Chữ dùng chung', prefix: 'common.' },
+          { title: 'Ô nhập của form đặt bàn', prefix: 'form.' },
           { title: 'Hộp tìm kiếm', prefix: 'search.' },
           { title: 'Lỗi của form đặt bàn', prefix: 'error.' },
         ]}

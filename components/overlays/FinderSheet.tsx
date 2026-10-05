@@ -18,45 +18,46 @@ export function FinderSheet() {
   if (!open) return null;
 
   return (
-    <div className="sheet-root" role="dialog" aria-modal="true" aria-label="Find a restaurant">
+    <div className="sheet-root" role="dialog" aria-modal="true" aria-label={strings['finder.title']}>
       <button
         type="button"
         data-anim="backdrop"
         className="backdrop"
-        aria-label="Close"
+        aria-label={strings['common.close']}
         onClick={close}
       />
 
       <div data-anim="sheet" className="sheet">
         <div className="sheet-grab" aria-hidden="true" />
         <div className="sheet-head">
-          <div className="sheet-title">Find a restaurant</div>
-          <button type="button" className="overlay-close" aria-label="Close" onClick={close}>
+          <div className="sheet-title">{strings['finder.title']}</div>
+          <button type="button" className="overlay-close" aria-label={strings['common.close']} onClick={close}>
             ×
           </button>
         </div>
 
         <ChipGroup
-          label="Cuisine"
+          label={strings['finder.cuisine']}
           value={finder.cuisine}
           options={cuisineOptions(site.cuisines, strings)}
           onPick={(cuisine) => setFinder({ cuisine })}
         />
         <ChipGroup
-          label="Occasion"
+          label={strings['finder.occasion']}
           value={finder.occasion}
           options={occasionOptions(strings)}
           onPick={(occasion) => setFinder({ occasion })}
         />
         <ChipGroup
-          label="Destination"
+          label={strings['finder.destination']}
           value={finder.destination}
           options={destinationOptions(site.destinations, strings)}
           onPick={(destination) => setFinder({ destination })}
         />
 
         <button type="button" className="sheet-submit" onClick={applyFinder}>
-          SHOW RESTAURANTS<span>→</span>
+          {strings['finder.submit']}
+          <span>→</span>
         </button>
       </div>
     </div>

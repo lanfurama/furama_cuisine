@@ -1,8 +1,9 @@
 'use client';
 
 import { bookableDestinationOptions, mealLabel } from '@/lib/content/options';
-import { fmtDay, guestLabel } from '@/lib/booking';
+import { fmtDay } from '@/lib/booking';
 import { dayReason, slotOpen } from '@/lib/booking/client';
+import { formatMessage } from '@/lib/i18n/format';
 import { useSite } from '@/components/site/SiteProvider';
 import { Dropdown, type Option } from '@/components/ui/Dropdown';
 import { BookingError } from '@/components/booking/WithPhone';
@@ -10,7 +11,7 @@ import { useReveal } from '@/lib/motion';
 
 /** The wide "Where would you like to dine?" bar above the footer. */
 export function BookingBar() {
-  const { site, bookable, booking, setBooking, board, openReserve, days, maxParty, groupPhone, now, strings, loadFailed } = useSite();
+  const { site, bookable, booking, setBooking, board, openReserve, days, maxParty, groupPhone, now, strings, loadFailed, locale } = useSite();
   const title = useReveal<HTMLHeadingElement>('title');
   const panel = useReveal<HTMLDivElement>('up');
 
@@ -29,7 +30,7 @@ export function BookingBar() {
     return {
       value: d.date,
       label: fmtDay(d.date),
-      note: open ? (i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : undefined) : dayReason({ ...d, reason: undefined }, strings),
+      note: open ? (i === 0 ? strings['common.today'] : i === 1 ? strings['common.tomorrow'] : undefined) : dayReason({ ...d, reason: undefined }, strings),
       hint: open ? undefined : dayReason(d, strings),
       disabled: !open,
     };
@@ -44,7 +45,7 @@ export function BookingBar() {
             return {
               value: s.time,
               label: s.time,
-              note: taken ? 'Full' : s.left <= 6 ? `${s.left} left` : mealLabel(strings, p.meal),
+              note: taken ? strings['booking.slot_full'] : s.left <= 6 ? formatMessage(strings['booking.slot_left'], { count: s.left }, locale) : mealLabel(strings, p.meal),
               disabled: taken,
             };
           }),
@@ -52,6 +53,7 @@ export function BookingBar() {
       : [{ value: booking.time, label: booking.time }];
 
   /* Likewise the party: 1…maxParty once the server has said, the chosen size before. */
+  const guestLabel = (n: number) => formatMessage(strings['booking.guests_count'], { count: n }, locale);
   const guestOptions: Option<number>[] =
     maxParty !== null
       ? Array.from({ length: maxParty }, (_, i) => ({ value: i + 1, label: guestLabel(i + 1) }))
@@ -61,42 +63,42 @@ export function BookingBar() {
     <section id="reserve" className="booking">
       <div className="shell">
         <h2 ref={title} data-reveal="title" className="booking-title">
-          Where would you like to dine?
+          {strings['booking.title']}
         </h2>
 
         <div ref={panel} data-reveal="up" className="booking-panel">
           <div className="booking-fields">
             <Dropdown
               id="bDestination"
-              label="Destination"
+              label={strings['booking.label_destination']}
               value={booking.destination}
               options={destinationOptions}
               onPick={(destination) => setBooking({ destination })}
             />
             <Dropdown
               id="bRestaurant"
-              label="Restaurant"
+              label={strings['booking.label_restaurant']}
               value={booking.restaurant}
               options={restaurantOptions}
               onPick={(restaurant) => setBooking({ restaurant })}
             />
             <Dropdown
               id="bDate"
-              label="Date"
+              label={strings['booking.label_date']}
               value={booking.date}
               options={dayOptions}
               onPick={(date) => setBooking({ date })}
             />
             <Dropdown
               id="bTime"
-              label="Time"
+              label={strings['booking.label_time']}
               value={booking.time}
               options={timeOptions}
               onPick={(time) => setBooking({ time })}
             />
             <Dropdown
               id="bGuests"
-              label="Guests"
+              label={strings['booking.label_guests']}
               value={booking.guests}
               options={guestOptions}
               onPick={(guests) => setBooking({ guests })}
@@ -104,7 +106,8 @@ export function BookingBar() {
           </div>
 
           <button type="button" className="btn-green booking-submit" onClick={() => openReserve()}>
-            FIND A TABLE<span className="arrow">→</span>
+            {strings['booking.find_table']}
+            <span className="arrow">→</span>
           </button>
         </div>
         {/* Without its dates or times the bar would just sit empty: say why, with the number to call

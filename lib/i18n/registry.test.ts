@@ -41,7 +41,7 @@ describe('key delivery', () => {
     expect(keysForScreen('heritage')).toEqual(['heritage.kicker', 'heritage.title_1', 'heritage.title_2', 'heritage.cta']);
   });
   it('sends search, meal and finder copy to the browser, and keeps page copy, SEO, policy and email copy on the server', () => {
-    expect(CLIENT_KEYS).toEqual(expect.arrayContaining(['search.results', 'meal.dinner', 'finder.any_occasion']));
+    expect(CLIENT_KEYS).toEqual(expect.arrayContaining(['search.results', 'meal.dinner', 'finder.any_occasion', 'form.ph_note', 'common.close', 'booking.submit']));
     expect(CLIENT_KEYS.filter((k) => /^(stories|heritage|seo|email)\./.test(k) || (k.startsWith('legal.') && k !== 'legal.link'))).toEqual([]);
   });
 });
@@ -52,6 +52,14 @@ describe('formatMessage', () => {
     expect(formatMessage(t, { count: 1 })).toBe('1 RESULT');
     expect(formatMessage(t, { count: 12 })).toBe('12 RESULTS');
     expect(formatMessage(t, { count: 0 })).toBe('0 RESULTS');
+  });
+  it('words the party size, the covers left and the slot names as the booking bar and the form did before plan 7B B6', () => {
+    const guests = REGISTRY['booking.guests_count'].en;
+    expect([1, 2, 12].map((count) => formatMessage(guests, { count }, 'en'))).toEqual(['1 guest', '2 guests', '12 guests']);
+    expect(formatMessage(REGISTRY['booking.slot_left'].en, { count: 4 })).toBe('4 left');
+    expect(formatMessage(REGISTRY['booking.slot_full_aria'].en, { time: '19:00' })).toBe('19:00 — fully booked');
+    expect(formatMessage(REGISTRY['booking.slot_left_aria'].en, { time: '19:00', count: 16 })).toBe('19:00 — 16 covers left');
+    expect(formatMessage(REGISTRY['booking.thanks'].en, { name: REGISTRY['booking.thanks_anon'].en })).toBe('Thank you, you.');
   });
   it('keeps the plain path for plain templates: an ASCII apostrophe stays and an unknown var stays visible', () => {
     expect(formatMessage("It's {name}'s table, {other}", { name: 'An' })).toBe("It's An's table, {other}");

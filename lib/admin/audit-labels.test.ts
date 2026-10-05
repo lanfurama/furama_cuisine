@@ -78,6 +78,7 @@ describe('audit labels', () => {
       'lib/server/content-admin/stories.ts',
       'lib/server/content-admin/hero.ts',
       'lib/server/content-admin/sections.ts',
+      'lib/server/content-admin/settings.ts',
       'lib/server/content-admin/restaurants.ts',
       'lib/server/content/strings-admin.ts',
       'lib/server/content/policy-version.ts',

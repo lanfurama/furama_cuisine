@@ -600,3 +600,72 @@ test('a max_party of 8 in the database stops the stepper at 8 and names the dest
     }
   });
 });
+
+/* The three drawer residuals of the phase-4 ruling, closed in plan 7B task B6. */
+
+test('a Try again still on its way is not asked again by REQUEST BOOKING: its own answer brings the dates', async ({ page }) => {
+  let failing = true;
+  let holding = false;
+  await page.clock.setFixedTime(NOW);
+  await mockAvailability(page, clock);
+  await failAvailability(page, (url) => failing && isCalendar(url), (route) => route.fulfill({ status: 503, json: { error: 'unavailable' } }));
+  const release = await holdAvailability(page, (url) => holding && isCalendar(url));
+  const posts = await abortServerActions(page);
+  await page.goto(HOME_PATH);
+  await reserveButton(page).click();
+  const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
+  await expect(drawer.getByRole('alert')).toHaveText(NETWORK);
+  await fillDetails(drawer);
+
+  failing = false;
+  holding = true;
+  const calendars = countRequests(page, (r) => isCalendar(new URL(r.url())));
+  const retry = drawer.getByRole('button', { name: 'Try again' });
+  await retry.click();
+  await expect.poll(() => calendars.count).toBe(1);
+  // Pressed while that answer is on its way: it points at Try again and waits, rather than asking again
+  // (which dropped the first answer and started over on every press).
+  await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
+  await expect(retry).toBeFocused();
+
+  release();
+  await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
+  expect(calendars.count).toBe(1);
+  expect(posts.count).toBe(0);
+});
+
+test('the dates’ live region stays mounted while their failure shows, so what the guest taps after Try again is read out', async ({ page }) => {
+  let failing = true;
+  await page.clock.setFixedTime(NOW);
+  await mockAvailability(page, { ...clock, days: { '2026-10-05': { state: 'closed' } } });
+  await failAvailability(page, (url) => failing && isCalendar(url), (route) => route.fulfill({ status: 503, json: { error: 'unavailable' } }));
+  await page.goto(HOME_PATH);
+  await reserveButton(page).click();
+  const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
+  await expect(drawer.getByRole('alert')).toHaveText(NETWORK);
+  // Every live region the drawer has while the failure shows: a screen reader listens to these.
+  await drawer.getByRole('status').evaluateAll((els) => els.forEach((el) => ((el as HTMLElement).dataset.mounted = 'during-failure')));
+
+  failing = false;
+  await drawer.getByRole('button', { name: 'Try again' }).click();
+  await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
+  // aria-disabled, so Playwright would wait for it to become enabled; a guest's tap lands (it is not `disabled`).
+  await drawer.locator('.day[data-state="closed"]').click({ force: true });
+  const note = said(drawer).filter({ hasText: 'Closed' });
+  await expect(note).toHaveCount(1);
+  // The same element as during the failure, never remounted (it used to unmount with the strip).
+  await expect(note).toHaveAttribute('data-mounted', 'during-failure');
+});
+
+test('at one guest, “Fewer guests” keeps the focus: aria-disabled, like “More guests” at the limit', async ({ page }) => {
+  const drawer = await openDrawer(page);
+  const fewer = drawer.getByRole('button', { name: 'Fewer guests' });
+  await fewer.focus();
+  await page.keyboard.press('Enter');
+  await expect(drawer.locator('.guests-value')).toHaveText('1 guest');
+  await expect(fewer).toHaveAttribute('aria-disabled', 'true');
+  await expect(fewer).toBeFocused();
+  expect(await focusInDialog(page)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect(drawer.locator('.guests-value')).toHaveText('1 guest');
+});

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { bookableDestinationOptions, mealLabel } from '@/lib/content/options';
-import { FIELD_MAX, findRestaurant, fmtDay, guestLabel } from '@/lib/booking';
+import { FIELD_MAX, findRestaurant, fmtDay } from '@/lib/booking';
 import { dayReason, movedReason, slotOpen, type DateMove } from '@/lib/booking/client';
 import type { DayInfo } from '@/lib/booking/api';
 import type { GroupPhone } from '@/lib/booking/rules';
@@ -62,8 +62,11 @@ function LoadFailed({
  * calendar arrives (another restaurant's, or a fresh answer). Under the strip,
  * one live region says, in order: why a tapped day is greyed, why the chosen
  * date moved (`moved`), or, before any calendar has answered, that the dates
- * are loading. Mounted only while the drawer shows, so the note starts empty
- * on every open.
+ * are loading. When the dates failed to arrive, `failure` (the message and
+ * its Try again) takes the strip's place, and the live region stays mounted
+ * and empty, so the news a Try again brings is read out (phase-4 residual: it
+ * used to unmount with the strip). Mounted only while the drawer shows, so
+ * the note starts empty on every open.
  */
 function DayStrip({
   days,
@@ -72,6 +75,7 @@ function DayStrip({
   strings,
   groupPhone,
   moved,
+  failure,
 }: {
   days: DayInfo[];
   selected: IsoDate | '';
@@ -79,13 +83,16 @@ function DayStrip({
   strings: ClientStrings;
   groupPhone: GroupPhone | null;
   moved: DateMove | null;
+  failure: ReactNode;
 }) {
   /* The unavailable day a guest last tapped, and the calendar it was tapped on. */
   const [tapped, setTapped] = useState<{ days: DayInfo[]; day: DayInfo } | null>(null);
   const note = tapped?.days === days ? tapped.day : null;
   const noDates = days.length > 0 && !days.some((d) => d.state === 'open');
-  const loading = days.length === 0;
-  const message = note
+  const loading = days.length === 0 && !failure;
+  const message = failure
+    ? ''
+    : note
     ? formatMessage(strings['booking.day_note'], { date: fmtDay(note.date), reason: dayReason(note, strings) })
     : moved
       ? formatMessage(strings['booking.date_moved'], {
@@ -115,7 +122,8 @@ function DayStrip({
 
   return (
     <>
-      {!loading && (
+      {failure}
+      {!loading && !failure && (
         <div ref={strip} className="daystrip">
           {days.map((d, i) => {
             const day = formatDay(d.date);
@@ -141,7 +149,7 @@ function DayStrip({
                   if (open) onPick(d.date);
                 }}
               >
-                <span className="day-wd">{i === 0 ? 'Today' : day.weekday}</span>
+                <span className="day-wd">{i === 0 ? strings['common.today'] : day.weekday}</span>
                 <span className="day-num">{day.day}</span>
                 <span className="day-mo">{day.month}</span>
               </button>
@@ -150,8 +158,10 @@ function DayStrip({
         </div>
       )}
       {/* Always mounted, empty when there is nothing to say, so a screen reader hears its first message. */}
-      <div role="status">{message && <p className={loading ? 'slot-loading' : 'day-note'}>{message}</p>}</div>
-      {noDates && groupPhone && (
+      <div className="day-status" role="status">
+        {message && <p className={loading ? 'slot-loading' : 'day-note'}>{message}</p>}
+      </div>
+      {noDates && !failure && groupPhone && (
         <p className="day-note">
           <WithPhone template={strings['booking.no_dates']} params={{}} phone={groupPhone} />
         </p>
@@ -302,17 +312,18 @@ export function ReserveDrawer() {
     .filter((r) => r.dest === booking.destination)
     .map((r) => ({ value: r.id, label: r.name }));
 
+  const guestLabel = (n: number) => formatMessage(strings['booking.guests_count'], { count: n }, locale);
   const summary = [booking.date ? fmtDay(booking.date) : '', booking.time, guestLabel(booking.guests)]
     .filter(Boolean)
     .join(' · ');
 
   return (
-    <div ref={dialogRef} className="drawer-root" role="dialog" aria-modal="true" aria-label="Reserve a table">
+    <div ref={dialogRef} className="drawer-root" role="dialog" aria-modal="true" aria-label={strings['booking.drawer_aria']}>
       <button
         type="button"
         data-anim="backdrop"
         className="backdrop"
-        aria-label="Close"
+        aria-label={strings['common.close']}
         onClick={closeDrawer}
       />
 
@@ -331,7 +342,7 @@ export function ReserveDrawer() {
               </>
             )}
           </div>
-          <button type="button" className="drawer-close" aria-label="Close" onClick={closeDrawer}>
+          <button type="button" className="drawer-close" aria-label={strings['common.close']} onClick={closeDrawer}>
             ×
           </button>
         </div>
@@ -349,7 +360,7 @@ export function ReserveDrawer() {
             <div className="drawer-tick" aria-hidden="true">
               ✓
             </div>
-            <div className="drawer-thanks">Thank you, {form.name.trim() || 'you'}.</div>
+            <div className="drawer-thanks">{formatMessage(strings['booking.thanks'], { name: form.name.trim() || strings['booking.thanks_anon'] }, locale)}</div>
             {/* What was booked, as sent, in the words for its status: an auto-confirmed
                 booking never waits in the pending tab, so nobody would call to confirm it. */}
             <p className="drawer-done-lede">
@@ -359,24 +370,24 @@ export function ReserveDrawer() {
             </p>
             <div className="drawer-summary">
               <div className="drawer-summary-row">
-                <span>Date</span>
+                <span>{strings['booking.label_date']}</span>
                 <span>{confirmedDate ? fmtDay(confirmedDate) : ''}</span>
               </div>
               <div className="drawer-summary-row">
-                <span>Time</span>
+                <span>{strings['booking.label_time']}</span>
                 <span>{booked?.time}</span>
               </div>
               <div className="drawer-summary-row">
-                <span>Guests</span>
+                <span>{strings['booking.label_guests']}</span>
                 <span>{booked ? guestLabel(booked.guests) : ''}</span>
               </div>
               <div className="drawer-summary-row">
-                <span>Reference</span>
+                <span>{strings['booking.label_reference']}</span>
                 <span className="drawer-ref">{reference}</span>
               </div>
             </div>
             <button type="button" className="drawer-done-btn" onClick={closeDrawer}>
-              DONE
+              {strings['booking.done']}
             </button>
           </div>
         ) : (
@@ -386,7 +397,7 @@ export function ReserveDrawer() {
                 <Dropdown
                   id="dDestination"
                   variant="boxed"
-                  label="Destination"
+                  label={strings['booking.label_destination']}
                   value={booking.destination}
                   options={destinationOptions}
                   onPick={(destination) => setBooking({ destination })}
@@ -394,7 +405,7 @@ export function ReserveDrawer() {
                 <Dropdown
                   id="dRestaurant"
                   variant="boxed"
-                  label="Restaurant"
+                  label={strings['booking.label_restaurant']}
                   value={booking.restaurant}
                   options={restaurantOptions}
                   onPick={(restaurant) => setBooking({ restaurant })}
@@ -402,48 +413,51 @@ export function ReserveDrawer() {
               </div>
 
               <div ref={datesLabelRef} className="drawer-label" tabIndex={-1}>
-                DATE
+                {strings['booking.section_date']}
               </div>
-              {loadFailed?.at === 'dates' ? (
-                <LoadFailed
-                  count={loadFailed.count}
-                  code={loadFailed.code}
-                  strings={strings}
-                  phone={groupPhone}
-                  onRetry={retry}
-                  onFocus={() => arm('dates')}
-                />
-              ) : (
-                <DayStrip
-                  days={days}
-                  selected={booking.date}
-                  onPick={(date) => setBooking({ date })}
-                  strings={strings}
-                  groupPhone={groupPhone}
-                  moved={dateMoved?.restaurant === booking.restaurant ? dateMoved : null}
-                />
-              )}
+              <DayStrip
+                days={days}
+                selected={booking.date}
+                onPick={(date) => setBooking({ date })}
+                strings={strings}
+                groupPhone={groupPhone}
+                moved={dateMoved?.restaurant === booking.restaurant ? dateMoved : null}
+                failure={
+                  loadFailed?.at === 'dates' ? (
+                    <LoadFailed
+                      count={loadFailed.count}
+                      code={loadFailed.code}
+                      strings={strings}
+                      phone={groupPhone}
+                      onRetry={retry}
+                      onFocus={() => arm('dates')}
+                    />
+                  ) : null
+                }
+              />
 
               <div className="guests">
                 <div>
-                  <div className="guests-label">GUESTS</div>
+                  <div className="guests-label">{strings['booking.section_guests']}</div>
                   <div className="guests-value">{guestLabel(booking.guests)}</div>
                 </div>
                 <div className="guests-steppers">
+                  {/* aria-disabled, not disabled, on both: a button that turns disabled loses
+                      the focus to <body>, which drops a keyboard user out of the stepper at
+                      either end (at the top just as the hint below tells them whom to call). */}
                   <button
                     type="button"
-                    aria-label="Fewer guests"
-                    disabled={booking.guests <= 1}
-                    onClick={() => setBooking({ guests: Math.max(1, booking.guests - 1) })}
+                    aria-label={strings['booking.fewer_guests']}
+                    aria-disabled={booking.guests <= 1 || undefined}
+                    onClick={() => {
+                      if (booking.guests > 1) setBooking({ guests: booking.guests - 1 });
+                    }}
                   >
                     −
                   </button>
-                  {/* aria-disabled, not disabled: a button that turns disabled loses the
-                      focus to <body>, which drops a keyboard user out of the stepper at
-                      the limit, just as the hint below tells them whom to call. */}
                   <button
                     type="button"
-                    aria-label="More guests"
+                    aria-label={strings['booking.more_guests']}
                     aria-disabled={noMore || undefined}
                     aria-describedby={hint ? hintId : undefined}
                     onClick={() => {
@@ -468,7 +482,7 @@ export function ReserveDrawer() {
               </div>
 
               <div ref={timesLabelRef} className="drawer-label" tabIndex={-1}>
-                TIME
+                {strings['booking.section_time']}
               </div>
               {loadFailed
                 ? loadFailed.at === 'times' && (
@@ -511,7 +525,7 @@ export function ReserveDrawer() {
                             data-selected={!taken && s.time === booking.time}
                             data-taken={taken}
                             disabled={taken}
-                            aria-label={taken ? `${s.time} — fully booked` : `${s.time} — ${s.left} covers left`}
+                            aria-label={formatMessage(strings[taken ? 'booking.slot_full_aria' : 'booking.slot_left_aria'], { time: s.time, count: s.left }, locale)}
                             onClick={() => setBooking({ time: s.time })}
                           >
                             {s.time}
@@ -524,63 +538,59 @@ export function ReserveDrawer() {
               ))}
 
               <div className="drawer-details">
-                <div className="drawer-label">YOUR DETAILS</div>
+                <div className="drawer-label">{strings['booking.your_details']}</div>
                 <div className="drawer-fields">
                   <label className="field">
-                    <span className="field-cap">Full name *</span>
+                    <span className="field-cap">{strings['form.name']}</span>
                     <input
                       value={form.name}
                       onChange={(e) => setFormField('name', e.target.value)}
-                      placeholder="Nguyễn Minh Anh"
+                      placeholder={strings['form.ph_name']}
                       autoComplete="name"
                       maxLength={FIELD_MAX.name}
                       data-invalid={errors.name}
                       aria-invalid={errors.name}
                     />
-                    {errors.name && <span className="field-error">Please enter your name.</span>}
+                    {errors.name && <span className="field-error">{strings['error.invalid_name']}</span>}
                   </label>
 
                   <label className="field">
-                    <span className="field-cap">Phone *</span>
+                    <span className="field-cap">{strings['form.phone']}</span>
                     <input
                       type="tel"
                       value={form.phone}
                       onChange={(e) => setFormField('phone', e.target.value)}
-                      placeholder="+84 905 000 000"
+                      placeholder={strings['form.ph_phone']}
                       autoComplete="tel"
                       maxLength={FIELD_MAX.phone}
                       data-invalid={errors.phone}
                       aria-invalid={errors.phone}
                     />
-                    {errors.phone && (
-                      <span className="field-error">Please enter a valid phone number.</span>
-                    )}
+                    {errors.phone && <span className="field-error">{strings['error.invalid_phone']}</span>}
                   </label>
 
                   <label className="field">
-                    <span className="field-cap">Email</span>
+                    <span className="field-cap">{strings['form.email']}</span>
                     <input
                       type="email"
                       value={form.email}
                       onChange={(e) => setFormField('email', e.target.value)}
-                      placeholder="you@example.com"
+                      placeholder={strings['form.ph_email']}
                       autoComplete="email"
                       maxLength={FIELD_MAX.email}
                       data-invalid={errors.email}
                       aria-invalid={errors.email}
                     />
-                    {errors.email && (
-                      <span className="field-error">Please check your email address.</span>
-                    )}
+                    {errors.email && <span className="field-error">{strings['error.invalid_email']}</span>}
                   </label>
 
                   <label className="field">
-                    <span className="field-cap">Special requests</span>
+                    <span className="field-cap">{strings['form.note']}</span>
                     <textarea
                       rows={3}
                       value={form.note}
                       onChange={(e) => setFormField('note', e.target.value)}
-                      placeholder="Occasion, dietary needs, seating preference"
+                      placeholder={strings['form.ph_note']}
                       maxLength={FIELD_MAX.note}
                     />
                   </label>
@@ -618,7 +628,7 @@ export function ReserveDrawer() {
 
             <div className="drawer-foot">
               <div className="drawer-foot-copy">
-                <div className="drawer-foot-label">YOUR TABLE</div>
+                <div className="drawer-foot-label">{strings['booking.your_table']}</div>
                 <div className="drawer-foot-summary">{summary}</div>
                 {serverError && (
                   <div className="drawer-error" role="alert">
@@ -637,7 +647,7 @@ export function ReserveDrawer() {
                 disabled={pending}
                 aria-busy={pending}
               >
-                {pending ? 'SENDING…' : 'REQUEST BOOKING'}
+                {strings[pending ? 'booking.sending' : 'booking.submit']}
               </button>
             </div>
           </>

@@ -432,3 +432,18 @@ export const SocialForm = z.object({
     .regex(/^https:\/\/[^\s]+$/, 'Đường dẫn phải bắt đầu bằng https://'),
   isPublished: checkbox,
 });
+
+/**
+ * The booking screen's defaults (spec §5.2 site_settings): the restaurant the
+ * booking bar starts on and the meal the finder starts on; '' for each is
+ * "none" (the first restaurant that books online; any occasion).
+ */
+export const BookingDefaultsForm = z.object({
+  token: Token,
+  defaultRestaurantId: z
+    .string()
+    .trim()
+    .transform((v) => (v === '' ? null : v))
+    .pipe(RestaurantId.nullable()),
+  defaultOccasion: z.enum(['', 'Breakfast', 'Lunch', 'Dinner', 'Drinks'], { error: 'Chọn một bữa trong danh sách.' }).transform((v) => (v === '' ? null : v)),
+});
