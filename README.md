@@ -63,7 +63,7 @@ before the app, and hands the app server alone its read-write token
 request for `vercel.com/api/blob` or `*.public.blob.vercel-storage.com` to
 the fake and refuses every other external host. The build and the visual
 server run with every Blob variable blank. Never put a real
-`BLOB_READ_WRITE_TOKEN` (Production's or the Preview/Dev store's) in
+`BLOB_READ_WRITE_TOKEN` (the store's, see "Media in Vercel Blob") in
 `.env.local` or a local shell: a local run would then upload to, and could
 delete from, that store.
 
@@ -515,14 +515,104 @@ portrait, a kicker, an English story, 2–5 highlights with photos and an
 optional menu PDF (spec §15 item 17). Until a page's content exists, its
 `has_detail_page` stays off.
 
+### Migration 009 (phase 7A: policy versions)
+
+`009_legal_versions.sql` adds one table, `legal_versions`: one row per
+wording of the privacy policy a guest could agree to (the policy page, the
+reserve drawer's notice and its consent label), seeded with the phase-5
+wording as `2026-10-03` (sha256 `f49aa3f5…10d2`). From phase 7A the policy
+is edited in `/admin/content/legal`: a save that changes that English text
+adds a row in the same transaction (the Da Nang date, `.2`, `.3` … for later
+saves that day), bookings store the newest row's version in
+`reservations.consent_version`, and the policy page prints its date. It only
+adds, in one transaction, and is safe to run again.
+
+**009 goes first, then the phase-7A deploy.** The phase-6 code ignores the
+table, so 009 can go on while phase 6 runs. The phase-7A code needs it: its
+build prerenders `/en/privacy`, which reads the version (measured locally on
+a database at 008: `relation "legal_versions" does not exist` while it
+prerenders `/en/privacy`, and the build stops), and every booking reads it.
+
+On production's direct URL (not `npm run db:psql`, which reads `.env.local`):
+
+- **Pre-flight**, read-only:
+  `psql "<production's direct URL>" -v ON_ERROR_STOP=1 -f db/checks/preflight-009.sql`.
+  Every row `ok` = `t`: 001–008 applied and 009 not; no `legal_versions`
+  table yet; every booking's `consent_version` is `2026-10-03` or empty; no
+  `content_strings` row overrides a key the guest agrees to (the seeded hash
+  must be the text in force). Any `f`: stop and report.
+- **Apply:** `DATABASE_URL_UNPOOLED=<production's direct URL> node scripts/migrate.mjs`
+  (it prints `✓ 009_legal_versions.sql`).
+- **Post-check**, read-only:
+  `psql "<production's direct URL>" -v ON_ERROR_STOP=1 -f db/checks/postcheck-009.sql`.
+  Every row `t`: 009 recorded; exactly the seeded version at the phase-5
+  hash; the version and hash CHECKs in place.
+
+Previews use the production database (owner, 2026-10-05: "Before launch
+A" step 1), so 009 goes on production once, with the three steps above,
+before the first phase-7A deploy, preview or production. It only adds a
+table the deployed phase-6 code never reads, so it can go on at any time
+before that deploy. **Rollback:** leave 009 in place (the phase-6 code runs
+on it) and roll back the deployment only.
+
 ### Media in Vercel Blob (phase 7A)
 
-Uploads go to Vercel Blob (spec §11): one store for Production, one shared
-by Preview and Development, each connected to the project in the Vercel
-dashboard (Storage → Create Database → Blob, access Public), which sets
-`BLOB_READ_WRITE_TOKEN` for those environments. Inside a store each
-environment writes only its own folder: `production/`, `preview/<branch>/`,
-`development/` (`lib/media/rules.ts` `blobEnvPrefix`).
+Uploads go to Vercel Blob (spec §11), in a store connected to the project in
+the Vercel dashboard (Storage → Create Database → Blob, access Public), which
+sets `BLOB_READ_WRITE_TOKEN` for the environments it is connected to. Inside
+the store each environment writes only its own folder: `production/`,
+`preview/<branch>/`, `development/` (`lib/media/rules.ts` `blobEnvPrefix`).
+
+**One store for Production and Preview: the recommendation, awaiting the
+owner's sign-off** (the phase-7A ledger, "Needs a decision"; the owner had
+said two stores, as the phase-7 outline planned in §8 for a database per
+preview). Previews use the production database (owner, 2026-10-05), so a
+file uploaded on a preview is a row of production's library, and
+production's files show on every preview. Each build lets next/image
+optimise one store's host only (`blobImageHost`: the store named by the
+build's `BLOB_READ_WRITE_TOKEN` or `BLOB_STORE_ID`; a Vercel build with
+neither allows no Blob host at all), so with a separate Preview store a
+preview would draw none of production's pictures, and production none
+uploaded on a preview. If the owner keeps two stores, `blobImageHost` must
+allow both hosts and an upload made on a preview must not be used on
+production, before the stores are created.
+
+**Setting up the store (the owner, once, after the sign-off and before the
+phase-7A deploy):**
+
+1. Storage → Create Database → **Blob**: `furama-cuisine`, access
+   **Public**, connected to **Production** and **Preview** (not
+   Development: nobody runs the app against it locally, see 3).
+2. Project → Settings → Environment Variables: check that
+   `BLOB_READ_WRITE_TOKEN` exists for Production and Preview, and note
+   whether `BLOB_STORE_ID` or `BLOB_WEBHOOK_PUBLIC_KEY` appeared too. Report
+   the names only, never the values.
+3. Never pull the token into `.env.local` (no `vercel env pull`): local runs
+   and every test use the fake store (`test/helpers/fake-blob.ts`), and a
+   local run with the real token could upload into, or sweep, the store.
+
+Without a store an environment still serves every page; the library says
+"Môi trường này chưa kết nối kho file (Vercel Blob)" and refuses uploads
+(`blob_not_configured`).
+
+**First preview checks** (the plans test against the fake only; these need
+the real service, on the first phase-7A preview, before production). A
+preview writes production's data (the shared database): put back what you
+change, through History, and delete the test upload when done.
+
+- in `/admin/media`, upload a JPEG: the browser's PUT to
+  `https://vercel.com/api/blob` succeeds (CORS), the file appears with its
+  thumbnail; a `.gif` is refused in the browser, and a file renamed to `.jpg`
+  that is not one is refused after upload and gone from the store;
+- try to delete a file a page shows (`chef.jpg`): refused, with the list of
+  where it is used;
+- the sweep's dry run on the preview's URL (below) lists nothing young;
+- an alt text saved in the library shows on the guest page from several
+  responses in a row (`updateTag` reaching every instance), then History
+  puts the old one back;
+- the function log of the upload's second step (`registerMediaAction`) for a
+  large photo: its memory stays within the plan's limit (sharp decodes up
+  to 50 megapixels).
 
 **Media sweep.** `/api/cron/media-sweep` runs daily at 18:35 UTC (01:35 in
 Da Nang, `vercel.json`) with the same `CRON_SECRET` as the other crons. In
@@ -548,23 +638,25 @@ copies them into the store under `<folder>/assets/<file>` and points the same
 rows (same ids, so every reference holds) at the copies, with a blur
 placeholder and one audit row each. It is a dry run unless `--apply`, checks
 each file's size against its row, skips a file already in the store, and is
-safe to run again. Per environment, with that environment's database and
-store, after the phase-7A deploy (the controller runs it; the token comes
-from the dashboard and is never written to a file):
+safe to run again. Once, with production's database and the store, after the
+phase-7A deploy (the controller runs it; the token comes from the dashboard
+and is never written to a file):
 
 ```bash
 # 1. Dry run: expect "39 static row(s); 39 file(s) to upload."
-DATABASE_URL=<that environment's direct URL> BLOB_READ_WRITE_TOKEN=<that store's token> \
+DATABASE_URL=<production's direct URL> BLOB_READ_WRITE_TOKEN=<the store's token> \
   node scripts/move-assets-to-blob.mjs --prefix production
 # 2. Apply: uploads, then updates every row in one transaction.
 DATABASE_URL=<…> BLOB_READ_WRITE_TOKEN=<…> node scripts/move-assets-to-blob.mjs --prefix production --apply
 # 3. Redeploy, so cached guest pages pick up the Blob URLs (the script cannot expire the cache).
 ```
 
-For a preview, use `--prefix preview/<branch slug>` with the Preview/Dev
-store's token and that preview's own Neon branch. The `public/assets` files
-stay in the repository (a code rollback still renders), and the move can only
-be undone by restoring the rows from their audit rows.
+Production only: previews read production's rows (the shared database) and
+draw the moved files from the same store, so they need no move of their own;
+the script refuses a preview's folder, since a run there would point
+production's rows at copies in that folder. The `public/assets` files stay in the repository (a
+code rollback still renders), and the move can only be undone by restoring
+the rows from their audit rows.
 
 ### Environment variables (admin)
 
@@ -581,7 +673,7 @@ be undone by restoring the rows from their audit rows.
 | `SMTP_USER`, `SMTP_PASSWORD` | the login (both or neither) | a separate login if the provider allows | never set |
 | `CRON_SECRET` | 16+ characters (`openssl rand -hex 32`); Vercel Cron sends it to `/api/cron/outbox`, `/api/cron/daily` and `/api/cron/media-sweep`, and a missing or shorter one answers every call to any of them 401 | optional (crons run on Production only) | a fresh random value per E2E run |
 | `BOTID_DEV_BYPASS` | **never** | **never** | only for the opt-in `e2e/botid.spec.ts` run (`BAD-BOT`); a deployment ignores it |
-| `BLOB_READ_WRITE_TOKEN` | set by connecting the Production Blob store (Production only) | set by connecting the Preview/Dev store | **never** a real one: blank for the build, the visual server and local runs; Playwright gives the E2E app the fake store's token |
+| `BLOB_READ_WRITE_TOKEN` | set by connecting the Blob store | the same store's (Preview shares production's database, so it shares the store too) | **never** a real one: blank for the build, the visual server and local runs; Playwright gives the E2E app the fake store's token |
 | `FAKE_BLOB_SECRET` | never | never | a fresh `openssl rand -hex 16` per E2E run (16+ letters and digits); `FAKE_BLOB_PORT` moves the fake (default 3102) |
 | `VERCEL_ENV`, `NEXT_PUBLIC_VERCEL_ENV` | set by Vercel | set by Vercel | never set: they turn on BotID and the deployment rules of the email gate |
 | `EMAIL_LOG_FILE` | never | never | a scratch file; log mode appends each email as one JSON line |
@@ -901,12 +993,15 @@ bootstrapping production is what you mean to do.
 | `/api/cron/media-sweep` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, daily at 18:35 UTC (01:35 in Da Nang): in its environment's folder of the Blob store, deletes files no `media` row names after 24 hours and purges rows 30 days in the trash (`?dry=1` reports without deleting); `{"skipped":"blob_not_configured"}` without a store. 401 without `Authorization: Bearer $CRON_SECRET` |
 | `/api/admin/media/upload` | Dynamic, `no-store` | Upload step 1: a presigned URL for one pathname of this environment's folder, its type, 15 MB and ten minutes. Session and `content:update` first, then the `Origin`; Vercel's completion callback is refused |
 | `/admin/media`, `/admin/media/[id]` | Request time, nonce CSP | The library: upload, search, the trash; one file's EN alt text, decorative flag, uses, delete (refused while it is shown) and History. `content:read`; writes `content:update`, restores `content:restore` |
+| `/admin/content` and `/admin/content/{sections,hero,offers,offers/new,offers/[id],stories,heritage,ui-text,legal,emails}` | Request time, nonce CSP | The content editors (spec §7.2), in English until phase 8: the home sections' switches, pictures and links; the hero's slides, words and pace and the film; the offers; the registry's words by screen; the privacy policy (each change of the agreed wording is a policy version); the booking emails with a preview. Every record has its History. `content:read`; writes `content:update`, restores `content:restore` |
+| `/admin/restaurants/[id]` | Request time, nonce CSP | One restaurant's content: name, slug, pictures, contact, detail page, highlights, menu (a PDF from the library or a link), SEO, History. `content:read`; writes `content:update` |
+| `/api/admin/emails/preview` | Dynamic, `no-store` | The emails screen's preview of unsaved text, framed by that screen only (its own CSP). `content:read`, then the `Origin` |
 | `/admin/sign-in`, `/admin/accept-invite`, `/admin/reset-password` | Request time, nonce CSP | The only admin pages open without a session cookie |
 | `/admin`, `/admin/users`, `/admin/audit` | Request time, nonce CSP | Overview (with pending and today's bookings); staff and invitations (Admin); audit log of `audit_log` and booking events, paged with `?truoc=`/`?sau=` (Admin). Without a session cookie the proxy sends them to sign-in (307, `?next=` kept) |
 | `/admin/reservations`, `/admin/reservations/[id]`, `/admin/reservations/day` | Request time, nonce CSP | Inbox (Cần xử lý · Hôm nay · Sắp tới · Tất cả, search by reference, phone, name or email: the search posts, its text waits 30 minutes in an httpOnly cookie and the URL carries only `?tim=<id>`); a booking (status changes, edit, internal notes, timeline, its emails); the printable day sheet. `reservations:read` |
 | `/admin/reservations/emails` | Request time, nonce CSP | The email log of this environment (tabs by status, guest addresses masked) and "Gửi lại". `reservations:read`; "Gửi lại" `reservations:update` |
 | `/admin/reservations/new` | Request time, nonce CSP | Phone bookings and walk-ins. `reservations:create` |
-| `/admin/reservations/closures`, `/admin/restaurants`, `/admin/restaurants/[id]/booking` | Request time, nonce CSP | Closures with the bookings each covers; the restaurants; "Giờ và sức chứa" (switch, overrides, service periods, slot preview, affected bookings; auto-confirm for Admins). `schedule:read` |
+| `/admin/reservations/closures`, `/admin/restaurants`, `/admin/restaurants/[id]/booking` | Request time, nonce CSP | Closures with the bookings each covers; the restaurants (add one, show or hide it, archive it: never deleted; their order with its History; the words every restaurant card and page shares); "Giờ và sức chứa" (switch, overrides, service periods, slot preview, affected bookings; auto-confirm for Admins). `schedule:read`; the list's writes `content:update` |
 | `/admin/settings/booking` | Request time, nonce CSP | Booking defaults. Admin (`settings:read`) |
 | `/admin/settings/notifications` | Request time, nonce CSP | Who hears about new bookings, the shared inbox, the restaurants that fall back to it, "Gửi email thử". Admin (`settings:read`; every save `settings:update`) |
 | `/api/auth/*` | Dynamic | Better Auth; `/api/auth/admin/*` is refused with 403 |
