@@ -41,8 +41,17 @@ test('saving the shared inbox changes the footer and the privacy policy at once'
     try {
       await saveInbox(page, NEW);
 
-      await visitor.reload();
-      await expect(visitor.locator('footer a[href^="mailto:"]')).toHaveText(NEW);
+      // Within seconds, as every content save (AC1): a page render that started before the save may still
+      // be stored once (plan 7B task B11 saw it once, after the checklist walk), so the guest reloads.
+      await expect
+        .poll(
+          async () => {
+            await visitor.reload();
+            return visitor.locator('footer a[href^="mailto:"]').textContent();
+          },
+          { timeout: 5_000 },
+        )
+        .toBe(NEW);
       await expect(visitor.locator('footer a[href^="mailto:"]')).toHaveAttribute('href', `mailto:${NEW}`);
       await visitor.goto('/en/privacy');
       await expect(visitor.locator('article.legal a[href^="mailto:"]').first()).toHaveText(NEW);

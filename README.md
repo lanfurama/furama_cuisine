@@ -192,7 +192,8 @@ CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL= VERCEL_ENV= NEXT_PUBLIC_VER
   DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
   BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3100 \
   EMAIL_DELIVERY=log EMAIL_LOG_FILE=$TMPDIR/emails.ndjson CRON_SECRET=$(openssl rand -hex 16) \
-  BLOB_READ_WRITE_TOKEN= BLOB_STORE_ID= VERCEL_BLOB_CALLBACK_URL= FAKE_BLOB_SECRET=$(openssl rand -hex 16) \
+  BLOB_READ_WRITE_TOKEN= BLOB_STORE_ID= BLOB_WEBHOOK_PUBLIC_KEY= VERCEL_BLOB_API_URL= NEXT_PUBLIC_VERCEL_BLOB_API_URL= \
+  VERCEL_BLOB_CALLBACK_URL= FAKE_BLOB_SECRET=$(openssl rand -hex 16) \
   npx playwright test e2e/botid.spec.ts --project=desktop
 ```
 
@@ -206,6 +207,47 @@ instead of starting one. The admin specs still write their staff accounts
 refuses anything but a local database named `*_test` or `*_ci`, whichever way
 Playwright runs. Never update the visual baselines to make a run
 pass: open `test-results/**/*-diff.png` and fix the page.
+
+## Editing content (phase 7)
+
+Everything a guest reads is edited in the admin, in English, by an Editor
+or an Admin (spec §7; other languages are phase 8). Start at
+`/admin/content`, which lists every screen; each screen leads back with
+"← Nội dung". Where a guest sees something, and the screen that edits it:
+
+| On the site | Screen |
+|---|---|
+| The header and phone menu (labels and targets), the tab bar, the 404, the form captions and errors | `/admin/content/navigation`, `/admin/content/ui-text` |
+| The hero's slides, words and pace; the film | `/admin/content/hero` (the film's picture also on `/admin/content/sections`) |
+| Which home sections show, the Experiences and Heritage pictures and links | `/admin/content/sections` |
+| Cuisines, destinations (cards, addresses, phones), Experiences rows, stories, offers | `/admin/content/{cuisines,destinations,experiences,stories,offers}` |
+| The finder, the booking bar and the reserve drawer: words, and the restaurant and meal they start on | `/admin/content/booking` |
+| The footer: tagline, social links, the platforms' names | `/admin/content/contact` (the shared inbox address is the Admin's, on `/admin/settings/notifications`) |
+| Page titles, descriptions and the share picture | `/admin/content/seo` (a restaurant's own on its screen) |
+| A restaurant: name, pictures, page, highlights, menu, SEO; the words all restaurant cards share | `/admin/restaurants/[id]`, `/admin/restaurants` |
+| Hours, capacity, online booking | `/admin/restaurants/[id]/booking` (phase 4) |
+| The privacy policy and the booking emails | `/admin/content/legal`, `/admin/content/emails` |
+| Pictures and PDFs, their descriptions | `/admin/media` |
+
+A save reaches guests within seconds (`updateTag`; the checklist below
+measures it). Every record has its History: who changed what and when, and
+"Khôi phục bản trước lần này" / "Khôi phục bản này" bring a version back
+through the same rules a save meets (a restore the rules refuse says which
+rule); a list's "Đã xóa gần đây" brings a deleted item back under its own
+id and in its place; a word put back with "Khôi phục mặc định" follows the
+code's default again. Two people on one record: the second save is refused
+with who saved first ("Tải lại" shows their version), and nothing is
+overwritten. A picture shown anywhere cannot be deleted; the library lists
+where it is used. Layout limits (2–5 destination cards, 1–5 hero slides,
+at most 6 offers, 6 menu items, 6 social links…) are refused with the limit;
+advice (a long label, more than 10 cuisines) is a warning only.
+
+The acceptance walk of all this is `e2e/content-checklist.serial.spec.ts`
+(AC1): one step per item of the content checklist, edited as the Editor,
+seen by a guest within 5 seconds, put back through History. Saves expire
+every guest page (phase-6 D2); `e2e/rsc-race.spec.ts` (opt-in,
+`RSC_RACE=1`) measures what that costs a guest browsing meanwhile (the
+phase-7 ledger records the result).
 
 ## Deploying
 
@@ -1059,10 +1101,10 @@ bootstrapping production is what you mean to do.
 | `/api/availability` | Dynamic, `no-store` | `?restaurant=&lang=[&from=&to=]`: each day's state (open, full, past, closed, too_large, outside) and public closure reason, with the clock, the party limit and the number to call; `?restaurant=&date=&lang=[&guests=]`: one day's services and slots with the covers left. 404 for an unknown restaurant or one with online booking off; a range given in full that is backwards or too long (400) and an id that cannot exist (404) are answered before any query. `scripts/check-prerender.mjs` fails if it is ever prerendered, or missing from the build |
 | `/api/cron/outbox` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, hourly: sends the due outbox rows of its environment (at most 500 or 240 s) and answers only the counts. 401 without `Authorization: Bearer $CRON_SECRET` |
 | `/api/cron/daily` | Dynamic, `no-store`, `maxDuration` 60 | Vercel Cron, daily at 17:05 UTC (00:05 in Da Nang): `revalidateTag('content:offers', 'max')`, so the home page drops an offer past its `valid_until` and shows one whose `valid_from` has come, and on a day with no offer every guest page's header and menu drop Offers. The first visit to each page after it may still get yesterday's offers and nav once; in exchange, a database that is down then cannot break a guest page. 401 without `Authorization: Bearer $CRON_SECRET` |
-| `/api/cron/media-sweep` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, daily at 18:35 UTC (01:35 in Da Nang): in its environment's folder of the Blob store, deletes files no `media` row names after 24 hours and purges rows 30 days in the trash (`?dry=1` reports without deleting); `{"skipped":"blob_not_configured"}` without a store. 401 without `Authorization: Bearer $CRON_SECRET` |
+| `/api/cron/media-sweep` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, daily at 18:35 UTC (01:35 in Da Nang), Production only: purges rows 30 days in the trash (a row content uses again stays) and deletes their files from whatever folder holds them; then, in `production/` only, deletes files no `media` row names after 24 hours. `?dry=1` lists what it would do and deletes nothing, rows included; `{"skipped":"blob_not_configured"}` without a store. 401 without `Authorization: Bearer $CRON_SECRET` |
 | `/api/admin/media/upload` | Dynamic, `no-store` | Upload step 1: a presigned URL for one pathname of this environment's folder, its type, 15 MB and ten minutes. Session and `content:update` first, then the `Origin`; Vercel's completion callback is refused |
 | `/admin/media`, `/admin/media/[id]` | Request time, nonce CSP | The library: upload, search, the trash; one file's EN alt text, decorative flag, uses, delete (refused while it is shown) and History. `content:read`; writes `content:update`, restores `content:restore` |
-| `/admin/content` and `/admin/content/{sections,hero,offers,offers/new,offers/[id],stories,heritage,ui-text,legal,emails}` | Request time, nonce CSP | The content editors (spec §7.2), in English until phase 8: the home sections' switches, pictures and links; the hero's slides, words and pace and the film; the offers; the registry's words by screen; the privacy policy (each change of the agreed wording is a policy version); the booking emails with a preview. Every record has its History. `content:read`; writes `content:update`, restores `content:restore` |
+| `/admin/content` and `/admin/content/{sections,hero,offers,offers/new,offers/[id],cuisines,destinations,experiences,stories,heritage,navigation,contact,booking,seo,ui-text,legal,emails}` | Request time, nonce CSP | The content editors (spec §7.2), in English until phase 8 ("Editing content" above): the home sections' switches, pictures and links; the hero's slides, words and pace and the film; the offers; the cuisines, destinations, Experiences rows, stories and menu items, each a list with its order and "Đã xóa gần đây"; the footer's social links and words; the booking bar's defaults and words; the page titles and the share picture; the registry's words by screen; the privacy policy (each change of the agreed wording is a policy version); the booking emails with a preview. Every record has its History. `content:read`; writes `content:update`, restores `content:restore` |
 | `/admin/restaurants/[id]` | Request time, nonce CSP | One restaurant's content: name, slug, pictures, contact, detail page, highlights, menu (a PDF from the library or a link), SEO, History. `content:read`; writes `content:update`, restores `content:restore` |
 | `/api/admin/emails/preview` | Dynamic, `no-store` | The emails screen's preview of unsaved text, framed by that screen only (its own CSP). `content:read`, then the `Origin` |
 | `/admin/sign-in`, `/admin/accept-invite`, `/admin/reset-password` | Request time, nonce CSP | The only admin pages open without a session cookie |

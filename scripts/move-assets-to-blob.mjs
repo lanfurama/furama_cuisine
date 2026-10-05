@@ -4,8 +4,8 @@
  * served by the app) into the Vercel Blob store (spec §14.1 row 7 "chuyển ảnh
  * cũ lên Blob"), and points their media rows at the copies.
  *
- *   DATABASE_URL=… BLOB_READ_WRITE_TOKEN=… node scripts/move-assets-to-blob.mjs --prefix production            # dry run
- *   DATABASE_URL=… BLOB_READ_WRITE_TOKEN=… node scripts/move-assets-to-blob.mjs --prefix production --apply
+ *   DATABASE_URL_UNPOOLED=… BLOB_READ_WRITE_TOKEN=… node scripts/move-assets-to-blob.mjs --prefix production            # dry run
+ *   DATABASE_URL_UNPOOLED=… BLOB_READ_WRITE_TOKEN=… node scripts/move-assets-to-blob.mjs --prefix production --apply
  *
  * - Once, production only: production's database and the store Production and
  *   Preview share, folder `production` (README "Media in Vercel Blob"; the

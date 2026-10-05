@@ -13,13 +13,13 @@ import { AGREED_KEYS, PRIVACY_POLICY_VERSION, privacyHref } from './legal';
  * that inserts a legal_versions row (version and effective_on = today's Da
  * Nang date, text_sha256 = the new hash this test prints), shipped in the
  * same deploy window as the code (the README's "Before launch A", the
- * lawyer's note). Then pin that migration's pair here in RECORDED and compare
- * against it.
+ * lawyer's note). Then add that migration's pair beside RECORDED (its first
+ * row stays the seeded one) and point the assertion below at it.
  */
 const RECORDED = { version: '2026-10-03', sha256: 'f49aa3f58723d14d6491c1801466c411fe9439acab85b4da5272d4c7676e10d2' };
 
 describe('privacy policy version', () => {
-  it('moves whenever the English text of the policy, the notice or the consent label changes', () => {
+  it('pins the agreed English text (policy, notice, consent label) to the version 009 seeded: a changed default needs a new legal_versions migration', () => {
     const text = JSON.stringify(AGREED_KEYS.map((k) => [k, REGISTRY[k].en]));
     expect({ version: PRIVACY_POLICY_VERSION, sha256: createHash('sha256').update(text).digest('hex') }).toEqual(RECORDED);
   });
