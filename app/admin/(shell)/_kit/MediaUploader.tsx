@@ -4,7 +4,7 @@ import { uploadPresigned } from '@vercel/blob/client';
 import { useRouter } from 'next/navigation';
 import { useId, useState, type ChangeEvent } from 'react';
 import { actionErrorMessage } from '@/lib/admin/auth-errors';
-import { MAX_UPLOAD_BYTES, MEDIA_CONTENT_TYPES, isMediaContentType, uploadPathname } from '@/lib/media/rules';
+import { MAX_UPLOAD_BYTES, MEDIA_CONTENT_TYPES, isImageType, isMediaContentType, uploadPathname } from '@/lib/media/rules';
 import { registerMediaAction } from '../media/actions';
 
 type Row = { name: string; state: 'uploading' | 'registering' | 'done' | 'failed'; message?: string };
@@ -25,7 +25,25 @@ type Row = { name: string; state: 'uploading' | 'registering' | 'done' | 'failed
  * speaks HTTP/1.1 every upload would fail. Without it the SDK sends the File
  * as an ordinary body.
  */
-export function MediaUploader({ prefix, configured, onUploaded }: { prefix: string; configured: boolean; onUploaded?: (id: string) => void }) {
+/** What one uploader takes: anything the library holds, or (inside an ImagePicker) its kind only. */
+const KINDS = {
+  any: { types: MEDIA_CONTENT_TYPES, label: 'Chọn ảnh hoặc PDF (tối đa 15 MB mỗi file)', refused: 'Chỉ nhận JPEG, PNG, WebP, AVIF hoặc PDF.' },
+  image: { types: MEDIA_CONTENT_TYPES.filter(isImageType), label: 'Tải ảnh mới lên (tối đa 15 MB)', refused: 'Chỉ nhận ảnh JPEG, PNG, WebP hoặc AVIF.' },
+  pdf: { types: MEDIA_CONTENT_TYPES.filter((t) => !isImageType(t)), label: 'Tải PDF mới lên (tối đa 15 MB)', refused: 'Chỉ nhận file PDF.' },
+} as const;
+
+export function MediaUploader({
+  prefix,
+  configured,
+  onUploaded,
+  kind = 'any',
+}: {
+  prefix: string;
+  configured: boolean;
+  onUploaded?: (id: string) => void;
+  kind?: keyof typeof KINDS;
+}) {
+  const accepts = KINDS[kind];
   const router = useRouter();
   const uid = useId();
   const [rows, setRows] = useState<Row[]>([]);
@@ -39,8 +57,8 @@ export function MediaUploader({ prefix, configured, onUploaded }: { prefix: stri
     setRows((all) => [...all, ...files.map((f) => ({ name: f.name, state: 'uploading' as const }))]);
     for (const [k, file] of files.entries()) {
       const i = start + k;
-      if (!isMediaContentType(file.type)) {
-        update(i, { state: 'failed', message: 'Chỉ nhận JPEG, PNG, WebP, AVIF hoặc PDF.' });
+      if (!isMediaContentType(file.type) || !(accepts.types as readonly string[]).includes(file.type)) {
+        update(i, { state: 'failed', message: accepts.refused });
         continue;
       }
       if (file.size > MAX_UPLOAD_BYTES) {
@@ -77,12 +95,12 @@ export function MediaUploader({ prefix, configured, onUploaded }: { prefix: stri
   return (
     <div className="a-uploader">
       <div className="a-field">
-        <label htmlFor={`${uid}-input`}>Chọn ảnh hoặc PDF (tối đa 15 MB mỗi file)</label>
+        <label htmlFor={`${uid}-input`}>{accepts.label}</label>
         <input
           id={`${uid}-input`}
           type="file"
-          multiple
-          accept={MEDIA_CONTENT_TYPES.join(',')}
+          multiple={kind === 'any'}
+          accept={accepts.types.join(',')}
           onChange={onChange}
           disabled={busy}
           aria-describedby={`${uid}-status`}

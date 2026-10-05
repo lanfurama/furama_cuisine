@@ -1091,3 +1091,113 @@ fieldset.a-field legend {
     grid-template-columns: 1fr;
   }
 }
+
+/* ImagePicker (phase 7, A9): a fieldset of library files, a <details> list of radios and the uploader (R12). */
+.a-picker {
+  margin: 0 0 16px;
+  padding: 12px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--a-radius);
+}
+
+.a-picker legend {
+  padding: 0 4px;
+  font-weight: 600;
+}
+
+.a-picker-current {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.a-picker-current p {
+  margin: 0;
+}
+
+.a-picker-thumb {
+  width: 72px;
+  height: auto;
+  border-radius: 4px;
+  background: var(--a-bg);
+}
+
+.a-picker-pdf {
+  display: inline-grid;
+  place-items: center;
+  width: 72px;
+  height: 48px;
+  border-radius: 4px;
+  background: var(--a-bg);
+  font-size: 12px;
+}
+
+.a-picker-list summary {
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+.a-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  max-height: 320px;
+  margin-top: 8px;
+  overflow-y: auto;
+}
+
+.a-picker-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 4px 6px;
+  padding: 6px;
+  border: 1px solid var(--a-line);
+  border-radius: 6px;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.a-picker-option:has(input:checked) {
+  border-color: var(--a-brand);
+  background: var(--a-bg);
+}
+
+.a-picker-option > span,
+.a-picker-option > img {
+  grid-column: 2;
+}
+
+.a-picker .a-uploader {
+  margin-top: 8px;
+}
+
+/* content/sections and content/hero (A9): one card per section or slide, its form and its History. */
+.a-section-card {
+  margin: 0 0 24px;
+  padding: 16px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--a-radius);
+  background: var(--a-surface);
+}
+
+.a-section-card > h2,
+.a-section-card > h3 {
+  margin-top: 0;
+}
+
+.a-slide-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.a-slide-row .a-picker-thumb {
+  width: 96px;
+}
+
+.a-details-history > summary {
+  margin: 8px 0;
+  cursor: pointer;
+}

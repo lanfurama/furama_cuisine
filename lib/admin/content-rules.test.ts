@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { charCount, checkLength, LIMITS, limitError, limitWarnings } from './content-rules';
+import { charCount, checkLength, LIMITS, limitError, limitWarnings, sectionErrors } from './content-rules';
 
 describe('content rules (spec §6.5)', () => {
   it('counts characters as Postgres char_length does, not UTF-16 units', () => {
@@ -43,5 +43,18 @@ describe('content rules (spec §6.5)', () => {
     expect(limitWarnings('offers', 0)).toEqual([expect.stringMatching(/ẩn section Offers/)]);
     expect(limitWarnings('highlights', 1)).toEqual([expect.stringMatching(/ít nhất 2/)]);
     expect(limitWarnings('experiences', 0)[0]).toMatch(/ít nhất 1/);
+  });
+
+  it('a section: restaurants never hides; the film plays a YouTube or Vimeo video only; other links are https (code rule 5)', () => {
+    expect(sectionErrors('restaurants', { visible: false, link: null })).toEqual({ isVisible: [expect.stringMatching(/luôn hiện/)] });
+    expect(sectionErrors('restaurants', { visible: true, link: null })).toEqual({});
+    expect(sectionErrors('hero', { visible: false, link: null })).toEqual({});
+    expect(sectionErrors('film', { visible: true, link: 'https://youtu.be/dQw4w9WgXcQ' })).toEqual({});
+    expect(sectionErrors('film', { visible: true, link: 'https://vimeo.com/76979871' })).toEqual({});
+    // 008's CHECK accepts any youtube.com link; a channel page names no video.
+    expect(sectionErrors('film', { visible: true, link: 'https://www.youtube.com/@furama' })).toEqual({ link: [expect.stringMatching(/YouTube hoặc Vimeo/)] });
+    expect(sectionErrors('film', { visible: true, link: 'https://example.com/video.mp4' }).link).toHaveLength(1);
+    expect(sectionErrors('heritage', { visible: true, link: 'https://furamavietnam.com/the-resort/' })).toEqual({});
+    expect(sectionErrors('heritage', { visible: true, link: 'http://furamavietnam.com/' })).toEqual({ link: ['Đường dẫn phải bắt đầu bằng https://'] });
   });
 });

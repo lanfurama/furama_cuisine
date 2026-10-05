@@ -43,6 +43,8 @@ const ENTITIES: Record<string, string> = {
   email_outbox: 'Email',
   // Content (phase 7): a list item and its order (entity_id NULL), a registry key, a policy version.
   offers: 'Ưu đãi',
+  sections: 'Section trang chủ',
+  hero_slides: 'Slide hero',
   content_strings: 'Chữ trên web',
   legal_versions: 'Phiên bản chính sách',
   // A library file: the row and its alt text (R5, C6).

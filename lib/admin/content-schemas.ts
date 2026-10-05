@@ -1,3 +1,5 @@
+import { SECTION_KEYS } from '@/lib/content/types';
+import { HERO_AUTOPLAY_MS } from './content-rules';
 import { z } from './zod';
 
 /*
@@ -127,4 +129,47 @@ export const StringRestoreForm = z.object({
   auditId: z.string().regex(/^\d{1,18}$/),
   side: z.enum(['before', 'after']),
   token: z.string().regex(/^\d{0,20}$/, 'Trang đã cũ, hãy tải lại.'),
+});
+
+/** A library file picked in ImagePicker: '' when none, else its id. */
+const optionalMedia = z
+  .string()
+  .trim()
+  .transform((v) => (v === '' ? null : v))
+  .pipe(z.uuid({ error: 'Chọn một file trong thư viện.' }).nullable());
+
+/**
+ * One home section (spec §7.2 content/sections; the hero screen's film part
+ * posts the same form, C5): its switch, and its picture and link where the
+ * section has them (lib/admin/content-rules.ts SECTION_PARTS). A field the
+ * form does not post stays as it is.
+ */
+export const SectionForm = z.object({
+  key: z.enum(SECTION_KEYS),
+  token: Token,
+  isVisible: checkbox,
+  imageId: optionalMedia.optional(),
+  link: z
+    .string()
+    .trim()
+    .max(2000, tooLong(2000))
+    .transform((v) => (v === '' ? null : v))
+    .optional(),
+});
+
+/** A hero slide (spec §6.5): its picture, the phone crop (used by the first slide shown), and its switch. */
+export const SlideForm = z.object({
+  imageId: z.uuid({ error: 'Chọn ảnh cho slide.' }),
+  imageMobileId: optionalMedia,
+  isPublished: checkbox,
+});
+
+/** How long each hero slide shows on desktop, in whole seconds (site_settings.hero_autoplay_ms is milliseconds). */
+export const AutoplayForm = z.object({
+  token: Token,
+  seconds: z.coerce
+    .number({ error: 'Nhập một số giây.' })
+    .int('Nhập số giây nguyên.')
+    .min(HERO_AUTOPLAY_MS.min / 1000, `Từ ${HERO_AUTOPLAY_MS.min / 1000} đến ${HERO_AUTOPLAY_MS.max / 1000} giây.`)
+    .max(HERO_AUTOPLAY_MS.max / 1000, `Từ ${HERO_AUTOPLAY_MS.min / 1000} đến ${HERO_AUTOPLAY_MS.max / 1000} giây.`),
 });

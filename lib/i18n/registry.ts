@@ -495,6 +495,109 @@ export const REGISTRY = {
     screen: 'offers',
     label: 'Ghi chú điền sẵn khi khách bấm View offer',
   },
+  // ── Hero (spec §7.2 content/hero): the home page reads them on the server and hands them to the hero (page props);
+  // the same three title lines name the page from a hidden <h1> when the hero is left out (phase-6 F-A, L7-16) ──
+  'hero.kicker': {
+    en: 'People · Culture · Great Food',
+    maxLength: 48,
+    context: 'Home page, small line above the hero title, over the photo. One line on a phone.',
+    screen: 'hero',
+    label: 'Dòng nhỏ phía trên tiêu đề',
+  },
+  'hero.title_1': {
+    en: 'Many Flavours.',
+    maxLength: 28,
+    context:
+      'Home page, hero title, line 1 of 3, very large over the photo. Also the start of the page’s hidden heading when the hero is switched off. Keep each line short.',
+    screen: 'hero',
+    label: 'Tiêu đề, dòng 1',
+  },
+  'hero.title_2': {
+    en: 'Many Destinations.',
+    maxLength: 28,
+    context: 'Home page, hero title, line 2 of 3. Desktop only: a phone shows lines 1 and 3 (spec §6.5).',
+    screen: 'hero',
+    label: 'Tiêu đề, dòng 2 (chỉ máy tính)',
+  },
+  'hero.title_3': {
+    en: 'One Furama Cuisine.',
+    maxLength: 28,
+    context: 'Home page, hero title, line 3 of 3; ends the sentence of lines 1 and 2.',
+    screen: 'hero',
+    label: 'Tiêu đề, dòng 3',
+  },
+  'hero.lede': {
+    en: 'From beachfront dining to vibrant city destinations – discover the restaurants, cuisines and people of Furama Cuisine.',
+    maxLength: 160,
+    context: 'Home page, one sentence under the hero title, over the photo.',
+    screen: 'hero',
+    label: 'Câu dẫn',
+  },
+  'hero.cta_explore': {
+    en: 'EXPLORE OUR RESTAURANTS',
+    maxLength: 32,
+    context: 'Home page, the hero’s main button; scrolls to the restaurants. Capitals; an arrow follows it.',
+    screen: 'hero',
+    label: 'Nút xem nhà hàng',
+  },
+  'hero.cta_film': {
+    en: 'WATCH THE FILM',
+    maxLength: 24,
+    context: 'Home page, the hero’s button that opens the film dialog (shown while the film section is on). Capitals.',
+    screen: 'hero',
+    label: 'Nút xem phim',
+  },
+  'hero.cta_find': {
+    en: 'FIND A RESTAURANT',
+    maxLength: 24,
+    context: 'Home page, the hero’s button that opens the restaurant finder (phones). Capitals; an arrow follows it.',
+    screen: 'hero',
+    label: 'Nút tìm nhà hàng',
+  },
+  'hero.slide_aria': {
+    en: 'Slide {n}',
+    maxLength: 24,
+    vars: ['n'],
+    context: 'Screen-reader name of one dot under the hero, which shows that slide. {n} is the slide’s number; keep it.',
+    screen: 'hero',
+    label: 'Tên nút chọn slide (trình đọc màn hình)',
+  },
+  // ── The film dialog (spec §5.2 sections[film]): a client component of the chrome (CLIENT_KEYS) ──
+  'film.aria': {
+    en: 'Furama Cuisine film',
+    maxLength: 60,
+    context: 'Screen-reader name of the film dialog.',
+    screen: 'hero',
+    label: 'Tên hộp phim (trình đọc màn hình)',
+  },
+  'film.close_aria': {
+    en: 'Close film',
+    maxLength: 40,
+    context: 'Screen-reader name of the × button and the backdrop that close the film dialog.',
+    screen: 'hero',
+    label: 'Nút đóng phim (trình đọc màn hình)',
+  },
+  'film.title': {
+    en: 'One Furama Cuisine',
+    maxLength: 40,
+    context: 'Film dialog, the large title over the poster while no video link is set.',
+    screen: 'hero',
+    label: 'Tiêu đề trên poster',
+  },
+  'film.coming_soon': {
+    en: 'THE FILM · COMING SOON',
+    maxLength: 40,
+    context: 'Film dialog, the small line under the title while no video link is set. Capitals.',
+    screen: 'hero',
+    label: 'Dòng “sắp ra mắt”',
+  },
+  'film.player_title': {
+    en: 'One Furama Cuisine — the film',
+    maxLength: 80,
+    context: 'Screen-reader name of the video player (YouTube or Vimeo) inside the film dialog.',
+    screen: 'hero',
+    label: 'Tên trình phát video (trình đọc màn hình)',
+  },
   // ── Search overlay: a client component of the chrome (CLIENT_KEYS) ──
   'search.aria': {
     en: 'Search',
@@ -853,14 +956,14 @@ export const KEY_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/;
 /**
  * Keys the browser needs at first paint, passed to SiteProvider by the
  * (guarded) layout: the chrome's client components (reservation form, search,
- * finder, booking bar) and the policy link. Everything else is read on the
+ * finder, booking bar, film dialog) and the policy link. Everything else is read on the
  * server: a page's own section copy (pageKeys), metadata (seo.*), the policy
  * page (legal.*) and emails (email.*).
  */
-const CLIENT_PREFIXES = ['error.', 'booking.', 'search.', 'meal.', 'finder.'] as const;
+const CLIENT_PREFIXES = ['error.', 'booking.', 'search.', 'meal.', 'finder.', 'film.'] as const;
 /** Single keys the chrome needs beyond the prefixes: the policy link (form, footer), VIEW OFFER's note (form). */
 const CLIENT_SINGLES = ['legal.link', 'offers.note'] as const;
-export type ClientKey = Extract<StringKey, `${'error' | 'booking' | 'search' | 'meal' | 'finder'}.${string}` | (typeof CLIENT_SINGLES)[number]>;
+export type ClientKey = Extract<StringKey, `${'error' | 'booking' | 'search' | 'meal' | 'finder' | 'film'}.${string}` | (typeof CLIENT_SINGLES)[number]>;
 
 export const CLIENT_KEYS = STRING_KEYS.filter(
   (k): k is ClientKey => CLIENT_PREFIXES.some((p) => k.startsWith(p)) || (CLIENT_SINGLES as readonly string[]).includes(k),
@@ -875,7 +978,7 @@ export function sectionKeys<P extends string>(prefix: P): SectionKey<P>[] {
 }
 
 /** The home sections whose copy the home page reads on the server and passes down as props. */
-export const HOME_SECTIONS = ['stories', 'heritage', 'offers'] as const;
+export const HOME_SECTIONS = ['hero', 'stories', 'heritage', 'offers'] as const;
 export const HOME_KEYS = HOME_SECTIONS.flatMap((s) => sectionKeys(s));
 
 /** Every key one admin screen edits. */

@@ -46,7 +46,7 @@ export default async function HomePage() {
   return (
     <ViewMarker view="home" hero={hero}>
       <IntroTrigger />
-      {hero ? <Hero slides={slides} /> : <HeroHeading />}
+      {hero ? <Hero slides={slides} copy={copyOf(strings, 'hero')} /> : <HeroHeading copy={copyOf(strings, 'hero')} />}
       {shown.has('finder') && <Finder />}
       {shown.has('cuisines') && <Cuisines />}
       {shown.has('restaurants') && <Restaurants />}

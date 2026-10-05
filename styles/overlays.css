@@ -991,3 +991,9 @@
   letter-spacing: 0.22em;
   color: var(--gold);
 }
+
+/* The film's player (phase 7): over the poster, no border, the frame's own corners. */
+.film-video {
+  border: 0;
+  background: #000;
+}

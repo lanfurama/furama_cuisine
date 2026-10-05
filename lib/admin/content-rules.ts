@@ -1,3 +1,5 @@
+import { parseFilmUrl } from '@/lib/media/film';
+
 /*
  * The content rules SQL cannot hold (spec §6.5; phase-6 ledger L7-14): layout
  * limits and the warn/refuse lengths. Pure functions, so the editors' forms
@@ -69,4 +71,37 @@ export function limitWarnings(key: LimitKey, shown: number): string[] {
   if (key === 'offers' && shown === 0) out.push('Không có ưu đãi nào được hiện: trang chủ ẩn section Offers.');
   if (key === 'highlights' && shown === 0) out.push('Không có điểm nổi bật nào: trang chi tiết ẩn phần này.');
   return out;
+}
+
+/** Spec §5.2 site_settings.hero_autoplay_ms (CHECK 3000–20000): how long each hero slide shows on desktop. */
+export const HERO_AUTOPLAY_MS = { min: 3000, max: 20000 } as const;
+
+/** Spec §6.5 "Slide 1 bắt buộc có ảnh crop cho mobile": phones show only the first slide the guest sees. */
+export const FIRST_SLIDE_NEEDS_CROP = 'Slide đầu tiên đang hiện cần ảnh cắt cho điện thoại. Chọn ảnh mobile cho slide đó, hoặc đưa slide có ảnh mobile lên đầu.';
+
+/** The sections that carry a picture or a link (spec §7.2 content/sections; 008 sections.image_id / link_url). */
+export const SECTION_PARTS: Record<string, { image?: string; link?: string }> = {
+  film: { image: 'Ảnh poster', link: 'Link video (YouTube hoặc Vimeo)' },
+  experiences: { image: 'Ảnh bên cạnh danh sách' },
+  heritage: { image: 'Ảnh nền', link: 'Link nút “Our story”' },
+};
+
+/**
+ * A section's version, as a save or a restore would write it (code rule 5):
+ * the restaurants section never hides (spec §6.5; CHECK
+ * sections_restaurants_visible), the film's link names one YouTube or Vimeo
+ * video (lib/media/film.ts; stricter than 008's sections_film_video, which
+ * only checks the host), and any other link is https.
+ */
+export function sectionErrors(key: string, version: { visible: boolean; link: string | null }): Record<string, string[]> {
+  const errors: Record<string, string[]> = {};
+  if (key === 'restaurants' && !version.visible) errors.isVisible = ['Section Nhà hàng luôn hiện: thẻ nhà hàng, ô tìm và thanh tab đều dẫn tới nó.'];
+  if (version.link !== null) {
+    if (key === 'film' && !parseFilmUrl(version.link)) {
+      errors.link = ['Dán link một video YouTube hoặc Vimeo (ví dụ https://youtu.be/… hoặc https://vimeo.com/…).'];
+    } else if (key !== 'film' && !/^https:\/\/\S+$/.test(version.link)) {
+      errors.link = ['Đường dẫn phải bắt đầu bằng https://'];
+    }
+  }
+  return errors;
 }

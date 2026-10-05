@@ -44,12 +44,13 @@ export async function getAuditRow(client: PoolClient, auditId: string): Promise<
   return rows[0] ?? null;
 }
 
-export type DeletedItem = { id: string; at: Date; actor: string; before: Record<string, unknown> };
+/** A deleted item: its delete row's id (auditId: "Khôi phục mục đã xóa" posts it with side 'before'), when, who, and the item as it was. */
+export type DeletedItem = { id: string; auditId: string; at: Date; actor: string; before: Record<string, unknown> };
 
 /** Items of a list deleted and not restored since: each one's latest delete row, newest first. */
 export async function listDeleted(db: Db, def: ItemDef, limit = 20): Promise<DeletedItem[]> {
   const { rows } = await db.query<DeletedItem>(
-    `SELECT DISTINCT ON (a.entity_id) a.entity_id AS id, a.at, coalesce(s.name, a.actor_email, 'Hệ thống') AS actor, a.before
+    `SELECT DISTINCT ON (a.entity_id) a.entity_id AS id, a.id::text AS "auditId", a.at, coalesce(s.name, a.actor_email, 'Hệ thống') AS actor, a.before
        FROM audit_log a
        LEFT JOIN staff_user s ON s.id = a.actor_id
       WHERE a.entity_type = $1 AND a.action = 'delete' AND a.entity_id IS NOT NULL AND a.before IS NOT NULL

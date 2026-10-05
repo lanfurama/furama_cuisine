@@ -3,27 +3,23 @@
 import { useEffect, useState } from 'react';
 import { homeSections } from '@/lib/content/home-sections';
 import type { HeroSlide } from '@/lib/content/types';
+import { formatMessage } from '@/lib/i18n/format';
+import type { Copy } from '@/lib/i18n/registry';
 import { useSite } from '@/components/site/SiteProvider';
 import { CmsImage, cmsPictureProps } from '@/components/ui/CmsImage';
 import { readMotionLevel } from '@/lib/motion';
 
-/**
- * The hero's headline, a line each. Section copy in JSX (R2) until phase 7
- * moves it into the registry, and kept in one place for HeroHeading, which
- * says the same words when the hero is left out.
- */
-const TITLE = ['Many Flavours.', 'Many Destinations.', 'One Furama Cuisine.'] as const;
+/** The hero's headline, a line each (registry hero.title_*, spec §7.2 content/hero). */
+const titleOf = (copy: Copy<'hero'>) => [copy['hero.title_1'], copy['hero.title_2'], copy['hero.title_3']] as const;
 
 /**
  * The home page's <h1> when it has no hero (switched off, or no slide with a
  * picture: homeSections). The hero holds the page's only <h1>, and without it
- * the page would have none, so this names the page with the hero's own words,
- * visually hidden. A component rather than the exported lines: a value
- * exported from a 'use client' module reaches the Server Component page as a
- * client reference, not as the strings.
+ * the page would have none, so this names the page with the hero's own words
+ * (the same keys, L7-16), visually hidden.
  */
-export function HeroHeading() {
-  return <h1 className="sr-only">{TITLE.join(' ')}</h1>;
+export function HeroHeading({ copy }: { copy: Copy<'hero'> }) {
+  return <h1 className="sr-only">{titleOf(copy).join(' ')}</h1>;
 }
 
 /*
@@ -36,8 +32,9 @@ export function HeroHeading() {
  * Pictures go through next/image's optimiser (R3; components/ui/CmsImage.tsx); slide 1
  * is an art-directed <picture> of both files' optimised srcsets.
  */
-export function Hero({ slides }: { slides: HeroSlide[] }) {
-  const { site, open, overlay, scrollToId } = useSite();
+export function Hero({ slides, copy }: { slides: HeroSlide[]; copy: Copy<'hero'> }) {
+  const { site, open, overlay, scrollToId, locale } = useSite();
+  const TITLE = titleOf(copy);
   const [slide, setSlide] = useState(0);
   const count = slides.length;
   const autoplayMs = site.settings.heroAutoplayMs;
@@ -82,7 +79,7 @@ export function Hero({ slides }: { slides: HeroSlide[] }) {
       <div className="hero-content" data-hero-content="1">
         <div className="hero-copy">
           <div className="hero-kicker" data-intro="0">
-            People · Culture · Great Food
+            {copy['hero.kicker']}
           </div>
 
           <h1 className="hero-title">
@@ -104,13 +101,13 @@ export function Hero({ slides }: { slides: HeroSlide[] }) {
           </h1>
 
           <p className="hero-lede" data-intro="4">
-            From beachfront dining to vibrant city destinations – discover the restaurants, cuisines
-            and people of Furama Cuisine.
+            {copy['hero.lede']}
           </p>
 
           <div className="hero-actions" data-intro="5">
             <button type="button" className="btn-slab hero-explore" onClick={() => scrollToId('restaurants')}>
-              EXPLORE OUR RESTAURANTS<span className="hero-arrow">→</span>
+              {copy['hero.cta_explore']}
+              <span className="hero-arrow">→</span>
             </button>
 
             {shown.has('film') && (
@@ -118,13 +115,14 @@ export function Hero({ slides }: { slides: HeroSlide[] }) {
                 <span className="hero-play">
                   <span className="hero-play-tri" />
                 </span>
-                WATCH THE FILM
+                {copy['hero.cta_film']}
               </button>
             )}
 
             {shown.has('finder') && (
               <button type="button" className="hero-find" onClick={() => open('sheet')}>
-                FIND A RESTAURANT<span>→</span>
+                {copy['hero.cta_find']}
+                <span>→</span>
               </button>
             )}
           </div>
@@ -135,7 +133,7 @@ export function Hero({ slides }: { slides: HeroSlide[] }) {
                 <button
                   key={s.id}
                   type="button"
-                  aria-label={`Slide ${i + 1}`}
+                  aria-label={formatMessage(copy['hero.slide_aria'], { n: i + 1 }, locale)}
                   aria-current={i === slide}
                   onClick={() => setSlide(i)}
                   className="hero-dot"

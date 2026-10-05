@@ -97,15 +97,6 @@ const PENDING: Record<string, string> = {
   "components/home/Finder.tsx: More cities": "finder.more_cities",
   "components/home/Finder.tsx: Occasion": "finder.occasion",
   "components/home/Finder.tsx: SHOW RESTAURANTS": "finder.submit",
-  "components/home/Hero.tsx: EXPLORE OUR RESTAURANTS": "hero.cta_explore",
-  "components/home/Hero.tsx: FIND A RESTAURANT": "hero.cta_find",
-  "components/home/Hero.tsx: From beachfront dining to vibrant city destinations – discover the restaurants, cuisines and people of Furama Cuisine.": "hero.lede",
-  "components/home/Hero.tsx: Many Destinations.": "hero.title_2",
-  "components/home/Hero.tsx: Many Flavours.": "hero.title_1",
-  "components/home/Hero.tsx: One Furama Cuisine.": "hero.title_3",
-  "components/home/Hero.tsx: People · Culture · Great Food": "hero.kicker",
-  "components/home/Hero.tsx: Slide": "hero.slide_aria ('Slide {n}')",
-  "components/home/Hero.tsx: WATCH THE FILM": "hero.cta_film",
   "components/home/RestaurantCard.tsx: Reserve a table": "restaurants.card_reserve",
   "components/home/RestaurantCard.tsx: View restaurant": "restaurants.card_view",
   "components/home/Restaurants.tsx: , remove filter": "restaurants.remove_filter_sr",
@@ -119,10 +110,6 @@ const PENDING: Record<string, string> = {
   "components/home/Restaurants.tsx: VIEW ALL RESTAURANTS →": "restaurants.view_all",
   "components/home/Restaurants.tsx: of": "restaurants.showing",
   "components/home/Restaurants.tsx: restaurants": "restaurants.showing",
-  "components/overlays/FilmModal.tsx: Close film": "film.close_aria",
-  "components/overlays/FilmModal.tsx: Furama Cuisine film": "film.aria",
-  "components/overlays/FilmModal.tsx: One Furama Cuisine": "film.title",
-  "components/overlays/FilmModal.tsx: THE FILM · COMING SOON": "film.coming_soon",
   "components/overlays/FinderSheet.tsx: Close": "common.close",
   "components/overlays/FinderSheet.tsx: Cuisine": "finder.cuisine",
   "components/overlays/FinderSheet.tsx: Destination": "finder.destination",
@@ -220,8 +207,9 @@ describe('guest-visible text lives in the registry or the database (spec §13)',
   });
 
   it('PENDING only shrinks during phase 7 (the number in the plan’s task table)', () => {
-    // 161 found by the phase-7 spike, less the six offers.* literals moved in plan 7A task A3.
-    expect(Object.keys(PENDING).length).toBeLessThanOrEqual(155);
+    // 161 found by the phase-7 spike, less the six offers.* literals moved in plan 7A task A3 and the
+    // thirteen hero.* and film.* ones moved in A9.
+    expect(Object.keys(PENDING).length).toBeLessThanOrEqual(142);
   });
 });
 

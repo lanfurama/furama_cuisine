@@ -68,6 +68,13 @@ export type ListEditorOptions<I> = {
   validate?: (client: PoolClient, candidate: Candidate, mode: 'save' | 'restore') => Promise<ListFailure | null>;
   /** Extra `meta` for the delete's audit row, read before the DELETE in its transaction (R9: the bookings it unlinks). */
   beforeDelete?: (client: PoolClient, id: string, actor: AuditActor) => Promise<Row | null>;
+  /**
+   * A rule about the whole list as a write leaves it (spec §6.5 "slide 1 bắt
+   * buộc có ảnh crop cho mobile": which slide is first depends on every
+   * item's order and switch). Runs after every write, in its transaction; a
+   * failure rolls the write back and is the write's answer.
+   */
+  checkList?: (client: PoolClient) => Promise<ListFailure | null>;
 };
 
 export type RestoreInput = { id: string; auditId: string; side: 'before' | 'after'; token: string };
@@ -78,6 +85,13 @@ const fail = (x: { snapshot: ItemSnapshot } | ListFailure): x is ListFailure => 
 function isItemSnapshot(value: unknown, id: string): value is ItemSnapshot {
   const s = value as ItemSnapshot | null;
   return !!s && s.v === 1 && typeof s.row === 'object' && s.row !== null && String(s.row.id) === id && Array.isArray(s.i18n);
+}
+
+/** checkList's refusal, thrown inside the transaction so it rolls back, and returned as the write's result. */
+class ListRefusal extends Error {
+  constructor(readonly failure: ListFailure) {
+    super(failure.code);
+  }
 }
 
 function isOrderSnapshot(value: unknown): value is OrderSnapshot {
@@ -164,10 +178,26 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
     await insertAudit(client, actor, { action, entityType: def.entityType, entityId: id, before, after });
   }
 
+  /** The list as this write leaves it must pass checkList, or the whole write rolls back. */
+  async function settled(client: PoolClient): Promise<void> {
+    const failure = await options.checkList?.(client);
+    if (failure) throw new ListRefusal(failure);
+  }
+
+  /** One write: its transaction, with a checkList refusal as its answer. */
+  async function write<T>(pool: Pool, work: (client: PoolClient) => Promise<ListResult<T>>): Promise<ListResult<T>> {
+    try {
+      return await withTransaction(pool, work);
+    } catch (err) {
+      if (err instanceof ListRefusal) return err.failure;
+      throw err;
+    }
+  }
+
   return {
     /** "Thêm …": appended to the end of the list. */
     async create(pool: Pool, actor: AuditActor, input: I): Promise<ListResult<{ id: string }>> {
-      return withTransaction(pool, async (client) => {
+      return write(pool, async (client) => {
         await lockList(client, options.listKey);
         const row = options.toRow(input);
         const refused =
@@ -185,13 +215,14 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
         );
         const id = rows[0].id;
         await writeTranslations(client, id, input, actor.id);
+        await settled(client);
         await audited(client, actor, 'create', id, null, await readItem(client, def, id));
         return { ok: true, data: { id } };
       });
     },
 
     async update(pool: Pool, actor: AuditActor, id: string, token: string, input: I): Promise<ListResult> {
-      return withTransaction(pool, async (client) => {
+      return write(pool, async (client) => {
         await lockList(client, options.listKey);
         const locked = await lockedItem(client, id, token);
         if (fail(locked)) return locked;
@@ -210,6 +241,7 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
           [id, JSON.stringify(row), actor.id],
         );
         await writeTranslations(client, id, input, actor.id);
+        await settled(client);
         await audited(client, actor, 'update', id, locked.snapshot, await readItem(client, def, id));
         return { ok: true, data: null };
       });
@@ -217,13 +249,14 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
 
     /** The list's show/hide switch for one item: an update of that item alone. */
     async setPublished(pool: Pool, actor: AuditActor, id: string, token: string, published: boolean): Promise<ListResult> {
-      return withTransaction(pool, async (client) => {
+      return write(pool, async (client) => {
         await lockList(client, options.listKey);
         const locked = await lockedItem(client, id, token);
         if (fail(locked)) return locked;
         const limited = await overLimit(client, published, id);
         if (limited) return limited;
         await client.query(`UPDATE ${def.table} SET is_published = $2, updated_at = now(), updated_by = $3 WHERE id = $1${cast}`, [id, published, actor.id]);
+        await settled(client);
         await audited(client, actor, 'update', id, locked.snapshot, await readItem(client, def, id));
         return { ok: true, data: null };
       });
@@ -231,24 +264,26 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
 
     /** "Lưu thứ tự": `ids` is the whole list in its new order; the audit row keeps the whole old order (spec §7.5). */
     async reorder(pool: Pool, actor: AuditActor, token: string, ids: readonly string[]): Promise<ListResult> {
-      return withTransaction(pool, async (client) => {
+      return write(pool, async (client) => {
         await lockList(client, options.listKey);
         const before = await readOrder(client, def);
         const sameSet = ids.length === before.order.length && new Set(ids).size === ids.length && ids.every((id) => before.order.some((o) => o.id === id));
         if (orderToken(before) !== token || !sameSet) return listConflict(client);
         await writeOrder(client, def, ids, actor.id);
+        await settled(client);
         await insertAudit(client, actor, { action: 'reorder', entityType: def.entityType, entityId: null, before, after: await readOrder(client, def) });
         return { ok: true, data: null };
       });
     },
 
     async remove(pool: Pool, actor: AuditActor, id: string, token: string): Promise<ListResult<{ meta: Row | null }>> {
-      return withTransaction(pool, async (client) => {
+      return write(pool, async (client) => {
         await lockList(client, options.listKey);
         const locked = await lockedItem(client, id, token);
         if (fail(locked)) return locked;
         const meta = (await options.beforeDelete?.(client, id, actor)) ?? null;
         await client.query(`DELETE FROM ${def.table} WHERE id = $1${cast}`, [id]);
+        await settled(client);
         await audited(client, actor, 'delete', id, meta ? { ...locked.snapshot, meta } : locked.snapshot, null);
         return { ok: true, data: { meta } };
       });
@@ -264,7 +299,7 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
      */
     async restore(pool: Pool, actor: AuditActor, input: RestoreInput): Promise<ListResult> {
       try {
-        return await withTransaction(pool, async (client): Promise<ListResult> => {
+        return await write(pool, async (client): Promise<ListResult> => {
           await lockList(client, options.listKey);
           const audit = await getAuditRow(client, input.auditId);
           const snapshot = audit?.[input.side];
@@ -287,6 +322,7 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
           if ((await reviveMedia(client, actor, mediaOf(snapshot.row).map((r) => r.id))).length > 0) return { ok: false, code: 'missing_reference' };
           const { meta: _meta, ...data } = snapshot;
           await writeItem(client, def, data, actor.id);
+          await settled(client);
           const after = await readItem(client, def, input.id);
           await audited(client, actor, 'restore', input.id, current, after && { ...after, meta: { restored_from: input.auditId } });
           return { ok: true, data: null };
@@ -299,7 +335,7 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
 
     /** A reorder row's order back: ids still in the list take their old places; items added since keep theirs after them. */
     async restoreOrder(pool: Pool, actor: AuditActor, input: RestoreOrderInput): Promise<ListResult> {
-      return withTransaction(pool, async (client): Promise<ListResult> => {
+      return write(pool, async (client): Promise<ListResult> => {
         await lockList(client, options.listKey);
         const audit = await getAuditRow(client, input.auditId);
         const snapshot = audit?.[input.side];
@@ -312,6 +348,7 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
         const kept = snapshot.order.map((o) => String(o.id)).filter((id) => now.has(id));
         const ids = [...kept, ...before.order.map((o) => o.id).filter((id) => !kept.includes(id))];
         await writeOrder(client, def, ids, actor.id);
+        await settled(client);
         await insertAudit(client, actor, { action: 'restore', entityType: def.entityType, entityId: null, before, after: await readOrder(client, def) });
         return { ok: true, data: null };
       });

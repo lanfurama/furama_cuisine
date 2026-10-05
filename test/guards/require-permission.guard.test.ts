@@ -117,6 +117,23 @@ const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; edito
     restoreOfferAction: { permission: { content: ['restore'] }, editor: true },
     restoreOfferOrderAction: { permission: { content: ['restore'] }, editor: true },
   },
+  // Home sections (spec §7.2 content/sections); the hero screen's film part posts saveSectionAction too (C5).
+  'app/admin/(shell)/content/sections/actions.ts': {
+    saveSectionAction: { permission: { content: ['update'] }, editor: true },
+    restoreSectionAction: { permission: { content: ['restore'] }, editor: true },
+  },
+  // The hero's slides and their pace (spec §7.2 content/hero).
+  'app/admin/(shell)/content/hero/actions.ts': {
+    createSlideAction: { permission: { content: ['update'] }, editor: true },
+    saveSlideAction: { permission: { content: ['update'] }, editor: true },
+    toggleSlideAction: { permission: { content: ['update'] }, editor: true },
+    deleteSlideAction: { permission: { content: ['update'] }, editor: true },
+    reorderSlidesAction: { permission: { content: ['update'] }, editor: true },
+    restoreSlideAction: { permission: { content: ['restore'] }, editor: true },
+    restoreSlideOrderAction: { permission: { content: ['restore'] }, editor: true },
+    saveAutoplayAction: { permission: { content: ['update'] }, editor: true },
+    restoreAutoplayAction: { permission: { content: ['restore'] }, editor: true },
+  },
   // The media library (spec §7.2 /admin/media): upload step 2, alt text, delete, and History.
   'app/admin/(shell)/media/actions.ts': {
     registerMediaAction: { permission: { content: ['update'] }, editor: true },

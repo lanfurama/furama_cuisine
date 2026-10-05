@@ -76,6 +76,10 @@ export const NON_TEXT_ATTRIBUTES = new Set([
   'aria-describedby',
   'aria-labelledby',
   'aria-pressed',
+  // An iframe's permissions and referrer policy (the film player): tokens, never shown.
+  'allow',
+  'sandbox',
+  'referrerPolicy',
   // Component props that take an enum value, never words.
   'view',
   'variant',
