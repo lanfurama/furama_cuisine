@@ -20,6 +20,9 @@ export const metadata: Metadata = { title: 'Ngày đóng cửa' };
 
 const SCOPE_LABELS = { all: 'Tất cả nhà hàng', destination: 'Điểm đến', restaurant: 'Nhà hàng' } as const;
 
+/** "Bữa Lunch, Dinner", or "cả ngày" when no meal is named. */
+const closureMeals = (meals: readonly string[] | null) => (meals?.length ? `Bữa ${meals.join(', ')}` : 'cả ngày');
+
 export default async function ClosuresPage() {
   await requirePagePermission({ schedule: ['read'] });
   const pool = getPool();
@@ -66,15 +69,21 @@ export default async function ClosuresPage() {
           reasonVi: c.publicReason.vi ?? '',
           internalNote: c.internalNote ?? '',
         };
-        const title = `${where} · ${formatIsoDayVi(c.startsOn)}${c.endsOn !== c.startsOn ? ` – ${formatIsoDayVi(c.endsOn)}` : ''}`;
+        // The meals belong in the title: two closures on the same dates, lunch and dinner, read apart (phase-4 T13).
+        const title = `${where} · ${formatIsoDayVi(c.startsOn)}${c.endsOn !== c.startsOn ? ` – ${formatIsoDayVi(c.endsOn)}` : ''} · ${closureMeals(c.meals)}`;
         return (
           <section className="a-card-row" key={c.id} aria-label={title}>
             <h2>{title}</h2>
-            <p>
-              {c.meals ? `Bữa: ${c.meals.join(', ')}` : 'Cả ngày'}
-              {c.publicReason.en ? ` · Lý do cho khách: ${c.publicReason.en}${c.showReason ? '' : ' (đang ẩn)'}` : ''}
-              {c.internalNote ? ` · Ghi chú nội bộ: ${c.internalNote}` : ''}
-            </p>
+            {c.publicReason.en || c.internalNote ? (
+              <p>
+                {[
+                  c.publicReason.en ? `Lý do cho khách: ${c.publicReason.en}${c.showReason ? '' : ' (đang ẩn)'}` : null,
+                  c.internalNote ? `Ghi chú nội bộ: ${c.internalNote}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
+            ) : null}
             <details>
               <summary>Sửa</summary>
               <ClosureEditor options={options} values={values} />

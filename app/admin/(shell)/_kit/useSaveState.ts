@@ -1,8 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useState } from 'react';
 import type { ActionResult } from '@/lib/server/action-result';
+import { useLeaveGuard } from './useLeaveGuard';
 
 type Action<T> = (prev: ActionResult<T> | null, formData: FormData) => Promise<ActionResult<T>>;
 
@@ -47,13 +48,8 @@ export function useSaveState<T, V>(action: Action<T>, token: string, view: V) {
   if (current !== seen) setSeen(current);
   const visible = state !== null && !state.ok && current.arrivedWith !== current.token ? null : state;
 
-  useEffect(() => {
-    if (!current.dirty) return;
-    // Leaving with unsaved edits (reload, close, another site) asks first; a client-side link inside the admin does not.
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [current.dirty]);
+  // Leaving with unsaved edits (reload, close, another site) asks first; a client-side link inside the admin does not.
+  useLeaveGuard(current.dirty);
 
   return {
     state: visible,

@@ -13,6 +13,7 @@ import { roleCan } from '@/lib/server/auth/permissions';
 import { getReservation, listEvents, listNotes } from '@/lib/server/booking/queries';
 import { loadRestaurantRules } from '@/lib/server/booking/rules';
 import { requirePagePermission } from '@/lib/server/dal/session';
+import { sittingAhead } from '@/lib/server/email/drain';
 import { outboxEnv } from '@/lib/server/email/env';
 import { listReservationEmails, resendable } from '@/lib/server/email/outbox-log';
 import { redactEmails } from '@/lib/server/email/types';
@@ -93,6 +94,8 @@ export default async function ReservationPage({ params }: { params: Promise<{ id
   // Every slot time of the restaurant's services; the booking's own time stays even if the hours moved.
   const times = [...new Set([...(loaded?.rules.periods ?? []).flatMap((p) => seatings(p)), reservation.time])].sort();
   const editable = (HOLDING_STATUSES as readonly string[]).includes(reservation.status);
+  // The sender's own rule (F5): once the sitting has started, no booking email goes out.
+  const sittingPassed = !sittingAhead(reservation);
   const ownNotes = notes.get(reservation.id) ?? [];
 
   return (
@@ -142,7 +145,13 @@ export default async function ReservationPage({ params }: { params: Promise<{ id
 
       <section aria-labelledby="res-status-title">
         <h2 id="res-status-title">Trạng thái</h2>
-        <TransitionPanel id={reservation.id} version={reservation.version} options={options} hasEmail={Boolean(reservation.email)} />
+        <TransitionPanel
+          id={reservation.id}
+          version={reservation.version}
+          options={options}
+          hasEmail={Boolean(reservation.email)}
+          sittingPassed={sittingPassed}
+        />
       </section>
 
       {editable ? (
@@ -227,8 +236,9 @@ export default async function ReservationPage({ params }: { params: Promise<{ id
                         '—'
                       )}
                     </td>
-                    {/* Past its sitting the drain would only skip it (F5): nothing to send again. */}
-                    <td>{canResend && resendable(m.status) && !m.sittingPassed ? <ResendEmail id={m.id} label={EMAIL_EVENT_LABELS[m.event]} /> : null}</td>
+                    {/* Past its sitting the drain would only skip it (F5): nothing to send again. Each button names its
+                        email and recipient: two staff.new rows of one booking differ only by address (T7.4). */}
+                    <td>{canResend && resendable(m.status) && !m.sittingPassed ? <ResendEmail id={m.id} label={`${EMAIL_EVENT_LABELS[m.event]} tới ${m.toEmail}`} /> : null}</td>
                   </tr>
                 ))}
               </tbody>

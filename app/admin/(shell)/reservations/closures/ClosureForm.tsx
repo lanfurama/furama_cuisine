@@ -3,7 +3,7 @@
 import { useActionState, useId, useState } from 'react';
 import { submitKeepingValues } from '@/lib/admin/form';
 import type { ActionResult } from '@/lib/server/action-result';
-import { FieldError, FormMessage } from '../../_ui/FormMessage';
+import { FieldError, FormMessage, invalidField } from '../../_ui/FormMessage';
 import { addClosure, editClosure, removeClosure } from './actions';
 
 export type ClosureValues = {
@@ -105,7 +105,7 @@ function ClosureFields({
       {scope === 'restaurant' ? (
         <div className="a-field">
           <label htmlFor={id('restaurant')}>Nhà hàng</label>
-          <select id={id('restaurant')} name="restaurantId" defaultValue={values?.restaurantId ?? ''} aria-describedby={id('restaurant-error')}>
+          <select id={id('restaurant')} name="restaurantId" defaultValue={values?.restaurantId ?? ''} aria-describedby={id('restaurant-error')} aria-invalid={invalidField(state, 'restaurantId')}>
             <option value="">Chọn nhà hàng</option>
             {options.restaurants.map((r) => (
               <option key={r.id} value={r.id}>
@@ -119,7 +119,7 @@ function ClosureFields({
       {scope === 'destination' ? (
         <div className="a-field">
           <label htmlFor={id('destination')}>Điểm đến</label>
-          <select id={id('destination')} name="destinationId" defaultValue={values?.destinationId ?? ''} aria-describedby={id('destination-error')}>
+          <select id={id('destination')} name="destinationId" defaultValue={values?.destinationId ?? ''} aria-describedby={id('destination-error')} aria-invalid={invalidField(state, 'destinationId')}>
             <option value="">Chọn điểm đến</option>
             {options.destinations.map((d) => (
               <option key={d.id} value={d.id}>
@@ -132,12 +132,12 @@ function ClosureFields({
       ) : null}
       <div className="a-field">
         <label htmlFor={id('starts')}>Từ ngày</label>
-        <input id={id('starts')} name="startsOn" type="date" defaultValue={values?.startsOn} aria-describedby={id('starts-error')} />
+        <input id={id('starts')} name="startsOn" type="date" defaultValue={values?.startsOn} aria-describedby={id('starts-error')} aria-invalid={invalidField(state, 'startsOn')} />
         <FieldError state={state} name="startsOn" id={id('starts-error')} />
       </div>
       <div className="a-field">
         <label htmlFor={id('ends')}>Đến ngày</label>
-        <input id={id('ends')} name="endsOn" type="date" defaultValue={values?.endsOn} aria-describedby={id('ends-error')} />
+        <input id={id('ends')} name="endsOn" type="date" defaultValue={values?.endsOn} aria-describedby={id('ends-error')} aria-invalid={invalidField(state, 'endsOn')} />
         <FieldError state={state} name="endsOn" id={id('ends-error')} />
       </div>
       <fieldset className="a-field a-field--wide">
@@ -151,12 +151,12 @@ function ClosureFields({
       </fieldset>
       <div className="a-field">
         <label htmlFor={id('reason-en')}>Lý do cho khách (EN)</label>
-        <input id={id('reason-en')} name="reasonEn" maxLength={160} defaultValue={values?.reasonEn} aria-describedby={id('reason-en-error')} />
+        <input id={id('reason-en')} name="reasonEn" maxLength={160} defaultValue={values?.reasonEn} aria-describedby={id('reason-en-error')} aria-invalid={invalidField(state, 'reasonEn')} />
         <FieldError state={state} name="reasonEn" id={id('reason-en-error')} />
       </div>
       <div className="a-field">
         <label htmlFor={id('reason-vi')}>Lý do cho khách (VI)</label>
-        <input id={id('reason-vi')} name="reasonVi" maxLength={160} defaultValue={values?.reasonVi} aria-describedby={id('reason-vi-error')} />
+        <input id={id('reason-vi')} name="reasonVi" maxLength={160} defaultValue={values?.reasonVi} aria-describedby={id('reason-vi-error')} aria-invalid={invalidField(state, 'reasonVi')} />
         <FieldError state={state} name="reasonVi" id={id('reason-vi-error')} />
       </div>
       <label className="a-check a-field--wide">
@@ -165,7 +165,7 @@ function ClosureFields({
       </label>
       <div className="a-field a-field--wide">
         <label htmlFor={id('note')}>Ghi chú nội bộ (khách không thấy)</label>
-        <input id={id('note')} name="internalNote" maxLength={2000} defaultValue={values?.internalNote} aria-describedby={id('note-error')} />
+        <input id={id('note')} name="internalNote" maxLength={2000} defaultValue={values?.internalNote} aria-describedby={id('note-error')} aria-invalid={invalidField(state, 'internalNote')} />
         <FieldError state={state} name="internalNote" id={id('note-error')} />
       </div>
       <button className="a-btn" type="submit" disabled={pending}>
@@ -181,7 +181,7 @@ export function DeleteClosure({ values }: { values: ClosureValues }) {
   // onSubmit for method="post" (lib/admin/admin-pages.guard.test.ts), and React warns about a method on
   // a form whose action is a function (it posts that form itself). Cancelling the click stops the submit.
   return (
-    <form className="a-inline" action={action}>
+    <form className="a-inline-form a-inline-form--button" action={action}>
       <WasScope values={values} />
       <button
         className="a-btn a-btn--ghost a-btn--small"

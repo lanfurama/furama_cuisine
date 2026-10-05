@@ -112,7 +112,11 @@ export const PeriodForm = z
     firstSeating: Time,
     lastSeating: Time,
     intervalMin: z.number().refine((n) => (SLOT_INTERVALS as readonly number[]).includes(n), { error: 'Chọn khoảng cách giữa các giờ.' }),
-    coversPerSlot: z.number().int().min(0, { error: 'Sức chứa không âm.' }).max(1000, { error: 'Sức chứa tối đa 1000.' }),
+    coversPerSlot: z
+      .number({ error: 'Nhập số khách mỗi khung giờ (0: không nhận khách).' })
+      .int({ error: 'Nhập số nguyên.' })
+      .min(0, { error: 'Sức chứa không âm.' })
+      .max(1000, { error: 'Sức chứa tối đa 1000.' }),
     active: z.boolean(),
   })
   .refine((p) => p.lastSeating >= p.firstSeating, { error: 'Giờ nhận khách cuối phải từ giờ đầu trở đi.', path: ['lastSeating'] })
@@ -137,6 +141,23 @@ export const PeriodsForm = z.object({
     }
   }, z.array(PeriodForm).max(20, { error: 'Tối đa 20 ca phục vụ.' })),
 });
+
+/**
+ * A refused periods list, field by field. zod's flatten files every issue
+ * under its first path segment, so a row's message showed without its row
+ * (phase-4 ledger T11). Here a row's issue is `periods.<row>.<field>` (the
+ * row as posted, from 0), and one about the list or the form stays under
+ * its own name.
+ */
+export function periodsFieldErrors(error: z.ZodError): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const issue of error.issues) {
+    const [head, row, field] = issue.path;
+    const key = head === 'periods' && typeof row === 'number' && field !== undefined ? `periods.${row}.${String(field)}` : String(head ?? 'periods');
+    (out[key] ??= []).push(issue.message);
+  }
+  return out;
+}
 
 /** auto_confirm per restaurant (Admin): follow "Cài đặt đặt bàn" (null), on or off. */
 export const AutoConfirmForm = z.object({

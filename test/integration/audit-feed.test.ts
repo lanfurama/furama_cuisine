@@ -114,23 +114,30 @@ describe.skipIf(!TEST_DATABASE_URL)('the audit feed', () => {
     expect((await listAuditFeed(pool, { after: '2' })).rows.map((r) => r.entity_id)).toEqual(['x']);
   });
 
-  it('labels staff and invitations by email and bookings by reference', async () => {
+  it('labels staff and invitations by email, bookings by reference, and an email by its kind and booking, linked to it (T7.5)', async () => {
     const owner = await createBootstrapAdmin(createTestAuth(pool));
     await inviteBySql(pool, 'moi@furama.test', 'editor');
     const { rows: invitation } = await pool.query<{ id: string }>(`SELECT id::text FROM staff_invitation WHERE email = 'moi@furama.test'`);
     const id = await reservation('FC-7K3QH9XA');
+    const { rows: email } = await pool.query<{ id: string }>(
+      `INSERT INTO email_outbox (env, event, audience, reservation_id, to_email, locale)
+       VALUES ('development', 'guest.confirmed', 'guest', $1, 'an@example.com', 'en') RETURNING id::text`,
+      [id],
+    );
     const labels = await entityLabels(pool, [
       { entity_type: 'staff_user', entity_id: owner.id },
       { entity_type: 'staff_user', entity_id: 'removed-id' },
       { entity_type: 'staff_invitation', entity_id: invitation[0].id },
       { entity_type: 'reservation', entity_id: id },
       { entity_type: 'reservation', entity_id: 'not-a-number' },
+      { entity_type: 'email_outbox', entity_id: email[0].id },
     ]);
     expect(labels).toEqual(
       new Map([
-        [`staff_user:${owner.id}`, owner.email],
-        [`staff_invitation:${invitation[0].id}`, 'moi@furama.test'],
-        [`reservation:${id}`, 'FC-7K3QH9XA'],
+        [`staff_user:${owner.id}`, { label: owner.email, href: null }],
+        [`staff_invitation:${invitation[0].id}`, { label: 'moi@furama.test', href: null }],
+        [`reservation:${id}`, { label: 'FC-7K3QH9XA', href: `/admin/reservations/${id}` }],
+        [`email_outbox:${email[0].id}`, { label: 'Khách: đã xác nhận · FC-7K3QH9XA', href: `/admin/reservations/${id}` }],
       ]),
     );
     expect(await entityLabels(pool, [])).toEqual(new Map());

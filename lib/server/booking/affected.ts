@@ -18,6 +18,17 @@ import { loadBookedCovers, loadBookingRules } from './rules';
 
 export type AffectedKind = 'closed' | 'outside_hours' | 'over_capacity';
 
+/**
+ * Why a booking is listed, for staff. A slot over its capacity is not always
+ * a "new capacity": staff may have overbooked it on purpose, with a reason,
+ * and the list then names that slot too (phase-4 ledger T11).
+ */
+export const AFFECTED_WHY: Record<AffectedKind, string> = {
+  closed: 'Rơi vào ngày đóng cửa',
+  outside_hours: 'Ngoài giờ phục vụ mới',
+  over_capacity: 'Khung giờ đang có nhiều khách hơn sức chứa',
+};
+
 export type AffectedReservation = {
   id: string;
   reference: string;

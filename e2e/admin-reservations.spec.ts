@@ -12,10 +12,11 @@ import { STAFF, expect, newVisitor, one, seedStaff, signInAs, test } from './sta
  * the inbox search; an edit re-checked against capacity; a phone booking
  * past capacity; a phone booking at the restaurant and date the picker
  * shows; the printable day sheet; the guest-email checkboxes of phase 5; Enter
- * in the reason field changing nothing; no email promised after the sitting.
+ * in the reason field changing nothing (no email after the sitting: in
+ * admin-booking-forms.spec.ts since plan 7B task B9).
  * The admin CSP stays clean (no inline styles). Tàya House at +3, +4, +6 (one
- * booking outside the hours) and yesterday (the no-show, the confirmed booking
- * the Enter test leaves as it is, and one cancelled after its sitting),
+ * booking outside the hours) and yesterday (the no-show, and the confirmed
+ * booking the Enter test leaves as it is),
  * V-Senses Cafe at +8, ChaoShan Hotpot at +7, Café Indochine at +6: dates no
  * other spec books there. The tests that count covers (Tàya
  * House +4 and +6, ChaoShan Hotpot +7) empty their day first, so the file
@@ -187,9 +188,10 @@ test('Enter in “Lý do” on a request submits nothing: it stays requested, wi
   expect(posts).toBe(0);
 });
 
-test('Enter in “Lý do” on a confirmed booking, “Báo khách” ticked, cancels nothing and emails no one (F1)', async ({ page }) => {
+test('Enter in “Lý do” on a confirmed booking past its sitting cancels nothing and emails no one (F1)', async ({ page }) => {
   // Tàya House yesterday at 19:00, like the no-show test: past its sitting, so every button of a confirmed
-  // booking is enabled, and the first one is "Hủy", which would cancel it and email the guest this note.
+  // booking is enabled, and the first one is "Hủy", which would cancel it. (No "Báo khách" box any more once
+  // the sitting has started, plan 7B task B9: the sender would skip the email.)
   const r = await seedReservation({ status: 'confirmed', date: venueDay(-1), time: '19:00' });
   const guest = `enter-${r.reference.toLowerCase()}@example.com`;
   await one(`UPDATE reservations SET email = $2 WHERE id = $1`, [r.id, guest]);
@@ -198,7 +200,7 @@ test('Enter in “Lý do” on a confirmed booking, “Báo khách” ticked, ca
   await page.goto(`/admin/reservations/${r.id}`);
   await expectHydrated(page);
   await expect(main(page).getByRole('button', { name: 'Không đến', exact: true })).toBeEnabled();
-  await expect(main(page).getByRole('checkbox', { name: 'Báo khách qua email khi hủy' })).toBeChecked();
+  await expect(main(page).getByRole('checkbox', { name: 'Báo khách qua email khi hủy' })).toHaveCount(0);
   const submits = await countSubmits(page);
   const reason = page.getByLabel('Lý do (bắt buộc khi hủy hoặc từ chối)', { exact: true });
   await reason.fill('Nội bộ: khách còn nợ tiền cọc');
@@ -208,26 +210,6 @@ test('Enter in “Lý do” on a confirmed booking, “Báo khách” ticked, ca
   expect(await one(`SELECT count(*)::int AS n FROM email_outbox WHERE reservation_id = $1`, [r.id])).toEqual({ n: 0 });
   expect(emailsTo(guest)).toEqual([]);
   await expect(main(page).getByRole('status')).toHaveCount(0);
-});
-
-test('a cancel after the sitting has started, “Báo khách” ticked: the notice promises no email, since the sender skips it (F5)', async ({ page }) => {
-  // Tàya House yesterday at 19:00: "Hủy" has no time window, but no booking email goes out once the sitting has started.
-  const r = await seedReservation({ status: 'confirmed', date: venueDay(-1), time: '19:00' });
-  const guest = `late-${r.reference.toLowerCase()}@example.com`;
-  await one(`UPDATE reservations SET email = $2 WHERE id = $1`, [r.id, guest]);
-  await signInAs(page, STAFF.editor);
-  await page.goto(`/admin/reservations/${r.id}`);
-  await expectHydrated(page);
-  await expect(main(page).getByRole('checkbox', { name: 'Báo khách qua email khi hủy' })).toBeChecked();
-  await page.getByLabel('Lý do (bắt buộc khi hủy hoặc từ chối)', { exact: true }).fill('Khách gọi báo hủy');
-  await main(page).getByRole('button', { name: 'Hủy', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Đã hủy');
-  await expect(main(page).getByRole('status')).toHaveText('Đã chuyển sang “Đã hủy”.');
-  // What the notice left out is what happens: the row is skipped by this action's own drain, never sent.
-  await expect
-    .poll(() => one(`SELECT status, last_error FROM email_outbox WHERE reservation_id = $1`, [r.id]))
-    .toEqual({ status: 'skipped', last_error: 'skipped: the sitting has passed' });
-  expect(emailsTo(guest)).toEqual([]);
 });
 
 test('a change names itself, then the panel starts over: the reason empty, “Báo khách” ticked again (F1)', async ({ page }) => {
@@ -332,15 +314,15 @@ test('the inbox finds a booking by reference or phone, and confirms it from the 
   await expect(page.getByRole('row').filter({ hasText: r.reference })).toContainText('Đã xác nhận');
   expect((await reservationRow(r.id)).status).toBe('confirmed');
 
-  // A search in another tab replaces the cookie: this tab says so rather than showing the other tab's results.
+  // A search in another tab joins the cookie's last five (phase-5 F5): this tab keeps its own results.
   const other = await page.context().newPage();
   await other.goto('/admin/reservations');
   await other.getByLabel('Tìm theo mã, số điện thoại, tên hoặc email', { exact: true }).fill('Không ai tên này');
   await other.getByRole('button', { name: 'Tìm', exact: true }).click();
   await expect(other.getByText('Kết quả cho “Không ai tên này” trong mọi đặt bàn.')).toBeVisible();
   await page.reload();
-  await expect(main(page).getByRole('status')).toHaveText('Kết quả tìm kiếm đã hết hạn. Hãy tìm lại.');
-  await expect(page.getByRole('navigation', { name: 'Lọc đặt bàn' })).toBeVisible();
+  await expect(page.getByText(`Kết quả cho “${local}” trong mọi đặt bàn.`)).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: r.reference })).toBeVisible();
   await other.close();
 });
 

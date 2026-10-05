@@ -13,6 +13,7 @@ import { envPrefix, isBlobConfigured } from '@/lib/server/media/blob';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
 import { restoreRestaurantAction } from './actions';
 import { RestaurantForm } from './RestaurantForm';
+import { RestaurantNav } from './RestaurantNav';
 
 // Request-time like the whole admin (app/admin/layout.tsx); also opts navigations between admin pages out of dev instant validation (instant-navigation.md:568).
 export const instant = false;
@@ -83,12 +84,7 @@ export default async function RestaurantContentPage({ params }: { params: Promis
         <Link href="/admin/restaurants">← Nhà hàng</Link>
       </p>
       <h1>{v.name}</h1>
-      <nav className="a-subnav" aria-label="Màn của nhà hàng">
-        <Link href={`/admin/restaurants/${id}`} aria-current="page">
-          Nội dung
-        </Link>
-        <Link href={`/admin/restaurants/${id}/booking`}>Giờ và sức chứa</Link>
-      </nav>
+      <RestaurantNav id={id} current="content" />
       {editor.archived ? (
         <p className="a-alert" role="status">
           Nhà hàng đang lưu trữ: khách không thấy. Bỏ lưu trữ ở danh sách nhà hàng.

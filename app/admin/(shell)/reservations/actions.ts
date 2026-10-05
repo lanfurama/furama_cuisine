@@ -19,7 +19,7 @@ import {
   staffActor,
   transitionReservation,
 } from '@/lib/server/booking/reservations';
-import { requirePermission } from '@/lib/server/dal/session';
+import { refuseVoidAction, requirePermission } from '@/lib/server/dal/session';
 
 /*
  * Reservation actions (spec §7.4 for bookings): requirePermission → zod → one
@@ -183,10 +183,16 @@ export async function cancelReservations(_prev: ActionResult<CancelManyResult> |
 /**
  * The inbox search box (spec §7.2). A POST, so the guest's phone, name or
  * email never reaches the URL (phase-4 ruling SEC-2, R18): the text waits in a
- * short-lived httpOnly cookie and the inbox URL carries only its id.
+ * short-lived httpOnly cookie and the inbox URL carries only its id. A void
+ * action has no state to answer in, so a refused caller is sent where a page
+ * would send them (sign-in, or the 403 view), never to the error page (T12.4).
  */
 export async function searchReservations(formData: FormData): Promise<void> {
-  await requirePermission({ reservations: ['read'] });
+  try {
+    await requirePermission({ reservations: ['read'] });
+  } catch (err) {
+    return refuseVoidAction(err, '/admin/reservations');
+  }
   const q = searchText(formData.get('q'));
   redirect(q ? `/admin/reservations?tim=${await saveInboxSearch(q)}` : '/admin/reservations');
 }

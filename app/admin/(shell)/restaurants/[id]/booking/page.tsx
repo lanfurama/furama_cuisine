@@ -7,12 +7,13 @@ import { planDay } from '@/lib/booking/resolve-day';
 import { MEALS } from '@/lib/data';
 import { STATUS_LABELS } from '@/lib/reservations/lifecycle';
 import { roleCan } from '@/lib/server/auth/permissions';
-import { findAffected, type AffectedKind } from '@/lib/server/booking/affected';
+import { AFFECTED_WHY, findAffected } from '@/lib/server/booking/affected';
 import { getBookingSettings, getRestaurantBooking, loadPeriods } from '@/lib/server/booking/config';
 import { loadBookedCovers, loadRestaurantRules } from '@/lib/server/booking/rules';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { isValidIsoDate, venueNow } from '@/lib/venue-time';
 import { AffectedList } from '../../../_ui/AffectedList';
+import { RestaurantNav } from '../RestaurantNav';
 import { AutoConfirmForm } from './AutoConfirmForm';
 import { PeriodsEditor } from './PeriodsEditor';
 import { RulesForm } from './RulesForm';
@@ -21,12 +22,6 @@ import { RulesForm } from './RulesForm';
 export const instant = false;
 
 export const metadata: Metadata = { title: 'Giờ và sức chứa' };
-
-const WHY: Record<AffectedKind, string> = {
-  closed: 'Rơi vào ngày đóng cửa',
-  outside_hours: 'Ngoài giờ phục vụ mới',
-  over_capacity: 'Khung giờ vượt sức chứa mới',
-};
 
 export default async function RestaurantBookingPage({
   params,
@@ -58,6 +53,7 @@ export default async function RestaurantBookingPage({
         <Link href="/admin/restaurants">← Nhà hàng</Link>
       </p>
       <h1>{`Giờ và sức chứa · ${restaurant.name}`}</h1>
+      <RestaurantNav id={restaurant.id} current="booking" />
       <p className="a-lede">Lưu xong, khách thấy giờ và chỗ mới ở lần mở form tiếp theo.</p>
 
       <section aria-labelledby="booking-rules-title">
@@ -105,7 +101,7 @@ export default async function RestaurantBookingPage({
             phone: a.phone,
             hasEmail: a.hasEmail,
             statusLabel: STATUS_LABELS[a.status],
-            why: WHY[a.kind],
+            why: AFFECTED_WHY[a.kind],
           }))}
         />
       </section>

@@ -10,6 +10,7 @@ import {
   RulesForm,
   SettingsForm,
   TransitionForm,
+  periodsFieldErrors,
 } from './booking-schemas';
 
 /* The booking screens' action inputs (spec §7.3): FormData strings in, typed values or Vietnamese field errors out. */
@@ -102,6 +103,20 @@ describe('booking form schemas', () => {
       ['Chọn ít nhất một ngày trong tuần.'],
     ]);
     expect(PeriodsForm.safeParse({ restaurant: 'x', token: '1', periods: 'not json' }).success).toBe(false);
+  });
+
+  it('a refused list names each row and field (periods.<row>.<field>), and a cleared covers field is its own message, never 0 (phase-4 T11)', () => {
+    const period = { id: null, meal: 'Dinner', weekdays: [1, 2], firstSeating: '18:00', lastSeating: '21:00', intervalMin: 30, coversPerSlot: 8, active: true };
+    const posted = [period, { ...period, meal: 'Lunch', lastSeating: '21:10' }, { ...period, meal: 'Drinks', coversPerSlot: '' }];
+    const parsed = PeriodsForm.safeParse({ restaurant: 'x', token: '1', periods: JSON.stringify(posted) });
+    expect(periodsFieldErrors(parsed.error!)).toEqual({
+      'periods.1.lastSeating': ['Giờ cuối phải cách giờ đầu một số lần đúng bằng khoảng cách (ví dụ 18:00 → 21:00 với 30 phút).'],
+      'periods.2.coversPerSlot': ['Nhập số khách mỗi khung giờ (0: không nhận khách).'],
+    });
+    // A refusal about the list, or the form, keeps its own name.
+    const list = PeriodsForm.safeParse({ restaurant: 'x', token: '1', periods: JSON.stringify(Array.from({ length: 21 }, () => period)) });
+    expect(periodsFieldErrors(list.error!)).toEqual({ periods: ['Tối đa 20 ca phục vụ.'] });
+    expect(Object.keys(periodsFieldErrors(PeriodsForm.safeParse({ restaurant: 'X!', token: '1', periods: '[]' }).error!))).toEqual(['restaurant']);
   });
 
   it('a batch cancel: ticked id:version pairs and a reason', () => {

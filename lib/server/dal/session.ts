@@ -88,6 +88,21 @@ export async function requirePermission(permissions: Permissions): Promise<Staff
   return staff;
 }
 
+/**
+ * The catch of a void Server Action (a plain form post with no state to
+ * answer in, like the inbox search): a lapsed session goes to sign-in and
+ * back to `next`, a role without the permission gets the 403 view, as for a
+ * page; anything else rethrows. Without it the PermissionError reached the
+ * generic error page (phase-5 ledger T12.4).
+ */
+export function refuseVoidAction(err: unknown, next: string): never {
+  if (err instanceof PermissionError) {
+    if (err.code === 'unauthenticated') redirect(`${ADMIN_SIGN_IN}?next=${encodeURIComponent(next)}`);
+    forbidden();
+  }
+  throw err;
+}
+
 /** Who did it, for insertAudit and the invitation email. */
 export function auditActor(staff: StaffSession): AuditActor {
   return { id: staff.userId, email: staff.email, name: staff.name, ip: staff.ip };

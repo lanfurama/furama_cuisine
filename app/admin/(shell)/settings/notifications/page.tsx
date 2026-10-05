@@ -35,6 +35,8 @@ export default async function NotificationsPage() {
     listLocales(pool),
   ]);
   const destinationName = new Map(destinations.map((d) => [d.id, d.name]));
+  // The language by its name, as the form's select shows it, not its code (phase-5 T6.9).
+  const localeName = new Map(locales.map((l) => [l.code, l.name]));
   const options: RecipientOptions = {
     restaurants,
     destinations,
@@ -80,7 +82,7 @@ export default async function NotificationsPage() {
                 {r.email}
                 {r.active ? null : <span className="a-tag">Đang tắt</span>}
               </h3>
-              <p>{`${where} · ${r.locale}`}</p>
+              <p>{`${where} · ${localeName.get(r.locale) ?? r.locale}`}</p>
               <details>
                 <summary>Sửa</summary>
                 <RecipientEditor options={options} values={values} />

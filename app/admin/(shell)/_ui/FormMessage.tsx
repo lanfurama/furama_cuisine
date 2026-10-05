@@ -58,6 +58,15 @@ export function RuleAlert({ lead, rules }: { lead: string; rules: readonly strin
   );
 }
 
+/**
+ * `aria-invalid` for a field the last submit refused: true, or nothing (the
+ * attribute left off). Beside FieldError, so a refused field is announced as
+ * invalid and found without matching its text (phase-4 ledger T9).
+ */
+export function invalidField(state: ActionResult<unknown> | null, name: string): true | undefined {
+  return state && !state.ok && state.fieldErrors?.[name]?.length ? true : undefined;
+}
+
 /** The first error of one field, linked to its input by `id` (aria-describedby). */
 export function FieldError({ state, name, id }: { state: ActionResult<unknown> | null; name: string; id: string }) {
   const message = state && !state.ok ? state.fieldErrors?.[name]?.[0] : undefined;

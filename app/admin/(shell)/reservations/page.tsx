@@ -30,7 +30,8 @@ export default async function ReservationsPage({ searchParams }: { searchParams:
   const searchId = one(params.tim);
   const saved = await readInboxSearch(searchId);
   const q = saved && saved !== 'expired' ? saved.q : '';
-  const after = one(params.sau);
+  // An expired search starts its tab over: page 2 of results that are gone is no page (phase-5 T12.5).
+  const after = saved === 'expired' ? undefined : one(params.sau);
   // "Hôm nay" is Da Nang's date, whatever the server's timezone.
   const { rows, next, searched } = await listInbox(getPool(), { tab, q, after, today: venueNow().date });
   const shownTab: InboxTab = searched ? 'all' : tab;

@@ -155,6 +155,9 @@ test('the periods editor keeps showing what it will post, after a refused save a
     await rowOf('Dinner').getByRole('checkbox', { name: 'T2', exact: true }).uncheck();
     await editor.getByRole('button', { name: 'Thêm ca' }).click();
     await editor.getByLabel('Bữa của ca 3', { exact: true }).selectOption('Drinks');
+    // "Thêm ca" starts a period at hours that clash with nothing (Breakfast's); move it onto dinner's.
+    await rowOf('Drinks').getByLabel('Giờ đầu của ca Drinks', { exact: true }).fill('18:00');
+    await rowOf('Drinks').getByLabel('Giờ cuối của ca Drinks', { exact: true }).fill('21:00');
     await editor.getByRole('button', { name: 'Lưu ca phục vụ' }).click();
     await expect(editor.getByText('Hai ca trùng giờ: Dinner và Drinks cùng có giờ 18:00.')).toBeVisible();
     await expectDinnerEdited();

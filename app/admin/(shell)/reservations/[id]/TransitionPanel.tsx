@@ -1,11 +1,11 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useId, useState } from 'react';
 import { submitKeepingValues } from '@/lib/admin/form';
 import type { ReservationStatus } from '@/lib/booking/rules';
 import { STATUS_LABELS } from '@/lib/reservations/lifecycle';
 import type { ActionResult } from '@/lib/server/action-result';
-import { FieldError, FormMessage } from '../../_ui/FormMessage';
+import { FieldError, FormMessage, invalidField } from '../../_ui/FormMessage';
 import { changeStatus, type StatusChange } from '../actions';
 
 export type TransitionOption = { to: ReservationStatus; label: string; reasonRequired: boolean; enabled: boolean; hint: string | null };
@@ -26,8 +26,31 @@ export type TransitionOption = { to: ReservationStatus; label: string; reasonReq
  *
  * The notice after a change names the new status and whether an email is on
  * its way, so a change staff did not mean to make cannot pass as "updated".
+ *
+ * Once the sitting has started no booking email goes out (phase-5 F5: the
+ * sender skips it), so the panel offers no "Báo khách" box and no "sent to
+ * the guest" hint then, says so instead, and the notice of a change says why
+ * no email went (phase-5 ledger, the past-sitting residual).
+ *
+ * Ids come from useId: Next keeps an earlier booking's page mounted (hidden,
+ * in <Activity>) after a move to another, and fixed ids would then point
+ * `htmlFor` and `aria-describedby` at the hidden copy (phase-5 ledger).
  */
-export function TransitionPanel({ id, version, options, hasEmail }: { id: string; version: number; options: TransitionOption[]; hasEmail: boolean }) {
+export function TransitionPanel({
+  id,
+  version,
+  options,
+  hasEmail,
+  sittingPassed = false,
+}: {
+  id: string;
+  version: number;
+  options: TransitionOption[];
+  hasEmail: boolean;
+  /** The sitting has started: no booking email goes out any more (F5). */
+  sittingPassed?: boolean;
+}) {
+  const uid = useId();
   const [state, action, pending] = useActionState<ActionResult<StatusChange> | null, FormData>(changeStatus, null);
   // The reason and "Báo khách" keep what staff typed and chose through every refusal (no reason; a conflict,
   // then "Tải lại"), so an unticked box never comes back ticked behind their back. Only a change made here
@@ -36,7 +59,8 @@ export function TransitionPanel({ id, version, options, hasEmail }: { id: string
   const [draft, setDraft] = useState({ state, reason: '', notify: true });
   if (draft.state !== state) setDraft(state?.ok ? { state, reason: '', notify: true } : { ...draft, state });
   const done = state?.ok ? state.data : null;
-  const success = done ? `Đã chuyển sang “${STATUS_LABELS[done.status]}”.${done.emailed ? ' Email báo khách đang được gửi.' : ''}` : undefined;
+  const emailNote = done?.emailed ? ' Email báo khách đang được gửi.' : hasEmail && sittingPassed ? ' Không gửi email cho khách: đã qua giờ hẹn.' : '';
+  const success = done ? `Đã chuyển sang “${STATUS_LABELS[done.status]}”.${emailNote}` : undefined;
   if (options.length === 0) {
     // A change that ended the booking (a cancel) still says what it did, and whether the guest is being emailed.
     return (
@@ -50,7 +74,8 @@ export function TransitionPanel({ id, version, options, hasEmail }: { id: string
   const canCancel = options.some((o) => o.to === 'cancelled');
   const canDecline = options.some((o) => o.to === 'declined');
   // The buttons whose email quotes the reason: a decline's always, a cancel's while "Báo khách" is ticked.
-  const quotedBy = hasEmail ? [canDecline ? 'từ chối' : null, canCancel && draft.notify ? 'hủy' : null].filter((b) => b !== null) : [];
+  const emails = hasEmail && !sittingPassed;
+  const quotedBy = emails ? [canDecline ? 'từ chối' : null, canCancel && draft.notify ? 'hủy' : null].filter((b) => b !== null) : [];
   const reasonHint = quotedBy.length ? `Khi ${quotedBy.join(' hoặc ')}, lý do này sẽ được gửi cho khách.` : null;
   return (
     // Not action={action}: React resets a form once its action settles, whatever it returned, and that reset
@@ -67,9 +92,9 @@ export function TransitionPanel({ id, version, options, hasEmail }: { id: string
       <input type="hidden" name="version" value={version} />
       <FormMessage state={state} success={success} />
       <div className="a-field">
-        <label htmlFor="res-transition-reason">{needsReason ? 'Lý do (bắt buộc khi hủy hoặc từ chối)' : 'Lý do (không bắt buộc)'}</label>
+        <label htmlFor={`${uid}-reason`}>{needsReason ? 'Lý do (bắt buộc khi hủy hoặc từ chối)' : 'Lý do (không bắt buộc)'}</label>
         <input
-          id="res-transition-reason"
+          id={`${uid}-reason`}
           name="reason"
           maxLength={500}
           value={draft.reason}
@@ -77,16 +102,17 @@ export function TransitionPanel({ id, version, options, hasEmail }: { id: string
             const reason = e.target.value;
             setDraft((d) => ({ ...d, reason }));
           }}
-          aria-describedby={reasonHint ? 'res-transition-reason-hint res-transition-reason-error' : 'res-transition-reason-error'}
+          aria-describedby={reasonHint ? `${uid}-reason-hint ${uid}-reason-error` : `${uid}-reason-error`}
+          aria-invalid={invalidField(state, 'reason')}
         />
         {reasonHint ? (
-          <small className="a-sub" id="res-transition-reason-hint">
+          <small className="a-sub" id={`${uid}-reason-hint`}>
             {reasonHint}
           </small>
         ) : null}
-        <FieldError state={state} name="reason" id="res-transition-reason-error" />
+        <FieldError state={state} name="reason" id={`${uid}-reason-error`} />
       </div>
-      {canCancel && hasEmail ? (
+      {canCancel && emails ? (
         <label className="a-check">
           <input
             type="checkbox"
@@ -101,6 +127,7 @@ export function TransitionPanel({ id, version, options, hasEmail }: { id: string
         </label>
       ) : null}
       {canCancel && !hasEmail ? <p className="a-muted">Khách không để lại email: thay đổi ở đây không gửi email nào, hãy gọi điện báo khách.</p> : null}
+      {hasEmail && sittingPassed ? <p className="a-muted">Đã qua giờ hẹn: thay đổi ở đây không gửi email cho khách, hãy gọi điện nếu cần báo.</p> : null}
       <div className="a-actions">
         {options.map((o) => (
           <span className="a-action" key={o.to}>

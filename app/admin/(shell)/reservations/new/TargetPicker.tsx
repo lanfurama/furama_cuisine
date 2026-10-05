@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useId, useState, type ReactNode } from 'react';
 import { isValidIsoDate } from '@/lib/venue-time';
 
 export type Target = { restaurant: string; date: string };
@@ -44,6 +44,7 @@ export function TargetPicker({
   const router = useRouter();
   const [picked, setPicked] = useState<Target>(loaded);
   const [shown, setShown] = useState<Target>(loaded);
+  const uid = useId();
   // The page re-rendered for another target (a pick landing, the back button, a menu link to the bare
   // page): the controls follow it. Cache Components keeps this component's state across those
   // navigations (preserving-ui-state.md:255), so it is adjusted during render, not by a remount.
@@ -62,9 +63,9 @@ export function TargetPicker({
     <PickedTarget value={picked}>
       <form className="a-filter" action="/admin/reservations/new" aria-label="Chọn nhà hàng và ngày">
         <div className="a-field">
-          <label htmlFor="res-new-pick-restaurant">Nhà hàng</label>
+          <label htmlFor={`${uid}-pick-restaurant`}>Nhà hàng</label>
           <select
-            id="res-new-pick-restaurant"
+            id={`${uid}-pick-restaurant`}
             name="nha_hang"
             value={picked.restaurant}
             onChange={(e) => pick({ ...picked, restaurant: e.currentTarget.value })}
@@ -77,9 +78,9 @@ export function TargetPicker({
           </select>
         </div>
         <div className="a-field">
-          <label htmlFor="res-new-pick-date">Ngày</label>
+          <label htmlFor={`${uid}-pick-date`}>Ngày</label>
           <input
-            id="res-new-pick-date"
+            id={`${uid}-pick-date`}
             name="ngay"
             type="date"
             value={picked.date}

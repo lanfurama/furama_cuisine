@@ -52,6 +52,8 @@ test('a dinner closure lists the dinner bookings, not lunch, and cancels only th
     await page.goto('/admin/reservations/closures');
     await expectHydrated(page);
     const card = await addClosure(page, { scope: 'restaurant', target: 'pho-cuon', from: date, to: date, meals: ['Dinner'], note });
+    // The title names the meals: a lunch and a dinner closure on the same dates read apart (phase-4 T13).
+    await expect(card.getByRole('heading', { level: 2 })).toHaveText(/ · Bữa Dinner$/);
 
     const affected = card.getByRole('form', { name: /^Đặt bàn bị ảnh hưởng/ });
     await expect(affected.getByRole('row').filter({ hasText: dinner.reference })).toBeVisible();
@@ -298,7 +300,7 @@ test('a closure of a destination greys the day out for its restaurants’ guests
     await page.goto('/admin/reservations/closures');
     await expectHydrated(page);
     const card = await addClosure(page, { scope: 'destination', target: 'mm', from: date, to: date, reasonEn: 'Closed for the lantern festival', note });
-    await expect(card).toContainText('Cả ngày');
+    await expect(card.getByRole('heading', { level: 2 })).toHaveText(/ · cả ngày$/);
 
     // The guest: Yum Food Village is at the MM Supercenter.
     await page.addInitScript(() => sessionStorage.setItem('fc-intro-seen', '1'));

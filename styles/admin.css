@@ -19,6 +19,11 @@
   --a-focus: #2f6fd6;
   --a-danger: #a3261b;
   --a-danger-bg: #fbecea;
+  /* Warnings (a limit near, a value past advice, a requested booking): one set, used by every warn style. */
+  --a-warn: #7a5300;
+  --a-warn-ink: #5c3f00;
+  --a-warn-bg: #fff4d6;
+  --a-warn-line: #e3b04b;
   --a-radius: 8px;
   --a-sidebar: 232px;
   --a-font: var(--font-be-vietnam), 'Be Vietnam Pro Fallback', system-ui, sans-serif;
@@ -374,6 +379,13 @@ body.admin {
   margin-top: 4px;
 }
 
+/* A one-button form beside its record (delete a closure, a recipient): the same form, inline. */
+.a-inline-form--button {
+  display: inline-block;
+  max-width: none;
+  margin: 8px 0;
+}
+
 /* ---------- Audit log ---------- */
 
 .a-pre {
@@ -473,7 +485,7 @@ body.admin {
   vertical-align: middle;
 }
 
-.a-status--requested { background: #fff4d6; color: #7a5300; }
+.a-status--requested { background: var(--a-warn-bg); color: var(--a-warn); }
 .a-status--confirmed { background: #e3f1e6; color: #1d5a2c; }
 .a-status--seated { background: #e2ecfa; color: #1f4a8a; }
 .a-status--no_show { background: #f1e4f5; color: #6b2a7d; }
@@ -491,16 +503,16 @@ body.admin {
 }
 
 .a-tag--warn {
-  border-color: #e3b04b;
-  color: #7a5300;
+  border-color: var(--a-warn-line);
+  color: var(--a-warn);
 }
 
 .a-warn {
   margin: 0 0 12px;
   padding: 10px 12px;
   border-radius: 6px;
-  background: #fff4d6;
-  color: #5c3f00;
+  background: var(--a-warn-bg);
+  color: var(--a-warn-ink);
 }
 
 .a-btn--small {
@@ -795,14 +807,9 @@ fieldset.a-field legend {
   margin-top: 0;
 }
 
-.a-inline {
-  display: inline-block;
-  margin: 8px 0;
-}
-
 /* Email statuses (email_outbox.status; "sending" = claimed by a sender right now). */
 .a-status--email-queued,
-.a-status--email-sending { background: #fff4d6; color: #7a5300; }
+.a-status--email-sending { background: var(--a-warn-bg); color: var(--a-warn); }
 .a-status--email-sent { background: #e3f1e6; color: #1d5a2c; }
 .a-status--email-failed { background: #fbe3e1; color: #8a1f17; }
 .a-status--email-skipped { background: #ecebe7; color: #56605b; }
@@ -878,7 +885,7 @@ fieldset.a-field legend {
 }
 
 .a-counter--warn {
-  color: #7a5300;
+  color: var(--a-warn);
 }
 
 .a-counter--error {
@@ -970,8 +977,8 @@ fieldset.a-field legend {
   margin: 0 0 12px;
   padding: 10px 12px 10px 28px;
   border-radius: 6px;
-  background: #fff4d6;
-  color: #5c3f00;
+  background: var(--a-warn-bg);
+  color: var(--a-warn-ink);
 }
 
 .a-history {

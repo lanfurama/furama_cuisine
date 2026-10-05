@@ -8,14 +8,15 @@ import { resendEmail } from '../emails/actions';
 /*
  * "Gửi lại" for one failed or waiting email. The send runs after the
  * response, so the notice says it is on its way; the row shows the outcome on
- * the next load.
+ * the next load. Once requeued the button stays off until that load (phase-5
+ * T7.6): a second press would only be refused, or queue the row again.
  */
 export function ResendEmail({ id, label }: { id: string; label: string }) {
   const [state, action, pending] = useActionState<ActionResult<{ id: string }> | null, FormData>(resendEmail, null);
   return (
     <form className="a-resend" action={action}>
       <input type="hidden" name="id" value={id} />
-      <button className="a-btn a-btn--small a-btn--ghost" type="submit" disabled={pending} aria-label={`Gửi lại ${label}`}>
+      <button className="a-btn a-btn--small a-btn--ghost" type="submit" disabled={pending || state?.ok} aria-label={`Gửi lại ${label}`}>
         {pending ? 'Đang gửi lại…' : 'Gửi lại'}
       </button>
       {state?.ok ? (

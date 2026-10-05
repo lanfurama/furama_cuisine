@@ -4,7 +4,7 @@ import { useActionState } from 'react';
 import { submitKeepingValues } from '@/lib/admin/form';
 import type { ActionResult } from '@/lib/server/action-result';
 import type { BookingSettings } from '@/lib/server/booking/config';
-import { FieldError, FormMessage } from '../../_ui/FormMessage';
+import { FieldError, FormMessage, invalidField } from '../../_ui/FormMessage';
 import { saveSettings } from './actions';
 
 export function SettingsForm({ settings: s }: { settings: BookingSettings }) {
@@ -16,22 +16,22 @@ export function SettingsForm({ settings: s }: { settings: BookingSettings }) {
       <FormMessage state={state} success="Đã lưu." />
       <div className="a-field">
         <label htmlFor="settings-booking-window">Số ngày đặt trước (tính cả hôm nay)</label>
-        <input id="settings-booking-window" name="windowDays" type="number" min={1} max={90} defaultValue={s.windowDays} aria-describedby={err('windowDays')} />
+        <input id="settings-booking-window" name="windowDays" type="number" min={1} max={90} defaultValue={s.windowDays} aria-describedby={err('windowDays')} aria-invalid={invalidField(state, 'windowDays')} />
         <FieldError state={state} name="windowDays" id={err('windowDays')} />
       </div>
       <div className="a-field">
         <label htmlFor="settings-booking-lead">Đặt trước tối thiểu (phút)</label>
-        <input id="settings-booking-lead" name="leadMinutes" type="number" min={0} max={1440} defaultValue={s.leadMinutes} aria-describedby={err('leadMinutes')} />
+        <input id="settings-booking-lead" name="leadMinutes" type="number" min={0} max={1440} defaultValue={s.leadMinutes} aria-describedby={err('leadMinutes')} aria-invalid={invalidField(state, 'leadMinutes')} />
         <FieldError state={state} name="leadMinutes" id={err('leadMinutes')} />
       </div>
       <div className="a-field">
         <label htmlFor="settings-booking-cutoff">Ngừng nhận đặt bàn trong ngày từ (để trống: không giới hạn)</label>
-        <input id="settings-booking-cutoff" name="sameDayCutoff" type="time" defaultValue={s.sameDayCutoff ?? ''} aria-describedby={err('sameDayCutoff')} />
+        <input id="settings-booking-cutoff" name="sameDayCutoff" type="time" defaultValue={s.sameDayCutoff ?? ''} aria-describedby={err('sameDayCutoff')} aria-invalid={invalidField(state, 'sameDayCutoff')} />
         <FieldError state={state} name="sameDayCutoff" id={err('sameDayCutoff')} />
       </div>
       <div className="a-field">
         <label htmlFor="settings-booking-party">Số khách tối đa</label>
-        <input id="settings-booking-party" name="maxParty" type="number" min={1} max={50} defaultValue={s.maxParty} aria-describedby={err('maxParty')} />
+        <input id="settings-booking-party" name="maxParty" type="number" min={1} max={50} defaultValue={s.maxParty} aria-describedby={err('maxParty')} aria-invalid={invalidField(state, 'maxParty')} />
         <FieldError state={state} name="maxParty" id={err('maxParty')} />
       </div>
       <div className="a-field">
@@ -44,7 +44,7 @@ export function SettingsForm({ settings: s }: { settings: BookingSettings }) {
           min={1}
           max={120}
           defaultValue={s.piiRetentionMonths}
-          aria-describedby={err('piiRetentionMonths')}
+          aria-describedby={err('piiRetentionMonths')} aria-invalid={invalidField(state, 'piiRetentionMonths')}
         />
         <FieldError state={state} name="piiRetentionMonths" id={err('piiRetentionMonths')} />
       </div>

@@ -2,7 +2,7 @@
 
 import { updateTag } from 'next/cache';
 import { getPool } from '@/db/client';
-import { PeriodsForm, RulesForm } from '@/lib/admin/booking-schemas';
+import { PeriodsForm, RulesForm, periodsFieldErrors } from '@/lib/admin/booking-schemas';
 import { TAGS } from '@/lib/cache-tags';
 import type { Meal } from '@/lib/data';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
@@ -27,7 +27,10 @@ function expire(restaurantId: string) {
 export async function savePeriods(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
     const staff = await requirePermission({ schedule: ['update'] });
-    const input = PeriodsForm.parse({ restaurant: formData.get('restaurant'), token: formData.get('token'), periods: formData.get('periods') });
+    const parsed = PeriodsForm.safeParse({ restaurant: formData.get('restaurant'), token: formData.get('token'), periods: formData.get('periods') });
+    // Each row's message under its row and field (periods.<row>.<field>), where the editor shows it.
+    if (!parsed.success) return { ok: false, code: 'invalid', fieldErrors: periodsFieldErrors(parsed.error) };
+    const input = parsed.data;
     const result = await saveServicePeriods(getPool(), auditActor(staff), {
       restaurantId: input.restaurant,
       token: input.token,

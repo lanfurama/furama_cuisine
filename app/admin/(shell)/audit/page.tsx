@@ -45,14 +45,15 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
           </thead>
           <tbody>
             {rows.map((r) => {
-              const entity = `${auditEntityLabel(r.entity_type)} · ${(r.entity_id && labels.get(`${r.entity_type}:${r.entity_id}`)) ?? r.entity_id ?? '—'}`;
+              const ref = r.entity_id ? labels.get(`${r.entity_type}:${r.entity_id}`) : undefined;
+              const entity = `${auditEntityLabel(r.entity_type)} · ${ref?.label ?? r.entity_id ?? '—'}`;
               return (
                 <tr key={`${r.source}:${r.id}`}>
                   <td>{formatDateTimeVi(r.at)}</td>
                   <td>{r.actor_label ?? 'Hệ thống'}</td>
                   <td>{auditActionLabel(r.action)}</td>
                   <td>
-                    {r.entity_type === 'reservation' && r.entity_id ? <Link href={`/admin/reservations/${r.entity_id}`}>{entity}</Link> : entity}
+                    {ref?.href ? <Link href={ref.href}>{entity}</Link> : entity}
                   </td>
                   <td>
                     {r.before === null && r.after === null ? (

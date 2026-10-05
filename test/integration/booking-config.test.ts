@@ -2,7 +2,7 @@ import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { planDay } from '@/lib/booking/resolve-day';
 import type { AuditActor } from '@/lib/server/audit';
-import { findAffected } from '@/lib/server/booking/affected';
+import { AFFECTED_WHY, findAffected } from '@/lib/server/booking/affected';
 import {
   createClosure,
   deleteClosure,
@@ -171,6 +171,15 @@ describe.skipIf(!TEST_DATABASE_URL)('booking configuration (database)', () => {
         [a, 'over_capacity'],
         [b, 'over_capacity'],
       ]);
+    });
+
+    it('a slot staff overbooked on purpose is listed as over capacity, in words that do not blame a new capacity (phase-4 T11)', async () => {
+      // Tàya House's dinner holds 22 covers a slot; staff seated a party of 24 with a reason, and nothing changed since.
+      const party = await seed({ guests: 24 });
+      await pool.query(`UPDATE reservations SET over_capacity = true WHERE id = $1`, [party]);
+      expect((await findAffected(pool, { now: NOW })).map((x) => [x.id, x.kind])).toEqual([[party, 'over_capacity']]);
+      expect(AFFECTED_WHY.over_capacity).toBe('Khung giờ đang có nhiều khách hơn sức chứa');
+      expect(Object.values(AFFECTED_WHY).filter((why) => why.includes('sức chứa mới'))).toEqual([]);
     });
 
     it('lists the bookings a closure takes out, with the closure that does it', async () => {

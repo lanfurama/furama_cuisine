@@ -4,7 +4,7 @@ import { useActionState, useId, useState } from 'react';
 import { submitKeepingValues } from '@/lib/admin/form';
 import { STAFF_EMAIL_EVENTS } from '@/lib/email/events';
 import type { ActionResult } from '@/lib/server/action-result';
-import { FieldError, FormMessage } from '../../_ui/FormMessage';
+import { FieldError, FormMessage, invalidField } from '../../_ui/FormMessage';
 import { addRecipient, editRecipient, removeRecipient } from './actions';
 
 export type RecipientValues = {
@@ -85,7 +85,7 @@ function RecipientFields({
       <FormMessage state={state} success={values ? 'Đã lưu.' : 'Đã thêm người nhận.'} />
       <div className="a-field">
         <label htmlFor={id('email')}>Email người nhận</label>
-        <input id={id('email')} name="email" type="email" autoComplete="off" maxLength={254} defaultValue={values?.email} aria-describedby={id('email-error')} />
+        <input id={id('email')} name="email" type="email" autoComplete="off" maxLength={254} defaultValue={values?.email} aria-describedby={id('email-error')} aria-invalid={invalidField(state, 'email')} />
         <FieldError state={state} name="email" id={id('email-error')} />
       </div>
       <div className="a-field">
@@ -99,7 +99,7 @@ function RecipientFields({
       {scope === 'restaurant' ? (
         <div className="a-field">
           <label htmlFor={id('restaurant')}>Nhà hàng</label>
-          <select id={id('restaurant')} name="restaurantId" defaultValue={values?.restaurantId ?? ''} aria-describedby={id('restaurant-error')}>
+          <select id={id('restaurant')} name="restaurantId" defaultValue={values?.restaurantId ?? ''} aria-describedby={id('restaurant-error')} aria-invalid={invalidField(state, 'restaurantId')}>
             <option value="">Chọn nhà hàng</option>
             {options.restaurants.map((r) => (
               <option key={r.id} value={r.id}>
@@ -113,7 +113,7 @@ function RecipientFields({
       {scope === 'destination' ? (
         <div className="a-field">
           <label htmlFor={id('destination')}>Điểm đến</label>
-          <select id={id('destination')} name="destinationId" defaultValue={values?.destinationId ?? ''} aria-describedby={id('destination-error')}>
+          <select id={id('destination')} name="destinationId" defaultValue={values?.destinationId ?? ''} aria-describedby={id('destination-error')} aria-invalid={invalidField(state, 'destinationId')}>
             <option value="">Chọn điểm đến</option>
             {options.destinations.map((d) => (
               <option key={d.id} value={d.id}>
@@ -134,7 +134,8 @@ function RecipientFields({
           ))}
         </select>
       </div>
-      <fieldset className="a-field a-field--wide">
+      {/* The group names its error (phase-5 T6.6): "Chọn ít nhất một loại" is read with the boxes. */}
+      <fieldset className="a-field a-field--wide" aria-describedby={id('events-error')}>
         <legend>Loại thông báo</legend>
         {STAFF_EMAIL_EVENTS.map((event) => (
           <label className="a-check" key={event}>
@@ -159,7 +160,7 @@ export function DeleteRecipient({ values }: { values: RecipientValues }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(removeRecipient, null);
   // The confirm sits on the button, as in DeleteClosure: a form with a function action takes no onSubmit.
   return (
-    <form className="a-inline" action={action}>
+    <form className="a-inline-form a-inline-form--button" action={action}>
       <input type="hidden" name="id" value={values.id} />
       <input type="hidden" name="token" value={values.token} />
       <button

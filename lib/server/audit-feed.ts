@@ -1,5 +1,6 @@
 import 'server-only';
 import type { Pool } from 'pg';
+import { EMAIL_EVENT_LABELS, type EmailEvent } from '@/lib/email/events';
 
 /*
  * /admin/audit reads the audit_feed view (spec §5.2, §7.4): audit_log and
@@ -82,26 +83,42 @@ export async function listAuditFeed(pool: Pool, options: { before?: string | nul
   };
 }
 
+/** An entity as the log names it: a label instead of the raw id, and the screen that shows it, if any. */
+export type EntityRef = { label: string; href: string | null };
+
 /**
  * What to show for each row's entity instead of a raw id: a staff member's
- * or an invitation's email, a booking's reference. A removed account keeps
- * its id (the log outlives the account).
+ * or an invitation's email, a booking's reference (linked to the booking),
+ * and an email's kind with its booking's reference, linked to that booking,
+ * where "Gửi lại" left it (phase-5 ledger T7.5: it read "Email · 123"). A
+ * removed account keeps its id (the log outlives the account).
  */
 export async function entityLabels(
   pool: Pool,
   rows: readonly Pick<AuditFeedRow, 'entity_type' | 'entity_id'>[],
-): Promise<Map<string, string>> {
+): Promise<Map<string, EntityRef>> {
   const ids = (type: string) => [...new Set(rows.filter((r) => r.entity_type === type && r.entity_id).map((r) => r.entity_id as string))];
   const numeric = (list: string[]) => list.filter((id) => /^\d{1,18}$/.test(id));
   const staff = ids('staff_user');
   const invitations = numeric(ids('staff_invitation'));
   const reservations = numeric(ids('reservation'));
-  if (staff.length + invitations.length + reservations.length === 0) return new Map();
-  const { rows: labels } = await pool.query<{ key: string; label: string }>(
-    `SELECT 'staff_user:' || id AS key, email AS label FROM staff_user WHERE id = ANY($1::text[])
-     UNION ALL SELECT 'staff_invitation:' || id, email FROM staff_invitation WHERE id = ANY($2::bigint[])
-     UNION ALL SELECT 'reservation:' || id, reference FROM reservations WHERE id = ANY($3::bigint[])`,
-    [staff, invitations, reservations],
+  const emails = numeric(ids('email_outbox'));
+  if (staff.length + invitations.length + reservations.length + emails.length === 0) return new Map();
+  const { rows: found } = await pool.query<{ key: string; label: string; booking: string | null; event: string | null }>(
+    `SELECT 'staff_user:' || id AS key, email AS label, NULL AS booking, NULL AS event FROM staff_user WHERE id = ANY($1::text[])
+     UNION ALL SELECT 'staff_invitation:' || id, email, NULL, NULL FROM staff_invitation WHERE id = ANY($2::bigint[])
+     UNION ALL SELECT 'reservation:' || id, reference, id::text, NULL FROM reservations WHERE id = ANY($3::bigint[])
+     UNION ALL SELECT 'email_outbox:' || o.id, r.reference, r.id::text, o.event
+                 FROM email_outbox o JOIN reservations r ON r.id = o.reservation_id WHERE o.id = ANY($4::bigint[])`,
+    [staff, invitations, reservations, emails],
   );
-  return new Map(labels.map((l) => [l.key, l.label]));
+  return new Map(
+    found.map((l) => [
+      l.key,
+      {
+        label: l.event ? `${EMAIL_EVENT_LABELS[l.event as EmailEvent] ?? l.event} · ${l.label}` : l.label,
+        href: l.booking ? `/admin/reservations/${l.booking}` : null,
+      },
+    ]),
+  );
 }
