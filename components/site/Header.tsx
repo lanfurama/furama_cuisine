@@ -22,6 +22,7 @@ export function Header() {
     openDropdown,
     toggleDropdown,
     closeDropdown,
+    strings,
   } = useSite();
 
   const langOpen = openDropdown === 'lang';
@@ -47,7 +48,7 @@ export function Header() {
           </a>
 
           {/* nav_item_i18n holds one label per language as written ("Restaurants"); styles/layout.css sets it in capitals here. */}
-          <nav className="hdr-nav" aria-label="Main">
+          <nav className="hdr-nav" aria-label={strings['ui.nav_aria']}>
             {site.nav.map((l) => (
               <button type="button" key={l.target} className="hdr-link" onClick={() => scrollToId(l.target)}>
                 {l.label}
@@ -57,7 +58,7 @@ export function Header() {
 
           <div className="hdr-actions">
             <button type="button" className="hdr-link" onClick={() => open('search')}>
-              SEARCH
+              {strings['ui.search']}
             </button>
 
             <div className="hdr-lang" data-dd="1">
@@ -71,7 +72,7 @@ export function Header() {
                 <span className="hdr-lang-caret">▾</span>
               </button>
               {langOpen && (
-                <div className="hdr-lang-panel" role="listbox" aria-label="Language">
+                <div className="hdr-lang-panel" role="listbox" aria-label={strings['ui.language_aria']}>
                   {LANGS.map((l) => (
                     <button
                       type="button"
@@ -94,7 +95,7 @@ export function Header() {
             </div>
 
             <button type="button" className="btn-gold" onClick={() => openReserve()}>
-              RESERVE
+              {strings['ui.reserve']}
             </button>
           </div>
         </div>
@@ -118,9 +119,9 @@ export function Header() {
           </a>
           <div className="hdr-compact-actions">
             <button type="button" className="btn-gold hdr-compact-reserve" onClick={() => openReserve()}>
-              RESERVE
+              {strings['ui.reserve']}
             </button>
-            <button type="button" className="hdr-burger" aria-label="Open menu" onClick={() => open('menu')}>
+            <button type="button" className="hdr-burger" aria-label={strings['ui.open_menu']} onClick={() => open('menu')}>
               <span />
               <span />
               <span />

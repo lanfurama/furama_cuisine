@@ -66,7 +66,8 @@ export function RestaurantHero({ detail }: { detail: RestaurantDetail }) {
                   className="btn-slab taya-reserve"
                   onClick={() => openReserve({ restaurant: detail.id })}
                 >
-                  RESERVE A TABLE<span className="arrow">→</span>
+                  {strings['ui.reserve_table']}
+                  <span className="arrow">→</span>
                 </button>
               )}
               {/* The restaurant's own, else its destination's; neither hides the button (spec §6.4). */}

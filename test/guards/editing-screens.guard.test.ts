@@ -19,7 +19,6 @@ import { walk } from './guest-text';
 /** Screens phase 7 has not built yet. The plan's tasks empty this list; the last task of phase 7 asserts it is []. */
 const NOT_BUILT: readonly EditScreen[] = [
   'booking',
-  'navigation',
   'contact',
   'seo',
 ];

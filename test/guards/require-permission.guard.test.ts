@@ -134,6 +134,16 @@ const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; edito
     saveAutoplayAction: { permission: { content: ['update'] }, editor: true },
     restoreAutoplayAction: { permission: { content: ['restore'] }, editor: true },
   },
+  // The navigation menu (spec §7.2 content/navigation, plan 7B task B4).
+  'app/admin/(shell)/content/navigation/actions.ts': {
+    createNavItemAction: { permission: { content: ['update'] }, editor: true },
+    saveNavItemAction: { permission: { content: ['update'] }, editor: true },
+    toggleNavItemAction: { permission: { content: ['update'] }, editor: true },
+    deleteNavItemAction: { permission: { content: ['update'] }, editor: true },
+    reorderNavItemsAction: { permission: { content: ['update'] }, editor: true },
+    restoreNavItemAction: { permission: { content: ['restore'] }, editor: true },
+    restoreNavItemOrderAction: { permission: { content: ['restore'] }, editor: true },
+  },
   // The Experiences rows and the Stories cards (spec §7.2 content/experiences, content/stories, plan 7B task B3).
   'app/admin/(shell)/content/experiences/actions.ts': {
     createExperienceAction: { permission: { content: ['update'] }, editor: true },

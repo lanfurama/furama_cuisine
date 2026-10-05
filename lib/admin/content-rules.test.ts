@@ -1,5 +1,19 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { charCount, checkLength, detailPageErrors, detailPageWarnings, followRename, LIMITS, limitError, limitWarnings, offerPageTitle, sectionErrors } from './content-rules';
+import { SECTION_KEYS } from '@/lib/content/types';
+import {
+  charCount,
+  checkLength,
+  detailPageErrors,
+  detailPageWarnings,
+  followRename,
+  LIMITS,
+  limitError,
+  limitWarnings,
+  NAV_TARGETS,
+  offerPageTitle,
+  sectionErrors,
+} from './content-rules';
 
 describe('content rules (spec §6.5)', () => {
   it('counts characters as Postgres char_length does, not UTF-16 units', () => {
@@ -93,5 +107,15 @@ describe('an offer page’s heading', () => {
     expect(offerPageTitle('7', { values: { title: { en: null } } })).toBe('Ưu đãi 7');
     expect(offerPageTitle('7', { values: { title: { en: '' } } })).toBe('Ưu đãi 7');
     expect(offerPageTitle('7', null)).toBe('Ưu đãi đã xóa');
+  });
+});
+
+describe('the navigation menu (spec §6.5, plan 7B B4)', () => {
+  it('the menu scrolls to every home section but those migration 008 forbids (CHECK nav_items.target_section)', () => {
+    const migration = readFileSync('db/migrations/008_content.sql', 'utf8');
+    const forbidden = /CHECK \(target_section NOT IN \(([^)]*)\)\)/.exec(migration)?.[1] ?? '';
+    const refused = [...forbidden.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+    expect(refused).toEqual(['film', 'finder', 'hero', 'booking_bar']);
+    expect([...NAV_TARGETS]).toEqual(SECTION_KEYS.filter((k) => !refused.includes(k)));
   });
 });

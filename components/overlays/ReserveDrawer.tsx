@@ -321,7 +321,7 @@ export function ReserveDrawer() {
           <div className="drawer-head-copy">
             {/* tabIndex -1, like the DATE and TIME labels: where the focus goes when nothing else is left to hold it. */}
             <div ref={headingRef} className="drawer-kicker" tabIndex={-1}>
-              RESERVE A TABLE
+              {strings['ui.reserve_table']}
             </div>
             {/* With every restaurant booking offline (R20) none is chosen: no empty name and meta band above the message. */}
             {restaurant && (

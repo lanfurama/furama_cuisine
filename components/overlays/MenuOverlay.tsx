@@ -4,7 +4,7 @@ import { useSite } from '@/components/site/SiteProvider';
 import { useOpenAnimation } from '@/lib/motion';
 
 export function MenuOverlay() {
-  const { site, overlay, close, open, scrollToId, openReserve, lang, setLang } = useSite();
+  const { site, overlay, close, open, scrollToId, openReserve, lang, setLang, strings } = useSite();
   const isOpen = overlay === 'menu';
 
   useOpenAnimation(isOpen, (animate) => {
@@ -22,15 +22,15 @@ export function MenuOverlay() {
   if (!isOpen) return null;
 
   return (
-    <div data-anim="menu" className="menu-root" role="dialog" aria-modal="true" aria-label="Menu">
+    <div data-anim="menu" className="menu-root" role="dialog" aria-modal="true" aria-label={strings['ui.menu_aria']}>
       <div className="menu-head">
         <div className="menu-wordmark">FURAMA CUISINE</div>
-        <button type="button" className="overlay-close" aria-label="Close menu" onClick={close}>
+        <button type="button" className="overlay-close" aria-label={strings['ui.close_menu']} onClick={close}>
           ×
         </button>
       </div>
 
-      <nav className="menu-nav" aria-label="Sections">
+      <nav className="menu-nav" aria-label={strings['ui.sections_aria']}>
         {/* The header's links, as written (the header uppercases them; this list does not). */}
         {site.nav.map((l) => (
           <button
@@ -47,7 +47,7 @@ export function MenuOverlay() {
           </button>
         ))}
         <button type="button" data-anim="menu-item" className="menu-item" onClick={() => open('search')}>
-          Search
+          {strings['ui.search_link']}
           <span className="menu-arrow" aria-hidden="true">
             →
           </span>
@@ -56,7 +56,7 @@ export function MenuOverlay() {
 
       <div className="menu-foot">
         <button type="button" className="menu-reserve" onClick={() => openReserve()}>
-          RESERVE A TABLE
+          {strings['ui.reserve_table']}
         </button>
         <div className="menu-foot-row">
           <div className="menu-langs">

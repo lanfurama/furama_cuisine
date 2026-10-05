@@ -49,8 +49,6 @@ const LOCKED: Record<string, string> = {
 
 /** Still inline. Each moves to the registry key named (proposed names; spec §5.1 item 2), or to its phase. */
 const PENDING: Record<string, string> = {
-  "app/(site)/[lang]/(guarded)/not-found.tsx: Back to Furama Cuisine": "common.back_home",
-  "app/(site)/[lang]/(guarded)/not-found.tsx: Page not found": "common.not_found",
   "app/(site)/[lang]/(guarded)/privacy/page.tsx: — Furama Cuisine": "seo.page_title ('{page} — Furama Cuisine')",
   "app/(site)/[lang]/(guarded)/restaurants/[slug]/page.tsx: Page not found — Furama Cuisine": "seo.not_found_title",
   "app/(site)/[lang]/(guarded)/restaurants/[slug]/page.tsx: — Furama Cuisine": "seo.page_title",
@@ -69,7 +67,6 @@ const PENDING: Record<string, string> = {
   "components/booking/BookingBar.tsx: Tomorrow": "common.tomorrow",
   "components/booking/BookingBar.tsx: Where would you like to dine?": "booking.title",
   "components/booking/BookingBar.tsx: left": "booking.slot_left ('{count} left')",
-  "components/detail/RestaurantHero.tsx: RESERVE A TABLE": "ui.reserve_table",
   "components/home/Finder.tsx: Coming soon": "common.coming_soon",
   "components/home/Finder.tsx: Cuisine": "finder.cuisine",
   "components/home/Finder.tsx: Da Nang": "finder.city",
@@ -85,13 +82,8 @@ const PENDING: Record<string, string> = {
   "components/overlays/FinderSheet.tsx: Find a restaurant": "finder.title",
   "components/overlays/FinderSheet.tsx: Occasion": "finder.occasion",
   "components/overlays/FinderSheet.tsx: SHOW RESTAURANTS": "finder.submit",
-  "components/overlays/MenuOverlay.tsx: Close menu": "ui.close_menu",
   "components/overlays/MenuOverlay.tsx: EN": "phase 8: locales.short_label (language switcher)",
-  "components/overlays/MenuOverlay.tsx: Menu": "ui.menu_aria",
   "components/overlays/MenuOverlay.tsx: PEOPLE | CULTURE | GREAT FOOD": "footer.tagline",
-  "components/overlays/MenuOverlay.tsx: RESERVE A TABLE": "ui.reserve_table",
-  "components/overlays/MenuOverlay.tsx: Search": "ui.search_link",
-  "components/overlays/MenuOverlay.tsx: Sections": "ui.sections_aria",
   "components/overlays/MenuOverlay.tsx: VI": "phase 8: locales.short_label",
   "components/overlays/ReserveDrawer.tsx: Close": "common.close",
   "components/overlays/ReserveDrawer.tsx: DATE": "booking.section_date",
@@ -111,7 +103,6 @@ const PENDING: Record<string, string> = {
   "components/overlays/ReserveDrawer.tsx: Please enter a valid phone number.": "error.invalid_phone (exists)",
   "components/overlays/ReserveDrawer.tsx: Please enter your name.": "error.invalid_name (exists)",
   "components/overlays/ReserveDrawer.tsx: REQUEST BOOKING": "booking.submit",
-  "components/overlays/ReserveDrawer.tsx: RESERVE A TABLE": "ui.reserve_table",
   "components/overlays/ReserveDrawer.tsx: Reference": "booking.label_reference",
   "components/overlays/ReserveDrawer.tsx: Reserve a table": "booking.drawer_aria",
   "components/overlays/ReserveDrawer.tsx: Restaurant": "booking.label_restaurant",
@@ -140,17 +131,8 @@ const PENDING: Record<string, string> = {
   "components/site/Footer.tsx: ZALO": "social.zalo",
   "components/site/Header.tsx: EN": "phase 8: locales.short_label",
   "components/site/Header.tsx: English": "phase 8: locales.native_name",
-  "components/site/Header.tsx: Language": "ui.language_aria",
-  "components/site/Header.tsx: Main": "ui.nav_aria",
-  "components/site/Header.tsx: Open menu": "ui.open_menu",
-  "components/site/Header.tsx: RESERVE": "ui.reserve",
-  "components/site/Header.tsx: SEARCH": "ui.search",
   "components/site/Header.tsx: Tiếng Việt": "phase 8: locales.native_name",
   "components/site/Header.tsx: VI": "phase 8: locales.short_label",
-  "components/site/MobileBar.tsx: EXPLORE": "ui.tab_explore",
-  "components/site/MobileBar.tsx: RESERVE": "ui.reserve",
-  "components/site/MobileBar.tsx: RESTAURANTS": "ui.tab_restaurants",
-  "components/site/MobileBar.tsx: Sections": "ui.sections_aria",
   "components/site/SiteProvider.tsx: Da Nang": "finder.city (the finder's default location)",
   "components/site/SiteProvider.tsx: EN": "phase 8: locales.short_label",
   "lib/booking-errors.ts: The restaurant": "error.restaurant_fallback (the {restaurant} of error.slot_unavailable before the catalogue loads)",
@@ -175,9 +157,10 @@ describe('guest-visible text lives in the registry or the database (spec §13)',
     // 161 found by the phase-7 spike, less the six offers.* literals moved in plan 7A task A3, the
     // thirteen hero.* and film.* ones moved in A9, the thirteen detail.* ones moved in A10, the
     // thirteen restaurants.* ones moved in A11, the four of the destinations section moved in plan
-    // 7B task B1, the two of the cuisines section moved in B2 and the three of the experiences section
-    // moved in B3. Plan 7B empties it.
-    expect(Object.keys(PENDING).length).toBeLessThanOrEqual(107);
+    // 7B task B1, the two of the cuisines section moved in B2, the three of the experiences section
+    // moved in B3 and the eighteen of the header, the phone menu and tab bar, the restaurant page's
+    // and the reservation form's RESERVE A TABLE and the 404 page moved in B4. Plan 7B empties it.
+    expect(Object.keys(PENDING).length).toBeLessThanOrEqual(89);
   });
 });
 

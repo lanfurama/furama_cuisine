@@ -7,14 +7,26 @@ export const instant = false;
 
 export const metadata: Metadata = { title: 'Chữ giao diện' };
 
-/* Spec §7.2 /admin/content/ui-text: the remaining ui.*, form.*, error.*, search.*, common.* keys. */
+/*
+ * Spec §7.2 /admin/content/ui-text: the remaining ui.*, form.*, error.*, search.*, common.* keys, one group
+ * per part of the site (the menu's own items: content/navigation).
+ */
 export default async function Page() {
   await requirePagePermission({ content: ['read'] });
   return (
     <>
       <h1>Chữ giao diện</h1>
       <p className="a-lede">Chữ của các nút, nhãn và thông báo trên web khách (tiếng Anh). Lưu là web khách đổi ngay.</p>
-      <StringsPanel screen="ui-text" title="Chữ giao diện" />
+      <StringsPanel
+        screen="ui-text"
+        title="Chữ giao diện"
+        groups={[
+          { title: 'Đầu trang, menu điện thoại và thanh tab', prefix: 'ui.' },
+          { title: 'Chữ dùng chung', prefix: 'common.' },
+          { title: 'Hộp tìm kiếm', prefix: 'search.' },
+          { title: 'Lỗi của form đặt bàn', prefix: 'error.' },
+        ]}
+      />
     </>
   );
 }

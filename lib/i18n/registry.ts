@@ -818,6 +818,92 @@ export const REGISTRY = {
     screen: 'destinations',
     label: 'Số nhà hàng trên thẻ (số ít / số nhiều)',
   },
+  // ── The header, the phone menu and the phone tab bar (spec §7.2 ui-text: ui.*): client components of the chrome
+  // (CLIENT_KEYS). The menu's own items are nav_items rows (content/navigation) ──
+  'ui.search': {
+    en: 'SEARCH',
+    maxLength: 24,
+    context: 'Header (desktop), the button that opens the search dialog. Capitals.',
+    screen: 'ui-text',
+    label: 'Nút tìm kiếm trên đầu trang',
+  },
+  'ui.reserve': {
+    en: 'RESERVE',
+    maxLength: 16,
+    context: 'The gold button that opens the reservation form: in the header (desktop and phone) and in the phone tab bar. Capitals; keep it short.',
+    screen: 'ui-text',
+    label: 'Nút đặt bàn ngắn (đầu trang, thanh tab điện thoại)',
+  },
+  'ui.reserve_table': {
+    en: 'RESERVE A TABLE',
+    maxLength: 32,
+    context: 'The longer reservation button: the phone menu’s, a restaurant page’s (an arrow follows it there), and the title above the reservation form. Capitals.',
+    screen: 'ui-text',
+    label: 'Nút đặt bàn dài (menu điện thoại, trang nhà hàng, tiêu đề form đặt bàn)',
+  },
+  'ui.search_link': {
+    en: 'Search',
+    maxLength: 24,
+    context: 'Phone menu, the last link (after the sections), which opens the search dialog. An arrow follows it.',
+    screen: 'ui-text',
+    label: 'Link tìm kiếm trong menu điện thoại',
+  },
+  'ui.nav_aria': {
+    en: 'Main',
+    maxLength: 40,
+    context: 'Screen-reader name of the header’s list of section links (desktop).',
+    screen: 'ui-text',
+    label: 'Tên thanh menu chính (trình đọc màn hình)',
+  },
+  'ui.language_aria': {
+    en: 'Language',
+    maxLength: 40,
+    context: 'Screen-reader name of the header’s language list (desktop).',
+    screen: 'ui-text',
+    label: 'Tên danh sách ngôn ngữ (trình đọc màn hình)',
+  },
+  'ui.open_menu': {
+    en: 'Open menu',
+    maxLength: 40,
+    context: 'Screen-reader name of the phone header’s menu button (three lines).',
+    screen: 'ui-text',
+    label: 'Nút mở menu điện thoại (trình đọc màn hình)',
+  },
+  'ui.menu_aria': {
+    en: 'Menu',
+    maxLength: 40,
+    context: 'Screen-reader name of the phone menu dialog.',
+    screen: 'ui-text',
+    label: 'Tên menu điện thoại (trình đọc màn hình)',
+  },
+  'ui.close_menu': {
+    en: 'Close menu',
+    maxLength: 40,
+    context: 'Screen-reader name of the × button that closes the phone menu.',
+    screen: 'ui-text',
+    label: 'Nút đóng menu điện thoại (trình đọc màn hình)',
+  },
+  'ui.sections_aria': {
+    en: 'Sections',
+    maxLength: 40,
+    context: 'Screen-reader name of the list of section links in the phone menu, and of the phone tab bar on the home page.',
+    screen: 'ui-text',
+    label: 'Tên danh sách section (trình đọc màn hình)',
+  },
+  'ui.tab_explore': {
+    en: 'EXPLORE',
+    maxLength: 16,
+    context: 'Home page, phone tab bar: back to the top of the page. Capitals; three tabs share the bar.',
+    screen: 'ui-text',
+    label: 'Tab “khám phá” (điện thoại)',
+  },
+  'ui.tab_restaurants': {
+    en: 'RESTAURANTS',
+    maxLength: 16,
+    context: 'Home page, phone tab bar: scrolls to the restaurants. Capitals; three tabs share the bar.',
+    screen: 'ui-text',
+    label: 'Tab “nhà hàng” (điện thoại)',
+  },
   // ── Words several parts of the site share (spec §7.2 ui-text: common.*): chrome and client sections (CLIENT_KEYS) ──
   'common.coming_soon': {
     en: 'Coming soon',
@@ -825,6 +911,20 @@ export const REGISTRY = {
     context: 'A place still to open: the teaser destination card, and the finder’s “More cities” choice. Short.',
     screen: 'ui-text',
     label: 'Sắp có',
+  },
+  'common.not_found': {
+    en: 'Page not found',
+    maxLength: 40,
+    context: 'The page for an address that does not exist (an unknown restaurant), inside the site’s header and footer: its title.',
+    screen: 'ui-text',
+    label: 'Trang không tồn tại: tiêu đề',
+  },
+  'common.back_home': {
+    en: 'Back to Furama Cuisine',
+    maxLength: 40,
+    context: 'The page for an address that does not exist: the link back to the home page.',
+    screen: 'ui-text',
+    label: 'Trang không tồn tại: link về trang chủ',
   },
   // ── Search overlay: a client component of the chrome (CLIENT_KEYS) ──
   'search.aria': {
@@ -1183,19 +1283,20 @@ export const KEY_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/;
 
 /**
  * Keys the browser needs at first paint, passed to SiteProvider by the
- * (guarded) layout: the chrome's client components (reservation form, search,
- * finder, booking bar, film dialog), the restaurants section and its cards, a restaurant
+ * (guarded) layout: the chrome's client components (header, phone menu and tab
+ * bar: ui.*; reservation form, search, finder, booking bar, film dialog), the
+ * words they share (common.*), the restaurants section and its cards, a restaurant
  * page's client parts (its hero, tab bar and "More at") and the policy link. Everything
  * else is read on the
  * server: a page's own section copy (pageKeys), metadata (seo.*), the policy
  * page (legal.*) and emails (email.*).
  */
-const CLIENT_PREFIXES = ['error.', 'booking.', 'search.', 'meal.', 'finder.', 'film.', 'detail.', 'restaurants.', 'common.'] as const;
+const CLIENT_PREFIXES = ['error.', 'booking.', 'search.', 'meal.', 'finder.', 'film.', 'detail.', 'restaurants.', 'common.', 'ui.'] as const;
 /** Single keys the chrome needs beyond the prefixes: the policy link (form, footer), VIEW OFFER's note (form). */
 const CLIENT_SINGLES = ['legal.link', 'offers.note'] as const;
 export type ClientKey = Extract<
   StringKey,
-  `${'error' | 'booking' | 'search' | 'meal' | 'finder' | 'film' | 'detail' | 'restaurants' | 'common'}.${string}` | (typeof CLIENT_SINGLES)[number]
+  `${'error' | 'booking' | 'search' | 'meal' | 'finder' | 'film' | 'detail' | 'restaurants' | 'common' | 'ui'}.${string}` | (typeof CLIENT_SINGLES)[number]
 >;
 
 export const CLIENT_KEYS = STRING_KEYS.filter(

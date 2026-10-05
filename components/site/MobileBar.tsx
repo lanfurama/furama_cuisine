@@ -43,7 +43,7 @@ export function MobileBar({ detail }: { detail?: RestaurantDetail }) {
               openReserve({ restaurant: id });
             }}
           >
-            RESERVE
+            {strings['ui.reserve']}
           </button>
         )}
       </nav>
@@ -51,7 +51,7 @@ export function MobileBar({ detail }: { detail?: RestaurantDetail }) {
   }
 
   return (
-    <nav className="tabbar tabbar-home" aria-label="Sections">
+    <nav className="tabbar tabbar-home" aria-label={strings['ui.sections_aria']}>
       <button
         type="button"
         data-active={tab === 'explore'}
@@ -60,13 +60,13 @@ export function MobileBar({ detail }: { detail?: RestaurantDetail }) {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       >
-        EXPLORE
+        {strings['ui.tab_explore']}
       </button>
       <button type="button" data-active={tab === 'restaurants'} onClick={() => scrollToId('restaurants')}>
-        RESTAURANTS
+        {strings['ui.tab_restaurants']}
       </button>
       <button type="button" data-active={tab === 'reserve'} onClick={() => openReserve()}>
-        RESERVE
+        {strings['ui.reserve']}
       </button>
     </nav>
   );

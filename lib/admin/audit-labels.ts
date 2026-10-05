@@ -47,6 +47,7 @@ const ENTITIES: Record<string, string> = {
   destinations: 'Điểm đến',
   experiences: 'Experiences',
   stories: 'Câu chuyện',
+  nav_items: 'Mục menu',
   sections: 'Section trang chủ',
   // A restaurant's content (the row, its translations, cuisines and highlights as one aggregate).
   restaurants: 'Nhà hàng',

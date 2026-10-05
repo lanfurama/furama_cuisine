@@ -1,6 +1,6 @@
 import { SECTION_KEYS } from '@/lib/content/types';
 import { toE164 } from '@/lib/phone';
-import { HERO_AUTOPLAY_MS, LENGTHS, LIMITS } from './content-rules';
+import { HERO_AUTOPLAY_MS, LENGTHS, LIMITS, NAV_TARGETS } from './content-rules';
 import { z } from './zod';
 
 /*
@@ -407,4 +407,11 @@ export const StoryForm = z.object({
   category: translatable(60),
   title: translatable(160, 'Nhập tiêu đề tiếng Anh.'),
   localHref: z.object({ en: httpsUrl(2000) }),
+});
+
+/** One menu item (spec §7.2 content/navigation, §6.5): the section it scrolls to, its EN label (at most 18 characters), its switch. */
+export const NavItemForm = z.object({
+  targetSection: z.enum(NAV_TARGETS, { error: 'Chọn section mà mục này trỏ tới.' }),
+  isPublished: checkbox,
+  label: translatable(LENGTHS.navLabel.max, 'Nhập nhãn tiếng Anh.'),
 });

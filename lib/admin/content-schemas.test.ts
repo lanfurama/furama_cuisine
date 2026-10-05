@@ -5,6 +5,7 @@ import {
   CuisineForm,
   DestinationForm,
   ExperienceForm,
+  NavItemForm,
   NewRestaurantForm,
   OfferForm,
   OrderForm,
@@ -299,6 +300,19 @@ describe('content form schemas (spec §7.3, §7.4)', () => {
       href: ['Nhập link bài viết.'],
       publishedOn: ['Ngày không hợp lệ.'],
       localHref: ['Đường dẫn phải bắt đầu bằng https://'],
+    });
+  });
+
+  it('a menu item: a section the menu may scroll to, an EN label of at most 18 characters (plan 7B B4)', () => {
+    expect(NavItemForm.parse(readForm(form({ targetSection: 'offers', isPublished: 'on', 'label.en': ' Offers ' })))).toEqual({
+      targetSection: 'offers',
+      isPublished: true,
+      label: { en: 'Offers' },
+    });
+    expect(NavItemForm.parse(readForm(form({ targetSection: 'offers', 'label.en': 'Ẩm thực đường phố' }))).label.en).toHaveLength(17);
+    expect(fieldErrors(NavItemForm.safeParse(readForm(form({ targetSection: 'film', 'label.en': 'A'.repeat(19) }))).error)).toEqual({
+      targetSection: ['Chọn section mà mục này trỏ tới.'],
+      label: ['Tối đa 18 ký tự.'],
     });
   });
 });

@@ -1,3 +1,4 @@
+import type { SectionKey } from '@/lib/content/types';
 import { parseFilmUrl } from '@/lib/media/film';
 
 /*
@@ -29,6 +30,16 @@ export const LENGTHS = {
   /** A restaurant's name on its detail page: longer than 24 warns. */
   restaurantName: { warn: 24, max: 60 },
 } as const;
+
+/** The menu label's warning past LENGTHS.navLabel.warn (spec §6.5). */
+export const NAV_LABEL_WARNING = 'Dài hơn 14 ký tự: thanh menu trên máy tính có thể chật.';
+
+/**
+ * The sections a menu item may scroll to: every home section but the hero,
+ * the film, the finder and the booking bar (CHECK nav_items.target_section,
+ * migration 008), in the page's order.
+ */
+export const NAV_TARGETS = ['cuisines', 'restaurants', 'destinations', 'experiences', 'heritage', 'stories', 'offers'] as const satisfies readonly SectionKey[];
 
 /** A translation this much longer than its EN warns (spec §6.5 note). */
 export const TRANSLATION_STRETCH = 1.3;
