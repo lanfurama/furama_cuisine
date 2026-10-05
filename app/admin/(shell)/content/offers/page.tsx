@@ -8,6 +8,7 @@ import { listOffersAdmin, OFFER } from '@/lib/server/content-admin/offers';
 import { orderToken, type OrderSnapshot } from '@/lib/server/content-admin/snapshot';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
+import { StringsPanel } from '../_ui/StringsPanel';
 import { restoreOfferOrderAction } from './actions';
 import { OfferList } from './OfferList';
 
@@ -40,6 +41,12 @@ export default async function OffersPage() {
         </a>
       </p>
       <OfferList items={items} listToken={token} warnings={limitWarnings('offers', items.filter((i) => i.isPublished).length)} />
+
+      <section aria-labelledby="offers-copy">
+        <h2 id="offers-copy">Chữ của mục Offers</h2>
+        <p className="a-muted">Tiêu đề, câu dẫn, nút trên thẻ, cách ghi giá và ghi chú điền sẵn vào form đặt bàn (tiếng Anh).</p>
+        <StringsPanel screen="offers" title="Chữ mục Offers" />
+      </section>
 
       <section aria-labelledby="offers-deleted">
         <h2 id="offers-deleted">Đã xóa gần đây</h2>

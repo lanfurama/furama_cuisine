@@ -1,4 +1,5 @@
 import 'server-only';
+import { formatMessage } from '@/lib/i18n/format';
 import { toBcp47 } from '@/lib/i18n/locales';
 
 /*
@@ -43,15 +44,18 @@ export function storyKicker(category: string, publishedOn: string | null, locale
 
 export type OfferPrice = { amount: string | number; currency: string; basis: 'plus_plus' | 'net' };
 
+/** The price wording by basis: the registry's offers.price_plus_plus and offers.price_net, as the offers screen saved them. */
+export type PriceTemplates = Record<OfferPrice['basis'], string>;
+
 /**
- * "VND 888,000++ per guest", "VND 450,000 net per guest". The number alone
- * goes through Intl: the currency style would put U+00A0 after the code, and
- * the card printed a plain space. PHASE 7: "per guest" and the order become
- * registry templates (offers.price_plus_plus, offers.price_net).
+ * "VND 888,000++ per guest", "VND 450,000 net per guest" with the registry's
+ * templates ({currency} {amount}). The number alone goes through Intl: the
+ * currency style would put U+00A0 after the code, and the card printed a
+ * plain space.
  */
-export function formatPrice(price: OfferPrice, locale: string): string {
+export function formatPrice(price: OfferPrice, locale: string, templates: PriceTemplates): string {
   const amount = new Intl.NumberFormat(toBcp47(intlSafe(locale))).format(Number(price.amount));
-  return `${price.currency} ${amount}${price.basis === 'plus_plus' ? '++' : ' net'} per guest`;
+  return formatMessage(templates[price.basis], { currency: price.currency, amount }, locale);
 }
 
 /** An offer card's detail line: the price, then the schedule, joined by " · "; either may stand alone. */

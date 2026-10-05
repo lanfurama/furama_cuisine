@@ -2,11 +2,12 @@
 
 import { useEffect, useRef } from 'react';
 import { fold } from '@/lib/booking';
+import { formatMessage } from '@/lib/i18n/format';
 import { useSite } from '@/components/site/SiteProvider';
 import { useOpenAnimation } from '@/lib/motion';
 
 export function SearchOverlay() {
-  const { site, destName, restaurants, overlay, close, query, setQuery, openRestaurant, strings } = useSite();
+  const { site, destName, restaurants, overlay, close, query, setQuery, openRestaurant, strings, locale } = useSite();
   const inputRef = useRef<HTMLInputElement>(null);
   const open = overlay === 'search';
 
@@ -33,11 +34,11 @@ export function SearchOverlay() {
   const results = !q ? [] : restaurants.filter((r) => r.search.includes(q));
 
   return (
-    <div data-anim="search" className="search-root" role="dialog" aria-modal="true" aria-label="Search">
+    <div data-anim="search" className="search-root" role="dialog" aria-modal="true" aria-label={strings['search.aria']}>
       <div className="search-inner">
         <div className="search-head">
           <div className="search-wordmark">FURAMA CUISINE</div>
-          <button type="button" className="overlay-close" aria-label="Close search" onClick={close}>
+          <button type="button" className="overlay-close" aria-label={strings['search.close']} onClick={close}>
             ×
           </button>
         </div>
@@ -48,13 +49,13 @@ export function SearchOverlay() {
           className="search-input"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search restaurants, cuisines, places"
-          aria-label="Search restaurants, cuisines, places"
+          placeholder={strings['search.placeholder']}
+          aria-label={strings['search.placeholder']}
         />
 
         {!q && (
           <>
-            <div className="search-label">POPULAR CUISINES</div>
+            <div className="search-label">{strings['search.popular']}</div>
             <div className="search-chips">
               {site.cuisines.map((c) => (
                 <button key={c.id} type="button" className="search-chip" onClick={() => setQuery(c.label)}>
@@ -68,7 +69,7 @@ export function SearchOverlay() {
         {results.length > 0 && (
           <>
             <div className="search-label search-label-results">
-              {results.length} {results.length === 1 ? 'RESULT' : 'RESULTS'}
+              {formatMessage(strings['search.results'], { count: results.length }, locale)}
             </div>
             <div className="search-results">
               {results.map((r) => (
@@ -90,7 +91,7 @@ export function SearchOverlay() {
                   {/* With online booking off, a restaurant with a number is called (R20); one without has no action. */}
                   {(r.hasDetailPage || r.bookingEnabled || r.phone) && (
                     <span className="search-result-action">
-                      {r.hasDetailPage ? 'View' : r.bookingEnabled ? 'Reserve' : strings['booking.call_action']} →
+                      {r.hasDetailPage ? strings['search.view'] : r.bookingEnabled ? strings['search.reserve'] : strings['booking.call_action']} →
                     </span>
                   )}
                 </button>
@@ -101,7 +102,7 @@ export function SearchOverlay() {
 
         {q && results.length === 0 && (
           <div className="search-none">
-            No matches for “{query}”. Try a cuisine such as Vietnamese or Italian.
+            {formatMessage(strings['search.none'], { query })}
           </div>
         )}
       </div>

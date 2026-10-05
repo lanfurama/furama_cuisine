@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { BOOKING_ERROR_CODES, DEFAULT_ERROR_STRINGS, bookingErrorMessage } from './booking-errors';
+import { formatMessage } from '@/lib/i18n/format';
+import { REGISTRY } from '@/lib/i18n/registry';
+import { BOOKING_ERROR_CODES, bookingErrorParams, type BookingErrorCode, type ErrorStrings } from './booking-errors';
+
+// The registry's English text for every code, as the SiteProvider hands it over with no database rows.
+const DEFAULT_ERROR_STRINGS = Object.fromEntries(BOOKING_ERROR_CODES.map((c) => [`error.${c}`, REGISTRY[`error.${c}`].en])) as ErrorStrings;
+
+const bookingErrorMessage = (code: BookingErrorCode, params: Record<string, string> = {}, strings = DEFAULT_ERROR_STRINGS) =>
+  formatMessage(strings[`error.${code}`], bookingErrorParams(params));
 
 describe('bookingErrorMessage', () => {
   it('has guest-facing copy for every code', () => {

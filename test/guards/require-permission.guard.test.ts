@@ -103,6 +103,10 @@ const BOOKING_ACTIONS: Record<string, Record<string, { permission: object; edito
  * no rows.
  */
 const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; editor: boolean }>> = {
+  // The registry keys of every string screen (lib/server/content/strings-admin.ts).
+  'app/admin/(shell)/content/actions.ts': {
+    saveScreenStrings: { permission: { content: ['update'] }, editor: true },
+  },
   'app/admin/(shell)/content/offers/actions.ts': {
     createOfferAction: { permission: { content: ['update'] }, editor: true },
     saveOfferAction: { permission: { content: ['update'] }, editor: true },

@@ -1,11 +1,12 @@
 'use client';
 
 import type { Media, Story } from '@/lib/content/types';
+import type { Copy } from '@/lib/i18n/registry';
 import { CmsImage } from '@/components/ui/CmsImage';
 import { useReveal } from '@/lib/motion';
 
-/** The cards (stories) come from the page, their kicker already formatted on the server. */
-export function Stories({ items }: { items: Story[] }) {
+/** The cards (stories) and the section's copy (stories.*) come from the page, read and formatted on the server. */
+export function Stories({ items, copy }: { items: Story[]; copy: Copy<'stories'> }) {
   const title = useReveal<HTMLHeadingElement>('title');
   const lede = useReveal<HTMLParagraphElement>('up');
 
@@ -14,10 +15,10 @@ export function Stories({ items }: { items: Story[] }) {
       <div className="shell">
         <div className="stories-head">
           <h2 ref={title} data-reveal="title" className="section-title balance">
-            Stories from our Kitchens
+            {copy['stories.title']}
           </h2>
           <p ref={lede} data-reveal="up" className="section-lede">
-            Chefs, ingredients and the cultures behind every plate.
+            {copy['stories.lede']}
           </p>
         </div>
 

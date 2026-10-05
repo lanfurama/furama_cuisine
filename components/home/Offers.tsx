@@ -1,11 +1,15 @@
 'use client';
 
 import type { Offer } from '@/lib/content/types';
+import type { Copy } from '@/lib/i18n/registry';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 
-/** Today's offers (lib/server/content/home.ts getOffers); the page leaves the section out when there are none. */
-export function Offers({ items }: { items: Offer[] }) {
+/**
+ * Today's offers (lib/server/content/home.ts getOffers); the page leaves the section out when there are none.
+ * The section's copy (offers.*) comes from the page, edited on /admin/content/offers.
+ */
+export function Offers({ items, copy }: { items: Offer[]; copy: Copy<'offers'> }) {
   const title = useReveal<HTMLHeadingElement>('title');
   const lede = useReveal<HTMLParagraphElement>('up');
 
@@ -14,17 +18,16 @@ export function Offers({ items }: { items: Offer[] }) {
       <div className="shell">
         <div className="offers-head">
           <h2 ref={title} data-reveal="title" className="section-title">
-            Offers
+            {copy['offers.title']}
           </h2>
           <p ref={lede} data-reveal="up" className="section-lede">
-            Seasonal menus and special evenings across our restaurants — valid until 31 December
-            2026.
+            {copy['offers.lede']}
           </p>
         </div>
 
         <div className="offers-grid">
           {items.map((o) => (
-            <OfferCard key={o.id} offer={o} />
+            <OfferCard key={o.id} offer={o} cta={copy['offers.cta']} />
           ))}
         </div>
       </div>
@@ -32,7 +35,7 @@ export function Offers({ items }: { items: Offer[] }) {
   );
 }
 
-function OfferCard({ offer }: { offer: Offer }) {
+function OfferCard({ offer, cta }: { offer: Offer; cta: string }) {
   const { bookable, openReserve } = useSite();
   const ref = useReveal<HTMLDivElement>('up');
   // An offer's only action is reserving at its restaurant: none while that restaurant books offline.
@@ -49,7 +52,8 @@ function OfferCard({ offer }: { offer: Offer }) {
           className="offer-cta"
           onClick={() => openReserve({ restaurant: offer.restaurantId }, { id: offer.id, title: offer.title })}
         >
-          VIEW OFFER<span>→</span>
+          {cta}
+          <span>→</span>
         </button>
       )}
     </div>

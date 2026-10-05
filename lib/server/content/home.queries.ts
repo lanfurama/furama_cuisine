@@ -1,8 +1,10 @@
 import 'server-only';
 import { query } from '@/db/client';
-import { formatPrice, offerDetail, storyKicker } from '@/lib/content/format';
+import { formatPrice, offerDetail, storyKicker, type PriceTemplates } from '@/lib/content/format';
+import { resolveStrings } from '@/lib/i18n/resolve';
 import type { Experience, HeroSlide, Media, Offer, Story } from '@/lib/content/types';
 import { LOCALE_CTE, VENUE_TODAY, i18nJoin, mediaJson, tr } from './sql';
+import { loadStringRows } from './strings.queries';
 
 /* The home page's lists, uncached (lib/server/content/home.ts wraps them). Published rows, by sort_order then id. */
 
@@ -71,6 +73,8 @@ export async function loadStories(locale: string): Promise<Story[]> {
  * daily cron revalidates content:offers. The detail line is formatted here,
  * on the server.
  */
+const PRICE_KEYS = ['offers.price_plus_plus', 'offers.price_net'] as const;
+
 export async function loadOffers(locale: string): Promise<Offer[]> {
   const rows = await query<{
     id: string;
@@ -95,13 +99,17 @@ export async function loadOffers(locale: string): Promise<Offer[]> {
       ORDER BY o.sort_order, o.id`,
     [locale],
   );
+  // The price wording is the offers screen's (offers.price_*): LOADERS.offers reads content_strings and carries content:ui.
+  const { defaultLocale, rows: strings } = await loadStringRows(locale, PRICE_KEYS);
+  const words = resolveStrings(strings, PRICE_KEYS, locale, defaultLocale);
+  const templates: PriceTemplates = { plus_plus: words['offers.price_plus_plus'], net: words['offers.price_net'] };
   return rows.map((r) => ({
     id: Number(r.id),
     restaurantId: r.restaurant_id,
     venue: r.venue,
     title: r.title,
     detail: offerDetail(
-      r.price_amount !== null && r.price_basis ? formatPrice({ amount: r.price_amount, currency: r.currency, basis: r.price_basis }, locale) : null,
+      r.price_amount !== null && r.price_basis ? formatPrice({ amount: r.price_amount, currency: r.currency, basis: r.price_basis }, locale, templates) : null,
       r.schedule,
     ),
   }));

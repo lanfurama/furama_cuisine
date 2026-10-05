@@ -4,9 +4,22 @@
  * translates them, and a key with no row falls back to the default here.
  */
 
-/** Admin screens that can edit strings (spec §7.2); a CI test checks every key names one. */
+/**
+ * The admin screens that edit strings (spec §7.2: /admin/content/<screen>,
+ * and /admin/restaurants for the "Our Restaurants" copy and the detail
+ * page's shared labels). Every key names one (`screen`); lib/admin/content-screens.ts
+ * maps each to its route, and test/guards/editing-screens.guard.test.ts
+ * checks the route exists and renders that screen's keys.
+ */
 export const ADMIN_SCREENS = [
   'hero',
+  'cuisines',
+  'restaurants',
+  'destinations',
+  'experiences',
+  'heritage',
+  'stories',
+  'offers',
   'booking',
   'navigation',
   'contact',
@@ -30,6 +43,12 @@ export type StringDef = {
   context: string;
   /** The admin screen that edits this key. */
   screen: AdminScreen;
+  /**
+   * The field's name in the admin, in Vietnamese (spec §7.3: the admin speaks
+   * Vietnamese; `context` is for translators and the AI). PHASE 7: required on
+   * every key once the editors cover them; until then the key shows.
+   */
+  label?: string;
 };
 
 // `satisfies` keeps the literal key names, so StringKey is a real union.
@@ -269,6 +288,7 @@ export const REGISTRY = {
     context:
       'Reservation form, above the consent checkbox: the short privacy notice at the point of collection (spec §11, Law 91/2025/QH15). Must stay true to legal.* on the policy page, the anti-abuse checks included (the per-phone daily limit and the bot check).',
     screen: 'legal',
+    label: 'Thông báo bảo mật trong form đặt bàn',
   },
   'booking.consent': {
     en: 'I agree to Furama Cuisine using my details as described in the privacy policy.',
@@ -276,18 +296,21 @@ export const REGISTRY = {
     context:
       'Reservation form, the label of the required consent checkbox. The policy link sits next to it (legal.link), not inside the label.',
     screen: 'legal',
+    label: 'Câu đồng ý (ô tick) trong form đặt bàn',
   },
   'legal.link': {
     en: 'Privacy policy',
     maxLength: 40,
     context: 'Link to the privacy policy page, in the reservation form next to the consent box and in the site footer.',
     screen: 'legal',
+    label: 'Chữ của link tới trang chính sách',
   },
   'legal.title': {
     en: 'Privacy policy',
     maxLength: 60,
     context: 'Privacy policy page: the heading and the browser tab title.',
     screen: 'legal',
+    label: 'Tiêu đề trang',
   },
   'legal.updated': {
     en: 'Last updated {date}',
@@ -295,18 +318,21 @@ export const REGISTRY = {
     vars: ['date'],
     context: 'Privacy policy page, under the heading. {date} is the policy version’s date, formatted; keep it.',
     screen: 'legal',
+    label: 'Dòng “cập nhật ngày”',
   },
   'legal.intro': {
     en: 'Furama Cuisine is the dining brand of Furama Resort Danang and Furama Dining House. This policy explains what we do with the details you give us when you request a table online.',
     maxLength: 600,
     context: 'Privacy policy page, the opening paragraph: who is responsible for the data.',
     screen: 'legal',
+    label: 'Đoạn mở đầu',
   },
   'legal.collect_heading': {
     en: 'What we collect',
     maxLength: 80,
     context: 'Privacy policy page, a section heading.',
     screen: 'legal',
+    label: 'Mục 1: tiêu đề',
   },
   'legal.collect_body': {
     en: 'Your name and phone number; your email address and any special request, if you give them; the restaurant, date, time and party size you chose; the time you sent the request and agreed to this policy; and technical signals your browser sends, used only for the bot check.',
@@ -314,12 +340,14 @@ export const REGISTRY = {
     context:
       'Privacy policy page, the body of “What we collect”. Must match the fields of the reservation form, and the signals the bot check reads in the browser (Vercel BotID).',
     screen: 'legal',
+    label: 'Mục 1: nội dung',
   },
   'legal.use_heading': {
     en: 'How we use it',
     maxLength: 80,
     context: 'Privacy policy page, a section heading.',
     screen: 'legal',
+    label: 'Mục 2: tiêu đề',
   },
   'legal.use_body': {
     en: 'To arrange your booking: to hold your table, to confirm, change or cancel it with you by phone or email, and to welcome you on the day. To protect online booking from abuse: we count the online requests made with one phone number for the same day, and the website runs an automated check, provided by our hosting company, that tells people from bots. We do not use your details for marketing and we do not sell them.',
@@ -327,36 +355,42 @@ export const REGISTRY = {
     context:
       'Privacy policy page, the body of “How we use it”: the booking, and the two anti-abuse checks (the per-phone daily limit, spec §10.2 step 5; the bot check, step 1). Keep the no-marketing sentence.',
     screen: 'legal',
+    label: 'Mục 2: nội dung',
   },
   'legal.share_heading': {
     en: 'Who sees it',
     maxLength: 80,
     context: 'Privacy policy page, a section heading.',
     screen: 'legal',
+    label: 'Mục 3: tiêu đề',
   },
   'legal.share_body': {
     en: 'Our reservations staff. The companies that host this website and its database, protect it against automated requests, and send our emails process your details on our behalf and only on our instructions.',
     maxLength: 1200,
     context: 'Privacy policy page, the body of “Who sees it”: staff and processors (hosting, database, bot protection, email).',
     screen: 'legal',
+    label: 'Mục 3: nội dung',
   },
   'legal.keep_heading': {
     en: 'How long we keep it',
     maxLength: 80,
     context: 'Privacy policy page, a section heading.',
     screen: 'legal',
+    label: 'Mục 4: tiêu đề',
   },
   'legal.keep_body': {
     en: 'We keep your contact details for up to 24 months after the date of your booking, then remove them. We keep only the date, time, party size and restaurant, without your name or contact details, for our statistics.',
     maxLength: 1200,
     context: 'Privacy policy page, the body of “How long we keep it”. The months must match the retention setting (booking_settings.pii_retention_months).',
     screen: 'legal',
+    label: 'Mục 4: nội dung',
   },
   'legal.rights_heading': {
     en: 'Your rights',
     maxLength: 80,
     context: 'Privacy policy page, a section heading.',
     screen: 'legal',
+    label: 'Mục 5: tiêu đề',
   },
   'legal.rights_body': {
     en: 'You may ask to see, correct or delete your details, or withdraw your consent, at any time. Write to {email} or call the restaurant. Withdrawing consent does not affect a booking already handled.',
@@ -364,10 +398,212 @@ export const REGISTRY = {
     vars: ['email'],
     context: 'Privacy policy page, the body of “Your rights”. {email} is the contact address, shown as a link; keep it.',
     screen: 'legal',
+    label: 'Mục 5: nội dung',
   },
   // ── Booking emails (spec §10.4): email.<event>.<field>, shared labels under email.common. ──
   // Rendered in the reservation's language for guests and the recipient's for staff
   // (lib/server/email/booking/render.ts). Phase 7 edits them in /admin/content/emails.
+  // ── Home sections: read by the home page on the server, handed to each section (pageKeys) ──
+  'stories.title': {
+    en: 'Stories from our Kitchens',
+    maxLength: 40,
+    context: 'Home page, title of the Stories section (links to articles about the kitchens). Two short lines at most on a phone.',
+    screen: 'stories',
+    label: 'Tiêu đề mục Stories',
+  },
+  'stories.lede': {
+    en: 'Chefs, ingredients and the cultures behind every plate.',
+    maxLength: 120,
+    context: 'Home page, one sentence under the Stories title.',
+    screen: 'stories',
+    label: 'Câu dẫn mục Stories',
+  },
+  'heritage.kicker': {
+    en: 'Since 1997 · Furama Resort Danang',
+    maxLength: 48,
+    context: 'Home page, small line above the Heritage title, on a photo. One line on a phone.',
+    screen: 'heritage',
+    label: 'Dòng nhỏ phía trên tiêu đề',
+  },
+  'heritage.title_1': {
+    en: 'A culinary heritage',
+    maxLength: 28,
+    context: 'Home page, Heritage title, first of two lines (the box has a fixed height: keep each line short).',
+    screen: 'heritage',
+    label: 'Tiêu đề, dòng 1',
+  },
+  'heritage.title_2': {
+    en: 'that keeps evolving',
+    maxLength: 28,
+    context: 'Home page, Heritage title, second line; continues the first line as one sentence.',
+    screen: 'heritage',
+    label: 'Tiêu đề, dòng 2',
+  },
+  'heritage.cta': {
+    en: 'OUR STORY',
+    maxLength: 24,
+    context: 'Home page, Heritage button to the group’s story (an external page). Written in capitals; an arrow follows it.',
+    screen: 'heritage',
+    label: 'Nút “Our story”',
+  },
+  // ── Offers (spec §7.2 content/offers): the section's copy (page props), the card's price wording (the offers
+  // loader, on the server) and the note VIEW OFFER puts in the reservation form (the browser) ──
+  'offers.title': {
+    en: 'Offers',
+    maxLength: 30,
+    context: 'Home page, title of the Offers section (cards for set menus and special evenings).',
+    screen: 'offers',
+    label: 'Tiêu đề mục Offers',
+  },
+  'offers.lede': {
+    en: 'Seasonal menus and special evenings across our restaurants — valid until 31 December 2026.',
+    maxLength: 160,
+    context:
+      'Home page, one sentence under the Offers title. Any date written here is plain text: each offer’s own dates (offers.valid_from/valid_until) decide when its card shows.',
+    screen: 'offers',
+    label: 'Câu dẫn mục Offers',
+  },
+  'offers.cta': {
+    en: 'VIEW OFFER',
+    maxLength: 24,
+    context: 'Home page, the button on an offer card that opens the reservation form for its restaurant. Capitals; an arrow follows it.',
+    screen: 'offers',
+    label: 'Nút “View offer” trên thẻ',
+  },
+  'offers.price_plus_plus': {
+    en: '{currency} {amount}++ per guest',
+    maxLength: 60,
+    vars: ['currency', 'amount'],
+    context: 'Offer card, the price when service charge and tax come on top ("++"). {currency} is the code (VND), {amount} the formatted number; keep both.',
+    screen: 'offers',
+    label: 'Giá chưa gồm phí (++)',
+  },
+  'offers.price_net': {
+    en: '{currency} {amount} net per guest',
+    maxLength: 60,
+    vars: ['currency', 'amount'],
+    context: 'Offer card, the price when service charge and tax are included ("net"). {currency} is the code (VND), {amount} the formatted number; keep both.',
+    screen: 'offers',
+    label: 'Giá đã gồm phí (net)',
+  },
+  'offers.note': {
+    en: 'Offer: {title}',
+    maxLength: 60,
+    vars: ['title'],
+    context:
+      'Reservation form, the note VIEW OFFER fills in for the guest (they can change it); {title} is the offer’s title. Staff also see the offer itself on the booking.',
+    screen: 'offers',
+    label: 'Ghi chú điền sẵn khi khách bấm View offer',
+  },
+  // ── Search overlay: a client component of the chrome (CLIENT_KEYS) ──
+  'search.aria': {
+    en: 'Search',
+    maxLength: 40,
+    context: 'Screen-reader name of the search dialog.',
+    screen: 'ui-text',
+    label: 'Tên hộp tìm kiếm (trình đọc màn hình)',
+  },
+  'search.close': {
+    en: 'Close search',
+    maxLength: 40,
+    context: 'Screen-reader name of the × button that closes the search dialog.',
+    screen: 'ui-text',
+    label: 'Nút đóng tìm kiếm (trình đọc màn hình)',
+  },
+  'search.placeholder': {
+    en: 'Search restaurants, cuisines, places',
+    maxLength: 60,
+    context: 'Search dialog, grey hint inside the empty search box; also its screen-reader name.',
+    screen: 'ui-text',
+    label: 'Gợi ý trong ô tìm kiếm',
+  },
+  'search.popular': {
+    en: 'POPULAR CUISINES',
+    maxLength: 32,
+    context: 'Search dialog, label above the cuisine chips shown before the guest types. Capitals.',
+    screen: 'ui-text',
+    label: 'Nhãn “ẩm thực phổ biến”',
+  },
+  'search.results': {
+    en: '{count, plural, one {# RESULT} other {# RESULTS}}',
+    maxLength: 80,
+    vars: ['count'],
+    context: 'Search dialog, how many restaurants match. ICU plural: keep {count, plural, …} and # (the number). Capitals.',
+    screen: 'ui-text',
+    label: 'Số kết quả (số ít / số nhiều)',
+  },
+  'search.view': {
+    en: 'View',
+    maxLength: 16,
+    context: 'Search result action for a restaurant with its own page. An arrow follows it.',
+    screen: 'ui-text',
+    label: 'Hành động: xem nhà hàng',
+  },
+  'search.reserve': {
+    en: 'Reserve',
+    maxLength: 16,
+    context: 'Search result action that opens the reservation form. An arrow follows it.',
+    screen: 'ui-text',
+    label: 'Hành động: đặt bàn',
+  },
+  'search.none': {
+    en: 'No matches for “{query}”. Try a cuisine such as Vietnamese or Italian.',
+    maxLength: 160,
+    vars: ['query'],
+    context: 'Search dialog, nothing matches. {query} is what the guest typed; keep it inside the quotes.',
+    screen: 'ui-text',
+    label: 'Không có kết quả',
+  },
+  // ── Meals (service_periods.meal) and the finder's "all" choices: chrome and booking form (CLIENT_KEYS) ──
+  'meal.breakfast': {
+    en: 'Breakfast',
+    maxLength: 20,
+    context: 'Name of the Breakfast service: finder Occasion option, filter chip, time group in the reservation form, booking bar note.',
+    screen: 'booking',
+    label: 'Bữa sáng',
+  },
+  'meal.lunch': {
+    en: 'Lunch',
+    maxLength: 20,
+    context: 'Name of the Lunch service (same places as meal.breakfast).',
+    screen: 'booking',
+    label: 'Bữa trưa',
+  },
+  'meal.dinner': {
+    en: 'Dinner',
+    maxLength: 20,
+    context: 'Name of the Dinner service (same places as meal.breakfast).',
+    screen: 'booking',
+    label: 'Bữa tối',
+  },
+  'meal.drinks': {
+    en: 'Drinks',
+    maxLength: 20,
+    context: 'Name of the Drinks service, a bar or lounge sitting (same places as meal.breakfast).',
+    screen: 'booking',
+    label: 'Đồ uống',
+  },
+  'finder.all_cuisines': {
+    en: 'All cuisines',
+    maxLength: 32,
+    context: 'Finder, Cuisine dropdown: the choice that does not filter.',
+    screen: 'booking',
+    label: 'Lựa chọn “mọi ẩm thực”',
+  },
+  'finder.any_occasion': {
+    en: 'Any occasion',
+    maxLength: 32,
+    context: 'Finder, Occasion dropdown: the choice that does not filter by meal.',
+    screen: 'booking',
+    label: 'Lựa chọn “mọi dịp”',
+  },
+  'finder.any_destination': {
+    en: 'Any destination',
+    maxLength: 32,
+    context: 'Finder, Destination dropdown: the choice that does not filter by place.',
+    screen: 'booking',
+    label: 'Lựa chọn “mọi điểm đến”',
+  },
   'email.common.label_reference': {
     en: 'Reference',
     vi: 'Mã đặt bàn',
@@ -614,13 +850,42 @@ export const STRING_KEYS = Object.keys(REGISTRY) as StringKey[];
 /** Same pattern as the CHECK on content_strings.key (migration 004). */
 export const KEY_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/;
 
-/** Keys the browser needs: the reservation form's copy and its error messages, and the policy link (form and footer). */
-export type ClientKey = Extract<StringKey, `error.${string}` | `booking.${string}` | 'legal.link'>;
+/**
+ * Keys the browser needs at first paint, passed to SiteProvider by the
+ * (guarded) layout: the chrome's client components (reservation form, search,
+ * finder, booking bar) and the policy link. Everything else is read on the
+ * server: a page's own section copy (pageKeys), metadata (seo.*), the policy
+ * page (legal.*) and emails (email.*).
+ */
+const CLIENT_PREFIXES = ['error.', 'booking.', 'search.', 'meal.', 'finder.'] as const;
+/** Single keys the chrome needs beyond the prefixes: the policy link (form, footer), VIEW OFFER's note (form). */
+const CLIENT_SINGLES = ['legal.link', 'offers.note'] as const;
+export type ClientKey = Extract<StringKey, `${'error' | 'booking' | 'search' | 'meal' | 'finder'}.${string}` | (typeof CLIENT_SINGLES)[number]>;
 
-/** Keys the browser needs at first paint; passed to SiteProvider. Grow this list per component that moves to t(). */
 export const CLIENT_KEYS = STRING_KEYS.filter(
-  (k): k is ClientKey => k.startsWith('error.') || k.startsWith('booking.') || k === 'legal.link',
+  (k): k is ClientKey => CLIENT_PREFIXES.some((p) => k.startsWith(p)) || (CLIENT_SINGLES as readonly string[]).includes(k),
 );
+
+/** The keys of one prefix ("stories" → stories.title, stories.lede): a section's own copy. */
+export type SectionKey<P extends string> = Extract<StringKey, `${P}.${string}`>;
+export type Copy<P extends string> = Record<SectionKey<P>, string>;
+
+export function sectionKeys<P extends string>(prefix: P): SectionKey<P>[] {
+  return STRING_KEYS.filter((k): k is SectionKey<P> => k.startsWith(`${prefix}.`));
+}
+
+/** The home sections whose copy the home page reads on the server and passes down as props. */
+export const HOME_SECTIONS = ['stories', 'heritage', 'offers'] as const;
+export const HOME_KEYS = HOME_SECTIONS.flatMap((s) => sectionKeys(s));
+
+/** Every key one admin screen edits. */
+export function keysForScreen(screen: AdminScreen): StringKey[] {
+  return STRING_KEYS.filter((k) => REGISTRY[k].screen === screen);
+}
+
+export function isStringKey(key: string): key is StringKey {
+  return Object.hasOwn(REGISTRY, key);
+}
 
 /** The registry's own text for a language other than English; only `vi`, and only where declared. */
 export function registryLocaleDefault(key: StringKey, locale: string): string | undefined {

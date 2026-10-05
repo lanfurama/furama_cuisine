@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { REGISTRY } from '@/lib/i18n/registry';
 import { formatPrice, formatStoryDate, offerDetail, storyKicker } from './format';
 
 /*
@@ -35,27 +36,34 @@ describe('story kicker', () => {
   });
 });
 
+/** The registry's English templates, which the offers loader resolves (spec §7.2 content/offers). */
+const PRICES = { plus_plus: REGISTRY['offers.price_plus_plus'].en, net: REGISTRY['offers.price_net'].en };
+
 describe('offer price and detail line', () => {
   it('reads as the three seeded offers did, with a plain space after the currency (no U+00A0)', () => {
-    expect(offerDetail(formatPrice({ amount: '888000.00', currency: 'VND', basis: 'plus_plus' }, 'en'), 'Nightly 18:30–22:00')).toBe(
+    expect(offerDetail(formatPrice({ amount: '888000.00', currency: 'VND', basis: 'plus_plus' }, 'en', PRICES), 'Nightly 18:30–22:00')).toBe(
       'VND 888,000++ per guest · Nightly 18:30–22:00',
     );
-    expect(offerDetail(formatPrice({ amount: 799000, currency: 'VND', basis: 'plus_plus' }, 'en'), 'Daily 11:00 or 14:00')).toBe(
+    expect(offerDetail(formatPrice({ amount: 799000, currency: 'VND', basis: 'plus_plus' }, 'en', PRICES), 'Daily 11:00 or 14:00')).toBe(
       'VND 799,000++ per guest · Daily 11:00 or 14:00',
     );
-    expect(offerDetail(formatPrice({ amount: '450000.00', currency: 'VND', basis: 'net' }, 'en'), '~30 pastries, 12+ teas')).toBe(
+    expect(offerDetail(formatPrice({ amount: '450000.00', currency: 'VND', basis: 'net' }, 'en', PRICES), '~30 pastries, 12+ teas')).toBe(
       'VND 450,000 net per guest · ~30 pastries, 12+ teas',
     );
-    expect(formatPrice({ amount: '888000', currency: 'VND', basis: 'plus_plus' }, 'en')).not.toContain(' ');
+    expect(formatPrice({ amount: '888000', currency: 'VND', basis: 'plus_plus' }, 'en', PRICES)).not.toContain(' ');
+  });
+
+  it('words the price as the offers screen saved its templates', () => {
+    expect(formatPrice({ amount: '888000', currency: 'VND', basis: 'plus_plus' }, 'en', { ...PRICES, plus_plus: 'From {currency} {amount}++' })).toBe('From VND 888,000++');
   });
 
   it('keeps the cents of a price that has them', () => {
-    expect(formatPrice({ amount: '42.50', currency: 'USD', basis: 'net' }, 'en')).toBe('USD 42.5 net per guest');
+    expect(formatPrice({ amount: '42.50', currency: 'USD', basis: 'net' }, 'en', PRICES)).toBe('USD 42.5 net per guest');
   });
 
   it('lets a price or a schedule stand alone', () => {
     expect(offerDetail(null, 'Every Friday')).toBe('Every Friday');
-    expect(offerDetail(formatPrice({ amount: '120', currency: 'USD', basis: 'net' }, 'en'), null)).toBe('USD 120 net per guest');
+    expect(offerDetail(formatPrice({ amount: '120', currency: 'USD', basis: 'net' }, 'en', PRICES), null)).toBe('USD 120 net per guest');
     expect(offerDetail(null, null)).toBe('');
   });
 });
@@ -65,6 +73,6 @@ describe('a language code Intl refuses', () => {
     expect(() => new Intl.DateTimeFormat('favicon.ico')).toThrow(RangeError);
     expect(formatStoryDate('2026-09-09', 'favicon.ico')).toBe('9 Sep 2026');
     expect(storyKicker('Restaurant News', '2026-09-05', 'wp-login.php')).toBe('Restaurant News · 5 Sep 2026');
-    expect(formatPrice({ amount: '888000.00', currency: 'VND', basis: 'plus_plus' }, 'apple-touch-icon.png')).toBe('VND 888,000++ per guest');
+    expect(formatPrice({ amount: '888000.00', currency: 'VND', basis: 'plus_plus' }, 'apple-touch-icon.png', PRICES)).toBe('VND 888,000++ per guest');
   });
 });

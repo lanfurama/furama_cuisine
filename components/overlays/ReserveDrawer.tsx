@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { bookableDestinationOptions } from '@/lib/content/options';
-import { MEAL_LABELS } from '@/lib/data';
+import { bookableDestinationOptions, mealLabel } from '@/lib/content/options';
 import { FIELD_MAX, findRestaurant, fmtDay, guestLabel } from '@/lib/booking';
 import { dayReason, movedReason, slotOpen, type DateMove } from '@/lib/booking/client';
 import type { DayInfo } from '@/lib/booking/api';
@@ -494,7 +493,7 @@ export function ReserveDrawer() {
               </div>
               {board?.periods.map((p) => (
                 <div key={p.meal} className="slotgroup" data-closed={p.closed || undefined}>
-                  <div className="slotgroup-meal">{MEAL_LABELS[p.meal]}</div>
+                  <div className="slotgroup-meal">{mealLabel(strings, p.meal)}</div>
                   {p.closed ? (
                     <div className="slotgroup-note">
                       <span>{strings['booking.meal_closed']}</span>

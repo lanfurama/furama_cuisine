@@ -1,12 +1,13 @@
 'use client';
 
-import { MEAL_LABELS, type Meal } from '@/lib/data';
+import type { Meal } from '@/lib/data';
+import { mealLabel } from '@/lib/content/options';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 import { RestaurantCard } from './RestaurantCard';
 
 export function Restaurants() {
-  const { site, destName, restaurants, filter, matches, shownCount, setFilter, clearFilters } = useSite();
+  const { site, destName, restaurants, filter, matches, shownCount, setFilter, clearFilters, strings } = useSite();
   const title = useReveal<HTMLHeadingElement>('title');
   const link = useReveal<HTMLButtonElement>('fade');
 
@@ -17,7 +18,7 @@ export function Restaurants() {
     chips.push({ label, clear: () => setFilter({ cuisine: 'all' }) });
   }
   if (filter.occasion !== 'all') {
-    chips.push({ label: MEAL_LABELS[filter.occasion as Meal], clear: () => setFilter({ occasion: 'all' }) });
+    chips.push({ label: mealLabel(strings, filter.occasion as Meal), clear: () => setFilter({ occasion: 'all' }) });
   }
   if (filter.destination !== 'all') {
     chips.push({

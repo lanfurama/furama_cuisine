@@ -5,8 +5,7 @@
  */
 import { PHONE_DAY_LIMIT, type GroupPhone } from '@/lib/booking/rules';
 import { FALLBACK_PHONE } from '@/lib/data';
-import { formatMessage } from '@/lib/i18n/format';
-import { REGISTRY } from '@/lib/i18n/registry';
+import type { StringKey } from '@/lib/i18n/registry';
 
 export const BOOKING_ERROR_CODES = [
   'restaurant_unavailable',
@@ -33,10 +32,13 @@ export type ErrorKey = `error.${BookingErrorCode}`;
 
 export type ErrorStrings = Record<ErrorKey, string>;
 
-/** English defaults straight from the registry (indexing REGISTRY by every code is the compile-time check that each code has a key); used when the server did not pass resolved strings. */
-export const DEFAULT_ERROR_STRINGS = Object.fromEntries(
-  BOOKING_ERROR_CODES.map((code) => [`error.${code}`, REGISTRY[`error.${code}`].en]),
-) as ErrorStrings;
+/*
+ * Every code has a registry key: a compile-time check. No runtime import of
+ * the registry here: this module ships to the browser (WithPhone), and the
+ * registry's contexts and email texts must not (phase-7 spike: 15 kB gzip).
+ */
+type _EveryCodeHasAKey = ErrorKey extends StringKey ? true : never;
+export const EVERY_CODE_HAS_A_KEY: _EveryCodeHasAKey = true;
 
 /**
  * The number a failure names when the chosen restaurant's own is not known yet
@@ -61,10 +63,3 @@ export function bookingErrorParams(params: Record<string, string> = {}): Record<
   return { ...DEFAULT_PARAMS, ...params };
 }
 
-export function bookingErrorMessage(
-  code: BookingErrorCode,
-  params: Record<string, string> = {},
-  strings: ErrorStrings = DEFAULT_ERROR_STRINGS,
-): string {
-  return formatMessage(strings[`error.${code}`], bookingErrorParams(params));
-}

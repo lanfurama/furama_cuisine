@@ -119,7 +119,11 @@ export const LOADERS = {
   experiences: { reads: ['locales', 'experiences', 'experience_i18n'], tags: [TAGS.contentExperiences] },
   stories: { reads: ['locales', 'stories', 'story_i18n', 'media', 'media_i18n'], tags: [TAGS.contentStories, TAGS.media] },
   // cacheLife('hours') and the daily cron. The venue is the restaurant's name, and a hidden restaurant hides its offers.
-  offers: { reads: ['locales', 'offers', 'offer_i18n', 'restaurants'], tags: [TAGS.contentOffers, TAGS.restaurants] },
+  // The price wording is the offers screen's registry keys (offers.price_*), hence content_strings and content:ui.
+  offers: {
+    reads: ['locales', 'offers', 'offer_i18n', 'restaurants', 'content_strings'],
+    tags: [TAGS.contentOffers, TAGS.restaurants, TAGS.contentUi],
+  },
   // Plus restaurant:<id>, added once the query has found the restaurant.
   detail: {
     reads: [

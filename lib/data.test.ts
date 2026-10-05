@@ -1,17 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import * as DATA from './data';
-import { FALLBACK_PHONE, MEALS, MEAL_LABELS } from './data';
+import { REGISTRY } from '@/lib/i18n/registry';
+import { MEAL_KEYS } from '@/lib/content/options';
+import { FALLBACK_PHONE, MEALS } from './data';
 
 describe('lib/data.ts holds code, not content (R1)', () => {
-  it('exports only the meal keys and their labels, the phase-1 slots and the fallback phone', () => {
+  it('exports only the meal keys, the phase-1 slots and the fallback phone (meal names are registry keys)', () => {
     // The content lives in the database since phase 6 (migration 008); test/fixtures/phase5-content.ts keeps what it was.
-    expect(Object.keys(DATA).sort()).toEqual(['FALLBACK_PHONE', 'MEALS', 'MEAL_LABELS', 'SLOTS']);
+    expect(Object.keys(DATA).sort()).toEqual(['FALLBACK_PHONE', 'MEALS', 'SLOTS']);
   });
 });
 
 describe('meal labels', () => {
-  it('has display text for every meal key', () => {
-    for (const meal of MEALS) expect(MEAL_LABELS[meal]).toBe(meal);
+  it('has a registry key for every meal, whose English text is the meal’s own name (pixel-identical to phase 6)', () => {
+    for (const meal of MEALS) expect(REGISTRY[MEAL_KEYS[meal]].en).toBe(meal);
   });
 });
 

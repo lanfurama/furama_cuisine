@@ -11,8 +11,15 @@ import { Offers } from '@/components/home/Offers';
 import { IntroTrigger } from '@/components/site/IntroTrigger';
 import { MobileBar } from '@/components/site/MobileBar';
 import { ViewMarker } from '@/components/site/ViewMarker';
+import { HOME_KEYS, sectionKeys, type Copy, type SectionKey } from '@/lib/i18n/registry';
 import { getHomeContent } from '@/lib/server/content/home-content';
 import { requireEnabledLocale } from '@/lib/server/content/locales';
+import { getStrings } from '@/lib/server/content/strings';
+
+/** One section's own keys out of the page's strings, so each client section receives only its copy. */
+function copyOf<P extends string>(all: Record<string, string>, prefix: P): Copy<P> {
+  return Object.fromEntries(sectionKeys(prefix).map((k: SectionKey<P>) => [k, all[k]])) as Copy<P>;
+}
 
 /*
  * The home page. Its lists come from the database through cached loaders
@@ -30,7 +37,10 @@ import { requireEnabledLocale } from '@/lib/server/content/locales';
 export default async function HomePage() {
   // First, before any read: /favicon.ico lands here with "favicon.ico" as its language (requireEnabledLocale).
   const locale = await requireEnabledLocale(await lang());
-  const { shown, slides, experiences, stories, offers } = await getHomeContent(locale);
+  const [{ shown, slides, experiences, stories, offers }, strings] = await Promise.all([
+    getHomeContent(locale),
+    getStrings(locale, HOME_KEYS),
+  ]);
   const hero = shown.has('hero');
 
   return (
@@ -42,9 +52,9 @@ export default async function HomePage() {
       {shown.has('restaurants') && <Restaurants />}
       {shown.has('destinations') && <Destinations />}
       {shown.has('experiences') && <Experiences items={experiences} />}
-      {shown.has('heritage') && <Heritage />}
-      {shown.has('stories') && <Stories items={stories} />}
-      {shown.has('offers') && <Offers items={offers} />}
+      {shown.has('heritage') && <Heritage copy={copyOf(strings, 'heritage')} />}
+      {shown.has('stories') && <Stories items={stories} copy={copyOf(strings, 'stories')} />}
+      {shown.has('offers') && <Offers items={offers} copy={copyOf(strings, 'offers')} />}
       <MobileBar />
     </ViewMarker>
   );

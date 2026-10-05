@@ -6,7 +6,7 @@ import { Dropdown } from '@/components/ui/Dropdown';
 
 /** The desktop booking finder that sits under the hero. */
 export function Finder() {
-  const { site, finder, setFinder, applyFinder } = useSite();
+  const { site, finder, setFinder, applyFinder, strings } = useSite();
 
   return (
     <section className="finder" aria-label="Find a restaurant">
@@ -27,21 +27,21 @@ export function Finder() {
             label="Cuisine"
             value={finder.cuisine}
             onPick={(cuisine) => setFinder({ cuisine })}
-            options={cuisineOptions(site.cuisines)}
+            options={cuisineOptions(site.cuisines, strings)}
           />
           <Dropdown
             id="fOccasion"
             label="Occasion"
             value={finder.occasion}
             onPick={(occasion) => setFinder({ occasion })}
-            options={occasionOptions()}
+            options={occasionOptions(strings)}
           />
           <Dropdown
             id="fDestination"
             label="Destination"
             value={finder.destination}
             onPick={(destination) => setFinder({ destination })}
-            options={destinationOptions(site.destinations)}
+            options={destinationOptions(site.destinations, strings)}
           />
         </div>
 

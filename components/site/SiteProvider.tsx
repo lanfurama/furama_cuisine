@@ -27,6 +27,7 @@ import type { CalendarResponse, DayInfo, DayResponse } from '@/lib/booking/api';
 import { clockBlock } from '@/lib/booking/resolve-day';
 import type { GroupPhone } from '@/lib/booking/rules';
 import type { BookingErrorCode } from '@/lib/booking-errors';
+import { formatMessage } from '@/lib/i18n/format';
 import type { ClientKey } from '@/lib/i18n/registry';
 import type { IsoDate } from '@/lib/venue-time';
 import { submitReservation } from '@/app/actions';
@@ -544,8 +545,8 @@ export function SiteProvider({
       // A restaurant that does not book online is ignored here (reconcileBooking keeps the current one).
       const next = reconcileBooking(latest.current.booking, { ...preset }, context(now()));
       if (from) {
-        // The note still names the offer, as before phase 6; reservations.offer_id now says it for staff.
-        const note = `Offer: ${from.title}`;
+        // The note still names the offer, as before phase 6 (offers.note); reservations.offer_id says it for staff.
+        const note = formatMessage(strings['offers.note'], { title: from.title }, locale);
         const filled = offerNote.current;
         setForm((f) => (!f.note || f.note === filled ? { ...f, note } : f));
         offerNote.current = note;
@@ -556,7 +557,7 @@ export function SiteProvider({
       if (next.restaurant) loadCalendar(next.restaurant);
       if (next.restaurant && next.date) loadBoard(next.restaurant, next.date);
     },
-    [context, loadBoard, loadCalendar, now],
+    [context, loadBoard, loadCalendar, locale, now, strings],
   );
 
   const closeDrawer = useCallback(() => {

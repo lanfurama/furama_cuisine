@@ -1,7 +1,6 @@
 'use client';
 
-import { bookableDestinationOptions } from '@/lib/content/options';
-import { MEAL_LABELS } from '@/lib/data';
+import { bookableDestinationOptions, mealLabel } from '@/lib/content/options';
 import { fmtDay, guestLabel } from '@/lib/booking';
 import { dayReason, slotOpen } from '@/lib/booking/client';
 import { useSite } from '@/components/site/SiteProvider';
@@ -45,7 +44,7 @@ export function BookingBar() {
             return {
               value: s.time,
               label: s.time,
-              note: taken ? 'Full' : s.left <= 6 ? `${s.left} left` : MEAL_LABELS[p.meal],
+              note: taken ? 'Full' : s.left <= 6 ? `${s.left} left` : mealLabel(strings, p.meal),
               disabled: taken,
             };
           }),

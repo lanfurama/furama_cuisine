@@ -7,7 +7,7 @@ import { cuisineOptions, destinationOptions, occasionOptions } from '@/lib/conte
 
 /** The phone equivalent of the desktop finder. */
 export function FinderSheet() {
-  const { site, overlay, close, finder, setFinder, applyFinder } = useSite();
+  const { site, overlay, close, finder, setFinder, applyFinder, strings } = useSite();
   const open = overlay === 'sheet';
 
   useOpenAnimation(open, (animate) => {
@@ -39,19 +39,19 @@ export function FinderSheet() {
         <ChipGroup
           label="Cuisine"
           value={finder.cuisine}
-          options={cuisineOptions(site.cuisines)}
+          options={cuisineOptions(site.cuisines, strings)}
           onPick={(cuisine) => setFinder({ cuisine })}
         />
         <ChipGroup
           label="Occasion"
           value={finder.occasion}
-          options={occasionOptions()}
+          options={occasionOptions(strings)}
           onPick={(occasion) => setFinder({ occasion })}
         />
         <ChipGroup
           label="Destination"
           value={finder.destination}
-          options={destinationOptions(site.destinations)}
+          options={destinationOptions(site.destinations, strings)}
           onPick={(destination) => setFinder({ destination })}
         />
 

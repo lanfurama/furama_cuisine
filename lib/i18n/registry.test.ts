@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formatMessage, usesIcuSyntax } from './format';
-import { ADMIN_SCREENS, CLIENT_KEYS, KEY_PATTERN, REGISTRY, STRING_KEYS, type StringDef } from './registry';
+import { checkMessage } from './icu';
+import { ADMIN_SCREENS, CLIENT_KEYS, HOME_KEYS, KEY_PATTERN, REGISTRY, STRING_KEYS, keysForScreen, sectionKeys, type StringDef } from './registry';
 import { resolveStrings } from './resolve';
 
 describe('registry', () => {
@@ -12,11 +13,9 @@ describe('registry', () => {
     if (def.vi) expect(def.vi.length).toBeLessThanOrEqual(def.maxLength);
     expect(def.context.length).toBeGreaterThan(10);
     expect(ADMIN_SCREENS).toContain(def.screen);
-    // Declared variables and placeholders in the text agree, in every language.
+    // Valid ICU, and the declared variables are exactly the ones used, in every language (spec §7.4).
     for (const text of [def.en, def.vi].filter((t): t is string => !!t)) {
-      const used = [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
-      expect(used).toEqual([...(def.vars ?? [])].sort());
-      expect(usesIcuSyntax(text)).toBe(false); // phase 2 has no ICU parser
+      expect(checkMessage(text, def.vars ?? [])).toEqual([]);
     }
   });
 
@@ -35,7 +34,29 @@ describe('registry', () => {
   });
 });
 
+describe('key delivery', () => {
+  it('names a section’s own keys by prefix, and every screen in the list edits at least one key or is a list screen', () => {
+    expect(sectionKeys('stories')).toEqual(['stories.title', 'stories.lede']);
+    expect(HOME_KEYS).toEqual(expect.arrayContaining(['stories.title', 'heritage.cta']));
+    expect(keysForScreen('heritage')).toEqual(['heritage.kicker', 'heritage.title_1', 'heritage.title_2', 'heritage.cta']);
+  });
+  it('sends search, meal and finder copy to the browser, and keeps page copy, SEO, policy and email copy on the server', () => {
+    expect(CLIENT_KEYS).toEqual(expect.arrayContaining(['search.results', 'meal.dinner', 'finder.any_occasion']));
+    expect(CLIENT_KEYS.filter((k) => /^(stories|heritage|seo|email)\./.test(k) || (k.startsWith('legal.') && k !== 'legal.link'))).toEqual([]);
+  });
+});
+
 describe('formatMessage', () => {
+  it('formats ICU plurals with the language’s plural rules', () => {
+    const t = REGISTRY['search.results'].en;
+    expect(formatMessage(t, { count: 1 })).toBe('1 RESULT');
+    expect(formatMessage(t, { count: 12 })).toBe('12 RESULTS');
+    expect(formatMessage(t, { count: 0 })).toBe('0 RESULTS');
+  });
+  it('keeps the plain path for plain templates: an ASCII apostrophe stays and an unknown var stays visible', () => {
+    expect(formatMessage("It's {name}'s table, {other}", { name: 'An' })).toBe("It's An's table, {other}");
+    expect(usesIcuSyntax("It's {name}")).toBe(false);
+  });
   it('fills known variables and leaves unknown ones visible', () => {
     expect(formatMessage('{a} and {b}', { a: 'x' })).toBe('x and {b}');
     expect(formatMessage('{n} guests', { n: 4 })).toBe('4 guests');

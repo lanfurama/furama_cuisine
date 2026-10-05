@@ -4,8 +4,8 @@ import type { Media, Phone } from '@/lib/content/types';
  * Code, not content (R1). The guest site's content lives in the database since
  * phase 6 (migration 008, read through lib/server/content/*); what it was at
  * the end of phase 5 is frozen in test/fixtures/phase5-content.ts. Left here:
- * the meal enum (service_periods.meal) and its labels (phase 7 moves the text
- * to the registry), phase 1's slots (phase 10 drops them), the number the
+ * the meal enum (service_periods.meal; its words are the registry's meal.*
+ * keys), phase 1's slots (phase 10 drops them), the number the
  * error pages print without the database, and the catalogue's client shape.
  */
 
@@ -50,14 +50,6 @@ export const SLOTS: Record<Meal, string[]> = {
 };
 
 export const MEALS: Meal[] = ['Breakfast', 'Lunch', 'Dinner', 'Drinks'];
-
-/** Display text per meal. The Meal value itself is the key (spec §5.2 service_periods.meal); phase 7 moves the text to the registry. */
-export const MEAL_LABELS: Record<Meal, string> = {
-  Breakfast: 'Breakfast',
-  Lunch: 'Lunch',
-  Dinner: 'Dinner',
-  Drinks: 'Drinks',
-};
 
 /**
  * The number the error pages print, and the one a booking failure names

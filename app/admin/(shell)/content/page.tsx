@@ -12,7 +12,12 @@ export const metadata: Metadata = { title: 'Nội dung' };
  * list: page source files are not there at runtime on Vercel, so the index
  * cannot look for them. Each phase-7 editor adds its line.
  */
-const SCREENS = [{ href: '/admin/content/offers', label: 'Ưu đãi', about: 'Thẻ ưu đãi ở trang chủ: thứ tự, hiện/ẩn, ngày hiện, xóa và khôi phục.' }];
+const SCREENS = [
+  { href: '/admin/content/offers', label: 'Ưu đãi', about: 'Thẻ ưu đãi ở trang chủ: thứ tự, hiện/ẩn, ngày hiện, xóa và khôi phục; chữ của mục.' },
+  { href: '/admin/content/stories', label: 'Stories', about: 'Tiêu đề và câu dẫn của mục Stories.' },
+  { href: '/admin/content/heritage', label: 'Heritage', about: 'Chữ của mục Heritage (ảnh và link: màn Sections).' },
+  { href: '/admin/content/ui-text', label: 'Chữ giao diện', about: 'Nút, nhãn và thông báo chung: tìm kiếm, lỗi của form đặt bàn.' },
+];
 
 export default async function ContentIndex() {
   await requirePagePermission({ content: ['read'] });
