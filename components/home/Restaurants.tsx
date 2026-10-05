@@ -2,12 +2,13 @@
 
 import type { Meal } from '@/lib/data';
 import { mealLabel } from '@/lib/content/options';
+import { formatMessage } from '@/lib/i18n/format';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 import { RestaurantCard } from './RestaurantCard';
 
 export function Restaurants() {
-  const { site, destName, restaurants, filter, matches, shownCount, setFilter, clearFilters, strings } = useSite();
+  const { site, destName, restaurants, filter, matches, shownCount, setFilter, clearFilters, strings, locale } = useSite();
   const title = useReveal<HTMLHeadingElement>('title');
   const link = useReveal<HTMLButtonElement>('fade');
 
@@ -32,7 +33,7 @@ export function Restaurants() {
       <div className="shell">
         <div className="section-head">
           <h2 ref={title} data-reveal="title" className="section-title">
-            Our Restaurants
+            {strings['restaurants.title']}
           </h2>
           <button
             ref={link}
@@ -41,7 +42,7 @@ export function Restaurants() {
             className="text-link"
             onClick={clearFilters}
           >
-            VIEW ALL RESTAURANTS →
+            {`${strings['restaurants.view_all']} →`}
           </button>
         </div>
 
@@ -49,8 +50,8 @@ export function Restaurants() {
           <div className="filter-bar">
             <span className="filter-summary">
               {shownCount
-                ? `Showing ${shownCount} of ${restaurants.length} restaurants`
-                : 'No matches'}
+                ? formatMessage(strings['restaurants.showing'], { shown: shownCount, total: restaurants.length }, locale)
+                : strings['restaurants.no_matches']}
             </span>
             {chips.map((c) => (
               <button key={c.label} type="button" className="filter-chip" onClick={c.clear}>
@@ -58,11 +59,11 @@ export function Restaurants() {
                 <span className="filter-chip-x" aria-hidden="true">
                   ×
                 </span>
-                <span className="sr-only">, remove filter</span>
+                <span className="sr-only">{strings['restaurants.remove_filter_sr']}</span>
               </button>
             ))}
             <button type="button" className="filter-clear" onClick={clearFilters}>
-              CLEAR ALL
+              {strings['restaurants.clear_all']}
             </button>
           </div>
         )}
@@ -75,10 +76,10 @@ export function Restaurants() {
 
         {shownCount === 0 && (
           <div className="empty">
-            <div className="empty-title">No restaurants match these filters</div>
-            <div className="empty-lede">Try another cuisine, occasion or destination.</div>
+            <div className="empty-title">{strings['restaurants.empty_title']}</div>
+            <div className="empty-lede">{strings['restaurants.empty_lede']}</div>
             <button type="button" className="empty-btn" onClick={clearFilters}>
-              SHOW ALL RESTAURANTS
+              {strings['restaurants.show_all']}
             </button>
           </div>
         )}

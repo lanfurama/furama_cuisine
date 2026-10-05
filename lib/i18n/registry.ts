@@ -598,6 +598,86 @@ export const REGISTRY = {
     screen: 'hero',
     label: 'Tên trình phát video (trình đọc màn hình)',
   },
+  // ── The "Our Restaurants" section and its cards (spec §7.2: /admin/restaurants): client components of the
+  // home page and of "More at …" on a restaurant page (CLIENT_KEYS) ──
+  'restaurants.title': {
+    en: 'Our Restaurants',
+    maxLength: 32,
+    context: 'Home page, title of the restaurants section (the grid of every restaurant, with the finder’s filters).',
+    screen: 'restaurants',
+    label: 'Tiêu đề mục Our Restaurants',
+  },
+  'restaurants.view_all': {
+    en: 'VIEW ALL RESTAURANTS',
+    maxLength: 32,
+    context: 'Home page, the link beside the restaurants title; clears the filters and shows every restaurant. Capitals; an arrow follows it.',
+    screen: 'restaurants',
+    label: 'Link xem mọi nhà hàng',
+  },
+  'restaurants.showing': {
+    en: 'Showing {shown} of {total} restaurants',
+    maxLength: 60,
+    vars: ['shown', 'total'],
+    context: 'Home page, above the filtered restaurants: how many match the filters. {shown} and {total} are numbers; keep both.',
+    screen: 'restaurants',
+    label: 'Số nhà hàng đang hiện khi lọc',
+  },
+  'restaurants.no_matches': {
+    en: 'No matches',
+    maxLength: 32,
+    context: 'Home page, above the restaurants when the filters match none.',
+    screen: 'restaurants',
+    label: 'Không có nhà hàng nào khớp (dòng trên)',
+  },
+  'restaurants.remove_filter_sr': {
+    en: ', remove filter',
+    maxLength: 40,
+    context: 'Screen readers only, after a filter’s name on its chip button (“Vietnamese, remove filter”). Starts with a comma and a space.',
+    screen: 'restaurants',
+    label: 'Đuôi tên nút bỏ bộ lọc (trình đọc màn hình)',
+  },
+  'restaurants.clear_all': {
+    en: 'CLEAR ALL',
+    maxLength: 24,
+    context: 'Home page, the button that removes every restaurant filter. Capitals.',
+    screen: 'restaurants',
+    label: 'Nút bỏ mọi bộ lọc',
+  },
+  'restaurants.empty_title': {
+    en: 'No restaurants match these filters',
+    maxLength: 60,
+    context: 'Home page, the title of the empty state when the filters match no restaurant.',
+    screen: 'restaurants',
+    label: 'Không có nhà hàng nào khớp: tiêu đề',
+  },
+  'restaurants.empty_lede': {
+    en: 'Try another cuisine, occasion or destination.',
+    maxLength: 100,
+    context: 'Home page, one sentence under the empty state’s title.',
+    screen: 'restaurants',
+    label: 'Không có nhà hàng nào khớp: câu dẫn',
+  },
+  'restaurants.show_all': {
+    en: 'SHOW ALL RESTAURANTS',
+    maxLength: 32,
+    context: 'Home page, the empty state’s button that clears the filters. Capitals.',
+    screen: 'restaurants',
+    label: 'Nút hiện mọi nhà hàng',
+  },
+  'restaurants.card_view': {
+    en: 'View restaurant',
+    maxLength: 24,
+    context: 'A restaurant card, the tag on a restaurant with its own page; the card opens it. An arrow follows it.',
+    screen: 'restaurants',
+    label: 'Nhãn thẻ: xem nhà hàng',
+  },
+  'restaurants.card_reserve': {
+    en: 'Reserve a table',
+    maxLength: 24,
+    context: 'A restaurant card, the tag on a restaurant without its own page that books online; the card opens the reservation form. An arrow follows it.',
+    screen: 'restaurants',
+    label: 'Nhãn thẻ: đặt bàn',
+  },
   // ── A restaurant's page (spec §6.4): shared by every restaurant, edited on /admin/restaurants (screen
   // `restaurants`); the hero, the tab bar and "More at" are client components (CLIENT_KEYS), the page reads
   // the highlights' default title on the server ──
@@ -1032,15 +1112,16 @@ export const KEY_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/;
 /**
  * Keys the browser needs at first paint, passed to SiteProvider by the
  * (guarded) layout: the chrome's client components (reservation form, search,
- * finder, booking bar, film dialog), a restaurant page's client parts (its hero, tab bar
- * and "More at") and the policy link. Everything else is read on the
+ * finder, booking bar, film dialog), the restaurants section and its cards, a restaurant
+ * page's client parts (its hero, tab bar and "More at") and the policy link. Everything
+ * else is read on the
  * server: a page's own section copy (pageKeys), metadata (seo.*), the policy
  * page (legal.*) and emails (email.*).
  */
-const CLIENT_PREFIXES = ['error.', 'booking.', 'search.', 'meal.', 'finder.', 'film.', 'detail.'] as const;
+const CLIENT_PREFIXES = ['error.', 'booking.', 'search.', 'meal.', 'finder.', 'film.', 'detail.', 'restaurants.'] as const;
 /** Single keys the chrome needs beyond the prefixes: the policy link (form, footer), VIEW OFFER's note (form). */
 const CLIENT_SINGLES = ['legal.link', 'offers.note'] as const;
-export type ClientKey = Extract<StringKey, `${'error' | 'booking' | 'search' | 'meal' | 'finder' | 'film' | 'detail'}.${string}` | (typeof CLIENT_SINGLES)[number]>;
+export type ClientKey = Extract<StringKey, `${'error' | 'booking' | 'search' | 'meal' | 'finder' | 'film' | 'detail' | 'restaurants'}.${string}` | (typeof CLIENT_SINGLES)[number]>;
 
 export const CLIENT_KEYS = STRING_KEYS.filter(
   (k): k is ClientKey => CLIENT_PREFIXES.some((p) => k.startsWith(p)) || (CLIENT_SINGLES as readonly string[]).includes(k),

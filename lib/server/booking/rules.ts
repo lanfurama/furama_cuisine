@@ -36,6 +36,14 @@ export const groupPhoneSql = (restaurant: string) => `coalesce(
                 ORDER BY (d.id = ${restaurant}.destination_id) DESC, d.sort_order, d.id
                 LIMIT 1))`;
 
+/**
+ * "Guests may book it online" in SQL, for restaurants row `r`: its switch is
+ * on, and guests see it (published, not archived: migration 008). The one
+ * definition for the booking rules below and for the overview's "no
+ * recipient" alarm (lib/server/email/recipients.ts, phase-6 ledger L7-4).
+ */
+export const bookableSql = (r: string) => `(${r}.booking_enabled AND ${r}.is_published AND ${r}.archived_at IS NULL)`;
+
 type RulesRow = {
   id: string;
   name: string;
@@ -67,7 +75,7 @@ type RulesRow = {
 export async function loadBookingRules(db: Db, restaurantIds: readonly string[], locale: string, from: IsoDate): Promise<Map<string, LoadedRules>> {
   const { rows } = await db.query<RulesRow>(
     `SELECT r.id, r.name, r.destination_id,
-            r.booking_enabled AND r.is_published AND r.archived_at IS NULL AS booking_enabled,
+            ${bookableSql('r')} AS booking_enabled,
             COALESCE(r.window_days, s.window_days)::int   AS window_days,
             COALESCE(r.lead_minutes, s.lead_minutes)::int AS lead_minutes,
             to_char(s.same_day_cutoff, 'HH24:MI')         AS same_day_cutoff,

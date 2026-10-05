@@ -6,9 +6,11 @@ import { conflictBy, type Conflict } from '@/lib/server/booking/config';
 import type { Db } from '@/lib/server/booking/rules';
 import { assertLiveMedia, MEDIA, reviveMedia } from '@/lib/server/media/library';
 import { getAuditRow } from './history';
-import { MEDIA_GONE } from './list-editor';
+import { makeListEditor, MEDIA_GONE } from './list-editor';
 import {
   isForeignKeyViolation,
+  lockList,
+  orderToken,
   readItem,
   snapshotToken,
   uniqueViolation,
@@ -39,6 +41,14 @@ import {
  * PDF and the highlights' pictures, Part 2 risk 20); a restore takes a
  * trashed one out of the trash (C7). R19: the card's alt follows a rename,
  * audited as the file's own `media` row (C6).
+ *
+ * The list (spec §7.2 /admin/restaurants, A11): "Thêm nhà hàng" creates a
+ * hidden draft whose id is its slug and never changes (R22); a restaurant is
+ * shown or hidden, archived or brought back, never deleted (F10:
+ * reservations reference it with no action); the list's order is a
+ * makeListEditor reorder with its History. Showing, archiving and their
+ * restores pass the same rules as a save, and say when guest visibility
+ * changed (the action then expires booking-rules:<id>).
  */
 
 export const RESTAURANT: ItemDef = {
@@ -57,6 +67,7 @@ export const RESTAURANT: ItemDef = {
     'map_url',
     'has_detail_page',
     'is_published',
+    'archived_at',
   ],
   i18n: {
     table: 'restaurant_i18n',
@@ -114,7 +125,7 @@ export type RestaurantInput = {
 
 type Invalid = { ok: false; code: 'invalid'; fieldErrors: Record<string, string[]> };
 type Fail = Conflict | Invalid | { ok: false; code: 'not_found' } | { ok: false; code: 'missing_reference' };
-/** What the Server Action needs for its tags: media when R19 moved an alt, booking-rules when visibility changed. */
+/** What the Server Action needs for its tags: media when R19 moved an alt, booking-rules when guests' view of it changed (shown, archived). */
 export type RestaurantSaved = { altChanged: boolean; visibilityChanged: boolean };
 export type RestaurantResult = { ok: true; data: RestaurantSaved } | Fail;
 
@@ -233,6 +244,9 @@ async function lockRestaurant(client: PoolClient, id: string, token: string): Pr
 }
 
 const failed = (x: { snapshot: RestaurantSnapshot } | Fail): x is Fail => 'ok' in x;
+
+/** Guests see it: shown and not archived (the catalogue, its page, its offers and online booking all ask this). */
+const seen = (row: Row) => Boolean(row.is_published) && row.archived_at == null;
 
 /** A version about to be written, as the rules see it (a form's or a snapshot's). */
 type Version = {
@@ -416,7 +430,7 @@ export async function saveRestaurantContent(pool: Pool, actor: AuditActor, id: s
 
     const altChanged = await followCardAlt(client, actor, before.row, { name: input.name, cardImageId: input.cardImageId });
     await insertAudit(client, actor, { action: 'update', entityType: RESTAURANT.entityType, entityId: id, before, after: await readRestaurant(client, id) });
-    return { ok: true, data: { altChanged, visibilityChanged: Boolean(before.row.is_published) !== input.isPublished } };
+    return { ok: true, data: { altChanged, visibilityChanged: seen(before.row) !== seen({ ...before.row, is_published: input.isPublished }) } };
   }).catch((err) => mapWriteError(err));
 }
 
@@ -497,6 +511,120 @@ export async function restoreRestaurant(
       before: current,
       after: after && { ...after, meta: { restored_from: input.auditId } },
     });
-    return { ok: true, data: { altChanged, visibilityChanged: Boolean(current.row.is_published) !== Boolean(row.is_published) } };
+    return { ok: true, data: { altChanged, visibilityChanged: seen(current.row) !== seen(row) } };
   }).catch((err) => mapWriteError(err));
+}
+
+// ── the list (A11) ────────────────────────────────────────────────────────
+
+/** A snapshot's version as the rules read it (shared by showing, archiving and their restores). */
+function versionOf(snapshot: { row: Row; i18n: readonly I18nRow[]; highlights: readonly ItemSnapshot[] }): Version {
+  const str = (v: unknown) => (v === null || v === undefined ? null : String(v));
+  return {
+    slug: String(snapshot.row.slug),
+    isPublished: Boolean(snapshot.row.is_published),
+    hasDetailPage: Boolean(snapshot.row.has_detail_page),
+    cardImageId: str(snapshot.row.card_image_id),
+    detailImageId: str(snapshot.row.detail_image_id),
+    typeEn: enOf(snapshot.i18n, 'type_label'),
+    storyEn: enOf(snapshot.i18n, 'story'),
+    menuFileEn: str(enOf(snapshot.i18n, 'menu_pdf_media_id')),
+    menuLinkEn: enOf(snapshot.i18n, 'menu_pdf_url'),
+    shownHighlights: snapshot.highlights.filter((h) => h.row.is_published).length,
+  };
+}
+
+export type NewRestaurant = { name: string; slug: string; destinationId: string };
+
+/**
+ * "Thêm nhà hàng" (R22): a hidden draft, its id the slug (fixed for good:
+ * bookings will reference it), online booking off, no service period. It
+ * shows once its editor gives it a card picture and a type.
+ */
+export async function createRestaurant(pool: Pool, actor: AuditActor, input: NewRestaurant): Promise<{ ok: true; data: { id: string } } | Invalid> {
+  return withTransaction(pool, async (client): Promise<{ ok: true; data: { id: string } } | Invalid> => {
+    await lockList(client, 'restaurants');
+    const { rowCount: taken } = await client.query('SELECT 1 FROM restaurants WHERE id = $1 OR slug = $1', [input.slug]);
+    if (taken) return { ok: false, code: 'invalid', fieldErrors: { slug: ['Đường dẫn này đã có nhà hàng khác dùng.'] } };
+    const { rowCount: known } = await client.query('SELECT 1 FROM destinations WHERE id = $1', [input.destinationId]);
+    if (!known) return { ok: false, code: 'invalid', fieldErrors: { destinationId: ['Điểm đến này không còn nữa. Hãy tải lại trang.'] } };
+    await client.query(
+      `INSERT INTO restaurants (id, name, slug, destination_id, is_published, has_detail_page, booking_enabled, sort_order, updated_by)
+       VALUES ($1, $2, $1, $3, false, false, false, (SELECT coalesce(max(sort_order), 0) + 10 FROM restaurants), $4)`,
+      [input.slug, input.name, input.destinationId, actor.id],
+    );
+    await insertAudit(client, actor, { action: 'create', entityType: RESTAURANT.entityType, entityId: input.slug, before: null, after: await readRestaurant(client, input.slug) });
+    return { ok: true, data: { id: input.slug } };
+  });
+}
+
+/** One switch of the list (shown, archived), through the rules of the version it leaves (code rule 5). */
+async function switchRestaurant(pool: Pool, actor: AuditActor, input: { id: string; token: string }, set: (row: Row) => Row, sql: string, value: boolean): Promise<RestaurantResult> {
+  return withTransaction(pool, async (client): Promise<RestaurantResult> => {
+    const locked = await lockRestaurant(client, input.id, input.token);
+    if (failed(locked)) return locked;
+    const before = locked.snapshot;
+    const refused = invalid(await ruleErrors(client, input.id, versionOf({ ...before, row: set(before.row) })));
+    if (refused) return refused;
+    await client.query(`UPDATE restaurants SET ${sql}, updated_at = now(), updated_by = $3 WHERE id = $1`, [input.id, value, actor.id]);
+    const after = (await readRestaurant(client, input.id))!;
+    await insertAudit(client, actor, { action: 'update', entityType: RESTAURANT.entityType, entityId: input.id, before, after });
+    return { ok: true, data: { altChanged: false, visibilityChanged: seen(before.row) !== seen(after.row) } };
+  });
+}
+
+/** "Hiện" / "Ẩn": shown needs its card picture and type (and, with its page on, the page's own rules). */
+export function setRestaurantShown(pool: Pool, actor: AuditActor, input: { id: string; token: string; shown: boolean }): Promise<RestaurantResult> {
+  return switchRestaurant(pool, actor, input, (row) => ({ ...row, is_published: input.shown }), 'is_published = $2', input.shown);
+}
+
+/** "Lưu trữ" / "Bỏ lưu trữ" (F10: never deleted): archived, it leaves the catalogue, its page, its offers and online booking. */
+export function setRestaurantArchived(pool: Pool, actor: AuditActor, input: { id: string; token: string; archived: boolean }): Promise<RestaurantResult> {
+  return switchRestaurant(
+    pool,
+    actor,
+    input,
+    (row) => ({ ...row, archived_at: input.archived ? new Date().toISOString() : null }),
+    'archived_at = CASE WHEN $2 THEN now() END',
+    input.archived,
+  );
+}
+
+/** The catalogue's order (the home page's cards, spec §7.2), with its History: makeListEditor's reorder on the restaurants table. */
+const order = makeListEditor<never>(RESTAURANT, { listKey: 'restaurants', toRow: () => ({}) });
+export const reorderRestaurants = order.reorder;
+export const restoreRestaurantOrder = order.restoreOrder;
+
+export type RestaurantListItem = {
+  id: string;
+  name: string;
+  slug: string;
+  /** Its destination's name in the default language (the column `destination` is phase 1's: R10). */
+  destinationName: string;
+  isPublished: boolean;
+  archived: boolean;
+  hasDetailPage: boolean;
+  card: { url: string; width: number | null; height: number | null } | null;
+  /** The aggregate's token (its show and archive buttons). */
+  token: string;
+};
+
+/** Every restaurant in the catalogue's order, archived ones included, and the list's token (the ids in order). */
+export async function listRestaurantsAdmin(db: Db): Promise<{ items: RestaurantListItem[]; token: string }> {
+  const { rows } = await db.query<Omit<RestaurantListItem, 'token' | 'card'> & { url: string | null; width: number | null; height: number | null }>(
+    `SELECT r.id, r.name, r.slug, coalesce(dt.name, r.destination_id) AS "destinationName", r.is_published AS "isPublished",
+            r.archived_at IS NOT NULL AS archived, r.has_detail_page AS "hasDetailPage", m.url, m.width, m.height
+       FROM restaurants r
+       LEFT JOIN destination_i18n dt ON dt.destination_id = r.destination_id AND dt.locale = (SELECT code FROM locales WHERE is_default)
+       LEFT JOIN media m ON m.id = r.card_image_id
+      ORDER BY r.sort_order, r.id`,
+  );
+  const items = await Promise.all(
+    rows.map(async ({ url, width, height, ...r }) => ({
+      ...r,
+      card: url ? { url, width, height } : null,
+      token: snapshotToken(await readRestaurant(db, r.id)),
+    })),
+  );
+  return { items, token: orderToken({ v: 1, order: items.map((i) => ({ id: i.id, sort_order: 0 })) }) };
 }

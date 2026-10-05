@@ -17,9 +17,9 @@ export function RestaurantCard({ restaurant, hidden }: { restaurant: Restaurant;
   // no number either it has no action (GX-6).
   const calls = !restaurant.hasDetailPage && !restaurant.bookingEnabled && restaurant.phone !== null;
   const tag = restaurant.hasDetailPage
-    ? 'View restaurant'
+    ? strings['restaurants.card_view']
     : restaurant.bookingEnabled
-      ? 'Reserve a table'
+      ? strings['restaurants.card_reserve']
       : restaurant.phone
         ? formatMessage(strings['booking.call_tag'], { phone: restaurant.phone.display })
         : null;

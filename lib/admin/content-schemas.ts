@@ -132,6 +132,42 @@ export const StringRestoreForm = z.object({
   token: z.string().regex(/^\d{0,20}$/, 'Trang đã cũ, hãy tải lại.'),
 });
 
+/** A restaurant's id: its first slug (R22), never changed. */
+const RestaurantId = z
+  .string()
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+  .max(60);
+
+/** "Thêm nhà hàng" (R22): the name, the slug that becomes its id for good, and its destination. */
+export const NewRestaurantForm = z.object({
+  name: requiredText(LENGTHS.restaurantName.max, 'Nhập tên nhà hàng.'),
+  slug: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Chỉ chữ thường không dấu, số và gạch nối, ví dụ taya-house.')
+    .max(60, tooLong(60)),
+  destinationId: z.string().min(1, 'Chọn điểm đến.'),
+});
+
+/** One switch of the restaurants list (shown, archived): which restaurant, its page's token, and the new value. */
+export const RestaurantSwitchForm = z.object({ id: RestaurantId, token: Token, value: z.enum(['0', '1']).transform((v) => v === '1') });
+
+/** The restaurants' new order: every id, in order (their ids are slugs, not numbers). */
+export const RestaurantOrderForm = z.object({
+  token: Token,
+  order: z
+    .string()
+    .transform((v, ctx) => {
+      try {
+        return JSON.parse(v) as unknown;
+      } catch {
+        ctx.addIssue({ code: 'custom', message: 'Thứ tự không hợp lệ.' });
+        return z.NEVER;
+      }
+    })
+    .pipe(z.array(RestaurantId).max(100)),
+});
+
 /** A library file picked in ImagePicker: '' when none, else its id. */
 const optionalMedia = z
   .string()

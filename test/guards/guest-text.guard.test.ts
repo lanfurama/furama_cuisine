@@ -88,19 +88,6 @@ const PENDING: Record<string, string> = {
   "components/home/Finder.tsx: More cities": "finder.more_cities",
   "components/home/Finder.tsx: Occasion": "finder.occasion",
   "components/home/Finder.tsx: SHOW RESTAURANTS": "finder.submit",
-  "components/home/RestaurantCard.tsx: Reserve a table": "restaurants.card_reserve",
-  "components/home/RestaurantCard.tsx: View restaurant": "restaurants.card_view",
-  "components/home/Restaurants.tsx: , remove filter": "restaurants.remove_filter_sr",
-  "components/home/Restaurants.tsx: CLEAR ALL": "restaurants.clear_all",
-  "components/home/Restaurants.tsx: No matches": "restaurants.no_matches",
-  "components/home/Restaurants.tsx: No restaurants match these filters": "restaurants.empty_title",
-  "components/home/Restaurants.tsx: Our Restaurants": "restaurants.title",
-  "components/home/Restaurants.tsx: SHOW ALL RESTAURANTS": "restaurants.show_all",
-  "components/home/Restaurants.tsx: Showing": "restaurants.showing ('Showing {shown} of {total} restaurants')",
-  "components/home/Restaurants.tsx: Try another cuisine, occasion or destination.": "restaurants.empty_lede",
-  "components/home/Restaurants.tsx: VIEW ALL RESTAURANTS →": "restaurants.view_all",
-  "components/home/Restaurants.tsx: of": "restaurants.showing",
-  "components/home/Restaurants.tsx: restaurants": "restaurants.showing",
   "components/overlays/FinderSheet.tsx: Close": "common.close",
   "components/overlays/FinderSheet.tsx: Cuisine": "finder.cuisine",
   "components/overlays/FinderSheet.tsx: Destination": "finder.destination",
@@ -195,8 +182,9 @@ describe('guest-visible text lives in the registry or the database (spec §13)',
 
   it('PENDING only shrinks during phase 7 (the number in the plan’s task table)', () => {
     // 161 found by the phase-7 spike, less the six offers.* literals moved in plan 7A task A3, the
-    // thirteen hero.* and film.* ones moved in A9 and the thirteen detail.* ones moved in A10.
-    expect(Object.keys(PENDING).length).toBeLessThanOrEqual(129);
+    // thirteen hero.* and film.* ones moved in A9, the thirteen detail.* ones moved in A10 and the
+    // thirteen restaurants.* ones moved in A11. Plan 7B empties it.
+    expect(Object.keys(PENDING).length).toBeLessThanOrEqual(116);
   });
 });
 

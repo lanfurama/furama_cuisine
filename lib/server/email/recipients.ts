@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import type { StaffEmailEventName } from '@/lib/email/events';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
 import { US, conflictBy, type Conflict } from '@/lib/server/booking/config';
+import { bookableSql } from '@/lib/server/booking/rules';
 import { loadSiteSettings } from '@/lib/server/content/settings.queries';
 
 /*
@@ -31,11 +32,16 @@ export const reachesSql = (n: string, restaurantId: string, destination: string)
   `(${n}.scope = 'all' OR (${n}.scope = 'destination' AND ${n}.destination_id = ${destination})` +
   ` OR (${n}.scope = 'restaurant' AND ${n}.restaurant_id = ${restaurantId}))`;
 
-/** Restaurants taking online bookings that no active staff.new recipient reaches: their staff.new goes to the shared inbox (R21). */
+/**
+ * Restaurants taking online bookings that no active staff.new recipient
+ * reaches: their staff.new goes to the shared inbox (R21). "Taking online
+ * bookings" is the booking rules' own (bookableSql: a hidden or archived
+ * restaurant takes none, so it raises no alarm; L7-4).
+ */
 export async function restaurantsWithoutRecipient(db: Db): Promise<{ id: string; name: string }[]> {
   const { rows } = await db.query<{ id: string; name: string }>(
     `SELECT r.id, r.name FROM restaurants r
-      WHERE r.booking_enabled
+      WHERE ${bookableSql('r')}
         AND NOT EXISTS (SELECT 1 FROM notification_recipients n
                          WHERE n.active AND 'staff.new' = ANY (n.events) AND ${reachesSql('n', 'r.id', 'r.destination_id')})
       ORDER BY r.sort_order, r.id`,

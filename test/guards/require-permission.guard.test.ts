@@ -134,6 +134,14 @@ const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; edito
     saveAutoplayAction: { permission: { content: ['update'] }, editor: true },
     restoreAutoplayAction: { permission: { content: ['restore'] }, editor: true },
   },
+  // The restaurants list (spec §7.2 /admin/restaurants): add (R22), show/hide, archive (F10), the catalogue's order.
+  'app/admin/(shell)/restaurants/actions.ts': {
+    createRestaurantAction: { permission: { content: ['update'] }, editor: true },
+    showRestaurantAction: { permission: { content: ['update'] }, editor: true },
+    archiveRestaurantAction: { permission: { content: ['update'] }, editor: true },
+    reorderRestaurantsAction: { permission: { content: ['update'] }, editor: true },
+    restoreRestaurantOrderAction: { permission: { content: ['restore'] }, editor: true },
+  },
   // One restaurant's content (spec §7.2 /admin/restaurants/[id]): the aggregate's save and History.
   'app/admin/(shell)/restaurants/[id]/actions.ts': {
     saveRestaurantAction: { permission: { content: ['update'] }, editor: true },

@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { AutoplayForm, checkbox, OfferForm, OrderForm, readForm, RecordRef, RestaurantForm, RestoreForm, SectionForm, SlideForm } from './content-schemas';
+import {
+  AutoplayForm,
+  checkbox,
+  NewRestaurantForm,
+  OfferForm,
+  OrderForm,
+  readForm,
+  RecordRef,
+  RestaurantForm,
+  RestaurantOrderForm,
+  RestaurantSwitchForm,
+  RestoreForm,
+  SectionForm,
+  SlideForm,
+} from './content-schemas';
 import { z } from './zod';
 
 const form = (entries: Record<string, string>) => {
@@ -147,5 +161,19 @@ describe('content form schemas (spec §7.3, §7.4)', () => {
       cardImageId: null,
       typeLabel: { en: null },
     });
+  });
+
+  it('the restaurants list: a new restaurant’s slug is its id for good; a switch names a restaurant and a value; an order is slugs', () => {
+    expect(NewRestaurantForm.parse({ name: ' Sen Garden ', slug: 'sen-garden', destinationId: 'resort' })).toEqual({ name: 'Sen Garden', slug: 'sen-garden', destinationId: 'resort' });
+    expect(fieldErrors(NewRestaurantForm.safeParse({ name: '', slug: 'Sen Garden', destinationId: '' }).error)).toEqual({
+      name: ['Nhập tên nhà hàng.'],
+      slug: ['Chỉ chữ thường không dấu, số và gạch nối, ví dụ taya-house.'],
+      destinationId: ['Chọn điểm đến.'],
+    });
+    const token = 'd'.repeat(32);
+    expect(RestaurantSwitchForm.parse({ id: 'taya-house', token, value: '1' })).toEqual({ id: 'taya-house', token, value: true });
+    expect(RestaurantSwitchForm.safeParse({ id: 'taya house', token, value: '1' }).success).toBe(false);
+    expect(RestaurantOrderForm.parse({ token, order: '["the-fan","taya-house"]' }).order).toEqual(['the-fan', 'taya-house']);
+    expect(RestaurantOrderForm.safeParse({ token, order: '["../x"]' }).success).toBe(false);
   });
 });

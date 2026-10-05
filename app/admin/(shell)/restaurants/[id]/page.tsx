@@ -25,6 +25,7 @@ const LABELS = {
   slug: 'Đường dẫn',
   destination_id: 'Điểm đến',
   is_published: 'Hiện trên web',
+  archived_at: 'Lưu trữ',
   has_detail_page: 'Trang chi tiết',
   type_label: 'Loại',
   card_image_id: 'Ảnh thẻ',
