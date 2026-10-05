@@ -7,7 +7,7 @@ import { MEDIA } from './library';
 
 /*
  * The media-sweep cron's work (spec §12 "Upload lỗi": blobs with no media row
- * are deleted after 24 hours, only in this environment's store).
+ * are deleted after 24 hours, only in this environment's folder).
  *
  * 1. Trash: a row soft-deleted more than TRASH_DAYS ago is deleted for good
  *    (one statement per row; RESTRICT still guards it, and a row something
@@ -17,19 +17,30 @@ import { MEDIA } from './library';
  *    is deleted. The grace covers an upload whose registerMedia has not run
  *    yet. Rows are looked up per page of the listing, after the purge, and a
  *    database error stops the run before any delete: never delete when unsure.
+ * 3. Purged files elsewhere: Previews use the production database, so a file
+ *    uploaded on a preview is a production row whose file lives under
+ *    `preview/<branch>/`. When step 1 purges such a row, step 2 never lists
+ *    its file, so it is deleted here, by the URL the purged row named, after
+ *    the orphan pass (a database error there still stops the run first).
  *
- * "Only this environment's files" holds through the folder: Production and
- * Preview share one store (README "Media in Vercel Blob"), and the listing is
- * limited to `<prefix>/`, the folder this deployment hands out
- * (lib/media/rules.ts blobEnvPrefix), so production's cron never deletes a
- * preview's uploads, and a preview swept by hand never touches production's
- * files or another branch's.
+ * The listing is limited to `<prefix>/`, the folder this deployment hands out
+ * (lib/media/rules.ts blobEnvPrefix): one store is shared by every
+ * environment (README "Media in Vercel Blob"), and production's cron never
+ * lists a preview's folder or another branch's. Outside its folder it deletes
+ * only the files of rows it purged itself.
+ *
+ * A dry run (`dryRun`) reports the orphans of its folder only: it skips the
+ * trash purge, so it neither counts purged rows nor their files.
  */
 
 export const ORPHAN_GRACE_HOURS = 24;
 export const TRASH_DAYS = 30;
 
-export type SweepReport = { purgedRows: number; scanned: number; deleted: string[]; kept: number };
+/**
+ * `deleted`: orphans of this folder (and, outside a dry run, the files of rows
+ * purged from it). `purgedFiles`: files of purged rows outside this folder.
+ */
+export type SweepReport = { purgedRows: number; purgedFiles: string[]; scanned: number; deleted: string[]; kept: number };
 
 export async function sweepMedia(pool: Pool, options: { prefix: string; now?: Date; dryRun?: boolean }): Promise<SweepReport> {
   const prefix = options.prefix.replace(/\/+$/, '');
@@ -37,6 +48,8 @@ export async function sweepMedia(pool: Pool, options: { prefix: string; now?: Da
   const now = options.now ?? new Date();
 
   let purgedRows = 0;
+  // The files of purged blob rows outside `<prefix>/`, deleted after the orphan pass.
+  const elsewhere: { url: string; pathname: string }[] = [];
   if (!options.dryRun) {
     const { rows: trash } = await pool.query<{ id: string }>(
       `SELECT id::text FROM media WHERE deleted_at < $1::timestamptz - make_interval(days => $2) ORDER BY deleted_at`,
@@ -44,16 +57,24 @@ export async function sweepMedia(pool: Pool, options: { prefix: string; now?: Da
     );
     for (const { id } of trash) {
       try {
-        await withTransaction(pool, async (client) => {
+        const purged = await withTransaction(pool, async (client) => {
           // Still in the trash (History may have brought it back since the list was read)?
           const { rowCount } = await client.query('SELECT 1 FROM media WHERE id = $1 AND deleted_at IS NOT NULL FOR UPDATE', [id]);
-          if (!rowCount) return;
+          if (!rowCount) return null;
           // The last version History knows (R5): after this, a restore that needs the file gets missing_reference (R14).
           const before = await readItem(client, MEDIA, id);
           await client.query('DELETE FROM media WHERE id = $1', [id]);
           await insertAudit(client, null, { action: 'delete', entityType: 'media', entityId: id, before, after: null });
-          purgedRows += 1;
+          return before;
         });
+        if (purged) {
+          purgedRows += 1;
+          const { storage, url, pathname } = purged.row;
+          // A static file ships with the code; a blob of this folder is an orphan now, deleted by the pass below.
+          if (storage === 'blob' && typeof url === 'string' && typeof pathname === 'string' && !pathname.startsWith(`${prefix}/`)) {
+            elsewhere.push({ url, pathname });
+          }
+        }
       } catch (err) {
         // 23001 restrict_violation (ON DELETE RESTRICT; 23503 for NO ACTION): something
         // references the row again. Keep it; the library shows it as in use.
@@ -88,5 +109,6 @@ export async function sweepMedia(pool: Pool, options: { prefix: string; now?: Da
     if (page.length === 500) await flush();
   }
   await flush();
-  return { purgedRows, scanned, deleted, kept };
+  if (elsewhere.length > 0) await deleteBlobs(elsewhere.map((f) => f.url));
+  return { purgedRows, purgedFiles: elsewhere.map((f) => f.pathname), scanned, deleted, kept };
 }

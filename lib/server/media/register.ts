@@ -39,6 +39,14 @@ export async function registerUploadedMedia(
   const stored = await headBlob(input.pathname);
   if (!stored) return invalid('missing');
   const discard = async () => deleteBlobs([stored.url]).catch(() => undefined);
+  // The store serves the file under the Content-Type it was stored with, not
+  // the one the bytes have: valid PDF bytes stored as text/html would render
+  // as a page on the store's host. Hold the file to the type the pathname (and
+  // so the upload token) committed to, whatever the real API enforces at PUT.
+  if (stored.contentType !== type) {
+    await discard();
+    return invalid('type_mismatch');
+  }
   if (stored.size > MAX_UPLOAD_BYTES) {
     await discard();
     return invalid('too_large');

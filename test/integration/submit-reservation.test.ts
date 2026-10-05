@@ -471,5 +471,41 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('submitReservation v2 (database)
       const { rows } = await sql(`SELECT phone, offer_id FROM reservations ORDER BY id`);
       expect(rows.map((r, i) => [cases[i][0], r.offer_id])).toEqual(cases.map(([label]) => [label, null]));
     });
+
+    it('books without it when the offer is deleted while the booking is being inserted (a raw FK error before)', async () => {
+      // The insert reads offer 2 as published, then its foreign-key check waits on the
+      // editor's row lock; the delete commits, and the check finds no offer.
+      const { Pool } = await import('pg');
+      const other = new Pool({ connectionString: process.env.TEST_DATABASE_URL, max: 1 });
+      const editor = await other.connect();
+      const offer = (await sql(`SELECT to_jsonb(o) AS row FROM offers o WHERE id = 2`)).rows[0].row;
+      const i18n = (await sql(`SELECT coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) AS rows FROM offer_i18n t WHERE offer_id = 2`)).rows[0].rows;
+      expect(offer).toMatchObject({ restaurant_id: 'taya-house', is_published: true });
+      try {
+        await editor.query('BEGIN');
+        await editor.query('SELECT id FROM offers WHERE id = 2 FOR UPDATE');
+        await editor.query('DELETE FROM offers WHERE id = 2');
+        const booking = createWebReservation({ ...parsed(), offerId: 2 });
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        await editor.query('COMMIT');
+        expect(await booking).toMatchObject({ ok: true });
+        expect((await sql(`SELECT offer_id FROM reservations`)).rows).toEqual([{ offer_id: null }]);
+      } finally {
+        await editor.query('ROLLBACK').catch(() => {});
+        editor.release();
+        await other.end();
+        await sql('DELETE FROM reservations');
+        await sql(
+          `INSERT INTO offers OVERRIDING SYSTEM VALUE SELECT * FROM jsonb_populate_record(NULL::offers, $1::jsonb)
+             ON CONFLICT (id) DO NOTHING`,
+          [JSON.stringify(offer)],
+        );
+        await sql(
+          `INSERT INTO offer_i18n SELECT * FROM jsonb_populate_recordset(NULL::offer_i18n, $1::jsonb) ON CONFLICT DO NOTHING`,
+          [JSON.stringify(i18n)],
+        );
+      }
+      expect((await sql(`SELECT to_jsonb(o) AS row FROM offers o WHERE id = 2`)).rows[0].row).toEqual(offer);
+    });
   });
 });

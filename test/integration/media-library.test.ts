@@ -154,6 +154,19 @@ describe.skipIf(!TEST_DATABASE_URL)('media library (database + fake Blob)', () =
     expect((await pool.query('SELECT 1 FROM media WHERE pathname = $1', [pathname])).rowCount).toBe(0);
   });
 
+  it('refuses a real file the store serves under another Content-Type than its name signed for, and deletes it (SEC-2)', async () => {
+    // Valid PDF bytes, but served as text/html: a guest's browser would render the stored file as a page.
+    const pathname = `development/media/${UUIDS[2]}/menu.pdf`;
+    fake.seed(pathname, new TextEncoder().encode('%PDF-1.7\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n'), 'text/html');
+    expect(await registerUploadedMedia(pool, ADMIN, { pathname })).toEqual({
+      ok: false,
+      code: 'invalid',
+      fieldErrors: { file: ['Nội dung file không đúng định dạng (chỉ nhận JPEG, PNG, WebP, AVIF hoặc PDF).'] },
+    });
+    expect(fake.files.has(pathname)).toBe(false);
+    expect((await pool.query('SELECT 1 FROM media WHERE pathname = $1', [pathname])).rowCount).toBe(0);
+  });
+
   it('refuses a path of another environment or a file the store does not have, before reading anything', async () => {
     expect(await registerUploadedMedia(pool, ADMIN, { pathname: `production/media/${UUIDS[0]}/x.png` })).toMatchObject({
       ok: false,

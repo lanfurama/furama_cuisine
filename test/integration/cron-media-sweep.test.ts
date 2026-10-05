@@ -71,7 +71,7 @@ describe.skipIf(!TEST_DATABASE_URL)('sweepMedia (database + fake Blob)', () => {
     fake.requests.length = 0;
 
     const dry = await sweepMedia(pool, { prefix: 'development', now, dryRun: true });
-    expect(dry).toEqual({ purgedRows: 0, scanned: 3, deleted: [`development/media/${UUIDS[1]}/orphan.png`], kept: 2 });
+    expect(dry).toEqual({ purgedRows: 0, purgedFiles: [], scanned: 3, deleted: [`development/media/${UUIDS[1]}/orphan.png`], kept: 2 });
     expect(fake.files.size).toBe(5);
 
     const report = await sweepMedia(pool, { prefix: 'development', now });
@@ -116,7 +116,45 @@ describe.skipIf(!TEST_DATABASE_URL)('sweepMedia (database + fake Blob)', () => {
     }
   });
 
+  it('purges a trashed row whose file is in another folder (a preview upload is a production row) and deletes that file, listing only its own folder', async () => {
+    // Registered as this environment's upload, then moved by SQL to where a preview of the same database would put it.
+    const own = `development/media/${UUIDS[2]}/a.png`;
+    const preview = `preview/feature-x/media/${UUIDS[2]}/a.png`;
+    fake.seed(own, await png(), 'image/png', hoursAgo(24 * 40));
+    const reg = await registerUploadedMedia(pool, ADMIN, { pathname: own });
+    if (!reg.ok) throw new Error('refused');
+    fake.files.delete(own);
+    fake.seed(preview, await png(), 'image/png', hoursAgo(24 * 40));
+    await pool.query(
+      `UPDATE media SET pathname = $2, url = 'https://fakestore.public.blob.vercel-storage.com/' || $2, deleted_at = now() - interval '31 days' WHERE id = $1`,
+      [reg.data.id, preview],
+    );
+    fake.requests.length = 0;
+
+    const report = await sweepMedia(pool, { prefix: 'development', now });
+    expect(report.purgedRows).toBe(1);
+    expect((await pool.query('SELECT 1 FROM media WHERE id = $1', [reg.data.id])).rowCount).toBe(0);
+    expect(fake.files.has(preview)).toBe(false);
+    expect(report.purgedFiles).toEqual([preview]);
+    expect(report.deleted).toEqual([]);
+    // It still listed only its own folder (R15): the file was found through the purged row, not a listing.
+    expect(fake.requests.filter((r) => r.path === '/api/blob' && r.method === 'GET').map((r) => r.query.prefix)).toEqual(['development/']);
+  });
+
   it('a database error stops the run before any delete: never delete when unsure', async () => {
+    // A purged row's file in another folder waits for the orphan pass too.
+    const own = `development/media/${UUIDS[1]}/b.png`;
+    const preview = `preview/feature-x/media/${UUIDS[1]}/b.png`;
+    fake.seed(own, await png(), 'image/png', hoursAgo(24 * 40));
+    const reg = await registerUploadedMedia(pool, ADMIN, { pathname: own });
+    if (!reg.ok) throw new Error('refused');
+    fake.files.delete(own);
+    fake.seed(preview, await png(), 'image/png', hoursAgo(24 * 40));
+    await pool.query(
+      `UPDATE media SET pathname = $2, url = 'https://fakestore.public.blob.vercel-storage.com/' || $2, deleted_at = now() - interval '31 days' WHERE id = $1`,
+      [reg.data.id, preview],
+    );
+    fake.requests.length = 0;
     fake.seed(`development/media/${UUIDS[2]}/orphan.png`, await png(), 'image/png', hoursAgo(48));
     const failing = {
       query: (sql: string, values?: unknown[]) => (/pathname = ANY/.test(sql) ? Promise.reject(new Error('db down')) : pool.query(sql, values)),
@@ -124,6 +162,7 @@ describe.skipIf(!TEST_DATABASE_URL)('sweepMedia (database + fake Blob)', () => {
     } as unknown as Pool;
     await expect(sweepMedia(failing, { prefix: 'development', now })).rejects.toThrow('db down');
     expect(fake.files.has(`development/media/${UUIDS[2]}/orphan.png`)).toBe(true);
+    expect(fake.files.has(preview)).toBe(true);
     expect(fake.requests.some((r) => r.path === '/api/blob/delete')).toBe(false);
   });
 

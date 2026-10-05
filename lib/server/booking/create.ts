@@ -37,26 +37,36 @@ export type CreateOptions = {
 
 const REFERENCE_ATTEMPTS = 3;
 
-/** The unique constraint a Postgres error violated, if it is one. */
+/** The unique (23505) or foreign-key (23503) constraint a Postgres error violated, if it is one. */
 function violatedConstraint(err: unknown): string | null {
   if (typeof err !== 'object' || err === null) return null;
   const e = err as { code?: string; constraint?: string };
-  return e.code === '23505' ? (e.constraint ?? null) : null;
+  return e.code === '23505' || e.code === '23503' ? (e.constraint ?? null) : null;
 }
 
-/** Books a table from the guest form. A reference that collides is redrawn, three times at most. */
+/**
+ * Books a table from the guest form. A reference that collides is redrawn,
+ * three times at most. An offer deleted while the booking is inserted is
+ * dropped once: the INSERT read it as published, then its foreign-key check
+ * found it gone (R9: the link is soft, the booking goes through without it).
+ */
 export async function createWebReservation(
   input: ReservationRequest,
   { now = new Date(), makeReference = newReference, pool = getPool() }: CreateOptions = {},
 ): Promise<CreateOutcome> {
-  for (let attempt = 1; ; attempt++) {
+  let request = input;
+  for (let collisions = 0; ; ) {
     try {
-      return await insertOnce(pool, input, now, makeReference());
+      return await insertOnce(pool, request, now, makeReference());
     } catch (err) {
       const constraint = violatedConstraint(err);
       // The partial unique index rejects a second active request for the same table and number.
       if (constraint === 'reservations_dedupe_v2_idx') return { ok: false, code: 'duplicate' };
-      if (constraint === 'reservations_reference_key' && attempt < REFERENCE_ATTEMPTS) continue;
+      if (constraint === 'reservations_reference_key' && ++collisions < REFERENCE_ATTEMPTS) continue;
+      if (constraint === 'reservations_offer_id_fkey' && request.offerId !== null) {
+        request = { ...request, offerId: null };
+        continue;
+      }
       throw err;
     }
   }
