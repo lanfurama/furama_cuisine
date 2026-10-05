@@ -10,8 +10,10 @@ import type { ActionResult } from '@/lib/server/action-result';
  * or a short success notice. A failure always shows its general line,
  * `invalid` included, so a field error is never silent, even for a field the
  * form does not show; the field messages render next to their fields.
+ * `onReload` replaces the bare refresh for an editor on useSaveState, which
+ * must drop its unsaved edits before it takes the newer record.
  */
-export function FormMessage({ state, success }: { state: ActionResult<unknown> | null; success?: string }) {
+export function FormMessage({ state, success, onReload }: { state: ActionResult<unknown> | null; success?: string; onReload?: () => void }) {
   const router = useRouter();
   if (!state) return null;
   if (state.ok) {
@@ -25,10 +27,33 @@ export function FormMessage({ state, success }: { state: ActionResult<unknown> |
     <div className="a-alert" role="alert">
       {actionErrorMessage(state.code, state.params)}
       {state.code === 'conflict' || state.code === 'not_allowed' ? (
-        <button className="a-btn a-btn--ghost a-btn--small" type="button" onClick={() => router.refresh()}>
+        <button className="a-btn a-btn--ghost a-btn--small" type="button" onClick={onReload ?? (() => router.refresh())}>
           Tải lại
         </button>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Every field message of a refused action, flattened, each once: for a
+ * refusal whose fields are not on screen (a restore, a list's switch), where
+ * the rule's own sentence is the only useful explanation.
+ */
+export function fieldMessages(state: ActionResult<unknown> | null): string[] {
+  return state && !state.ok ? [...new Set(Object.values(state.fieldErrors ?? {}).flatMap((m) => m ?? []))] : [];
+}
+
+/** One alert for such a refusal: what failed, then the rules' sentences, all read out together. */
+export function RuleAlert({ lead, rules }: { lead: string; rules: readonly string[] }) {
+  return (
+    <div className="a-alert" role="alert">
+      <p>{lead}</p>
+      <ul>
+        {rules.map((m) => (
+          <li key={m}>{m}</li>
+        ))}
+      </ul>
     </div>
   );
 }

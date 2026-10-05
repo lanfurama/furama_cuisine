@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { charCount, checkLength, detailPageErrors, detailPageWarnings, followRename, LIMITS, limitError, limitWarnings, sectionErrors } from './content-rules';
+import { charCount, checkLength, detailPageErrors, detailPageWarnings, followRename, LIMITS, limitError, limitWarnings, offerPageTitle, sectionErrors } from './content-rules';
 
 describe('content rules (spec §6.5)', () => {
   it('counts characters as Postgres char_length does, not UTF-16 units', () => {
@@ -81,5 +81,14 @@ describe('content rules (spec §6.5)', () => {
     expect(followRename('A garden house among palms', 'Tàya House', 'Tàya Garden House')).toBeNull();
     expect(followRename('Tàya House', 'Tàya House', 'Tàya House')).toBeNull();
     expect(followRename(null, 'Tàya House', 'Other')).toBeNull();
+  });
+});
+
+describe('an offer page’s heading', () => {
+  it('names a live offer by its EN title, an untitled one by its id as the list does, and a gone one as deleted', () => {
+    expect(offerPageTitle('2', { values: { title: { en: 'Vietnamese Cooking Class' } } })).toBe('Vietnamese Cooking Class');
+    expect(offerPageTitle('7', { values: { title: { en: null } } })).toBe('Ưu đãi 7');
+    expect(offerPageTitle('7', { values: { title: { en: '' } } })).toBe('Ưu đãi 7');
+    expect(offerPageTitle('7', null)).toBe('Ưu đãi đã xóa');
   });
 });

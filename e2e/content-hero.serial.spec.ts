@@ -1,4 +1,5 @@
 import type { Browser, Page } from '@playwright/test';
+import { FIRST_SLIDE_NEEDS_CROP } from '../lib/admin/content-rules';
 import { REGISTRY } from '../lib/i18n/registry';
 import { expectHydrated, watchCsp } from './csp';
 import { backgroundAlpha, expectSolidAndClear, VIEWPORTS } from './hero-checks';
@@ -161,6 +162,36 @@ test('L7-1: every slide unpublished on the hero screen does the same; showing th
   }
   await expectHero(browser);
   expect(csp).toEqual([]);
+});
+
+test('a restore today’s rules refuse says why (UX-4): an old order that puts a slide without a phone crop first', async ({ page }) => {
+  // A History row (the list's order, entity_id NULL) whose "before" puts first a shown slide that has no phone crop.
+  const row = await one<{ id: string }>(
+    `INSERT INTO audit_log (actor_id, actor_email, action, entity_type, entity_id, before, after)
+     SELECT 'e2e-editor', 'editor@furama.test', 'reorder', 'hero_slides', NULL,
+            jsonb_build_object('v', 1, 'order', (SELECT jsonb_agg(jsonb_build_object('id', h.id::text, 'sort_order', h.sort_order)
+                                                                  ORDER BY (h.image_mobile_id IS NOT NULL), h.sort_order, h.id) FROM hero_slides h)),
+            jsonb_build_object('v', 1, 'order', (SELECT jsonb_agg(jsonb_build_object('id', h.id::text, 'sort_order', h.sort_order)
+                                                                  ORDER BY h.sort_order, h.id) FROM hero_slides h))
+     RETURNING id::text`,
+  );
+  try {
+    expect(await one(`SELECT count(*)::int AS n FROM hero_slides WHERE is_published AND image_mobile_id IS NULL`)).toEqual({ n: 2 });
+    const order = await one<{ ids: string }>(`SELECT string_agg(id::text, ',' ORDER BY sort_order, id) AS ids FROM hero_slides`);
+    await signInAs(page, STAFF.editor);
+    await page.goto('/admin/content/hero');
+    await expectHydrated(page);
+    const history = page.getByRole('region', { name: 'Lịch sử thứ tự slide' });
+    page.once('dialog', (d) => void d.accept());
+    await history.getByRole('listitem').first().getByRole('button', { name: /^Khôi phục bản trước lần này/ }).click();
+    const alert = history.getByRole('alert');
+    await expect(alert).toContainText('Không khôi phục được phiên bản này');
+    await expect(alert).toContainText(FIRST_SLIDE_NEEDS_CROP);
+    await expect(alert).not.toContainText('kiểm tra các ô được đánh dấu');
+    expect(await one<{ ids: string }>(`SELECT string_agg(id::text, ',' ORDER BY sort_order, id) AS ids FROM hero_slides`)).toEqual(order);
+  } finally {
+    await one(`DELETE FROM audit_log WHERE id = $1`, [row!.id]);
+  }
 });
 
 test('the film: a link that names no video is refused; a YouTube link plays in the guest dialog; put back after', async ({ page, browser }) => {

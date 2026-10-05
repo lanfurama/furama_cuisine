@@ -1,5 +1,6 @@
 import type { Browser, Page } from '@playwright/test';
 import { REGISTRY } from '../lib/i18n/registry';
+import { expectHydrated } from './csp';
 import { HOME_PATH } from './paths';
 import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures';
 
@@ -18,6 +19,7 @@ import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures'
  */
 
 const DEFAULT_TITLE = REGISTRY['stories.title'].en;
+const DEFAULT_LEDE = REGISTRY['stories.lede'].en;
 const DEFAULT_POPULAR = REGISTRY['search.popular'].en;
 const DEFAULT_KEEP = REGISTRY['legal.keep_body'].en;
 
@@ -96,6 +98,43 @@ test('History undoes an edit of the Stories title: the newest row brings the def
   }
 });
 
+test('a History restore of one key keeps what is typed in another (UX-3): the form says it is behind, and saving writes only the typed key', async ({ page }) => {
+  const form = page.getByRole('form', { name: 'Stories' });
+  const title = form.getByLabel('Tiêu đề mục Stories', { exact: true });
+  const lede = form.getByLabel('Câu dẫn mục Stories', { exact: true });
+  const typed = 'Chefs and the cultures behind every plate (typed, unsaved).';
+  try {
+    await signInAs(page, STAFF.editor);
+    await saveField(page, '/admin/content/stories', 'Stories', 'Tiêu đề mục Stories', 'Kitchen Stories Stale', 'Lưu stories');
+    await expect(form.getByRole('status').filter({ hasText: 'Đã lưu 1 mục' })).toBeVisible();
+    await lede.fill(typed);
+
+    // Restore the title from History: the page refreshes with the key's new token.
+    const newest = page.getByRole('region', { name: 'Lịch sử' }).getByRole('listitem').first();
+    await expect(newest).toContainText(`${DEFAULT_TITLE} → Kitchen Stories Stale`);
+    page.once('dialog', (d) => void d.accept());
+    await newest.getByRole('button', { name: /^Khôi phục bản trước lần này/ }).click();
+    await expect(page.getByRole('region', { name: 'Lịch sử' }).getByRole('listitem').first()).toContainText('Khôi phục');
+    await expect(lede).toHaveValue(typed);
+    await expect(form.getByRole('status').filter({ hasText: 'Có người vừa lưu bản mới của mục này' })).toBeVisible();
+
+    // Saving writes the typed lede and leaves the restored title alone.
+    await form.getByRole('button', { name: 'Lưu stories' }).click();
+    await expect(form.getByRole('status').filter({ hasText: 'Đã lưu 1 mục' })).toBeVisible();
+    await expect(title).toHaveValue(DEFAULT_TITLE);
+    await expect(lede).toHaveValue(typed);
+    expect(await one(`SELECT 1 FROM content_strings WHERE key = 'stories.title'`)).toBeUndefined();
+    expect(await one(`SELECT value FROM content_strings WHERE key = 'stories.lede'`)).toEqual({ value: typed });
+  } finally {
+    await page.goto('/admin/content/stories');
+    await title.fill(DEFAULT_TITLE);
+    await lede.fill(DEFAULT_LEDE);
+    await form.getByRole('button', { name: 'Lưu stories' }).click();
+    await expect(form.getByRole('status').filter({ hasText: /Đã lưu|Không có gì thay đổi/ })).toBeVisible();
+    expect(await one(`SELECT 1 FROM content_strings WHERE key IN ('stories.title', 'stories.lede')`)).toBeUndefined();
+  }
+});
+
 test('a broken ICU plural is refused next to its field; a valid label reaches the search dialog', async ({ page, browser }) => {
   const visitor = await guest(browser);
   try {
@@ -156,8 +195,14 @@ test('the email screen previews unsaved text with the sample booking, and writes
   await signInAs(page, STAFF.editor);
   await page.goto('/admin/content/emails');
   const form = page.getByRole('form', { name: 'Nội dung email' });
-  await form.getByLabel('email.guest.confirmed.subject', { exact: true }).fill('Table confirmed! {reference}');
+  await expectHydrated(page);
+  // The preview's own choices are not the email's text (UX-8): changing them leaves nothing unsaved.
+  await form.getByLabel('Loại email', { exact: true }).selectOption('staff.new');
+  await expect(form.getByLabel('Loại email', { exact: true })).toHaveValue('staff.new');
+  await expect(form.getByText('Có thay đổi chưa lưu.')).toHaveCount(0);
   await form.getByLabel('Loại email', { exact: true }).selectOption('guest.confirmed');
+  await form.getByLabel('email.guest.confirmed.subject', { exact: true }).fill('Table confirmed! {reference}');
+  await expect(form.getByText('Có thay đổi chưa lưu.')).toBeVisible();
   // The frame is sandbox="" (no scripts, opaque origin), so the test reads what the server sent into it.
   const preview = (text: RegExp | string) =>
     Promise.all([

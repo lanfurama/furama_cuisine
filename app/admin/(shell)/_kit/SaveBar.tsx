@@ -5,15 +5,21 @@ import { FormMessage } from '../_ui/FormMessage';
 
 /*
  * The foot of every editor (spec §7.3): the outcome of the last save (a
- * conflict names who saved first and when, with "Tải lại"), who saved the
- * record last, "Xem trên web", and the save button. It sticks to the bottom
- * of the viewport, so a long form always shows it. The form's own fields come
- * before it in the DOM, so the tab order reaches it last.
+ * conflict names who saved first and when, with "Tải lại"), a notice when a
+ * newer version arrived while the form held unsaved edits (useSaveState
+ * `stale`), who saved the record last, "Xem trên web", and the save button.
+ * "Tải lại" is the hook's reload(): a bare router.refresh() would bring a
+ * record the still-dirty form never takes. The success notice hides once
+ * staff type again, so "Đã lưu" never sits beside unsaved edits. It sticks to
+ * the bottom of the viewport, so a long form always shows it. The form's own
+ * fields come before it in the DOM, so the tab order reaches it last.
  */
 export function SaveBar({
   state,
   pending,
   dirty,
+  stale = false,
+  onReload,
   lastSaved,
   viewHref,
   label = 'Lưu',
@@ -22,15 +28,28 @@ export function SaveBar({
   state: ActionResult<unknown> | null;
   pending: boolean;
   dirty: boolean;
+  /** A newer version of the record arrived while the form held unsaved edits. */
+  stale?: boolean;
+  /** "Tải lại": useSaveState's reload(). */
+  onReload: () => void;
   lastSaved?: { by: string | null; at: string } | null;
   viewHref?: string | null;
   label?: string;
   success?: string;
 }) {
+  const conflict = state !== null && !state.ok && state.code === 'conflict';
   return (
     <div className="a-savebar">
       <div className="a-savebar-status">
-        <FormMessage state={state} success={success} />
+        {state?.ok && dirty ? null : <FormMessage state={state} success={success} onReload={onReload} />}
+        {stale && !conflict ? (
+          <div className="a-warn">
+            <p role="status">Có người vừa lưu bản mới của mục này. Lưu bây giờ sẽ báo xung đột; bấm “Tải lại” để xem bản mới (phần chưa lưu sẽ mất).</p>
+            <button className="a-btn a-btn--ghost a-btn--small" type="button" onClick={onReload}>
+              Tải lại
+            </button>
+          </div>
+        ) : null}
         {dirty ? <p className="a-muted">Có thay đổi chưa lưu.</p> : null}
         {lastSaved && !dirty ? (
           <p className="a-muted">

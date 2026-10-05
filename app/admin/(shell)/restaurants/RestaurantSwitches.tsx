@@ -2,22 +2,13 @@
 
 import { useActionState } from 'react';
 import type { ActionResult } from '@/lib/server/action-result';
-import { FormMessage } from '../_ui/FormMessage';
+import { FormMessage, RuleAlert, fieldMessages } from '../_ui/FormMessage';
 import { archiveRestaurantAction, showRestaurantAction } from './actions';
 
-/** A refused switch says why: the rule it broke has no field on this list (a card picture, a type, the page's own). */
+/** A refused switch says why, inside its alert: the rule it broke has no field on this list (a card picture, a type, the page's own). */
 function SwitchMessage({ state }: { state: ActionResult | null }) {
-  const rules = state && !state.ok ? Object.values(state.fieldErrors ?? {}).flat() : [];
-  return (
-    <>
-      <FormMessage state={state} />
-      {rules.map((m) => (
-        <p key={m} className="a-field-error">
-          {m}
-        </p>
-      ))}
-    </>
-  );
+  const rules = fieldMessages(state);
+  return rules.length ? <RuleAlert lead="Không đổi được:" rules={rules} /> : <FormMessage state={state} />;
 }
 
 /*

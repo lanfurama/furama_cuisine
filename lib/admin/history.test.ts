@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { snapshotToken } from '@/lib/server/content-admin/snapshot';
-import { changedFields, restoreChoices, type HistoryRow, type Snap } from './history';
+import { changedFields, restoreChoices, stringHistoryRow, type HistoryRow, type Snap } from './history';
 
 const snap = (row: Record<string, unknown>, i18n: Record<string, unknown>[] = [], extra: Record<string, unknown> = {}) => ({ v: 1, row, i18n, ...extra });
 const LABELS = { title: 'Tiêu đề', price_amount: 'Giá', is_published: 'Hiện/ẩn', 'list:highlights': 'Điểm nổi bật' };
@@ -94,5 +94,18 @@ describe('history: which versions a row offers back', () => {
     expect(snapshotToken(snap({ id: 2 }, [{ locale: 'en', title: 'B' }]))).not.toBe(snapshotToken(snap({ id: 2 }, [{ locale: 'en', title: 'A' }])));
     const withHighlights = (order: number) => snap({ id: 'taya-house' }, [], { highlights: [snap({ id: 1, sort_order: order })] });
     expect(snapshotToken(withHighlights(10))).not.toBe(snapshotToken(withHighlights(20)));
+  });
+});
+
+describe('history of a string (R20: saving the default deletes the row)', () => {
+  const text = (s: Snap) => String((s as { value?: unknown } | null)?.value ?? '');
+  const reset = { id: '9', action: 'delete', before: { value: 'Kitchen Stories', overridden: true } as Snap, after: { value: 'Stories', overridden: false } as Snap };
+
+  it('a reset to the default is a version like any other, never "Khôi phục mục đã xóa"', () => {
+    // The text before the reset is the current one again: nothing to offer.
+    expect(restoreChoices([stringHistoryRow(reset)], 'Kitchen Stories', text)).toEqual([[{ side: 'after', label: 'Khôi phục phiên bản này' }]]);
+    // The current text differs from the text before the reset: that version comes back by its usual label.
+    expect(restoreChoices([stringHistoryRow(reset)], 'Stories', text)).toEqual([[{ side: 'before', label: 'Khôi phục bản trước lần này' }]]);
+    expect(stringHistoryRow({ id: '1', action: 'update', before: null, after: null }).action).toBe('update');
   });
 });

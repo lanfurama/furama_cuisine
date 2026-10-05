@@ -27,22 +27,33 @@ type Props = {
   pdfs: MediaOption[];
   upload: { prefix: string; configured: boolean };
   lastSaved: { by: string | null; at: string };
-  viewHref: string;
+  /** null: archived, nothing to view. */
+  viewHref: string | null;
 };
 
 /*
  * A restaurant's content (spec §7.2): the row, its EN texts, cuisines and
  * highlights, saved together as one version. Same holder/fields split as
  * every editor (code rule 9, useSaveState): the fields, the cuisine order
- * and the highlight list (client state, posted as JSON) remount on a new
- * token and survive a refused save.
+ * and the highlight list (client state, posted as JSON) remount on the token
+ * the hook accepted, survive a refused save, and survive a colleague's save
+ * arriving while staff type (the picker's upload refreshes the page).
  */
 export function RestaurantForm(props: Props) {
-  const save = useSaveState<null>(saveRestaurantAction, props.token);
+  const save = useSaveState<null, Values>(saveRestaurantAction, props.token, props.values);
   return (
     <form method="post" className="a-grid-form a-editor" onSubmit={submitKeepingValues(save.dispatch)} onInput={save.markDirty} noValidate aria-label="Nội dung nhà hàng">
-      <Fields key={props.token} {...props} state={save.state} markDirty={save.markDirty} />
-      <SaveBar state={save.state} pending={save.pending} dirty={save.dirty} lastSaved={props.lastSaved} viewHref={props.viewHref} label="Lưu nhà hàng" />
+      <Fields key={save.token} {...props} token={save.token} values={save.view} state={save.state} markDirty={save.markDirty} />
+      <SaveBar
+        state={save.state}
+        pending={save.pending}
+        dirty={save.dirty}
+        stale={save.stale}
+        onReload={save.reload}
+        lastSaved={props.lastSaved}
+        viewHref={props.viewHref}
+        label="Lưu nhà hàng"
+      />
     </form>
   );
 }
@@ -61,8 +72,16 @@ function Fields({ id, token, values: v, destinations, cuisines, images, pdfs, up
     set(next);
     markDirty();
   };
-  const setH = change(setHighlights);
-  const patch = (key: string, p: Partial<Highlight>) => setH(highlights.map((h) => (h.key === key ? { ...h, ...p } : h)));
+  // Every highlight update is functional: a picker's upload calls back seconds later, and must
+  // apply to the list as it is then (titles typed meanwhile), not as it was when the upload began.
+  const updateH = (update: (prev: Highlight[]) => Highlight[]) => {
+    setHighlights(update);
+    markDirty();
+  };
+  // A late patch for a highlight removed meanwhile matches no key and changes nothing.
+  const patch = (key: string, p: Partial<Highlight>) => updateH((prev) => prev.map((h) => (h.key === key ? { ...h, ...p } : h)));
+  const patchText = (key: string, field: 'title' | 'detail', locale: string, value: string) =>
+    updateH((prev) => prev.map((h) => (h.key === key ? { ...h, [field]: { ...h[field], [locale]: value } } : h)));
   const posted = highlights.map(({ key: _key, ...h }) => h);
 
   return (
@@ -193,12 +212,12 @@ function Fields({ id, token, values: v, destinations, cuisines, images, pdfs, up
           items={highlights}
           itemKey={(h) => h.key}
           itemLabel={(h) => h.title.en || 'Điểm nổi bật mới'}
-          onMove={(from, to) => setH(moved(highlights, from, to))}
+          onMove={(from, to) => updateH((prev) => moved(prev, from, to))}
           renderItem={(h) => (
             <div className="a-highlight">
               <ImagePicker label="Ảnh" options={images} value={h.imageId || null} required upload={upload} onChange={(imageId) => patch(h.key, { imageId: imageId ?? '' })} />
-              <TranslatableField label="Tiêu đề" values={h.title} max={80} required onChange={(locale, value) => patch(h.key, { title: { ...h.title, [locale]: value } })} />
-              <TranslatableField label="Mô tả" values={h.detail} max={200} onChange={(locale, value) => patch(h.key, { detail: { ...h.detail, [locale]: value } })} />
+              <TranslatableField label="Tiêu đề" values={h.title} max={80} required onChange={(locale, value) => patchText(h.key, 'title', locale, value)} />
+              <TranslatableField label="Mô tả" values={h.detail} max={200} onChange={(locale, value) => patchText(h.key, 'detail', locale, value)} />
               <div className="a-actions">
                 <label className="a-check">
                   <input
@@ -213,7 +232,7 @@ function Fields({ id, token, values: v, destinations, cuisines, images, pdfs, up
                   type="button"
                   className="a-btn a-btn--danger a-btn--small"
                   aria-label={`Xóa “${h.title.en || 'điểm nổi bật mới'}”`}
-                  onClick={() => setH(highlights.filter((x) => x.key !== h.key))}
+                  onClick={() => updateH((prev) => prev.filter((x) => x.key !== h.key))}
                 >
                   Xóa điểm nổi bật
                 </button>
@@ -227,7 +246,8 @@ function Fields({ id, token, values: v, destinations, cuisines, images, pdfs, up
           disabled={highlights.length >= 10}
           onClick={() => {
             setAdded(added + 1);
-            setH([...highlights, { key: `new${added}`, id: null, imageId: '', isPublished: shown < LIMITS.highlights.max, title: { en: '' }, detail: { en: '' } }]);
+            const key = `new${added}`;
+            updateH((prev) => [...prev, { key, id: null, imageId: '', isPublished: prev.filter((h) => h.isPublished).length < LIMITS.highlights.max, title: { en: '' }, detail: { en: '' } }]);
           }}
         >
           Thêm điểm nổi bật

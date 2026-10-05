@@ -43,42 +43,44 @@ export default async function RestaurantsPage() {
     <>
       <h1>Nhà hàng</h1>
       <p className="a-lede">Nội dung, giờ phục vụ, sức chứa và quy tắc đặt bàn của từng nhà hàng. Nhà hàng không bao giờ bị xóa: lưu trữ để rời web.</p>
-      <table className="a-table">
-        <thead>
-          <tr>
-            <th scope="col">Nhà hàng</th>
-            <th scope="col">Điểm đến</th>
-            <th scope="col">Trên web</th>
-            <th scope="col">Đặt bàn online</th>
-            <th scope="col">Khách tối đa</th>
-            <th scope="col">Thao tác</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((r) => {
-            const b = booking.get(r.id);
-            return (
-              <tr key={r.id}>
-                <td>
-                  {r.card ? <Thumb file={r.card} width={48} className="a-picker-thumb" /> : null} {r.name}
-                </td>
-                <td>{r.destinationName}</td>
-                <td>
-                  <span className={r.isPublished && !r.archived ? 'a-tag' : 'a-tag a-tag--warn'}>
-                    {r.archived ? 'Đã lưu trữ' : r.isPublished ? 'Đang hiện' : 'Đang ẩn'}
-                  </span>
-                </td>
-                <td>{b?.bookingEnabled ? 'Bật' : 'Tắt'}</td>
-                <td>{b?.maxParty ?? `${settings.maxParty} (mặc định)`}</td>
-                <td>
-                  <Link href={`/admin/restaurants/${r.id}`}>Nội dung</Link> · <Link href={`/admin/restaurants/${r.id}/booking`}>Giờ và sức chứa</Link>
-                  <RestaurantSwitches id={r.id} name={r.name} token={r.token} shown={r.isPublished} archived={r.archived} />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="a-table-scroll">
+        <table className="a-table">
+          <thead>
+            <tr>
+              <th scope="col">Nhà hàng</th>
+              <th scope="col">Điểm đến</th>
+              <th scope="col">Trên web</th>
+              <th scope="col">Đặt bàn online</th>
+              <th scope="col">Khách tối đa</th>
+              <th scope="col">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((r) => {
+              const b = booking.get(r.id);
+              return (
+                <tr key={r.id}>
+                  <td>
+                    {r.card ? <Thumb file={r.card} width={48} className="a-picker-thumb" /> : null} {r.name}
+                  </td>
+                  <td>{r.destinationName}</td>
+                  <td>
+                    <span className={r.isPublished && !r.archived ? 'a-tag' : 'a-tag a-tag--warn'}>
+                      {r.archived ? 'Đã lưu trữ' : r.isPublished ? 'Đang hiện' : 'Đang ẩn'}
+                    </span>
+                  </td>
+                  <td>{b?.bookingEnabled ? 'Bật' : 'Tắt'}</td>
+                  <td>{b?.maxParty ?? `${settings.maxParty} (mặc định)`}</td>
+                  <td>
+                    <Link href={`/admin/restaurants/${r.id}`}>Nội dung</Link> · <Link href={`/admin/restaurants/${r.id}/booking`}>Giờ và sức chứa</Link>
+                    <RestaurantSwitches id={r.id} name={r.name} token={r.token} shown={r.isPublished} archived={r.archived} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
       <section aria-labelledby="restaurants-order" className="a-section-card">
         <h2 id="restaurants-order">Thứ tự trên web</h2>

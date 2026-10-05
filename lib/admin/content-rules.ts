@@ -157,3 +157,8 @@ export function followRename(alt: string | null, oldName: string, newName: strin
   if (oldName === newName || alt === null) return null;
   return alt.trim() === oldName.trim() ? newName : null;
 }
+
+/** An offer page's heading: its EN title, an untitled live offer by its id (as OfferList names it), else deleted. */
+export function offerPageTitle(id: string, editor: { values: { title: Record<string, string | null> } } | null): string {
+  return editor ? editor.values.title.en || `Ưu đãi ${id}` : 'Ưu đãi đã xóa';
+}

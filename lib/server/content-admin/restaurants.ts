@@ -198,6 +198,8 @@ export type RestaurantEditor = {
   /** The spec §6.4 fallbacks, for the page's warnings: the restaurant's own, else its destination's. */
   hasPhone: boolean;
   hasMap: boolean;
+  /** Archived (F10): guests see nothing of it, whatever "Hiện nhà hàng trên web" says. */
+  archived: boolean;
 };
 
 export async function getRestaurantEditor(db: Db, id: string): Promise<RestaurantEditor | null> {
@@ -221,6 +223,7 @@ export async function getRestaurantEditor(db: Db, id: string): Promise<Restauran
     updatedBy: rows[0].updated_by,
     hasPhone: rows[0].has_phone,
     hasMap: rows[0].has_map,
+    archived: snapshot.row.archived_at != null,
   };
 }
 

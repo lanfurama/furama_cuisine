@@ -15,7 +15,9 @@ export type SlideValues = { id: string | null; imageId: string | null; imageMobi
  * phone crop the first slide shown needs (the server refuses a write that
  * leaves the first shown slide without one). A new slide is added at the end;
  * its form is keyed on the list's token, so it empties once the slide exists.
- * Code rule 9: the save state lives here, the fields below remount on the token.
+ * Code rule 9: the save state lives here, the fields below remount on the
+ * token useSaveState accepted. A new slide posts no token, so another write
+ * to the list while it is being filled is no conflict: it shows no notice.
  */
 export function SlideForm({
   slide,
@@ -34,11 +36,19 @@ export function SlideForm({
 }) {
   // One form, two actions: a slide that exists saves, a new one is created (its result names the id).
   const action = (slide.id ? saveSlideAction : createSlideAction) as (prev: ActionResult<unknown> | null, formData: FormData) => Promise<ActionResult<unknown>>;
-  const save = useSaveState<unknown>(action, token);
+  const save = useSaveState<unknown, SlideValues>(action, token, slide);
   return (
     <form method="post" className="a-grid-form" onSubmit={submitKeepingValues(save.dispatch)} onInput={save.markDirty} noValidate aria-label={label}>
-      <Fields key={token} slide={slide} token={token} images={images} upload={upload} state={save.state} />
-      <SaveBar state={save.state} pending={save.pending} dirty={save.dirty} label={slide.id ? 'Lưu slide' : 'Thêm slide'} success={slide.id ? undefined : 'Đã thêm slide.'} />
+      <Fields key={save.token} slide={save.view} token={save.token} images={images} upload={upload} state={save.state} />
+      <SaveBar
+        state={save.state}
+        pending={save.pending}
+        dirty={save.dirty}
+        stale={slide.id ? save.stale : false}
+        onReload={save.reload}
+        label={slide.id ? 'Lưu slide' : 'Thêm slide'}
+        success={slide.id ? undefined : 'Đã thêm slide.'}
+      />
     </form>
   );
 }

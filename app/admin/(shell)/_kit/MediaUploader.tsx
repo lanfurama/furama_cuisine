@@ -2,7 +2,7 @@
 
 import { uploadPresigned } from '@vercel/blob/client';
 import { useRouter } from 'next/navigation';
-import { useId, useState, type ChangeEvent } from 'react';
+import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
 import { actionErrorMessage } from '@/lib/admin/auth-errors';
 import { MAX_UPLOAD_BYTES, MEDIA_CONTENT_TYPES, isImageType, isMediaContentType, uploadPathname } from '@/lib/media/rules';
 import { registerMediaAction } from '../media/actions';
@@ -46,6 +46,12 @@ export function MediaUploader({
   const accepts = KINDS[kind];
   const router = useRouter();
   const uid = useId();
+  // The newest onUploaded: an upload takes seconds, and the picker that embeds this re-renders meanwhile
+  // (staff keep typing), so calling the callback captured when the file was chosen would apply a stale view.
+  const uploaded = useRef(onUploaded);
+  useEffect(() => {
+    uploaded.current = onUploaded;
+  });
   const [rows, setRows] = useState<Row[]>([]);
   const busy = rows.some((r) => r.state === 'uploading' || r.state === 'registering');
   const update = (i: number, patch: Partial<Row>) => setRows((all) => all.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -55,33 +61,43 @@ export function MediaUploader({
     event.currentTarget.value = '';
     const start = rows.length;
     setRows((all) => [...all, ...files.map((f) => ({ name: f.name, state: 'uploading' as const }))]);
-    for (const [k, file] of files.entries()) {
-      const i = start + k;
-      if (!isMediaContentType(file.type) || !(accepts.types as readonly string[]).includes(file.type)) {
-        update(i, { state: 'failed', message: accepts.refused });
-        continue;
+    try {
+      for (const [k, file] of files.entries()) {
+        const i = start + k;
+        if (!isMediaContentType(file.type) || !(accepts.types as readonly string[]).includes(file.type)) {
+          update(i, { state: 'failed', message: accepts.refused });
+          continue;
+        }
+        if (file.size > MAX_UPLOAD_BYTES) {
+          update(i, { state: 'failed', message: 'File quá lớn (tối đa 15 MB).' });
+          continue;
+        }
+        const pathname = uploadPathname(prefix, crypto.randomUUID(), file.name, file.type);
+        try {
+          await uploadPresigned(pathname, file, { access: 'public', handleUploadUrl: '/api/admin/media/upload', contentType: file.type });
+        } catch {
+          update(i, { state: 'failed', message: 'Không tải được file lên kho. Hãy thử lại.' });
+          continue;
+        }
+        update(i, { state: 'registering' });
+        let result: Awaited<ReturnType<typeof registerMediaAction>>;
+        try {
+          result = await registerMediaAction({ pathname });
+        } catch {
+          // The action never answered (a dropped connection, a deploy): the row fails, the next file still goes, and the input frees up.
+          update(i, { state: 'failed', message: 'Không xử lý được file. Hãy thử lại.' });
+          continue;
+        }
+        if (result.ok) {
+          update(i, { state: 'done' });
+          uploaded.current?.(result.data.id);
+        } else {
+          update(i, { state: 'failed', message: result.fieldErrors?.file?.[0] ?? actionErrorMessage(result.code, result.params) });
+        }
       }
-      if (file.size > MAX_UPLOAD_BYTES) {
-        update(i, { state: 'failed', message: 'File quá lớn (tối đa 15 MB).' });
-        continue;
-      }
-      const pathname = uploadPathname(prefix, crypto.randomUUID(), file.name, file.type);
-      try {
-        await uploadPresigned(pathname, file, { access: 'public', handleUploadUrl: '/api/admin/media/upload', contentType: file.type });
-      } catch {
-        update(i, { state: 'failed', message: 'Không tải được file lên kho. Hãy thử lại.' });
-        continue;
-      }
-      update(i, { state: 'registering' });
-      const result = await registerMediaAction({ pathname });
-      if (result.ok) {
-        update(i, { state: 'done' });
-        onUploaded?.(result.data.id);
-      } else {
-        update(i, { state: 'failed', message: result.fieldErrors?.file?.[0] ?? actionErrorMessage(result.code, result.params) });
-      }
+    } finally {
+      router.refresh();
     }
-    router.refresh();
   }
 
   if (!configured) {

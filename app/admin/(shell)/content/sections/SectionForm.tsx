@@ -16,7 +16,8 @@ import { saveSectionAction } from './actions';
  * One home section's form (spec §7.2 content/sections): its switch, and its
  * picture and link where it has them (SECTION_PARTS). The hero screen draws
  * the film's with the same component (C5). Code rule 9: the save state lives
- * here, the fields below remount on the section's new token.
+ * here, the fields below remount on the token useSaveState accepted, and draw
+ * the section it accepted with it (the pictures to choose from stay live).
  */
 export function SectionForm({
   section,
@@ -32,7 +33,7 @@ export function SectionForm({
   formLabel?: string;
   lastSaved: { by: string | null; at: string };
 }) {
-  const save = useSaveState<null>(saveSectionAction, section.token);
+  const save = useSaveState<null, SectionView>(saveSectionAction, section.token, section);
   return (
     <form
       method="post"
@@ -42,8 +43,8 @@ export function SectionForm({
       noValidate
       aria-label={formLabel ?? section.label}
     >
-      <Fields key={section.token} section={section} images={images} upload={upload} state={save.state} />
-      <SaveBar state={save.state} pending={save.pending} dirty={save.dirty} lastSaved={lastSaved} viewHref="/en" />
+      <Fields key={save.token} section={save.view} images={images} upload={upload} state={save.state} />
+      <SaveBar state={save.state} pending={save.pending} dirty={save.dirty} stale={save.stale} onReload={save.reload} lastSaved={lastSaved} viewHref="/en" />
     </form>
   );
 }

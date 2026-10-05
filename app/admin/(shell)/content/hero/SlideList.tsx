@@ -5,7 +5,7 @@ import { LIMITS } from '@/lib/admin/content-rules';
 import type { MediaOption } from '@/lib/admin/media-option';
 import type { ActionResult } from '@/lib/server/action-result';
 import type { SlideListItem } from '@/lib/server/content-admin/hero';
-import { FormMessage } from '../../_ui/FormMessage';
+import { FormMessage, RuleAlert, fieldMessages } from '../../_ui/FormMessage';
 import { LimitNote, moved, SortableList } from '../../_kit/SortableList';
 import { Thumb } from '../../_kit/Thumb';
 import { deleteSlideAction, reorderSlidesAction, toggleSlideAction } from './actions';
@@ -13,15 +13,10 @@ import { SlideForm } from './SlideForm';
 
 type Shared = { images: readonly MediaOption[]; upload: { prefix: string; configured: boolean } };
 
-/** A list write's outcome, with the rule it broke when it was refused (the first slide's phone crop has no field here). */
+/** A list write's outcome, with the rules it broke inside the alert when it was refused (the first slide's phone crop has no field here). */
 function ListMessage({ state, success }: { state: ActionResult | null; success?: string }) {
-  const rule = state && !state.ok ? Object.values(state.fieldErrors ?? {})[0]?.[0] : undefined;
-  return (
-    <>
-      <FormMessage state={state} success={success} />
-      {rule ? <p className="a-field-error">{rule}</p> : null}
-    </>
-  );
+  const rules = fieldMessages(state);
+  return rules.length ? <RuleAlert lead="Không lưu được thay đổi này:" rules={rules} /> : <FormMessage state={state} success={success} />;
 }
 
 /*

@@ -1,6 +1,6 @@
 import { auditActionLabel } from '@/lib/admin/audit-labels';
 import { formatDateTimeVi } from '@/lib/admin/format';
-import { restoreChoices, type HistoryRow, type Snap } from '@/lib/admin/history';
+import { restoreChoices, stringHistoryRow, type Snap } from '@/lib/admin/history';
 import type { AdminScreen } from '@/lib/i18n/registry';
 import type { HistoryEntry } from '@/lib/server/content-admin/history';
 import type { StringField } from '@/lib/server/content/strings-admin';
@@ -36,7 +36,7 @@ export function StringsHistory({
             const field = byKey.get(e.key);
             if (!field) return null;
             const when = formatDateTimeVi(e.at);
-            const row: HistoryRow = { id: e.id, action: e.action, before: e.before as Snap, after: e.after as Snap };
+            const row = stringHistoryRow({ id: e.id, action: e.action, before: e.before as Snap, after: e.after as Snap });
             const [choices] = restoreChoices([row], field.value, (s) => String((s as { value?: unknown } | null)?.value ?? ''));
             const text = (s: unknown) => String((s as { value?: unknown } | null)?.value ?? '');
             return (

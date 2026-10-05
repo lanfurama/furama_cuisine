@@ -127,6 +127,19 @@ test('the list reorders by keyboard, saves the order for the guest, and its hist
     await expectHydrated(page);
     const list = page.getByRole('list', { name: 'Thứ tự ưu đãi' });
     await expect(list.getByRole('listitem')).toHaveCount(3);
+    // Focus follows the moved item (A2): "↓" keeps it on that item's "↓"; at the top, where "↑" is disabled, it lands on "↓".
+    const down = list.getByRole('button', { name: `Chuyển “${SEED[0]}” xuống` });
+    await down.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('status').filter({ hasText: `Đã chuyển “${SEED[0]}” tới vị trí 2 trên 3` })).toHaveCount(1);
+    await expect(list.getByRole('button', { name: `Chuyển “${SEED[0]}” xuống` })).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(list.getByRole('button', { name: `Chuyển “${SEED[0]}” lên` })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(list.getByRole('listitem').first()).toContainText(SEED[0]);
+    await expect(list.getByRole('button', { name: `Chuyển “${SEED[0]}” lên` })).toBeDisabled();
+    await expect(list.getByRole('button', { name: `Chuyển “${SEED[0]}” xuống` })).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Lưu thứ tự' })).toBeDisabled();
     // Keyboard only: focus the button and press Enter.
     const up = list.getByRole('button', { name: `Chuyển “${SEED[2]}” lên` });
     await up.focus();

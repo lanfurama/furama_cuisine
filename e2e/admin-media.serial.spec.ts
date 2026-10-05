@@ -117,6 +117,36 @@ test('a file that is not what it says is refused after upload and removed from t
   expect(asked).toEqual([]);
 });
 
+test('a register step that never answers fails its row and frees the uploader (A6): the next file uploads', async ({ page }) => {
+  await signInAs(page, STAFF.editor);
+  await page.goto('/admin/media');
+  await expectHydrated(page);
+  // The first Server Action POST of the upload is registerMediaAction: it fails as a dropped connection would.
+  let aborted = false;
+  await page.route(
+    (url) => url.pathname === '/admin/media',
+    (route) => {
+      if (!aborted && route.request().method() === 'POST' && route.request().headers()['next-action']) {
+        aborted = true;
+        return route.abort('connectionreset');
+      }
+      return route.fallback();
+    },
+  );
+  const png = (background: string) => sharp({ create: { width: 40, height: 30, channels: 3, background } }).png().toBuffer();
+  const status = page.getByRole('list', { name: 'Tiến trình tải lên' });
+  const input = page.getByLabel('Chọn ảnh hoặc PDF (tối đa 15 MB mỗi file)', { exact: true });
+
+  await upload(page, `dropped-${RUN}.png`, 'image/png', await png('#553322'));
+  await expect(status.getByRole('listitem').filter({ hasText: `dropped-${RUN}.png` })).toContainText('Không xử lý được file. Hãy thử lại.');
+  expect(aborted).toBe(true);
+  await expect(input).toBeEnabled();
+
+  await upload(page, `after-dropped-${RUN}.png`, 'image/png', await png('#335522'));
+  await expect(status.getByRole('listitem').filter({ hasText: `after-dropped-${RUN}.png` })).toContainText('Đã thêm vào thư viện');
+  expect(await one(`SELECT count(*)::int AS n FROM media WHERE pathname LIKE $1`, [`%/after-dropped-${RUN}.png`])).toEqual({ n: 1 });
+});
+
 test('AC3: a file the site shows cannot be deleted, and the page says where it is used', async ({ page }) => {
   const csp = await watchCsp(page);
   const chef = await one<{ id: string }>(`SELECT id FROM media WHERE pathname = '/assets/chef.jpg'`);

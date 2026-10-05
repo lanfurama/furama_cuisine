@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react';
 import type { ActionResult } from '@/lib/server/action-result';
-import { FormMessage } from '../_ui/FormMessage';
+import { FormMessage, RuleAlert, fieldMessages } from '../_ui/FormMessage';
 
 type Restore = (prev: ActionResult | null, formData: FormData) => Promise<ActionResult>;
 
@@ -11,7 +11,9 @@ type Restore = (prev: ActionResult | null, formData: FormData) => Promise<Action
  * save flow with action 'restore'; `token` is the record's as this page
  * drew it, so a restore over a newer edit is a conflict like any save. A
  * function action takes no onSubmit (phase-4 ruling): the confirm is the
- * button's.
+ * button's. A version today's rules refuse (code rule 5) says which rule: a
+ * restore has no fields to mark, so "kiểm tra các ô được đánh dấu" would
+ * point at nothing.
  */
 export function RestoreButton({
   action,
@@ -32,6 +34,7 @@ export function RestoreButton({
   when: string;
 }) {
   const [state, dispatch, pending] = useActionState<ActionResult | null, FormData>(action, null);
+  const rules = state && !state.ok && state.code === 'invalid' ? fieldMessages(state) : [];
   return (
     <form action={dispatch} className="a-inline-form">
       <input type="hidden" name="id" value={id} />
@@ -49,7 +52,7 @@ export function RestoreButton({
       >
         {pending ? 'Đang khôi phục…' : label}
       </button>
-      <FormMessage state={state} success="Đã khôi phục." />
+      {rules.length ? <RuleAlert lead="Không khôi phục được phiên bản này:" rules={rules} /> : <FormMessage state={state} success="Đã khôi phục." />}
     </form>
   );
 }

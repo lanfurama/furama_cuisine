@@ -916,7 +916,8 @@ fieldset.a-field legend {
 
 .a-sortable-drop {
   display: grid;
-  grid-template-columns: auto 1fr;
+  /* minmax(0, …): an item's content (a picker, a long file name) shrinks with a phone instead of widening the list. */
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 12px;
 }
 
@@ -1094,6 +1095,8 @@ fieldset.a-field legend {
 
 /* ImagePicker (phase 7, A9): a fieldset of library files, a <details> list of radios and the uploader (R12). */
 .a-picker {
+  /* A fieldset's min-width is min-content by default: its grid of choices would widen the page on a phone. */
+  min-width: 0;
   margin: 0 0 16px;
   padding: 12px;
   border: 1px solid var(--a-line);
@@ -1170,6 +1173,31 @@ fieldset.a-field legend {
 
 .a-picker .a-uploader {
   margin-top: 8px;
+}
+
+/*
+ * A file input's intrinsic width (button plus "No file chosen") overflows a
+ * phone: the field's single grid column would grow to it, so the column may
+ * shrink (minmax(0, …)) and the input with it.
+ */
+.a-uploader .a-field {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.a-uploader input[type='file'] {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* A refused restore or switch: the rules' sentences inside the alert (RuleAlert). */
+.a-alert p,
+.a-alert ul {
+  margin: 0;
+}
+
+.a-alert ul {
+  margin-top: 4px;
+  padding-left: 20px;
 }
 
 /* content/sections and content/hero (A9): one card per section or slide, its form and its History. */

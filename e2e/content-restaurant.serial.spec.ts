@@ -1,5 +1,7 @@
 import type { Browser, Page } from '@playwright/test';
+import sharp from 'sharp';
 import { REGISTRY } from '../lib/i18n/registry';
+import { routeBlobToFake, type SlowPut } from './blob-routes';
 import { expectHydrated, watchCsp } from './csp';
 import { DETAIL_PATH, HOME_PATH } from './paths';
 import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures';
@@ -19,6 +21,8 @@ import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures'
 const NAME = 'Tàya House';
 const RENAMED = 'Tàya Garden House';
 const MORE = REGISTRY['detail.more_title'].en;
+const RUN = Date.now().toString(36);
+const STALE = 'Tàya House (changed by a colleague)';
 
 async function guest(browser: Browser): Promise<Page> {
   const context = await browser.newContext({ viewport: { width: 1280, height: 860 }, reducedMotion: 'reduce' });
@@ -97,6 +101,78 @@ test('a refused save keeps the typed values; a rename shows on the guest pages w
   } finally {
     await visitor.context().close();
   }
+});
+
+/** A small PNG of this run's own, uploaded through a picker: it stays in the library, never saved into guest content. */
+const png = (background: string) => sharp({ create: { width: 64, height: 48, channels: 3, background } }).png().toBuffer();
+
+/** Tàya House's content form, hydrated, with the fake Blob behind the browser's uploads. */
+async function openTaya(page: Page, outside: string[], slowPut?: SlowPut) {
+  await routeBlobToFake(page.context(), outside, slowPut);
+  await signInAs(page, STAFF.editor);
+  await page.goto('/admin/restaurants/taya-house');
+  await expectHydrated(page);
+  return page.getByRole('form', { name: 'Nội dung nhà hàng' });
+}
+
+test('a colleague’s save while I type (UX-1): an upload’s refresh keeps my typing and the picked file, says the record is newer; saving is a conflict and “Tải lại” brings their version', async ({
+  page,
+}) => {
+  const outside: string[] = [];
+  const seo = await one<{ seo_title: string }>(`SELECT seo_title FROM restaurant_i18n WHERE restaurant_id = 'taya-house' AND locale = 'en'`);
+  try {
+    const form = await openTaya(page, outside);
+    const story = form.getByLabel('Câu chuyện', { exact: true });
+    const typed = `${await story.inputValue()} Typed while a colleague saved.`;
+    await story.fill(typed);
+
+    // A colleague's save: the restaurant's token changes under the open form.
+    await one(`UPDATE restaurant_i18n SET seo_title = $1 WHERE restaurant_id = 'taya-house' AND locale = 'en'`, [STALE]);
+
+    // The picker's upload refreshes the page, which brings that newer record.
+    const card = form.getByRole('group', { name: /^Ảnh thẻ/ });
+    await card.getByText(/^Chọn ảnh khác/).click();
+    await card.getByLabel('Tải ảnh mới lên (tối đa 15 MB)', { exact: true }).setInputFiles({ name: `the-card-${RUN}.png`, mimeType: 'image/png', buffer: await png('#7a4b2a') });
+    await expect(card.getByRole('list', { name: 'Tiến trình tải lên' })).toContainText('Đã thêm vào thư viện');
+    await expect(form.getByRole('status').filter({ hasText: 'Có người vừa lưu bản mới của mục này' })).toBeVisible();
+    await expect(story).toHaveValue(typed);
+    await expect(card.getByRole('radio', { name: `the-card-${RUN}.png` })).toBeChecked();
+
+    // Saving over it is refused; "Tải lại" drops the typing and shows their version.
+    await form.getByRole('button', { name: 'Lưu nhà hàng' }).click();
+    const conflict = form.getByRole('alert');
+    await expect(conflict).toContainText('Hãy tải lại trang rồi làm lại.');
+    await conflict.getByRole('button', { name: 'Tải lại' }).click();
+    await expect(form.getByLabel('Tiêu đề SEO', { exact: true })).toHaveValue(STALE);
+    await expect(story).not.toHaveValue(typed);
+    await expect(form.getByText('Có người vừa lưu bản mới của mục này', { exact: false })).toHaveCount(0);
+    expect(outside).toEqual([]);
+  } finally {
+    await one(`UPDATE restaurant_i18n SET seo_title = $1 WHERE restaurant_id = 'taya-house' AND locale = 'en'`, [seo!.seo_title]);
+  }
+});
+
+test('a highlight’s picture uploads while its title is typed (UX-2): the title stays and the new picture is chosen', async ({ page }) => {
+  const outside: string[] = [];
+  const slow: SlowPut = { ms: 0 };
+  const form = await openTaya(page, outside, slow);
+  const first = form.getByRole('list', { name: 'Điểm nổi bật' }).getByRole('listitem').first();
+  const title = first.getByLabel('Tiêu đề', { exact: true });
+  const picker = first.getByRole('group', { name: /^Ảnh/ });
+  await picker.getByText(/^Chọn ảnh khác/).click();
+
+  slow.ms = 2_000;
+  await picker.getByLabel('Tải ảnh mới lên (tối đa 15 MB)', { exact: true }).setInputFiles({ name: `the-highlight-${RUN}.png`, mimeType: 'image/png', buffer: await png('#2a4b7a') });
+  const progress = picker.getByRole('list', { name: 'Tiến trình tải lên' });
+  await expect(progress).toContainText('Đang tải lên…');
+  await title.fill('Cooking Class typed during the upload');
+  await expect(progress).toContainText('Đã thêm vào thư viện', { timeout: 10_000 });
+  slow.ms = 0;
+
+  await expect(title).toHaveValue('Cooking Class typed during the upload');
+  await expect(picker.getByRole('radio', { name: `the-highlight-${RUN}.png` })).toBeChecked();
+  expect(outside).toEqual([]);
+  // Not saved: the next page load drops the edit (nothing reaches the guest pages).
 });
 
 test('the words every restaurant page shares are edited once, on the restaurants list: “More at …” reaches the page, and the default comes back', async ({

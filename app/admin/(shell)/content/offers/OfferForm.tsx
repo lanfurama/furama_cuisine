@@ -20,14 +20,16 @@ type Props = {
 
 /*
  * One offer (spec §7.2 content/offers). The holder keeps the action's state;
- * the fields remount on a new token (code rule 9, useSaveState), so a save,
- * a restore from History, or "Tải lại" after a conflict all redraw them from
- * the offer as it now is, and a refused save keeps what was typed.
+ * the fields remount on the token useSaveState accepted (code rule 9), so a
+ * save, a restore from History on a clean form, or "Tải lại" all redraw them
+ * from the offer as it now is, while a refused save, or a colleague's save
+ * arriving during an edit, keeps what was typed.
  */
 export function OfferForm(props: Props) {
-  const save = useSaveState<unknown>(
+  const save = useSaveState<unknown, OfferInput>(
     (prev, formData) => (props.id ? saveOfferAction(prev as ActionResult | null, formData) : createOfferAction(prev as ActionResult<{ id: string }> | null, formData)),
     props.token,
+    props.values,
   );
   return (
     <form
@@ -38,11 +40,13 @@ export function OfferForm(props: Props) {
       noValidate
       aria-label={props.id ? 'Sửa ưu đãi' : 'Thêm ưu đãi'}
     >
-      <OfferFields key={props.token} {...props} state={save.state} />
+      <OfferFields key={save.token} {...props} token={save.token} values={save.view} state={save.state} />
       <SaveBar
         state={save.state}
         pending={save.pending}
         dirty={save.dirty}
+        stale={save.stale}
+        onReload={save.reload}
         lastSaved={props.lastSaved}
         viewHref={props.id ? '/en#offers' : null}
         label={props.id ? 'Lưu ưu đãi' : 'Thêm ưu đãi'}

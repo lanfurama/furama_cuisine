@@ -23,11 +23,16 @@ export type StringFieldView = {
 /*
  * One screen's strings as a form, on the form kit (spec §7.3): useSaveState
  * holds the outcome above the fields, which remount on the joined tokens of
- * the screen's keys (code rule 9), so a save or "Tải lại" redraws them from
- * the database while "Đã lưu" stays, and a refused save keeps what was typed
- * (submitKeepingValues). Every field posts its loaded value and token, so the
- * server writes only what this editor changed and refuses only a real
- * conflict on that key.
+ * the screen's keys it accepted (code rule 9), so a save or "Tải lại" redraws
+ * them from the database while "Đã lưu" stays, and a refused save keeps what
+ * was typed (submitKeepingValues). A History restore of one key while another
+ * holds unsaved typing keeps the typing (the form shows it is behind). Every
+ * field posts the value and token it was drawn with, so the server writes
+ * only what this editor changed (the restored key, untouched here, is left
+ * alone) and refuses only a real conflict on a typed key.
+ *
+ * The email screen's preview controls (preview_*) sit inside this form but
+ * are not text: changing them marks nothing unsaved.
  */
 /** A titled group of a screen's keys, by key prefix (the emails screen: one per email). */
 export type StringGroup = { title: string; prefix: string };
@@ -48,7 +53,7 @@ export function StringsForm({
   children?: React.ReactNode;
 }) {
   const version = fields.map((f) => f.token).join('|');
-  const save = useSaveState<StringsSaved>(saveScreenStrings, version);
+  const save = useSaveState<StringsSaved, StringFieldView[]>(saveScreenStrings, version, fields);
   const saved = save.state?.ok ? save.state.data : null;
   const success =
     saved?.changed.length === 0
@@ -56,11 +61,28 @@ export function StringsForm({
       : `Đã lưu ${saved?.changed.length ?? 0} mục. Web khách hiện chữ mới ngay.${saved?.policyVersion ? ` Phiên bản chính sách mới: ${saved.policyVersion}.` : ''}`;
 
   return (
-    <form method="post" className="a-grid-form a-editor" onSubmit={submitKeepingValues(save.dispatch)} onInput={save.markDirty} noValidate aria-label={title}>
+    <form
+      method="post"
+      className="a-grid-form a-editor"
+      onSubmit={submitKeepingValues(save.dispatch)}
+      onInput={(e) => {
+        if (!(e.target as HTMLInputElement).name?.startsWith('preview_')) save.markDirty();
+      }}
+      noValidate
+      aria-label={title}
+    >
       <input type="hidden" name="screen" value={screen} />
-      <StringFields key={version} fields={fields} groups={groups ?? []} state={save.state} />
+      <StringFields key={save.token} fields={save.view} groups={groups ?? []} state={save.state} />
       {children}
-      <SaveBar state={save.state as ActionResult<unknown> | null} pending={save.pending} dirty={save.dirty} success={success} label={`Lưu ${title.toLowerCase()}`} />
+      <SaveBar
+        state={save.state as ActionResult<unknown> | null}
+        pending={save.pending}
+        dirty={save.dirty}
+        stale={save.stale}
+        onReload={save.reload}
+        success={success}
+        label={`Lưu ${title.toLowerCase()}`}
+      />
     </form>
   );
 }

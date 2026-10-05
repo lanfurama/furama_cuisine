@@ -50,7 +50,8 @@ const LABELS = {
  * Spec §7.2 /admin/restaurants/[id]: one restaurant's content (name, slug,
  * destination, pictures, contact, detail page, highlights, menu, SEO), its
  * warnings (spec §6.4, §6.5), a tab to its booking screen (phase 4), and
- * History of the whole aggregate (spec §7.5).
+ * History of the whole aggregate (spec §7.5). An archived restaurant says so
+ * above the form and offers no "Xem trên web": guests see none of it.
  */
 export default async function RestaurantContentPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePagePermission({ content: ['read'] });
@@ -88,6 +89,11 @@ export default async function RestaurantContentPage({ params }: { params: Promis
         </Link>
         <Link href={`/admin/restaurants/${id}/booking`}>Giờ và sức chứa</Link>
       </nav>
+      {editor.archived ? (
+        <p className="a-alert" role="status">
+          Nhà hàng đang lưu trữ: khách không thấy. Bỏ lưu trữ ở danh sách nhà hàng.
+        </p>
+      ) : null}
       {warnings.length ? (
         <ul className="a-warn-list" aria-label="Cảnh báo">
           {warnings.map((w) => (
@@ -105,7 +111,7 @@ export default async function RestaurantContentPage({ params }: { params: Promis
         pdfs={pdfs}
         upload={{ prefix: envPrefix(), configured: isBlobConfigured() }}
         lastSaved={{ by: editor.updatedBy, at: formatDateTimeVi(editor.updatedAt) }}
-        viewHref={v.hasDetailPage && v.isPublished ? `/en/restaurants/${v.slug}` : '/en#restaurants'}
+        viewHref={editor.archived ? null : v.hasDetailPage && v.isPublished ? `/en/restaurants/${v.slug}` : '/en#restaurants'}
       />
       <HistoryPanel headingId={`restaurant-${id}-history`} entries={history} currentToken={editor.token} recordId={id} labels={LABELS} restore={restoreRestaurantAction} />
     </>

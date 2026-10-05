@@ -78,3 +78,13 @@ export function restoreChoices(rows: readonly HistoryRow[], currentToken: string
     return choices;
   });
 }
+
+/**
+ * A content_strings audit row as restoreChoices reads it. For a string, a
+ * 'delete' is an editor saving the registry default (R20 deletes the row),
+ * not a deleted item: both sides are texts, so the row is a version like any
+ * update, compared by text, with the usual labels.
+ */
+export function stringHistoryRow(row: HistoryRow): HistoryRow {
+  return row.action === 'delete' ? { ...row, action: 'update' } : row;
+}

@@ -79,8 +79,13 @@ test('an Editor adds a restaurant: hidden until it has its card and type; shown,
     await expect(row).toContainText('Đã lưu trữ');
     await expect.poll(() => cardNames(visitor), { timeout: 10_000 }).not.toContain(NAME);
 
-    // Its History: the version before the archive brings it back.
+    // Its content screen says it is archived (UX-7), with no "Xem trên web".
     await row.getByRole('link', { name: 'Nội dung' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(NAME);
+    await expect(page.getByRole('main').getByRole('status').filter({ hasText: 'Nhà hàng đang lưu trữ: khách không thấy.' })).toBeVisible();
+    await expect(page.getByRole('main').getByRole('link', { name: 'Xem trên web' })).toHaveCount(0);
+
+    // Its History: the version before the archive brings it back.
     const history = page.getByRole('region', { name: 'Lịch sử' });
     await expect(history.getByRole('listitem').first()).toContainText('Đổi: Lưu trữ');
     page.once('dialog', (d) => void d.accept());
@@ -91,9 +96,10 @@ test('an Editor adds a restaurant: hidden until it has its card and type; shown,
   } finally {
     // F10: never deleted. It ends archived, through the list (the same save expires the cached pages).
     await page.goto('/admin/restaurants');
-    if (await row.getByRole('button', { name: `Lưu trữ “${NAME}”` }).count()) {
+    // exact: "Bỏ lưu trữ “…”" contains "Lưu trữ “…”", and clicking it would bring the restaurant back.
+    if (await row.getByRole('button', { name: `Lưu trữ “${NAME}”`, exact: true }).count()) {
       page.once('dialog', (d) => void d.accept());
-      await row.getByRole('button', { name: `Lưu trữ “${NAME}”` }).click();
+      await row.getByRole('button', { name: `Lưu trữ “${NAME}”`, exact: true }).click();
       await expect(row).toContainText('Đã lưu trữ');
     }
     await expect.poll(() => cardNames(visitor), { timeout: 10_000 }).not.toContain(NAME);

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getPool } from '@/db/client';
+import { offerPageTitle } from '@/lib/admin/content-rules';
 import { formatDateTimeVi } from '@/lib/admin/format';
 import { listRestaurantOptions } from '@/lib/server/booking/queries';
 import { listHistory } from '@/lib/server/content-admin/history';
@@ -44,7 +45,7 @@ export default async function OfferPage({ params }: { params: Promise<{ id: stri
   const pool = getPool();
   const [editor, history, restaurants] = await Promise.all([getOfferEditor(pool, id), listHistory(pool, 'offers', id), listRestaurantOptions(pool)]);
   if (!editor && history.length === 0) notFound();
-  const title = editor?.values.title.en ?? 'Ưu đãi đã xóa';
+  const title = offerPageTitle(id, editor);
 
   return (
     <>
