@@ -68,10 +68,10 @@ describe('audit labels', () => {
   });
 
   it('names every entity the content editors write to audit_log (phase 7, R5: the table name)', () => {
-    const files = ['lib/server/content-admin/offers.ts', 'lib/server/content/strings-admin.ts', 'lib/server/content/policy-version.ts'];
+    const files = ['lib/server/content-admin/offers.ts', 'lib/server/content/strings-admin.ts', 'lib/server/content/policy-version.ts', 'lib/server/media/library.ts'];
     const source = files.map((f) => readFileSync(f, 'utf8')).join('\n');
     const entities = [...new Set([...source.matchAll(/entityType: '([a-z_]+)'/g)].map((m) => m[1]))].sort();
-    expect(entities).toEqual(['content_strings', 'legal_versions', 'offers']);
-    expect(entities.map(auditEntityLabel)).toEqual(['Chữ trên web', 'Phiên bản chính sách', 'Ưu đãi']);
+    expect(entities).toEqual(['content_strings', 'legal_versions', 'media', 'offers']);
+    expect(entities.map(auditEntityLabel)).toEqual(['Chữ trên web', 'Phiên bản chính sách', 'File trong thư viện', 'Ưu đãi']);
   });
 });

@@ -45,6 +45,8 @@ const ENTITIES: Record<string, string> = {
   offers: 'Ưu đãi',
   content_strings: 'Chữ trên web',
   legal_versions: 'Phiên bản chính sách',
+  // A library file: the row and its alt text (R5, C6).
+  media: 'File trong thư viện',
 };
 
 export function auditActionLabel(action: string): string {

@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import { LIMITS, type LimitKey } from '@/lib/admin/content-rules';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
 import { conflictBy, type Conflict } from '@/lib/server/booking/config';
+import { assertLiveMedia, reviveMedia } from '@/lib/server/media/library';
 import { getAuditRow } from './history';
 import {
   isForeignKeyViolation,
@@ -89,6 +90,9 @@ function i18nRows(translations: Translations): I18nRow[] {
   return Object.entries(translations).map(([locale, values]) => ({ ...values, locale }));
 }
 
+/** The field error of a save that points at a file no longer in the library (code rule 2). */
+export const MEDIA_GONE = 'File này đã bị xóa khỏi thư viện. Hãy chọn file khác.';
+
 export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
   const cast = `::${def.idType}`;
   const columnsOf = (row: Row) => Object.keys(row).filter((c) => def.columns.includes(c) && c !== 'sort_order');
@@ -127,6 +131,30 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
     return conflictBy(client, rows[0]?.updated_by ?? null, rows[0]?.updated_at ?? new Date());
   }
 
+  /** The media ids a row points at, by column (ItemDef.media). */
+  const mediaOf = (row: Row) =>
+    (def.media ?? []).flatMap((m) => (typeof row[m.column] === 'string' && row[m.column] !== '' ? [{ ...m, id: String(row[m.column]) }] : []));
+
+  /**
+   * Code rule 2: the files a save points at are live and of the column's kind
+   * (a picture column never takes a PDF), and stay so until it commits
+   * (assertLiveMedia's FOR KEY SHARE waits for, or blocks, a delete).
+   */
+  async function deadMedia(client: PoolClient, row: Row): Promise<ListFailure | null> {
+    const refs = mediaOf(row);
+    const fieldErrors: Record<string, string[]> = {};
+    for (const kind of ['image', 'pdf'] as const) {
+      const ofKind = refs.filter((r) => r.kind === kind);
+      const dead = await assertLiveMedia(
+        client,
+        ofKind.map((r) => r.id),
+        kind,
+      );
+      for (const r of ofKind.filter((x) => dead.includes(x.id))) fieldErrors[r.field ?? r.column] = [MEDIA_GONE];
+    }
+    return Object.keys(fieldErrors).length ? { ok: false, code: 'invalid', fieldErrors } : null;
+  }
+
   async function writeTranslations(client: PoolClient, id: string, input: I, actorId: string): Promise<void> {
     if (!options.toI18n) return;
     for (const [locale, values] of Object.entries(options.toI18n(input))) await upsertTranslation(client, def, id, locale, values, actorId);
@@ -144,7 +172,8 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
         const row = options.toRow(input);
         const refused =
           (await options.validate?.(client, { row, i18n: options.toI18n ? i18nRows(options.toI18n(input)) : [] }, 'save')) ??
-          (await overLimit(client, row.is_published, null));
+          (await overLimit(client, row.is_published, null)) ??
+          (await deadMedia(client, row));
         if (refused) return refused;
         const cols = columnsOf(row);
         const { rows } = await client.query<{ id: string }>(
@@ -169,7 +198,8 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
         const row = options.toRow(input);
         const refused =
           (await options.validate?.(client, { row, i18n: options.toI18n ? i18nRows(options.toI18n(input)) : [] }, 'save')) ??
-          (await overLimit(client, row.is_published, id));
+          (await overLimit(client, row.is_published, id)) ??
+          (await deadMedia(client, row));
         if (refused) return refused;
         const cols = columnsOf(row);
         await client.query(
@@ -229,7 +259,8 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
      * action 'restore'. `token` is the record's as the page showed it
      * ('deleted' for a deleted one), so restoring over someone's newer edit is
      * a conflict. The version must pass today's rules (code rule 5); one that
-     * points at a row that is gone cannot come back (missing_reference).
+     * points at a row that is gone cannot come back (missing_reference). A
+     * file it shows that is in the trash leaves the trash with it (C7).
      */
     async restore(pool: Pool, actor: AuditActor, input: RestoreInput): Promise<ListResult> {
       try {
@@ -252,6 +283,8 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
             (await options.validate?.(client, { row: snapshot.row, i18n: snapshot.i18n }, 'restore')) ??
             (await overLimit(client, snapshot.row.is_published, input.id));
           if (refused) return refused;
+          // C7: a file this version shows that is now in the trash comes back with it; a purged one cannot.
+          if ((await reviveMedia(client, actor, mediaOf(snapshot.row).map((r) => r.id))).length > 0) return { ok: false, code: 'missing_reference' };
           const { meta: _meta, ...data } = snapshot;
           await writeItem(client, def, data, actor.id);
           const after = await readItem(client, def, input.id);

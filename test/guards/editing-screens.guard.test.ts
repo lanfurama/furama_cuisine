@@ -27,7 +27,6 @@ const NOT_BUILT: readonly EditScreen[] = [
   'contact',
   'seo',
   'sections',
-  'media',
   'restaurant',
 ];
 

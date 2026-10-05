@@ -28,7 +28,7 @@ export type ItemDef = {
   /** audit_log.entity_type: the main table's name, like phase 4's service_periods (R5). */
   entityType: string;
   table: string;
-  idType: 'bigint' | 'text';
+  idType: 'bigint' | 'text' | 'uuid';
   /** Columns a save or a restore writes (not id, created_at, updated_at, updated_by). */
   columns: readonly string[];
   /** The item's translations; a list without any (social_links, sections) leaves it out. */
@@ -40,7 +40,17 @@ export type ItemDef = {
   };
   /** The tables a write touches, for tagsForSave. */
   tables: readonly ContentTable[];
+  /**
+   * Columns of the main row that hold a media id (code rule 2, C7): a save
+   * checks the files are live and of the column's kind (assertLiveMedia), a
+   * restore takes them out of the trash (reviveMedia). `field` is the form
+   * field that shows the error (default: the column). A column added later
+   * goes here too.
+   */
+  media?: readonly MediaColumn[];
 };
+
+export type MediaColumn = { column: string; kind: 'image' | 'pdf'; field?: string };
 
 /** The translation bookkeeping a restore puts back as it was (spec §5.1 item 3, R3); updated_at/by become the restorer's. */
 const I18N_META = ['status', 'origin', 'ai_model', 'source_hash', 'reviewed_by', 'reviewed_at'] as const;

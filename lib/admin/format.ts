@@ -40,3 +40,11 @@ const isoDay = new Intl.DateTimeFormat('vi-VN', { timeZone: 'UTC', weekday: 'sho
 export function formatIsoDayVi(date: string): string {
   return isoDay.format(new Date(`${date}T00:00:00Z`));
 }
+
+const KB = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
+const MB = new Intl.NumberFormat('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+/** A file size as the media library prints it: "56 KB", "2,4 MB" (1 KB = 1024 bytes). */
+export function formatFileSize(bytes: number): string {
+  return bytes >= 1024 * 1024 ? `${MB.format(bytes / 1024 / 1024)} MB` : `${KB.format(Math.max(1, bytes / 1024))} KB`;
+}

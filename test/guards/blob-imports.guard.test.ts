@@ -24,6 +24,9 @@ const NOT_APP = /\.test\.[cm]?[jt]sx?$|\.d\.[cm]?ts$/;
 /** File → the one @vercel/blob entry point it may import. */
 const ALLOWED: Record<string, string> = {
   'lib/server/media/blob.ts': '@vercel/blob',
+  // The presigned flow (spec §11): the browser asks the route for a URL, the route issues it through blob.ts.
+  'app/admin/(shell)/_kit/MediaUploader.tsx': '@vercel/blob/client',
+  'app/api/admin/media/upload/route.ts': '@vercel/blob/client',
 };
 
 type Node = { type: string; [key: string]: unknown };

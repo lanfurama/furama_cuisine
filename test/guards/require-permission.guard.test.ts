@@ -117,6 +117,13 @@ const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; edito
     restoreOfferAction: { permission: { content: ['restore'] }, editor: true },
     restoreOfferOrderAction: { permission: { content: ['restore'] }, editor: true },
   },
+  // The media library (spec §7.2 /admin/media): upload step 2, alt text, delete, and History.
+  'app/admin/(shell)/media/actions.ts': {
+    registerMediaAction: { permission: { content: ['update'] }, editor: true },
+    saveMediaDetailsAction: { permission: { content: ['update'] }, editor: true },
+    deleteMediaAction: { permission: { content: ['update'] }, editor: true },
+    restoreMediaAction: { permission: { content: ['restore'] }, editor: true },
+  },
 };
 
 /** Where content editors keep their Server Actions (spec §7.2): every 'use server' file here needs CONTENT_ACTIONS rows. */
