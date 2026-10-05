@@ -66,6 +66,8 @@ const ACTION_MESSAGES: Record<ActionCode, string> = {
   email_failed: 'Không gửi được email thử.',
   limit: 'Đã đủ số mục tối đa được hiện. Hãy ẩn một mục khác trước.',
   missing_reference: 'Phiên bản này dùng một nhà hàng, ảnh hoặc mục không còn nữa, nên không khôi phục được.',
+  in_use: 'File này đang được dùng nên không xóa được. Hãy thay ảnh ở những chỗ dưới đây trước.',
+  blob_not_configured: 'Môi trường này chưa kết nối kho file (Vercel Blob). Liên hệ người quản trị kỹ thuật.',
 };
 
 /** `params` fills in the codes that carry details: who saved first and when, the covers left. */

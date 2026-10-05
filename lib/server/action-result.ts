@@ -47,13 +47,20 @@ export type ActionCode =
   /** A layout limit (spec §6.5) would be passed; params.max is the limit. */
   | 'limit'
   /** A restore points at a restaurant, file or row that is gone since that version. */
-  | 'missing_reference';
+  | 'missing_reference'
+  // Media library (spec §5.2, §7.2 /admin/media; R16).
+  /** A file some content still shows cannot be deleted; `uses` lists where (label + the screen that edits it). */
+  | 'in_use'
+  /** Vercel Blob has no credentials in this environment (BLOB_READ_WRITE_TOKEN / BLOB_STORE_ID). */
+  | 'blob_not_configured';
 
 export type ActionFailure = {
   ok: false;
   code: ActionCode;
   params?: Record<string, string>;
   fieldErrors?: Record<string, string[] | undefined>;
+  /** For `in_use`: where the file is shown. */
+  uses?: { label: string; href: string }[];
 };
 export type ActionResult<T = null> = { ok: true; data: T } | ActionFailure;
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminContentSecurityPolicy, adminSecurityHeaders, createNonce } from './csp';
+import { adminContentSecurityPolicy, adminSecurityHeaders, blobApiSource, createNonce } from './csp';
 
 const directives = (csp: string) => Object.fromEntries(csp.split('; ').map((d) => [d.split(' ')[0], d.split(' ').slice(1)]));
 
@@ -23,6 +23,8 @@ describe('adminContentSecurityPolicy', () => {
     expect(d['base-uri']).toEqual(["'none'"]);
     expect(d['object-src']).toEqual(["'none'"]);
     expect(d['img-src']).toEqual(["'self'", 'data:', 'blob:']);
+    // The media library's browser uploads straight to the Blob API (spec §11), and nowhere else.
+    expect(d['connect-src']).toEqual(["'self'", 'https://vercel.com/api/blob/']);
     expect(d['upgrade-insecure-requests']).toEqual([]);
   });
 
@@ -40,6 +42,14 @@ describe('adminContentSecurityPolicy', () => {
     const csp = adminContentSecurityPolicy('Zm9v+/_-==', { dev: false, https: false });
     const directive = csp.split(';').map((s) => s.trim()).find((s) => s.startsWith('script-src'))!;
     expect(directive.split(/\s+/).find((s) => /^'nonce-([A-Za-z0-9+/_-]+={0,2})'$/.test(s))).toBe("'nonce-Zm9v+/_-=='");
+  });
+});
+
+describe('blobApiSource', () => {
+  it('is the SDK’s default API, or the URL NEXT_PUBLIC_VERCEL_BLOB_API_URL moves it to', () => {
+    expect(blobApiSource({})).toBe('https://vercel.com/api/blob/');
+    expect(blobApiSource({ NEXT_PUBLIC_VERCEL_BLOB_API_URL: ' ' })).toBe('https://vercel.com/api/blob/');
+    expect(blobApiSource({ NEXT_PUBLIC_VERCEL_BLOB_API_URL: 'http://127.0.0.1:3236/api/blob/' })).toBe('http://127.0.0.1:3236/api/blob/');
   });
 });
 

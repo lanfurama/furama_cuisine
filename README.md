@@ -43,16 +43,29 @@ printed to the terminal). Create your Admin with `scripts/create-admin.mjs`
 | --- | --- |
 | `npm test` | Unit tests (Vitest, process timezone pinned to UTC) |
 | `TEST_DATABASE_URL=postgres://localhost:5432/furama_cuisine_test npm test` | Unit and integration tests. The database is dropped and recreated on every run, and its name must end in `_test`. |
-| `npm run test:e2e` | Playwright against `next start` on port 3100 (or `E2E_PORT`). Set `CI`, a local `_test` `DATABASE_URL`, `EMAIL_DELIVERY=log`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL=http://localhost:<port>`, `EMAIL_LOG_FILE` and `CRON_SECRET` (variables below), and blank the keys `.env.local` may carry, as the commands below do, or set `E2E_BASE_URL` for a server you started; otherwise it refuses to run, because `next dev` and `next start` read `.env.local`. Run `npx playwright install chromium` once first. |
+| `npm run test:e2e` | Playwright against `next start` on port 3100 (or `E2E_PORT`). Set `CI`, a local `_test` `DATABASE_URL`, `EMAIL_DELIVERY=log`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL=http://localhost:<port>`, `EMAIL_LOG_FILE`, `CRON_SECRET` and `FAKE_BLOB_SECRET` (variables below), and blank the keys `.env.local` may carry, as the commands below do, or set `E2E_BASE_URL` for a server you started; otherwise it refuses to run, because `next dev` and `next start` read `.env.local`. Playwright starts a fake Vercel Blob server first (`test/helpers/fake-blob-cli.mjs`, port 3102 or `FAKE_BLOB_PORT`) and gives only the app its token. Run `npx playwright install chromium` once first. |
 | `npm run test:visual` | Pixel-exact screenshots of the home and Tàya House pages, with and without JavaScript, against `e2e/__visual__/` (macOS baselines from before phase 2; CI skips them). Needs a running `next start`, see below. |
 | `npm run lint` | oxlint (typescript-eslint does not support TypeScript 7) |
 
 CI (`.github/workflows/ci.yml`) runs typecheck, lint, unit, integration,
 build, the prerender and font check (`scripts/check-prerender.mjs`) and
 end-to-end tests against a Postgres 18 service container. The build needs no
-auth or email variable; the end-to-end step gets a fresh `BETTER_AUTH_SECRET`
-and `CRON_SECRET` per run, `EMAIL_DELIVERY=log` and an `EMAIL_LOG_FILE` the
-specs read invitation and reset links and booking emails from.
+auth or email variable; the end-to-end step gets a fresh `BETTER_AUTH_SECRET`,
+`CRON_SECRET` and `FAKE_BLOB_SECRET` per run, `EMAIL_DELIVERY=log` and an
+`EMAIL_LOG_FILE` the specs read invitation and reset links and booking emails
+from.
+
+No test ever calls the real Vercel Blob. Playwright starts a local fake of
+the Blob API and of the stores' public host (`test/helpers/fake-blob.ts`)
+before the app, and hands the app server alone its read-write token
+(`vercel_blob_rw_fakestore_<FAKE_BLOB_SECRET>`), `VERCEL_BLOB_RETRIES=0` and
+`NODE_OPTIONS=--import=…/test/helpers/blob-redirect.mjs`, which sends every
+request for `vercel.com/api/blob` or `*.public.blob.vercel-storage.com` to
+the fake and refuses every other external host. The build and the visual
+server run with every Blob variable blank. Never put a real
+`BLOB_READ_WRITE_TOKEN` (Production's or the Preview/Dev store's) in
+`.env.local` or a local shell: a local run would then upload to, and could
+delete from, that store.
 
 To run the production build locally against a throwaway database, keep
 `.env.local` out of it: process variables win over that file, even blank
@@ -67,11 +80,13 @@ in the build, call the real BotID API.
 RESET_DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test node scripts/reset-db.mjs
 CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
   EMAIL_FROM= EMAIL_REDIRECT_TO= SMTP_HOST= SMTP_USER= SMTP_PASSWORD= BOTID_DEV_BYPASS= \
+  BLOB_READ_WRITE_TOKEN= BLOB_STORE_ID= BLOB_WEBHOOK_PUBLIC_KEY= VERCEL_BLOB_API_URL= NEXT_PUBLIC_VERCEL_BLOB_API_URL= \
   DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test npm run build
 node scripts/check-prerender.mjs
 # Visual first, on the fresh build (see below).
 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
   EMAIL_FROM= EMAIL_REDIRECT_TO= SMTP_HOST= SMTP_USER= SMTP_PASSWORD= BOTID_DEV_BYPASS= \
+  BLOB_READ_WRITE_TOKEN= BLOB_STORE_ID= BLOB_WEBHOOK_PUBLIC_KEY= VERCEL_BLOB_API_URL= NEXT_PUBLIC_VERCEL_BLOB_API_URL= \
   DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
   BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3201 EMAIL_DELIVERY=log npx next start -p 3201 &
 for i in $(seq 1 60); do curl -s -o /dev/null http://localhost:3201/ && break; sleep 1; done
@@ -81,9 +96,11 @@ kill %1   # stop the server (or: lsof -ti tcp:3201 | xargs kill)
 rm -f "$TMPDIR/emails.ndjson"
 CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV= VERCEL_OIDC_TOKEN= \
   EMAIL_FROM= EMAIL_REDIRECT_TO= SMTP_HOST= SMTP_USER= SMTP_PASSWORD= BOTID_DEV_BYPASS= \
+  BLOB_READ_WRITE_TOKEN= BLOB_STORE_ID= BLOB_WEBHOOK_PUBLIC_KEY= VERCEL_BLOB_API_URL= NEXT_PUBLIC_VERCEL_BLOB_API_URL= \
   DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
   BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3100 \
-  EMAIL_DELIVERY=log EMAIL_LOG_FILE=$TMPDIR/emails.ndjson CRON_SECRET=$(openssl rand -hex 16) npm run test:e2e
+  EMAIL_DELIVERY=log EMAIL_LOG_FILE=$TMPDIR/emails.ndjson CRON_SECRET=$(openssl rand -hex 16) \
+  FAKE_BLOB_SECRET=$(openssl rand -hex 16) npm run test:e2e
 ```
 
 Run the visual step on a fresh build, before the end-to-end tests, or build
@@ -172,6 +189,7 @@ CI=1 PGHOST= PGUSER= PGPASSWORD= PGDATABASE= VERCEL_ENV= NEXT_PUBLIC_VERCEL_ENV=
   DATABASE_URL=postgres://localhost:5432/furama_cuisine_e2e_test \
   BETTER_AUTH_SECRET=$(openssl rand -base64 32) BETTER_AUTH_URL=http://localhost:3100 \
   EMAIL_DELIVERY=log EMAIL_LOG_FILE=$TMPDIR/emails.ndjson CRON_SECRET=$(openssl rand -hex 16) \
+  BLOB_READ_WRITE_TOKEN= BLOB_STORE_ID= FAKE_BLOB_SECRET=$(openssl rand -hex 16) \
   npx playwright test e2e/botid.spec.ts --project=desktop
 ```
 
@@ -512,6 +530,8 @@ optional menu PDF (spec §15 item 17). Until a page's content exists, its
 | `SMTP_USER`, `SMTP_PASSWORD` | the login (both or neither) | a separate login if the provider allows | never set |
 | `CRON_SECRET` | 16+ characters (`openssl rand -hex 32`); Vercel Cron sends it to `/api/cron/outbox` and `/api/cron/daily`, and a missing or shorter one answers every call to either 401 | optional (crons run on Production only) | a fresh random value per E2E run |
 | `BOTID_DEV_BYPASS` | **never** | **never** | only for the opt-in `e2e/botid.spec.ts` run (`BAD-BOT`); a deployment ignores it |
+| `BLOB_READ_WRITE_TOKEN` | set by connecting the Production Blob store (Production only) | set by connecting the Preview/Dev store | **never** a real one: blank for the build, the visual server and local runs; Playwright gives the E2E app the fake store's token |
+| `FAKE_BLOB_SECRET` | never | never | a fresh `openssl rand -hex 16` per E2E run (16+ letters and digits); `FAKE_BLOB_PORT` moves the fake (default 3102) |
 | `VERCEL_ENV`, `NEXT_PUBLIC_VERCEL_ENV` | set by Vercel | set by Vercel | never set: they turn on BotID and the deployment rules of the email gate |
 | `EMAIL_LOG_FILE` | never | never | a scratch file; log mode appends each email as one JSON line |
 | `BOOTSTRAP_ADMIN_EMAIL` | never (only in the shell that runs `scripts/create-admin.mjs`) | never | — |

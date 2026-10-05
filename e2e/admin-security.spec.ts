@@ -28,7 +28,8 @@ test.describe('admin response headers', () => {
         `style-src 'self' 'nonce-${nonce}'`,
         "img-src 'self' data: blob:",
         "font-src 'self'",
-        "connect-src 'self'",
+        // The media library's browser uploads straight to the Blob API (spec §11, phase 7).
+        "connect-src 'self' https://vercel.com/api/blob/",
         "object-src 'none'",
         "base-uri 'none'",
         "form-action 'self'",

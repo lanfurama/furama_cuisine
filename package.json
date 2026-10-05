@@ -16,6 +16,7 @@
     "db:psql": "dotenv -e .env.local -- sh -c 'psql $DATABASE_URL_UNPOOLED'"
   },
   "dependencies": {
+    "@vercel/blob": "^2.8.0",
     "@vercel/functions": "^3.9.9",
     "better-auth": "^1.7.7",
     "botid": "1.5.11",
@@ -27,6 +28,7 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-email": "^6.11.0",
+    "sharp": "^0.35.5",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -43,6 +45,7 @@
     "oxlint": "^1.86.0",
     "smtp-server": "^3.19.16",
     "typescript": "^7.0.2",
+    "undici": "^6.29.0",
     "vitest": "^5.0.3"
   }
 }

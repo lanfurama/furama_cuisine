@@ -1,7 +1,16 @@
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
 
 // E2E_PORT: run beside another server that already holds 3100.
 const PORT = Number(process.env.E2E_PORT) || 3100;
+/**
+ * The local stand-in for Vercel Blob (test/helpers/fake-blob.ts), started
+ * below beside the app: never the real service (spec §11; outline C15).
+ * FAKE_BLOB_PORT moves it like E2E_PORT moves the app (CI: 3102).
+ */
+const FAKE_BLOB_PORT = Number(process.env.FAKE_BLOB_PORT) || 3102;
+const FAKE_BLOB_ORIGIN = `http://127.0.0.1:${FAKE_BLOB_PORT}`;
 /**
  * A server you started yourself (for example `next dev` against a local _test
  * database, to look for dev-only hydration errors). Skips the webServer below.
@@ -46,6 +55,13 @@ if (!external) {
   if (process.env.BETTER_AUTH_URL !== `http://localhost:${PORT}`) {
     throw new Error(`Refusing to start the app: set BETTER_AUTH_URL=http://localhost:${PORT}, the server's own origin (links and Better Auth's origin check use it).`);
   }
+  // The fake store's read-write token is vercel_blob_rw_fakestore_<secret>; the secret is this run's own,
+  // like CRON_SECRET, so a left-over fake or app from another run never answers for this one.
+  if (!/^[A-Za-z0-9]{16,}$/.test(process.env.FAKE_BLOB_SECRET ?? '')) {
+    throw new Error('Refusing to start the app: set FAKE_BLOB_SECRET to 16 or more letters and digits (for example $(openssl rand -hex 16)), the fake Blob store’s secret for this run.');
+  }
+  // The specs (and their workers, which inherit this process's environment) reach the fake here.
+  process.env.FAKE_BLOB_ORIGIN = FAKE_BLOB_ORIGIN;
 }
 
 export default defineConfig({
@@ -79,11 +95,32 @@ export default defineConfig({
   ],
   webServer: external
     ? undefined
-    : {
-        // The production build, on whatever DATABASE_URL the caller set (a local _test one).
-        command: `npm run start -- -p ${PORT}`,
-        url: `http://localhost:${PORT}`,
-        reuseExistingServer: false,
-        timeout: 120_000,
-      },
+    : [
+        {
+          // First, so the app never starts without it. Node runs the .ts module directly (type stripping).
+          command: 'node test/helpers/fake-blob-cli.mjs',
+          url: `${FAKE_BLOB_ORIGIN}/__fake/health`,
+          reuseExistingServer: false,
+          timeout: 30_000,
+          env: { FAKE_BLOB_PORT: String(FAKE_BLOB_PORT), FAKE_BLOB_SECRET: process.env.FAKE_BLOB_SECRET ?? '' },
+        },
+        {
+          // The production build, on whatever DATABASE_URL the caller set (a local _test one). Only this
+          // process gets the fake store: its token (the build and the visual server keep the Blob variables
+          // blank), no SDK retries, and blob-redirect.mjs preloaded, which sends every request for
+          // vercel.com/api/blob or *.public.blob.vercel-storage.com to the fake and refuses every other
+          // external host (next/image's fetches included).
+          command: `npm run start -- -p ${PORT}`,
+          url: `http://localhost:${PORT}`,
+          reuseExistingServer: false,
+          timeout: 120_000,
+          env: {
+            BLOB_READ_WRITE_TOKEN: `vercel_blob_rw_fakestore_${process.env.FAKE_BLOB_SECRET ?? ''}`,
+            VERCEL_BLOB_RETRIES: '0',
+            FAKE_BLOB_ORIGIN,
+            // A file URL: the checkout's path may hold a space, which NODE_OPTIONS would split on.
+            NODE_OPTIONS: `--import=${pathToFileURL(join(__dirname, 'test', 'helpers', 'blob-redirect.mjs')).href}`,
+          },
+        },
+      ],
 });

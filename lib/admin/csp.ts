@@ -24,6 +24,17 @@ export type CspOptions = {
   https: boolean;
 };
 
+/**
+ * Where the media library's browser PUTs an upload (spec §11, uploadPresigned):
+ * the Blob API, https://vercel.com/api/blob unless NEXT_PUBLIC_VERCEL_BLOB_API_URL
+ * moves it (node_modules/@vercel/blob/dist/chunk-YYMLUMXS.js getApiUrl). A CSP
+ * source with a trailing slash matches that path and everything under it.
+ */
+export function blobApiSource(env: Record<string, string | undefined> = process.env): string {
+  const base = env.NEXT_PUBLIC_VERCEL_BLOB_API_URL?.trim() || 'https://vercel.com/api/blob';
+  return `${base.replace(/\/+$/, '')}/`;
+}
+
 export function adminContentSecurityPolicy(nonce: string, { dev, https }: CspOptions): string {
   return [
     "default-src 'self'",
@@ -31,9 +42,10 @@ export function adminContentSecurityPolicy(nonce: string, { dev, https }: CspOpt
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ''}`,
     // Stylesheets are files (CSS modules, admin.css, next/font); no inline <style> and no style="" in admin markup.
     dev ? "style-src 'self' 'unsafe-inline'" : `style-src 'self' 'nonce-${nonce}'`,
+    // Thumbnails and previews of uploads go through /_next/image ('self'), never straight to the Blob host.
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    "connect-src 'self'",
+    `connect-src 'self' ${blobApiSource()}`,
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'self'",

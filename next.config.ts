@@ -1,5 +1,9 @@
 import { withBotId } from 'botid/next/config';
 import type { NextConfig } from 'next';
+import { blobImageHost } from './lib/media/rules';
+
+// Null on a Vercel build that names no store (lib/media/rules.ts): then no Blob host at all.
+const blobHost = blobImageHost(process.env);
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -13,7 +17,17 @@ const nextConfig: NextConfig = {
   env: { NEXT_PUBLIC_VERCEL_ENV: process.env.NEXT_PUBLIC_VERCEL_ENV ?? '' },
   cacheComponents: true,
   partialPrefetching: true,
+  images: {
+    // Content images from Vercel Blob go through the optimiser like the /assets ones (spec §6.3 item 7):
+    // the store's own host when the build knows its store, https only, no port, no query string.
+    remotePatterns: blobHost ? [{ protocol: 'https', hostname: blobHost, port: '', pathname: '/**', search: '' }] : [],
+  },
   experimental: {
+    // Spec §11: files never pass through a Server Action (the browser uploads straight to Blob);
+    // 2 MB is the room the content forms need (long text, many fields), not an upload size. One
+    // global option, with no per-action scope (phase-5 ledger item closed as not feasible, C11):
+    // node_modules/next/dist/docs/01-app/03-api-reference/05-config/01-next-config-js/serverActions.md:59-75.
+    serverActions: { bodySizeLimit: '2mb' },
     // app/global-not-found.tsx: there is no app/layout.tsx to hold a 404 for unmatched URLs.
     globalNotFound: true,
     // forbidden() for admin pages a role may not open (lib/server/dal/session.ts, app/admin/(shell)/forbidden.tsx).

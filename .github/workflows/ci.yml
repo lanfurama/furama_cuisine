@@ -48,10 +48,11 @@ jobs:
       - name: Check the prerendered pages and the fonts
         run: node scripts/check-prerender.mjs
       - run: npx playwright install --with-deps chromium
-      - name: Make a session secret and a cron secret for this run
+      - name: Make a session secret, a cron secret and the fake Blob store's secret for this run
         run: |
           echo "BETTER_AUTH_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
           echo "CRON_SECRET=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+          echo "FAKE_BLOB_SECRET=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
       - name: End-to-end
         run: npm run test:e2e
         env:

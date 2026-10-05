@@ -52,6 +52,8 @@ describe('actionErrorMessage', () => {
     ['duplicate', 'Số điện thoại này đã có một đặt bàn đang hoạt động cùng nhà hàng, ngày và giờ.'],
     ['limit', 'Đã đủ số mục tối đa được hiện. Hãy ẩn một mục khác trước.'],
     ['missing_reference', 'Phiên bản này dùng một nhà hàng, ảnh hoặc mục không còn nữa, nên không khôi phục được.'],
+    ['in_use', 'File này đang được dùng nên không xóa được. Hãy thay ảnh ở những chỗ dưới đây trước.'],
+    ['blob_not_configured', 'Môi trường này chưa kết nối kho file (Vercel Blob). Liên hệ người quản trị kỹ thuật.'],
   ] as const)('%s', (code, message) => expect(actionErrorMessage(code)).toBe(message));
 
   it('says who saved first, and how many covers are left, when the action sends them', () => {
