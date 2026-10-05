@@ -1,8 +1,9 @@
 import 'server-only';
 import type { Pool, PoolClient } from 'pg';
 import { detailPageErrors, followRename, limitError } from '@/lib/admin/content-rules';
+import type { Saved } from '@/lib/admin/save-state';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
-import { conflictBy, type Conflict } from '@/lib/server/booking/config';
+import { conflictFromHistory, type Conflict } from '@/lib/server/booking/config';
 import type { Db } from '@/lib/server/booking/rules';
 import { assertLiveMedia, MEDIA, reviveMedia } from '@/lib/server/media/library';
 import { getAuditRow } from './history';
@@ -242,7 +243,7 @@ async function lockRestaurant(client: PoolClient, id: string, token: string): Pr
   const { rows } = await client.query<{ updated_by: string | null; updated_at: Date }>('SELECT updated_by, updated_at FROM restaurants WHERE id = $1 FOR UPDATE', [id]);
   if (!rows[0]) return { ok: false, code: 'not_found' };
   const snapshot = (await readRestaurant(client, id))!;
-  if (snapshotToken(snapshot) !== token) return conflictBy(client, rows[0].updated_by, rows[0].updated_at);
+  if (snapshotToken(snapshot) !== token) return conflictFromHistory(client, 'restaurants', id, { by: rows[0].updated_by, at: rows[0].updated_at });
   return { snapshot };
 }
 
@@ -329,8 +330,15 @@ function invalid(errors: Record<string, string[]>): Invalid | null {
   return Object.keys(errors).length ? { ok: false, code: 'invalid', fieldErrors: errors } : null;
 }
 
-export async function saveRestaurantContent(pool: Pool, actor: AuditActor, id: string, token: string, input: RestaurantInput): Promise<RestaurantResult> {
-  return withTransaction(pool, async (client): Promise<RestaurantResult> => {
+/** "Lưu" of the aggregate; also answers the token of the version it wrote (Saved, lib/admin/save-state.ts). */
+export async function saveRestaurantContent(
+  pool: Pool,
+  actor: AuditActor,
+  id: string,
+  token: string,
+  input: RestaurantInput,
+): Promise<{ ok: true; data: RestaurantSaved & Saved } | Fail> {
+  return withTransaction(pool, async (client): Promise<{ ok: true; data: RestaurantSaved & Saved } | Fail> => {
     const locked = await lockRestaurant(client, id, token);
     if (failed(locked)) return locked;
     const before = locked.snapshot;
@@ -432,12 +440,16 @@ export async function saveRestaurantContent(pool: Pool, actor: AuditActor, id: s
     }
 
     const altChanged = await followCardAlt(client, actor, before.row, { name: input.name, cardImageId: input.cardImageId });
-    await insertAudit(client, actor, { action: 'update', entityType: RESTAURANT.entityType, entityId: id, before, after: await readRestaurant(client, id) });
-    return { ok: true, data: { altChanged, visibilityChanged: seen(before.row) !== seen({ ...before.row, is_published: input.isPublished }) } };
+    const after = await readRestaurant(client, id);
+    await insertAudit(client, actor, { action: 'update', entityType: RESTAURANT.entityType, entityId: id, before, after });
+    return {
+      ok: true,
+      data: { altChanged, visibilityChanged: seen(before.row) !== seen({ ...before.row, is_published: input.isPublished }), token: snapshotToken(after) },
+    };
   }).catch((err) => mapWriteError(err));
 }
 
-function mapWriteError(err: unknown): RestaurantResult {
+function mapWriteError(err: unknown): Fail {
   if (isForeignKeyViolation(err)) return { ok: false, code: 'missing_reference' };
   if (uniqueViolation(err) === 'restaurants_slug_key') return { ok: false, code: 'invalid', fieldErrors: { slug: ['Đường dẫn này đã có nhà hàng khác dùng.'] } };
   throw err;
@@ -593,6 +605,8 @@ export type RestaurantListItem = {
   destinationName: string;
   isPublished: boolean;
   archived: boolean;
+  /** Its destination is shown: a hidden one takes its restaurants off the guest site and online booking (L7-2). */
+  destinationShown: boolean;
   hasDetailPage: boolean;
   card: { url: string; width: number | null; height: number | null } | null;
   /** The aggregate's token (its show and archive buttons). */
@@ -603,8 +617,10 @@ export type RestaurantListItem = {
 export async function listRestaurantsAdmin(db: Db): Promise<{ items: RestaurantListItem[]; token: string }> {
   const { rows } = await db.query<Omit<RestaurantListItem, 'token' | 'card'> & { url: string | null; width: number | null; height: number | null }>(
     `SELECT r.id, r.name, r.slug, coalesce(dt.name, r.destination_id) AS "destinationName", r.is_published AS "isPublished",
-            r.archived_at IS NOT NULL AS archived, r.has_detail_page AS "hasDetailPage", m.url, m.width, m.height
+            r.archived_at IS NOT NULL AS archived, d.is_published AS "destinationShown", r.has_detail_page AS "hasDetailPage",
+            m.url, m.width, m.height
        FROM restaurants r
+       JOIN destinations d ON d.id = r.destination_id
        LEFT JOIN destination_i18n dt ON dt.destination_id = r.destination_id AND dt.locale = (SELECT code FROM locales WHERE is_default)
        LEFT JOIN media m ON m.id = r.card_image_id
       ORDER BY r.sort_order, r.id`,

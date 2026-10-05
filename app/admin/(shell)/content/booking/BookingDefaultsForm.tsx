@@ -2,6 +2,7 @@
 
 import { useId } from 'react';
 import { submitKeepingValues } from '@/lib/admin/form';
+import type { Saved } from '@/lib/admin/save-state';
 import type { ActionResult } from '@/lib/server/action-result';
 import { FieldError } from '../../_ui/FormMessage';
 import { SaveBar } from '../../_kit/SaveBar';
@@ -27,10 +28,10 @@ type Props = {
  * accepted.
  */
 export function BookingDefaultsForm(props: Props) {
-  const save = useSaveState<null, BookingDefaults>(saveBookingDefaultsAction as (prev: ActionResult<null> | null, formData: FormData) => Promise<ActionResult<null>>, props.token, props.values);
+  const save = useSaveState<Saved, BookingDefaults>(saveBookingDefaultsAction, props.token, props.values);
   return (
     <form method="post" className="a-grid-form" onSubmit={submitKeepingValues(save.dispatch)} onInput={save.markDirty} noValidate aria-label="Mặc định khi khách mở trang">
-      <Fields key={save.token} {...props} token={save.token} values={save.view} state={save.state} />
+      <Fields key={save.fieldsKey} {...props} token={save.token} values={save.view} state={save.state} />
       <SaveBar state={save.state} pending={save.pending} dirty={save.dirty} stale={save.stale} onReload={save.reload} lastSaved={props.lastSaved} viewHref="/en#reserve" />
     </form>
   );

@@ -39,7 +39,7 @@ export function SlideForm({
   const save = useSaveState<unknown, SlideValues>(action, token, slide);
   return (
     <form method="post" className="a-grid-form" onSubmit={submitKeepingValues(save.dispatch)} onInput={save.markDirty} noValidate aria-label={label}>
-      <Fields key={save.token} slide={save.view} token={save.token} images={images} upload={upload} state={save.state} />
+      <Fields key={save.fieldsKey} slide={save.view} token={save.token} images={images} upload={upload} state={save.state} />
       <SaveBar
         state={save.state}
         pending={save.pending}

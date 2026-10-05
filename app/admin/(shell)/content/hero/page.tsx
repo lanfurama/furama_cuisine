@@ -12,6 +12,7 @@ import { requirePagePermission } from '@/lib/server/dal/session';
 import { envPrefix, isBlobConfigured } from '@/lib/server/media/blob';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
 import { RestoreButton } from '../../_kit/RestoreButton';
+import { RestoreOutcome } from '../../_kit/RestoreOutcome';
 import { StringsPanel } from '../_ui/StringsPanel';
 import { restoreSectionAction } from '../sections/actions';
 import { SectionForm } from '../sections/SectionForm';
@@ -76,23 +77,25 @@ export default async function HeroPage() {
 
       <section className="a-section-card" aria-labelledby="hero-deleted-title">
         <h2 id="hero-deleted-title">Slide đã xóa gần đây</h2>
-        {deleted.length === 0 ? (
-          <p className="a-muted">Không có slide nào bị xóa.</p>
-        ) : (
-          <ul className="a-list">
-            {deleted.map((d) => {
-              const when = formatDateTimeVi(d.at);
-              return (
-                <li key={d.id} className="a-list-item">
-                  <span>
-                    {fileOf((d.before.row as { image_id?: unknown } | undefined)?.image_id)} · xóa bởi {d.actor} lúc {when}
-                  </span>
-                  <RestoreButton action={restoreSlideAction} id={d.id} auditId={d.auditId} side="before" token="deleted" label="Khôi phục mục đã xóa" when={when} />
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        <RestoreOutcome>
+          {deleted.length === 0 ? (
+            <p className="a-muted">Không có slide nào bị xóa.</p>
+          ) : (
+            <ul className="a-list">
+              {deleted.map((d) => {
+                const when = formatDateTimeVi(d.at);
+                return (
+                  <li key={d.id} className="a-list-item">
+                    <span>
+                      {fileOf((d.before.row as { image_id?: unknown } | undefined)?.image_id)} · xóa bởi {d.actor} lúc {when}
+                    </span>
+                    <RestoreButton action={restoreSlideAction} id={d.id} auditId={d.auditId} side="before" token="deleted" label="Khôi phục mục đã xóa" when={when} />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </RestoreOutcome>
       </section>
 
       {items.map((s, i) => (

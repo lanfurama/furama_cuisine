@@ -24,6 +24,8 @@ import { loadSocials } from '@/lib/server/content/site.queries';
  * each write at once.
  */
 
+/** A save's answer: the token of the version it wrote (Saved, lib/admin/save-state.ts). */
+const SAVED = { ok: true, data: { token: expect.any(String) } };
 const pool = getPool();
 const ACTOR: AuditActor = { id: 'staff-lan', email: 'lan@furama.test', name: 'Lan' };
 const OTHER: AuditActor = { id: 'staff-minh', email: 'minh@furama.test', name: 'Minh' };
@@ -78,10 +80,9 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('social links editor (database)'
       'tiktok:https://www.tiktok.com/@furama.dining.hous',
     ]);
     const facebook = await link('facebook');
-    expect(await updateSocialLink(pool, ACTOR, facebook.id, facebook.token, { ...facebook.values, href: 'https://www.facebook.com/furamacuisine' })).toEqual({
-      ok: true,
-      data: null,
-    });
+    expect(
+      await updateSocialLink(pool, ACTOR, facebook.id, facebook.token, { ...facebook.values, href: 'https://www.facebook.com/furamacuisine' }),
+    ).toEqual(SAVED);
     expect(await footer()).toContain('facebook:https://www.facebook.com/furamacuisine');
     const [saved] = await audit();
     expect(saved).toMatchObject({ action: 'update', entity_type: 'social_links', entity_id: facebook.id });
@@ -124,7 +125,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('social links editor (database)'
     await pool.query(`UPDATE social_links SET visible_locales = '{en}' WHERE id = $1`, [youtube.id]);
     const before = (await listSocialLinksAdmin(pool)).items.map((s) => s.id);
     const fresh = await link('youtube');
-    expect(await updateSocialLink(pool, ACTOR, fresh.id, fresh.token, { ...fresh.values, href: 'https://www.youtube.com/@furama' })).toEqual({ ok: true, data: null });
+    expect(await updateSocialLink(pool, ACTOR, fresh.id, fresh.token, { ...fresh.values, href: 'https://www.youtube.com/@furama' })).toEqual(SAVED);
     expect((await pool.query('SELECT visible_locales FROM social_links WHERE id = $1', [youtube.id])).rows[0]).toEqual({ visible_locales: ['en'] });
     expect(await footer('vi')).not.toContain('youtube:https://www.youtube.com/@furama');
 

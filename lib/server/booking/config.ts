@@ -32,6 +32,27 @@ export async function conflictBy(client: PoolClient, staffId: string | null, at:
   return { ok: false, code: 'conflict', params: { by: rows[0]?.name ?? 'người khác', at: formatDateTimeVi(at) } };
 }
 
+/**
+ * A conflict on a record with a History (spec §7.5): named for the newest
+ * audit row of that record (entity_id null: a list's order), which is who
+ * changed it last, even by a write that leaves the row's updated_by alone
+ * (R19: a restaurant's rename rewrites its card picture's alt; a string
+ * reset to its default has no row left) or that is not the row's own (a
+ * reorder). With no History yet, the row's updated_by (7A review).
+ */
+export async function conflictFromHistory(
+  client: PoolClient,
+  entityType: string,
+  entityId: string | null,
+  fallback: { by: string | null; at: Date },
+): Promise<Conflict> {
+  const { rows } = await client.query<{ actor_id: string | null; at: Date }>(
+    `SELECT actor_id, at FROM audit_log WHERE entity_type = $1 AND entity_id IS NOT DISTINCT FROM $2 ORDER BY at DESC, id DESC LIMIT 1`,
+    [entityType, entityId],
+  );
+  return rows[0] ? conflictBy(client, rows[0].actor_id, rows[0].at) : conflictBy(client, fallback.by, fallback.at);
+}
+
 /** Locks the restaurant's row for the save and checks the page's token. */
 async function lockRestaurant(client: PoolClient, id: string, token: string): Promise<NotFound | Conflict | null> {
   const { rows } = await client.query<{ token: string; updated_by: string | null; updated_at: Date }>(

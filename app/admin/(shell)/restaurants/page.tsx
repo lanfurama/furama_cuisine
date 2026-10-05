@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getPool } from '@/db/client';
+import { onlineBookingLabel } from '@/lib/admin/restaurant-status';
 import { getBookingSettings, listRestaurantBookings } from '@/lib/server/booking/config';
 import { listDestinationOptions } from '@/lib/server/content-admin/destinations';
 import { listHistory } from '@/lib/server/content-admin/history';
@@ -69,7 +70,8 @@ export default async function RestaurantsPage() {
                       {r.archived ? 'Đã lưu trữ' : r.isPublished ? 'Đang hiện' : 'Đang ẩn'}
                     </span>
                   </td>
-                  <td>{b?.bookingEnabled ? 'Bật' : 'Tắt'}</td>
+                  {/* The switch alone is not booking: a hidden or archived restaurant, or one at a hidden destination, takes none (7A review A11, L7-2). */}
+                  <td>{onlineBookingLabel({ ...r, bookingEnabled: b?.bookingEnabled ?? false })}</td>
                   <td>{b?.maxParty ?? `${settings.maxParty} (mặc định)`}</td>
                   <td>
                     <Link href={`/admin/restaurants/${r.id}`}>Nội dung</Link> · <Link href={`/admin/restaurants/${r.id}/booking`}>Giờ và sức chứa</Link>

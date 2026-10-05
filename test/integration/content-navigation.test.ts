@@ -25,6 +25,8 @@ import { loadNav } from '@/lib/server/content/site.queries';
  * items (loadNav) follow each write at once.
  */
 
+/** A save's answer: the token of the version it wrote (Saved, lib/admin/save-state.ts). */
+const SAVED = { ok: true, data: { token: expect.any(String) } };
 const pool = getPool();
 const ACTOR: AuditActor = { id: 'staff-lan', email: 'lan@furama.test', name: 'Lan' };
 const OTHER: AuditActor = { id: 'staff-minh', email: 'minh@furama.test', name: 'Minh' };
@@ -82,7 +84,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('navigation editor (database)', 
       'heritage:About',
     ]);
     const offers = await item('offers');
-    expect(await updateNavItem(pool, ACTOR, offers.id, offers.token, { ...offers.values, label: { en: 'Deals' } })).toEqual({ ok: true, data: null });
+    expect(await updateNavItem(pool, ACTOR, offers.id, offers.token, { ...offers.values, label: { en: 'Deals' } })).toEqual(SAVED);
     expect(await menu()).toContain('offers:Deals');
     const [saved] = await audit();
     expect(saved).toMatchObject({ action: 'update', entity_type: 'nav_items', entity_id: offers.id });
@@ -104,7 +106,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('navigation editor (database)', 
       });
     }
     // Eighteen is the most the one-line header holds: allowed (the form warns past 14).
-    expect(await updateNavItem(pool, ACTOR, offers.id, offers.token, { ...offers.values, label: { en: 'A'.repeat(18) } })).toEqual({ ok: true, data: null });
+    expect(await updateNavItem(pool, ACTOR, offers.id, offers.token, { ...offers.values, label: { en: 'A'.repeat(18) } })).toEqual(SAVED);
 
     expect(await createNavItem(pool, ACTOR, { id: null, targetSection: 'stories', isPublished: false, label: { en: 'News' } })).toEqual({
       ok: false,

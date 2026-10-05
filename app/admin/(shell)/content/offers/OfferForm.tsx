@@ -2,6 +2,7 @@
 
 import { useId } from 'react';
 import { submitKeepingValues } from '@/lib/admin/form';
+import type { Saved } from '@/lib/admin/save-state';
 import type { ActionResult } from '@/lib/server/action-result';
 import type { OfferInput } from '@/lib/server/content-admin/offers';
 import { SaveBar } from '../../_kit/SaveBar';
@@ -27,7 +28,8 @@ type Props = {
  */
 export function OfferForm(props: Props) {
   const save = useSaveState<unknown, OfferInput>(
-    (prev, formData) => (props.id ? saveOfferAction(prev as ActionResult | null, formData) : createOfferAction(prev as ActionResult<{ id: string }> | null, formData)),
+    (prev, formData) =>
+      props.id ? saveOfferAction(prev as ActionResult<Saved> | null, formData) : createOfferAction(prev as ActionResult<{ id: string }> | null, formData),
     props.token,
     props.values,
   );
@@ -40,7 +42,7 @@ export function OfferForm(props: Props) {
       noValidate
       aria-label={props.id ? 'Sửa ưu đãi' : 'Thêm ưu đãi'}
     >
-      <OfferFields key={save.token} {...props} token={save.token} values={save.view} state={save.state} />
+      <OfferFields key={save.fieldsKey} {...props} token={save.token} values={save.view} state={save.state} />
       <SaveBar
         state={save.state}
         pending={save.pending}

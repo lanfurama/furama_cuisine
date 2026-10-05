@@ -3,6 +3,7 @@
 import { updateTag } from 'next/cache';
 import { getPool } from '@/db/client';
 import { readForm, RestoreForm, ShareImageForm } from '@/lib/admin/content-schemas';
+import type { Saved } from '@/lib/admin/save-state';
 import { tagsForSave } from '@/lib/cache-plan';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
 import { restoreSettings, saveSettings, SHARE_IMAGE } from '@/lib/server/content-admin/settings';
@@ -22,7 +23,7 @@ function expire() {
   for (const tag of tagsForSave(['site_settings'])) updateTag(tag);
 }
 
-export async function saveShareImageAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+export async function saveShareImageAction(_prev: ActionResult<Saved> | null, formData: FormData): Promise<ActionResult<Saved>> {
   try {
     const staff = await requirePermission({ content: ['update'] });
     const { token, ogImageId } = ShareImageForm.parse(readForm(formData));

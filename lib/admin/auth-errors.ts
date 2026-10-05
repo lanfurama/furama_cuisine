@@ -1,5 +1,6 @@
 import { blamesSender } from '@/lib/email/smtp-reply';
-import type { ActionCode } from '@/lib/server/action-result';
+import type { ActionCode, ActionResult } from '@/lib/server/action-result';
+import type { InviteDelivery } from '@/lib/server/auth/staff';
 import type { EmailErrorCode } from '@/lib/server/email/types';
 
 /*
@@ -10,6 +11,7 @@ import type { EmailErrorCode } from '@/lib/server/email/types';
  * X-Retry-After header in seconds.
  * actionErrorMessage: the codes our admin Server Actions return (spec §7.4).
  * inviteEmailFailedMessage: why an invitation email did not go out.
+ * inviteOutcome: what the invite form says after a submit.
  * Client components import this file, so it imports types and client-safe
  * code only.
  */
@@ -137,4 +139,19 @@ export function inviteEmailFailedMessage(code: string | null | undefined): strin
   return code && EMAIL_SETUP_ERRORS[code as EmailErrorCode] === true
     ? 'Chưa gửi được email: chưa cấu hình gửi email trên môi trường này. Báo bộ phận kỹ thuật, rồi bấm Gửi lại.'
     : 'Chưa gửi được email, bấm Gửi lại.';
+}
+
+/**
+ * The invite form's line after a submit (phase-3 ledger): "sent" as a
+ * status; "created but not emailed" as an alert saying why, never the green
+ * "sent"; a refusal without a field to mark (already staff, already
+ * invited, forbidden) as an alert; nothing before a submit, or when the
+ * refusal is a field's (shown beside it).
+ */
+export function inviteOutcome(state: ActionResult<InviteDelivery> | null): { role: 'status' | 'alert'; text: string } | null {
+  if (!state) return null;
+  if (state.ok) {
+    return state.data.emailSent ? { role: 'status', text: 'Đã gửi lời mời.' } : { role: 'alert', text: `Đã tạo lời mời. ${inviteEmailFailedMessage(state.data.emailError)}` };
+  }
+  return state.fieldErrors ? null : { role: 'alert', text: actionErrorMessage(state.code, state.params) };
 }

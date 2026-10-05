@@ -16,7 +16,7 @@ import {
 import { readItem, writeItem, type ItemSnapshot } from '@/lib/server/content-admin/snapshot';
 import { loadRestaurantDetail, loadRestaurants } from '@/lib/server/content/restaurants.queries';
 import { loadBookingEmailData } from '@/lib/server/email/booking/load';
-import { MEDIA } from '@/lib/server/media/library';
+import { getMedia, MEDIA, saveMediaDetails } from '@/lib/server/media/library';
 
 /*
  * The restaurant's content editor (spec §7.2 /admin/restaurants/[id]) against
@@ -99,10 +99,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('restaurant content editor (data
 
   it('a rename shows on the card at once; R19 carries the card alt along, as the file’s own History row; a restore puts both back', async () => {
     const input = await tayaInput({ name: 'Tàya Garden House', typeLabel: { en: 'Garden Dining' } });
-    expect(await saveRestaurantContent(pool, ACTOR, 'taya-house', await tayaToken(), input)).toEqual({
-      ok: true,
-      data: { altChanged: true, visibilityChanged: false },
-    });
+    const renamed = await saveRestaurantContent(pool, ACTOR, 'taya-house', await tayaToken(), input);
+    expect(renamed).toEqual({ ok: true, data: { altChanged: true, visibilityChanged: false, token: await tayaToken() } });
     const card = (await loadRestaurants('en')).find((r) => r.id === 'taya-house')!;
     expect(card).toMatchObject({ name: 'Tàya Garden House', type: 'Garden Dining' });
     expect(card.image?.alt).toBe('Tàya Garden House');
@@ -124,6 +122,18 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('restaurant content editor (data
     const back = (await loadRestaurants('en')).find((r) => r.id === 'taya-house')!;
     expect(back).toMatchObject({ name: 'Tàya House', type: seedTaya.i18n.find((r) => r.locale === 'en')!.type_label });
     expect(back.image?.alt).toBe('Tàya House');
+  });
+
+  it('a file screen open across a rename that rewrote its alt (R19) is a conflict naming who renamed, not the file’s last editor (7A review)', async () => {
+    const card = String(seedTaya.row.card_image_id);
+    await pool.query(`UPDATE media SET updated_by = $2 WHERE id = $1::uuid`, [card, OTHER.id]);
+    const file = (await getMedia(pool, card))!;
+    expect((await saveRestaurantContent(pool, ACTOR, 'taya-house', await tayaToken(), await tayaInput({ name: 'Tàya Garden House' }))).ok).toBe(true);
+    expect(await saveMediaDetails(pool, OTHER, { id: card, token: file.token, alt: 'The house at night', decorative: false })).toMatchObject({
+      ok: false,
+      code: 'conflict',
+      params: { by: 'Hoa' },
+    });
   });
 
   it('R19 leaves an alt an editor wrote', async () => {

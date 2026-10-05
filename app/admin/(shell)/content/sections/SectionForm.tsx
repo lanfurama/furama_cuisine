@@ -4,6 +4,7 @@ import { useId } from 'react';
 import { SECTION_PARTS } from '@/lib/admin/content-rules';
 import { submitKeepingValues } from '@/lib/admin/form';
 import type { MediaOption } from '@/lib/admin/media-option';
+import type { Saved } from '@/lib/admin/save-state';
 import type { ActionResult } from '@/lib/server/action-result';
 import type { SectionView } from '@/lib/server/content-admin/sections';
 import { FieldError } from '../../_ui/FormMessage';
@@ -33,7 +34,7 @@ export function SectionForm({
   formLabel?: string;
   lastSaved: { by: string | null; at: string };
 }) {
-  const save = useSaveState<null, SectionView>(saveSectionAction, section.token, section);
+  const save = useSaveState<Saved, SectionView>(saveSectionAction, section.token, section);
   return (
     <form
       method="post"
@@ -43,7 +44,7 @@ export function SectionForm({
       noValidate
       aria-label={formLabel ?? section.label}
     >
-      <Fields key={save.token} section={save.view} images={images} upload={upload} state={save.state} />
+      <Fields key={save.fieldsKey} section={save.view} images={images} upload={upload} state={save.state} />
       <SaveBar state={save.state} pending={save.pending} dirty={save.dirty} stale={save.stale} onReload={save.reload} lastSaved={lastSaved} viewHref="/en" />
     </form>
   );

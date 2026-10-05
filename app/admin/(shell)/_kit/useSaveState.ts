@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useActionState, useState } from 'react';
+import { initialSaveState, markSaveDirty, nextSaveState, reloadSaveState, savedToken } from '@/lib/admin/save-state';
 import type { ActionResult } from '@/lib/server/action-result';
 import { useLeaveGuard } from './useLeaveGuard';
 
@@ -9,8 +10,8 @@ type Action<T> = (prev: ActionResult<T> | null, formData: FormData) => Promise<A
 
 /*
  * The state holder of an editor (code rule 9, spec §7.3 SaveBar). It lives
- * above the fields, which the editor keys on the token this hook accepted,
- * and draws from the view it accepted with it.
+ * above the fields, which the editor keys on `fieldsKey`, and draws from the
+ * view it accepted with the token it posts.
  *
  * The page's props bring the record as it is now, after any refresh: this
  * form's own save, but also a picker's upload, another form's action on the
@@ -21,7 +22,13 @@ type Action<T> = (prev: ActionResult<T> | null, formData: FormData) => Promise<A
  * what was typed, `stale` says a newer version exists, and the form still
  * posts the accepted token, so saving over it is an honest conflict. (Keying
  * the fields on the old token while posting the new one would overwrite a
- * colleague's save silently.)
+ * colleague's save silently.) Text typed while this form's own save is in
+ * flight stays too, when the page then holds exactly the version the save
+ * wrote: its token is taken, the fields do not remount, and the form stays
+ * unsaved (lib/admin/save-state.ts). The save says which version that is:
+ * its data's `token` (Saved), or `written(data, posted)` for a form whose
+ * token is built from several (the strings form joins one per key; `posted`
+ * is the view the fields were drawn from when it was sent).
  *
  * `view` is the record's values only: choice lists (pictures, PDFs,
  * cuisines…) come from live props, so a fresh upload is a choice at once.
@@ -32,19 +39,13 @@ type Action<T> = (prev: ActionResult<T> | null, formData: FormData) => Promise<A
  * remounts and what staff typed stays (submitKeepingValues). `dirty` drives
  * the leave-page guard.
  */
-export function useSaveState<T, V>(action: Action<T>, token: string, view: V) {
+export function useSaveState<T, V>(action: Action<T>, token: string, view: V, written: (data: T, posted: V) => string | null = savedToken) {
   const router = useRouter();
   const [state, dispatch, pending] = useActionState<ActionResult<T> | null, FormData>(action, null);
-  // arrivedWith: the accepted token when this result came back.
-  const [seen, setSeen] = useState({ state, arrivedWith: token, token, view, dirty: false });
-  let current = seen;
+  const [seen, setSeen] = useState(() => initialSaveState(state, token, view));
   // Adjusted during render, not in an effect, so the notice and the fields agree.
-  if (seen.state !== state) {
-    // This form's own result: a success takes the record as the page now has it; a failure keeps the fields as typed.
-    current = state?.ok ? { state, arrivedWith: token, token, view, dirty: false } : { ...seen, state, arrivedWith: seen.token };
-  } else if (seen.token !== token && !seen.dirty) {
-    current = { ...seen, token, view };
-  }
+  const saved = state?.ok ? written(state.data, seen.view) : null;
+  const current = nextSaveState(seen, { state, ok: state?.ok === true, saved, pending, token, view });
   if (current !== seen) setSeen(current);
   const visible = state !== null && !state.ok && current.arrivedWith !== current.token ? null : state;
 
@@ -56,16 +57,18 @@ export function useSaveState<T, V>(action: Action<T>, token: string, view: V) {
     dispatch,
     pending,
     dirty: current.dirty,
-    /** The record the fields show and post: key them on it. */
+    /** The record the form posts (the hidden token input). */
     token: current.token,
+    /** What the fields remount on: key them on it. */
+    fieldsKey: current.fieldsKey,
     view: current.view,
     /** A newer version arrived while the form held unsaved edits. */
     stale: current.token !== token,
     // Functional updates: a late callback (an upload finishing) may hold a render's closure from before a save.
-    markDirty: () => setSeen((s) => (s.dirty ? s : { ...s, dirty: true })),
-    /** "Tải lại": drop the unsaved edits, take the record the page has, and ask the server for the newest. */
+    markDirty: () => setSeen(markSaveDirty),
+    /** "Tải lại": drop the unsaved edits, show the record the page has, and ask the server for the newest. */
     reload: () => {
-      setSeen((s) => ({ ...s, dirty: false }));
+      setSeen((s) => reloadSaveState(s, token, view));
       router.refresh();
     },
   };

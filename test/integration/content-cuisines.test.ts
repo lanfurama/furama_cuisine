@@ -83,13 +83,25 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('cuisines editor (database)', ()
   it('a rename reaches the rail at once; History brings the old label back; a page older than another save is a conflict', async () => {
     const thai = await item('thai');
     expect(thai).toMatchObject({ name: 'Thai', isPublished: true, restaurants: 2 });
-    expect(await updateCuisine(pool, ACTOR, 'thai', thai.token, { ...thai.values, label: { en: 'Thai & Lao' } })).toEqual({ ok: true, data: null });
+    // The save answers the token of the version it wrote: the one the editor's page reads next (useSaveState, lib/admin/save-state.ts).
+    const renamed = await updateCuisine(pool, ACTOR, 'thai', thai.token, { ...thai.values, label: { en: 'Thai & Lao' } });
+    expect(renamed).toEqual({ ok: true, data: { token: (await item('thai')).token } });
     expect((await loadCuisines('en')).find((c) => c.id === 'thai')?.label).toBe('Thai & Lao');
     const [saved] = await audit();
     expect(saved).toMatchObject({ actor_id: ACTOR.id, action: 'update', entity_type: 'cuisines', entity_id: 'thai' });
     expect(await updateCuisine(pool, OTHER, 'thai', thai.token, thai.values)).toMatchObject({ ok: false, code: 'conflict', params: { by: 'Lan' } });
     expect(await restoreCuisine(pool, OTHER, { id: 'thai', auditId: saved.id, side: 'before', token: (await item('thai')).token })).toEqual({ ok: true, data: null });
     expect((await loadCuisines('en')).find((c) => c.id === 'thai')?.label).toBe('Thai');
+  });
+
+  it('an order changed since the page is a conflict naming who reordered, not who last edited a cuisine (7A review)', async () => {
+    const stale = await listToken();
+    const order = (await listCuisinesAdmin(pool)).items.map((c) => c.id);
+    expect(await reorderCuisines(pool, ACTOR, stale, [...order.slice(1), order[0]])).toEqual({ ok: true, data: null });
+    // Afterwards Minh edits one cuisine: its row is now the newest, and his.
+    const thai = await item('thai');
+    expect((await updateCuisine(pool, OTHER, 'thai', thai.token, { ...thai.values, label: { en: 'Thai & Lao' } })).ok).toBe(true);
+    expect(await reorderCuisines(pool, OTHER, stale, order)).toMatchObject({ ok: false, code: 'conflict', params: { by: 'Lan' } });
   });
 
   it('hidden, it leaves the rail and the restaurants’ cuisines; shown again, it is back', async () => {

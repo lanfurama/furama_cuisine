@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useId } from 'react';
 import { submitKeepingValues } from '@/lib/admin/form';
 import { EMAIL_EVENTS, EMAIL_EVENT_LABELS } from '@/lib/email/events';
 import type { ActionResult } from '@/lib/server/action-result';
@@ -17,6 +17,7 @@ const SENT: Record<EmailDeliveryMode, (to: string) => string> = {
 /* "Gửi email thử" (spec §10.4): the sample booking's email in the chosen language, through the same gate as real emails. */
 export function TestEmailForm({ defaultTo, locales }: { defaultTo: string; locales: { code: string; name: string }[] }) {
   const [state, action, pending] = useActionState<ActionResult<{ mode: EmailDeliveryMode; to: string }> | null, FormData>(sendTest, null);
+  const uid = useId();
   return (
     <form method="post" className="a-grid-form" onSubmit={submitKeepingValues(action)} noValidate aria-label="Gửi email thử">
       {state?.ok ? (
@@ -27,13 +28,13 @@ export function TestEmailForm({ defaultTo, locales }: { defaultTo: string; local
         <FormMessage state={state} />
       )}
       <div className="a-field">
-        <label htmlFor="notify-test-to">Gửi tới</label>
-        <input id="notify-test-to" name="to" type="email" autoComplete="off" maxLength={254} defaultValue={defaultTo} aria-describedby="notify-test-to-error" />
-        <FieldError state={state} name="to" id="notify-test-to-error" />
+        <label htmlFor={`${uid}-to`}>Gửi tới</label>
+        <input id={`${uid}-to`} name="to" type="email" autoComplete="off" maxLength={254} defaultValue={defaultTo} aria-describedby={`${uid}-to-error`} />
+        <FieldError state={state} name="to" id={`${uid}-to-error`} />
       </div>
       <div className="a-field">
-        <label htmlFor="notify-test-event">Mẫu email</label>
-        <select id="notify-test-event" name="event" defaultValue="staff.new">
+        <label htmlFor={`${uid}-event`}>Mẫu email</label>
+        <select id={`${uid}-event`} name="event" defaultValue="staff.new">
           {EMAIL_EVENTS.map((e) => (
             <option key={e} value={e}>
               {EMAIL_EVENT_LABELS[e]}
@@ -42,8 +43,8 @@ export function TestEmailForm({ defaultTo, locales }: { defaultTo: string; local
         </select>
       </div>
       <div className="a-field">
-        <label htmlFor="notify-test-locale">Ngôn ngữ</label>
-        <select id="notify-test-locale" name="locale" defaultValue="vi">
+        <label htmlFor={`${uid}-locale`}>Ngôn ngữ</label>
+        <select id={`${uid}-locale`} name="locale" defaultValue="vi">
           {locales.map((l) => (
             <option key={l.code} value={l.code}>
               {l.name}

@@ -20,6 +20,7 @@ import {
 } from '@/lib/server/content-admin/destinations';
 import { listDeleted } from '@/lib/server/content-admin/history';
 import { ID_TAKEN, MEDIA_GONE } from '@/lib/server/content-admin/list-editor';
+import { listRestaurantsAdmin } from '@/lib/server/content-admin/restaurants';
 import { readItems, writeItem, type ItemSnapshot } from '@/lib/server/content-admin/snapshot';
 import { loadOffers } from '@/lib/server/content/home.queries';
 import { loadDetailSlugs, loadRestaurantDetail, loadRestaurants } from '@/lib/server/content/restaurants.queries';
@@ -35,6 +36,8 @@ import { restaurantsWithoutRecipient } from '@/lib/server/email/recipients';
  * staff paths still see them. The guest loaders are read after each step.
  */
 
+/** A save's answer: the token of the version it wrote (Saved, lib/admin/save-state.ts). */
+const SAVED = { ok: true, data: { token: expect.any(String) } };
 const pool = getPool();
 const ACTOR: AuditActor = { id: 'staff-lan', email: 'lan@furama.test', name: 'Lan' };
 const OTHER: AuditActor = { id: 'staff-minh', email: 'minh@furama.test', name: 'Minh' };
@@ -111,7 +114,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('destinations editor (database)'
     const mm = await item('mm');
     expect(mm).toMatchObject({ name: 'Furama MM Supercenter', kind: 'venue', isPublished: true, shownRestaurants: 2 });
     const edited = { ...mm.values, cardTitle1: { en: 'Furama MM' }, cardTitle2: { en: 'Food Court' }, address: { en: '1 Test Street' } };
-    expect(await updateDestination(pool, ACTOR, 'mm', mm.token, edited)).toEqual({ ok: true, data: null });
+    expect(await updateDestination(pool, ACTOR, 'mm', mm.token, edited)).toEqual(SAVED);
     expect((await loadDestinations('en')).find((d) => d.id === 'mm')).toMatchObject({ cardTitle: ['Furama MM', 'Food Court'], address: '1 Test Street' });
 
     const [saved] = await audit();
@@ -232,8 +235,11 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('destinations editor (database)'
       ]);
       // No "no recipient" alarm for restaurants guests cannot book (L7-4's predicate).
       for (const r of await restaurantsWithoutRecipient(pool)) expect(RESORT_RESTAURANTS).not.toContain(r.id);
-      // Staff paths still see them.
+      // Staff paths still see them; the restaurants list says why they take no online booking.
       expect((await listRestaurantOptions(pool)).map((r) => r.id)).toEqual(expect.arrayContaining(RESORT_RESTAURANTS));
+      const listed = (await listRestaurantsAdmin(pool)).items;
+      expect(listed.filter((r) => !r.destinationShown).map((r) => r.id)).toEqual(expect.arrayContaining(RESORT_RESTAURANTS));
+      expect(listed.filter((r) => !r.destinationShown)).toHaveLength(RESORT_RESTAURANTS.length);
       expect((await listDestinationOptions(pool)).map((d) => d.id)).toEqual(['resort', 'dining-house', 'mm']);
 
       const [hidden] = await audit();

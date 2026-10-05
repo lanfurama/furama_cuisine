@@ -68,11 +68,18 @@ test('an Editor uploads an image straight to the store, describes it, deletes it
   const details = page.getByRole('form', { name: 'Mô tả ảnh' });
   await details.getByLabel('Mô tả ảnh (tiếng Anh, cho trình đọc màn hình)', { exact: true }).fill('The terrace at dusk');
   await details.getByRole('button', { name: 'Lưu mô tả' }).click();
-  await expect(page.getByRole('form', { name: 'Mô tả ảnh' }).getByRole('status')).toHaveText('Đã lưu.');
+  await expect(page.getByRole('form', { name: 'Mô tả ảnh' }).getByRole('status')).toHaveText('Đã lưu. Trang khách cập nhật ngay.');
   expect(await one(`SELECT alt FROM media_i18n WHERE media_id = $1 AND locale = 'en'`, [row!.id])).toEqual({ alt: 'The terrace at dusk' });
 
-  // Delete: a soft delete (R14), back to the library with a notice; the file stays in the store.
+  // Delete, after a confirm (7A review UX-10): a soft delete (R14), back to the library with a notice; the file stays in the store.
+  const asked = new Promise<string>((resolve) =>
+    page.once('dialog', (d) => {
+      resolve(d.message());
+      void d.accept();
+    }),
+  );
   await page.getByRole('form', { name: 'Xóa file' }).getByRole('button', { name: 'Xóa file' }).click();
+  expect(await asked).toBe(`Xóa file “${file}”? File vào thùng rác 30 ngày; khôi phục được từ Lịch sử của nó.`);
   await expect(page).toHaveURL(/\/admin\/media\?deleted=1$/);
   await expect(page.getByRole('main').getByRole('status')).toContainText('Đã xóa file.');
   await expect(page.getByRole('list', { name: 'Các file' }).getByRole('link', { name: file })).toHaveCount(0);
@@ -87,12 +94,15 @@ test('an Editor uploads an image straight to the store, describes it, deletes it
   accept(page);
   await page.getByRole('region', { name: 'Lịch sử' }).getByRole('button', { name: /^Khôi phục mục đã xóa/ }).click();
   await expect(page.getByRole('form', { name: 'Mô tả ảnh' })).toBeVisible();
+  // The panel says what was restored, though that version is no longer a choice (7A review UX-5).
+  await expect(page.getByRole('region', { name: 'Lịch sử' }).getByRole('status')).toHaveText(/^Đã khôi phục: khôi phục mục đã xóa lúc \d\d:\d\d \d\d\/\d\d\/\d{4}\.$/);
   await expect(page.getByRole('form', { name: 'Mô tả ảnh' }).getByLabel('Mô tả ảnh (tiếng Anh, cho trình đọc màn hình)', { exact: true })).toHaveValue(
     'The terrace at dusk',
   );
   expect(await one(`SELECT deleted_at FROM media WHERE id = $1`, [row!.id])).toEqual({ deleted_at: null });
 
   // Back to the trash, where this run's file ends (nothing sweeps it locally).
+  accept(page);
   await page.getByRole('form', { name: 'Xóa file' }).getByRole('button', { name: 'Xóa file' }).click();
   await expect(page).toHaveURL(/\/admin\/media\?deleted=1$/);
   expect(csp).toEqual([]);
@@ -154,6 +164,7 @@ test('AC3: a file the site shows cannot be deleted, and the page says where it i
   await page.goto(`/admin/media/${chef!.id}`);
   await expectHydrated(page);
   await expect(page.getByRole('region', { name: 'Đang được dùng ở' }).getByRole('link', { name: 'Section experiences' })).toBeVisible();
+  accept(page);
   await page.getByRole('form', { name: 'Xóa file' }).getByRole('button', { name: 'Xóa file' }).click();
   const form = page.getByRole('form', { name: 'Xóa file' });
   await expect(form.getByRole('alert')).toContainText('File này đang được dùng nên không xóa được.');

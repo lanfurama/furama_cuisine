@@ -16,6 +16,8 @@ import { mediaUsage } from '@/lib/server/media/library';
  * (C7), and the library names the SEO screen as its user (AC3).
  */
 
+/** A save's answer: the token of the version it wrote (Saved, lib/admin/save-state.ts). */
+const SAVED = { ok: true, data: { token: expect.any(String) } };
 const pool = getPool();
 const ACTOR: AuditActor = { id: 'staff-lan', email: 'lan@furama.test', name: 'Lan' };
 
@@ -45,7 +47,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('the share picture (database)', 
   it('a chosen picture reaches every page’s metadata at once, with its alt; History puts “none” back', async () => {
     expect(await loadShareImage('en')).toBeNull();
     const beach = await mediaId('/assets/hero-beach.jpg');
-    expect(await saveSettings(pool, ACTOR, SHARE_IMAGE, { token: (await editor()).token, values: { og_image_id: beach } })).toEqual({ ok: true, data: null });
+    expect(await saveSettings(pool, ACTOR, SHARE_IMAGE, { token: (await editor()).token, values: { og_image_id: beach } })).toEqual(SAVED);
     expect(await loadShareImage('en')).toMatchObject({ url: '/assets/hero-beach.jpg', width: expect.any(Number), height: expect.any(Number) });
     expect(await mediaUsage(pool, beach)).toContainEqual(expect.objectContaining({ href: '/admin/content/seo' }));
 
@@ -59,9 +61,9 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('the share picture (database)', 
 
   it('a file in the trash cannot be chosen; a restore of a version that showed it takes it out of the trash (C7)', async () => {
     const beach = await mediaId('/assets/hero-beach.jpg');
-    expect(await saveSettings(pool, ACTOR, SHARE_IMAGE, { token: (await editor()).token, values: { og_image_id: beach } })).toEqual({ ok: true, data: null });
+    expect(await saveSettings(pool, ACTOR, SHARE_IMAGE, { token: (await editor()).token, values: { og_image_id: beach } })).toEqual(SAVED);
     const [saved] = await listHistory(pool, 'site_settings', SHARE_IMAGE.id, 10);
-    expect(await saveSettings(pool, ACTOR, SHARE_IMAGE, { token: (await editor()).token, values: { og_image_id: null } })).toEqual({ ok: true, data: null });
+    expect(await saveSettings(pool, ACTOR, SHARE_IMAGE, { token: (await editor()).token, values: { og_image_id: null } })).toEqual(SAVED);
     await pool.query('UPDATE media SET deleted_at = now() WHERE id = $1', [beach]);
 
     expect(await saveSettings(pool, ACTOR, SHARE_IMAGE, { token: (await editor()).token, values: { og_image_id: beach } })).toEqual({

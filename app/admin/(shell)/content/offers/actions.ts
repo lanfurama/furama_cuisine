@@ -3,7 +3,8 @@
 import { updateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getPool } from '@/db/client';
-import { OfferForm, OrderForm, readForm, RecordRef, RestoreForm } from '@/lib/admin/content-schemas';
+import { OfferForm, OrderForm, PublishForm, readForm, RecordRef, RestoreForm } from '@/lib/admin/content-schemas';
+import type { Saved } from '@/lib/admin/save-state';
 import { tagsForSave } from '@/lib/cache-plan';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
 import {
@@ -45,7 +46,7 @@ export async function createOfferAction(_prev: ActionResult<{ id: string }> | nu
   }
 }
 
-export async function saveOfferAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+export async function saveOfferAction(_prev: ActionResult<Saved> | null, formData: FormData): Promise<ActionResult<Saved>> {
   try {
     const staff = await requirePermission({ content: ['update'] });
     const fields = readForm(formData);
@@ -62,9 +63,9 @@ export async function saveOfferAction(_prev: ActionResult | null, formData: Form
 export async function toggleOfferAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
     const staff = await requirePermission({ content: ['update'] });
-    const fields = readForm(formData);
-    const { id, token } = RecordRef.parse(fields);
-    const result = await setOfferPublished(getPool(), auditActor(staff), id, token, fields.publish === '1');
+    // PublishForm, like every list's switch: a value other than '0' or '1' is refused, never read as "hide" (7A fix-wave residual).
+    const { id, token, publish } = PublishForm.parse(readForm(formData));
+    const result = await setOfferPublished(getPool(), auditActor(staff), id, token, publish);
     if (!result.ok) return result;
     expire();
     return result;

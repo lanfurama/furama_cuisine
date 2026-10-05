@@ -4,6 +4,7 @@ import { useId, useState } from 'react';
 import { LENGTHS, LIMITS, limitWarnings } from '@/lib/admin/content-rules';
 import { submitKeepingValues } from '@/lib/admin/form';
 import type { MediaOption } from '@/lib/admin/media-option';
+import type { Saved } from '@/lib/admin/save-state';
 import type { ActionResult } from '@/lib/server/action-result';
 import type { RestaurantEditor } from '@/lib/server/content-admin/restaurants';
 import { ImagePicker } from '../../_kit/ImagePicker';
@@ -40,10 +41,10 @@ type Props = {
  * arriving while staff type (the picker's upload refreshes the page).
  */
 export function RestaurantForm(props: Props) {
-  const save = useSaveState<null, Values>(saveRestaurantAction, props.token, props.values);
+  const save = useSaveState<Saved, Values>(saveRestaurantAction, props.token, props.values);
   return (
     <form method="post" className="a-grid-form a-editor" onSubmit={submitKeepingValues(save.dispatch)} onInput={save.markDirty} noValidate aria-label="Nội dung nhà hàng">
-      <Fields key={save.token} {...props} token={save.token} values={save.view} state={save.state} markDirty={save.markDirty} />
+      <Fields key={save.fieldsKey} {...props} token={save.token} values={save.view} state={save.state} markDirty={save.markDirty} />
       <SaveBar
         state={save.state}
         pending={save.pending}

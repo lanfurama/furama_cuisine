@@ -25,7 +25,18 @@ export function RestaurantSwitches({ id, name, token, shown, archived }: { id: s
         <input type="hidden" name="id" value={id} />
         <input type="hidden" name="token" value={token} />
         <input type="hidden" name="value" value={shown ? '0' : '1'} />
-        <button type="submit" className="a-btn a-btn--ghost a-btn--small" disabled={showing} aria-label={`${shown ? 'Ẩn' : 'Hiện'} “${name}”`}>
+        <button
+          type="submit"
+          className="a-btn a-btn--ghost a-btn--small"
+          disabled={showing}
+          aria-label={`${shown ? 'Ẩn' : 'Hiện'} “${name}”`}
+          onClick={(e) => {
+            // Asks first, like "Lưu trữ" (7A review A11): hiding takes the restaurant off the web too.
+            if (shown && !window.confirm(`Ẩn “${name}”? Nhà hàng rời web (thẻ, trang, ưu đãi, đặt bàn online); đặt bàn đã có giữ nguyên. Hiện lại được bất cứ lúc nào.`)) {
+              e.preventDefault();
+            }
+          }}
+        >
           {shown ? 'Ẩn' : 'Hiện'}
         </button>
       </form>

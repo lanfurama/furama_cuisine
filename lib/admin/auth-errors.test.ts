@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actionErrorMessage, authErrorMessage, emailFailureHint, inviteEmailFailedMessage } from './auth-errors';
+import { actionErrorMessage, authErrorMessage, emailFailureHint, inviteEmailFailedMessage, inviteOutcome } from './auth-errors';
 
 const REJECTED = 'Máy chủ SMTP từ chối địa chỉ người nhận: kiểm tra lại địa chỉ (gửi lại sẽ không giúp).';
 const SENDER =
@@ -153,5 +153,25 @@ describe('inviteEmailFailedMessage', () => {
   it('a refused address is not worth sending again: the message says to check it and invite again (F9)', () => {
     expect(inviteEmailFailedMessage('rejected')).not.toContain('Gửi lại');
     expect(inviteEmailFailedMessage('rejected')).toContain('mời lại');
+  });
+});
+
+describe('the invite form’s outcome (phase-3 ledger)', () => {
+  it('"created but not sent" is an alert that says why, never the green "sent"', () => {
+    expect(inviteOutcome({ ok: true, data: { emailSent: true } })).toEqual({ role: 'status', text: 'Đã gửi lời mời.' });
+    expect(inviteOutcome({ ok: true, data: { emailSent: false, emailError: 'rejected' } })).toEqual({
+      role: 'alert',
+      text: `Đã tạo lời mời. ${REFUSED_INVITE}`,
+    });
+    expect(inviteOutcome({ ok: true, data: { emailSent: false, emailError: 'unknown' } })).toEqual({
+      role: 'alert',
+      text: 'Đã tạo lời mời. Chưa gửi được email, bấm Gửi lại.',
+    });
+  });
+
+  it('a refusal without a field is an alert; a field’s refusal shows beside the field only; nothing before a submit', () => {
+    expect(inviteOutcome({ ok: false, code: 'already_staff' })).toEqual({ role: 'alert', text: actionErrorMessage('already_staff') });
+    expect(inviteOutcome({ ok: false, code: 'invalid', fieldErrors: { email: ['Email không hợp lệ.'] } })).toBeNull();
+    expect(inviteOutcome(null)).toBeNull();
   });
 });

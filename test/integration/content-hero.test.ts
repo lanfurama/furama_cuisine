@@ -33,6 +33,8 @@ import { getSharedInbox, saveSharedInbox } from '@/lib/server/email/recipients';
  * (homeSections) follows at once.
  */
 
+/** A save's answer: the token of the version it wrote (Saved, lib/admin/save-state.ts). */
+const SAVED = { ok: true, data: { token: expect.any(String) } };
 const pool = getPool();
 const ACTOR: AuditActor = { id: 'staff-lan', email: 'lan@furama.test', name: 'Lan' };
 const OTHER: AuditActor = { id: 'staff-minh', email: 'minh@furama.test', name: 'Minh' };
@@ -110,7 +112,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('sections and hero editors (data
     it('hiding the hero takes it off the home page; History brings it back; a page older than another save is a conflict', async () => {
       expect(homeSections(await loadSections('en')).has('hero')).toBe(true);
       const seen = (await section('hero')).token;
-      expect(await saveSection(pool, ACTOR, { key: 'hero', token: seen, isVisible: false })).toEqual({ ok: true, data: null });
+      const answer = await saveSection(pool, ACTOR, { key: 'hero', token: seen, isVisible: false });
+      expect(answer).toEqual({ ok: true, data: { token: (await section('hero')).token } });
       expect((await loadSections('en')).hero.visible).toBe(false);
       expect(homeSections(await loadSections('en')).has('hero')).toBe(false);
 
@@ -142,10 +145,10 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('sections and hero editors (data
       });
       expect(await audit()).toEqual([]);
 
-      expect(await saveSection(pool, ACTOR, { key: 'film', token: film.token, isVisible: true, imageId: film.imageId, link: YOUTUBE })).toEqual({ ok: true, data: null });
+      expect(await saveSection(pool, ACTOR, { key: 'film', token: film.token, isVisible: true, imageId: film.imageId, link: YOUTUBE })).toEqual(SAVED);
       expect((await loadSections('en')).film).toMatchObject({ visible: true, link: YOUTUBE, image: { url: '/assets/hero-beach.jpg' } });
       // The film switched off: the link stays in the row, and never travels to the browser (loadSections).
-      expect(await saveSection(pool, ACTOR, { key: 'film', token: (await section('film')).token, isVisible: false })).toEqual({ ok: true, data: null });
+      expect(await saveSection(pool, ACTOR, { key: 'film', token: (await section('film')).token, isVisible: false })).toEqual(SAVED);
       expect(await section('film')).toMatchObject({ visible: false, link: YOUTUBE, imageId: film.imageId });
       expect((await loadSections('en')).film).toEqual({ visible: false, image: null, link: null });
     });
@@ -153,13 +156,12 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('sections and hero editors (data
     it('a picture must be live (code rule 2); a version whose picture is in the trash brings it back; a purged one cannot come back (C7)', async () => {
       const heritage = await section('heritage');
       const picture = await testFile('heritage');
-      expect(await saveSection(pool, ACTOR, { key: 'heritage', token: heritage.token, isVisible: true, imageId: picture })).toEqual({ ok: true, data: null });
+      expect(await saveSection(pool, ACTOR, { key: 'heritage', token: heritage.token, isVisible: true, imageId: picture })).toEqual(SAVED);
       const [withPicture] = await audit();
       expect((await loadSections('en')).heritage.image?.url).toBe('/assets/test-a9-heritage.jpg');
-      expect(await saveSection(pool, ACTOR, { key: 'heritage', token: (await section('heritage')).token, isVisible: true, imageId: heritage.imageId })).toEqual({
-        ok: true,
-        data: null,
-      });
+      expect(
+        await saveSection(pool, ACTOR, { key: 'heritage', token: (await section('heritage')).token, isVisible: true, imageId: heritage.imageId }),
+      ).toEqual(SAVED);
 
       // Nothing uses it now: the library may put it in the trash, and no save may point at it then.
       await pool.query('UPDATE media SET deleted_at = now() WHERE id = $1', [picture]);
@@ -195,6 +197,18 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('sections and hero editors (data
       expect(await createSlide(pool, ACTOR, { imageId: taya, imageMobileId: null, isPublished: true })).toEqual({ ok: false, code: 'limit', params: { max: '5' } });
       expect(await createSlide(pool, ACTOR, { imageId: taya, imageMobileId: null, isPublished: false })).toMatchObject({ ok: true });
       expect(await shownSlides()).toHaveLength(5);
+    });
+
+    it('two slides on one picture are named apart by their place, so their buttons are too (7A review A9)', async () => {
+      const taya = await mediaId('/assets/hero-taya.jpg');
+      expect(await createSlide(pool, ACTOR, { imageId: taya, imageMobileId: null, isPublished: false })).toMatchObject({ ok: true });
+      const items = (await listSlidesAdmin(pool)).items;
+      const names = items.map((i) => i.name);
+      expect(new Set(names).size).toBe(names.length);
+      const shared = items.flatMap((item, i) => (item.imageId === taya ? [[item.name, i + 1] as const] : []));
+      expect(shared).toHaveLength(2);
+      for (const [name, place] of shared) expect(name).toBe(`hero-taya.jpg (slide ${place})`);
+      expect(names.filter((n) => !n.includes('(slide '))).toHaveLength(names.length - 2);
     });
 
     it('a slide takes pictures only: a PDF of the library is refused in either picture, and nothing is written', async () => {
@@ -233,7 +247,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('sections and hero editors (data
       // A crop on slide 2 lets it lead.
       const crop = await mediaId('/assets/hero-hall-m.jpg');
       const taya = await mediaId('/assets/hero-taya.jpg');
-      expect(await updateSlide(pool, ACTOR, '2', await slideToken('2'), { imageId: taya, imageMobileId: crop, isPublished: true })).toEqual({ ok: true, data: null });
+      expect(await updateSlide(pool, ACTOR, '2', await slideToken('2'), { imageId: taya, imageMobileId: crop, isPublished: true })).toEqual(SAVED);
       expect(await shownSlides()).toEqual([2]);
     });
 
@@ -263,7 +277,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('sections and hero editors (data
     expect(seen.ms).toBe(7000);
     const inbox = await getSharedInbox(pool);
     expect(await saveSharedInbox(pool, OTHER, { email: 'events@furama.test', token: inbox.token })).toEqual({ ok: true, data: null });
-    expect(await saveAutoplay(pool, ACTOR, { token: seen.token, ms: 9000 })).toEqual({ ok: true, data: null });
+    const paced = await saveAutoplay(pool, ACTOR, { token: seen.token, ms: 9000 });
+    expect(paced).toEqual({ ok: true, data: { token: (await getAutoplayEditor(pool)).token } });
     expect((await loadSiteSettings(pool))!.heroAutoplayMs).toBe(9000);
     expect(await saveAutoplay(pool, OTHER, { token: seen.token, ms: 5000 })).toMatchObject({ ok: false, code: 'conflict' });
     expect(await saveAutoplay(pool, ACTOR, { token: (await getAutoplayEditor(pool)).token, ms: 2000 })).toMatchObject({ ok: false, code: 'invalid' });
@@ -279,14 +294,14 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('sections and hero editors (data
 
   it('the slide pace leaves site_settings.updated_at alone: the shared inbox’s page token survives a pace save', async () => {
     const inbox = await getSharedInbox(pool);
-    expect(await saveAutoplay(pool, ACTOR, { token: (await getAutoplayEditor(pool)).token, ms: 9000 })).toEqual({ ok: true, data: null });
+    expect(await saveAutoplay(pool, ACTOR, { token: (await getAutoplayEditor(pool)).token, ms: 9000 })).toEqual(SAVED);
     expect(await saveSharedInbox(pool, OTHER, { email: 'events@furama.test', token: inbox.token })).toEqual({ ok: true, data: null });
     expect((await loadSiteSettings(pool))!).toMatchObject({ heroAutoplayMs: 9000, email: 'events@furama.test' });
   });
 
   it('a stale pace save names who saved the pace (its History), not who saved the inbox since', async () => {
     const seen = await getAutoplayEditor(pool);
-    expect(await saveAutoplay(pool, ACTOR, { token: seen.token, ms: 9000 })).toEqual({ ok: true, data: null });
+    expect(await saveAutoplay(pool, ACTOR, { token: seen.token, ms: 9000 })).toEqual(SAVED);
     expect(await saveSharedInbox(pool, OTHER, { email: 'events@furama.test', token: (await getSharedInbox(pool)).token })).toEqual({ ok: true, data: null });
     expect(await saveAutoplay(pool, OTHER, { token: seen.token, ms: 5000 })).toMatchObject({ ok: false, code: 'conflict', params: { by: 'Lan' } });
   });

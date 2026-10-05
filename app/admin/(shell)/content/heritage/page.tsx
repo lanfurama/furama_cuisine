@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { StringsPanel } from '../_ui/StringsPanel';
 
@@ -12,6 +13,9 @@ export default async function Page() {
   await requirePagePermission({ content: ['read'] });
   return (
     <>
+      <p className="a-crumbs">
+        <Link href="/admin/content">← Nội dung</Link>
+      </p>
       <h1>Heritage</h1>
       <p className="a-lede">Chữ của mục Heritage trên trang chủ. Ảnh nền và link “Our story” nằm ở màn Section.</p>
       <StringsPanel screen="heritage" title="Heritage" />

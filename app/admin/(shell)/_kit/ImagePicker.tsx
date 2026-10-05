@@ -58,7 +58,8 @@ export function ImagePicker({
   const describedBy = [hint && hintId, error && errorId].filter(Boolean).join(' ') || undefined;
 
   return (
-    <fieldset className="a-picker" aria-describedby={describedBy} aria-invalid={error ? true : undefined}>
+    // No aria-invalid: <fieldset> does not support it (7A review A9); the error is in its description.
+    <fieldset className="a-picker" aria-describedby={describedBy}>
       <legend>
         {label}
         {required ? <span className="a-muted"> · bắt buộc</span> : null}

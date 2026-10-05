@@ -7,7 +7,7 @@ import { z } from '@/lib/admin/zod';
 import { ADMIN_SCREENS } from '@/lib/i18n/registry';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
 import { auditActor, requirePermission } from '@/lib/server/dal/session';
-import { restoreString, saveStrings, tagsForStrings, type StringsSaved } from '@/lib/server/content/strings-admin';
+import { restoreString, saveStrings, tagsForStrings, type StringsWritten } from '@/lib/server/content/strings-admin';
 
 /*
  * Saving the registry keys of one content screen (spec §7.2, §7.4): Editor
@@ -29,7 +29,7 @@ function fields(formData: FormData, prefix: string): Record<string, string> {
   return out;
 }
 
-export async function saveScreenStrings(_prev: ActionResult<StringsSaved> | null, formData: FormData): Promise<ActionResult<StringsSaved>> {
+export async function saveScreenStrings(_prev: ActionResult<StringsWritten> | null, formData: FormData): Promise<ActionResult<StringsWritten>> {
   try {
     const staff = await requirePermission({ content: ['update'] });
     const { screen } = Screen.parse({ screen: formData.get('screen') });

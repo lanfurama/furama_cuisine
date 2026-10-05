@@ -21,6 +21,8 @@ import { getSharedInbox, saveSharedInbox } from '@/lib/server/email/recipients';
  * inbox's save (R2), and the hero's pace keeps its own History.
  */
 
+/** A save's answer: the token of the version it wrote (Saved, lib/admin/save-state.ts). */
+const SAVED = { ok: true, data: { token: expect.any(String) } };
 const pool = getPool();
 const ACTOR: AuditActor = { id: 'staff-lan', email: 'lan@furama.test', name: 'Lan' };
 const OTHER: AuditActor = { id: 'staff-minh', email: 'minh@furama.test', name: 'Minh' };
@@ -56,10 +58,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('site settings groups: the booki
   it('a save reaches the guest site’s settings at once; History brings the old defaults back; a page older than another save is a conflict', async () => {
     expect(await guest()).toEqual({ restaurant: 'taya-house', occasion: 'Dinner' });
     const { token } = await editor();
-    expect(await saveSettings(pool, ACTOR, BOOKING_DEFAULTS, { token, values: { default_restaurant_id: 'the-fan', default_occasion: 'Lunch' } })).toEqual({
-      ok: true,
-      data: null,
-    });
+    const answer = await saveSettings(pool, ACTOR, BOOKING_DEFAULTS, { token, values: { default_restaurant_id: 'the-fan', default_occasion: 'Lunch' } });
+    expect(answer).toEqual({ ok: true, data: { token: (await editor()).token } });
     expect(await guest()).toEqual({ restaurant: 'the-fan', occasion: 'Lunch' });
     const [saved] = await listHistory(pool, 'site_settings', BOOKING_DEFAULTS.id, 10);
     expect(saved).toMatchObject({ action: 'update' });
@@ -77,10 +77,9 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('site settings groups: the booki
   });
 
   it('“none” is a choice for both; an archived or unknown restaurant and a meal the CHECK refuses are not, on a save or a restore', async () => {
-    expect(await saveSettings(pool, ACTOR, BOOKING_DEFAULTS, { token: (await editor()).token, values: { default_restaurant_id: null, default_occasion: null } })).toEqual({
-      ok: true,
-      data: null,
-    });
+    expect(
+      await saveSettings(pool, ACTOR, BOOKING_DEFAULTS, { token: (await editor()).token, values: { default_restaurant_id: null, default_occasion: null } }),
+    ).toEqual(SAVED);
     expect(await guest()).toEqual({ restaurant: null, occasion: null });
     const { token } = await editor();
     expect(await saveSettings(pool, ACTOR, BOOKING_DEFAULTS, { token, values: { default_restaurant_id: 'atlantis', default_occasion: null } })).toEqual({
@@ -124,10 +123,9 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('site settings groups: the booki
     const { token } = await editor();
     const shared = await getSharedInbox(pool);
     expect(await saveSharedInbox(pool, OTHER, { email: 'reservations@furama.test', token: shared.token })).toEqual({ ok: true, data: null });
-    expect(await saveSettings(pool, ACTOR, BOOKING_DEFAULTS, { token, values: { default_restaurant_id: 'taya-house', default_occasion: 'Drinks' } })).toEqual({
-      ok: true,
-      data: null,
-    });
+    expect(
+      await saveSettings(pool, ACTOR, BOOKING_DEFAULTS, { token, values: { default_restaurant_id: 'taya-house', default_occasion: 'Drinks' } }),
+    ).toEqual(SAVED);
     const [saved] = await listHistory(pool, 'site_settings', BOOKING_DEFAULTS.id, 10);
     expect(await restoreSettings(pool, OTHER, BOOKING_DEFAULTS, { id: 'hero_autoplay_ms', auditId: saved.id, side: 'before', token: (await editor()).token })).toEqual({
       ok: false,

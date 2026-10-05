@@ -1,11 +1,12 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useId } from 'react';
 import { requestPasswordReset, type RequestResetState } from './actions';
 
 export function RequestForm() {
   const [state, action, pending] = useActionState<RequestResetState, FormData>(requestPasswordReset, null);
   const errors = state?.fieldErrors ?? {};
+  const uid = useId();
 
   if (state?.sent) {
     return (
@@ -23,19 +24,19 @@ export function RequestForm() {
         </p>
       ) : null}
       <div className="a-field">
-        <label htmlFor="reset-request-email">Email</label>
+        <label htmlFor={`${uid}-email`}>Email</label>
         <input
-          id="reset-request-email"
+          id={`${uid}-email`}
           name="email"
           type="email"
           autoComplete="username"
           required
           defaultValue={state?.email ?? ''}
           aria-invalid={errors.email ? true : undefined}
-          aria-describedby={errors.email ? 'reset-request-email-error' : undefined}
+          aria-describedby={errors.email ? `${uid}-email-error` : undefined}
         />
         {errors.email ? (
-          <p className="a-field-error" id="reset-request-email-error">
+          <p className="a-field-error" id={`${uid}-email-error`}>
             {errors.email[0]}
           </p>
         ) : null}

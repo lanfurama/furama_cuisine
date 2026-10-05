@@ -3,7 +3,7 @@
 import { useId, useRef, useState } from 'react';
 import { submitKeepingValues } from '@/lib/admin/form';
 import type { ActionResult } from '@/lib/server/action-result';
-import type { StringsSaved } from '@/lib/server/content/strings-admin';
+import type { StringsSaved, StringsWritten } from '@/lib/server/content/strings-admin';
 import { SaveBar } from '../../_kit/SaveBar';
 import { useSaveState } from '../../_kit/useSaveState';
 import { saveScreenStrings } from '../actions';
@@ -33,6 +33,10 @@ export type StringFieldView = {
  *
  * The email screen's preview controls (preview_*) sit inside this form but
  * are not text: changing them marks nothing unsaved.
+ *
+ * The form's token joins its keys' tokens; a save names the version it wrote
+ * as the keys it sent with the written ones' new tokens, so text typed while
+ * it was in flight stays only when no other key changed meanwhile either.
  */
 /** A titled group of a screen's keys, by key prefix (the emails screen: one per email). */
 export type StringGroup = { title: string; prefix: string };
@@ -56,8 +60,9 @@ export function StringsForm({
    */
   children?: React.ReactNode;
 }) {
-  const version = fields.map((f) => f.token).join('|');
-  const save = useSaveState<StringsSaved, StringFieldView[]>(saveScreenStrings, version, fields);
+  const save = useSaveState<StringsWritten, StringFieldView[]>(saveScreenStrings, versionOf(fields), fields, (saved, posted) =>
+    versionOf(posted, saved.tokens),
+  );
   const saved = save.state?.ok ? save.state.data : null;
   const success =
     saved?.changed.length === 0
@@ -76,7 +81,7 @@ export function StringsForm({
       aria-label={title}
     >
       <input type="hidden" name="screen" value={screen} />
-      <StringFields key={save.token} fields={save.view} groups={groups ?? []} state={save.state} />
+      <StringFields key={save.fieldsKey} fields={save.view} groups={groups ?? []} state={save.state} />
       <SaveBar
         state={save.state as ActionResult<unknown> | null}
         pending={save.pending}
@@ -89,6 +94,11 @@ export function StringsForm({
       {children}
     </form>
   );
+}
+
+/** The screen's version: each key's token, in the form's order (`written`: the new tokens of the keys a save wrote). */
+function versionOf(fields: readonly StringFieldView[], written: Partial<Record<string, string>> = {}): string {
+  return fields.map((f) => written[f.key] ?? f.token).join('|');
 }
 
 function StringFields({ fields, groups, state }: { fields: StringFieldView[]; groups: readonly StringGroup[]; state: ActionResult<StringsSaved> | null }) {

@@ -36,7 +36,7 @@ export function StoryForm(props: Props) {
   const save = useSaveState<unknown, StoryInput>(action, props.token, props.values);
   return (
     <form method="post" className="a-grid-form" onSubmit={submitKeepingValues(save.dispatch)} onInput={save.markDirty} noValidate aria-label={props.label}>
-      <Fields key={save.token} {...props} token={save.token} values={save.view} state={save.state} />
+      <Fields key={save.fieldsKey} {...props} token={save.token} values={save.view} state={save.state} />
       <SaveBar
         state={save.state}
         pending={save.pending}

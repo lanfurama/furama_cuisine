@@ -3,6 +3,7 @@
 import { useId } from 'react';
 import { HERO_AUTOPLAY_MS } from '@/lib/admin/content-rules';
 import { submitKeepingValues } from '@/lib/admin/form';
+import type { Saved } from '@/lib/admin/save-state';
 import { FieldError } from '../../_ui/FormMessage';
 import { SaveBar } from '../../_kit/SaveBar';
 import { useSaveState } from '../../_kit/useSaveState';
@@ -10,11 +11,11 @@ import { saveAutoplayAction } from './actions';
 
 /* How long each slide shows before the next on desktop (site_settings.hero_autoplay_ms), in seconds. */
 export function AutoplayForm({ ms, token, lastSaved }: { ms: number; token: string; lastSaved: { by: string | null; at: string } | null }) {
-  const save = useSaveState<null, number>(saveAutoplayAction, token, ms);
+  const save = useSaveState<Saved, number>(saveAutoplayAction, token, ms);
   const uid = useId();
   return (
     <form method="post" className="a-grid-form" onSubmit={submitKeepingValues(save.dispatch)} onInput={save.markDirty} noValidate aria-label="Tốc độ slide">
-      <div className="a-field" key={save.token}>
+      <div className="a-field" key={save.fieldsKey}>
         <input type="hidden" name="token" value={save.token} />
         <label htmlFor={`${uid}-seconds`}>Thời gian mỗi slide (giây)</label>
         <input

@@ -13,7 +13,8 @@ import { callAuthEndpoint } from '@/lib/server/auth/endpoint';
  */
 
 export type RequestResetState = { email: string; sent?: true; message?: string; fieldErrors?: { email?: string[] } } | null;
-export type ResetState = { done?: true; message?: string; fieldErrors?: { password?: string[] } } | null;
+/** `invalidToken`: the link itself is used, expired or wrong, so the form offers a new one (phase-3 ledger). */
+export type ResetState = { done?: true; message?: string; invalidToken?: true; fieldErrors?: { password?: string[] } } | null;
 
 const retryAfter = (res: Response) => Number(res.headers.get('x-retry-after')) || null;
 
@@ -49,7 +50,7 @@ export async function resetPassword(_prev: ResetState, formData: FormData): Prom
     .safeParse({ token: formData.get('token'), password: formData.get('password') });
   if (!parsed.success) {
     const { fieldErrors } = z.flattenError(parsed.error);
-    return fieldErrors.password ? { fieldErrors: { password: fieldErrors.password } } : { message: authErrorMessage(400, 'INVALID_TOKEN') };
+    return fieldErrors.password ? { fieldErrors: { password: fieldErrors.password } } : { message: authErrorMessage(400, 'INVALID_TOKEN'), invalidToken: true };
   }
 
   let res: Response;
@@ -61,7 +62,8 @@ export async function resetPassword(_prev: ResetState, formData: FormData): Prom
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { code?: string } | null;
-    return { message: authErrorMessage(res.status, body?.code, retryAfter(res), 'Không đổi được mật khẩu. Vui lòng thử lại sau ít phút.') };
+    const message = authErrorMessage(res.status, body?.code, retryAfter(res), 'Không đổi được mật khẩu. Vui lòng thử lại sau ít phút.');
+    return body?.code === 'INVALID_TOKEN' || body?.code === 'TOKEN_EXPIRED' ? { message, invalidToken: true } : { message };
   }
   // Better Auth also ended every session of this account (revokeSessionsOnPasswordReset).
   return { done: true };

@@ -2,6 +2,7 @@ import { formatDateTimeVi } from '@/lib/admin/format';
 import type { ActionResult } from '@/lib/server/action-result';
 import type { DeletedItem } from '@/lib/server/content-admin/history';
 import { RestoreButton } from './RestoreButton';
+import { RestoreOutcome } from './RestoreOutcome';
 
 /*
  * "Đã xóa gần đây" of a list screen (spec §7.5): each item deleted and not
@@ -29,23 +30,25 @@ export function DeletedList({
   return (
     <section className="a-section-card" aria-labelledby={headingId}>
       <h2 id={headingId}>{title}</h2>
-      {deleted.length === 0 ? (
-        <p className="a-muted">{empty}</p>
-      ) : (
-        <ul className="a-list">
-          {deleted.map((d) => {
-            const when = formatDateTimeVi(d.at);
-            return (
-              <li key={d.id} className="a-list-item">
-                <span>
-                  {name(d.before, d.id)} · xóa bởi {d.actor} lúc {when}
-                </span>
-                <RestoreButton action={restore} id={d.id} auditId={d.auditId} side="before" token="deleted" label="Khôi phục mục đã xóa" when={when} />
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <RestoreOutcome>
+        {deleted.length === 0 ? (
+          <p className="a-muted">{empty}</p>
+        ) : (
+          <ul className="a-list">
+            {deleted.map((d) => {
+              const when = formatDateTimeVi(d.at);
+              return (
+                <li key={d.id} className="a-list-item">
+                  <span>
+                    {name(d.before, d.id)} · xóa bởi {d.actor} lúc {when}
+                  </span>
+                  <RestoreButton action={restore} id={d.id} auditId={d.auditId} side="before" token="deleted" label="Khôi phục mục đã xóa" when={when} />
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </RestoreOutcome>
     </section>
   );
 }

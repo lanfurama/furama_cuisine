@@ -3,6 +3,7 @@
 import { updateTag } from 'next/cache';
 import { getPool } from '@/db/client';
 import { OrderForm, PublishForm, readForm, RecordRef, RestoreForm, StoryForm } from '@/lib/admin/content-schemas';
+import type { Saved } from '@/lib/admin/save-state';
 import { tagsForSave } from '@/lib/cache-plan';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
 import {
@@ -43,7 +44,7 @@ export async function createStoryAction(_prev: ActionResult<{ id: string }> | nu
   }
 }
 
-export async function saveStoryAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+export async function saveStoryAction(_prev: ActionResult<Saved> | null, formData: FormData): Promise<ActionResult<Saved>> {
   try {
     const staff = await requirePermission({ content: ['update'] });
     const fields = readForm(formData);

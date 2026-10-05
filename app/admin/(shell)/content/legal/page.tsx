@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { getPool } from '@/db/client';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { listPolicyVersions } from '@/lib/server/content/policy-version';
@@ -20,6 +21,9 @@ export default async function LegalPage() {
   const versions = await listPolicyVersions(getPool());
   return (
     <>
+      <p className="a-crumbs">
+        <Link href="/admin/content">← Nội dung</Link>
+      </p>
       <h1>Chính sách bảo mật</h1>
       <p className="a-lede">
         Trang chính sách và câu đồng ý ở form đặt bàn (tiếng Anh). Mỗi lần đổi chữ mà khách đồng ý sẽ tạo một phiên bản mới; đặt bàn từ lúc đó

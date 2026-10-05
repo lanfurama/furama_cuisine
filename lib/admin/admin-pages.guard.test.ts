@@ -35,6 +35,12 @@ describe('admin pages', () => {
     expect(missing.map((f) => relative('.', f))).toEqual([]);
   });
 
+  it('every content screen leads back to the content index with "← Nội dung" (7A review UX-10)', () => {
+    const screens = all.filter((f) => /^app\/admin\/\(shell\)\/content\/[a-z-]+\/page\.tsx$/.test(f));
+    expect(screens.length).toBeGreaterThan(10);
+    expect(screens.filter((f) => !readFileSync(f, 'utf8').includes('<Link href="/admin/content">← Nội dung</Link>'))).toEqual([]);
+  });
+
   it('the root layout blocks on connection() before rendering <html>', () => {
     const src = readFileSync(join(ADMIN, 'layout.tsx'), 'utf8');
     expect(src).toMatch(/^export const instant = false;$/m);

@@ -5,6 +5,7 @@ import type { AdminScreen } from '@/lib/i18n/registry';
 import type { HistoryEntry } from '@/lib/server/content-admin/history';
 import type { StringField } from '@/lib/server/content/strings-admin';
 import { RestoreButton } from '../../_kit/RestoreButton';
+import { RestoreOutcome } from '../../_kit/RestoreOutcome';
 import { restoreScreenString } from '../actions';
 
 /*
@@ -31,42 +32,44 @@ export function StringsHistory({
       {entries.length === 0 ? (
         <p className="a-muted">Chưa có thay đổi nào được ghi lại.</p>
       ) : (
-        <ol className="a-history-list">
-          {entries.map((e) => {
-            const field = byKey.get(e.key);
-            if (!field) return null;
-            const when = formatDateTimeVi(e.at);
-            const row = stringHistoryRow({ id: e.id, action: e.action, before: e.before as Snap, after: e.after as Snap });
-            const [choices] = restoreChoices([row], field.value, (s) => String((s as { value?: unknown } | null)?.value ?? ''));
-            const text = (s: unknown) => String((s as { value?: unknown } | null)?.value ?? '');
-            return (
-              <li key={e.id} className="a-history-item">
-                <p>
-                  <strong>{field.def.label}</strong> · {auditActionLabel(e.action)} · {e.actor} · <time dateTime={new Date(e.at).toISOString()}>{when}</time>
-                </p>
-                <p className="a-muted">
-                  <span lang="en">{text(e.before)}</span> → <span lang="en">{text(e.after)}</span>
-                </p>
-                {choices.length ? (
-                  <div className="a-actions">
-                    {choices.map((c) => (
-                      <RestoreButton
-                        key={c.side}
-                        action={restoreScreenString}
-                        id={field.key}
-                        auditId={e.id}
-                        side={c.side}
-                        token={field.token}
-                        label={c.label}
-                        when={`${field.def.label}, ${when}`}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-              </li>
-            );
-          })}
-        </ol>
+        <RestoreOutcome>
+          <ol className="a-history-list">
+            {entries.map((e) => {
+              const field = byKey.get(e.key);
+              if (!field) return null;
+              const when = formatDateTimeVi(e.at);
+              const row = stringHistoryRow({ id: e.id, action: e.action, before: e.before as Snap, after: e.after as Snap });
+              const [choices] = restoreChoices([row], field.value, (s) => String((s as { value?: unknown } | null)?.value ?? ''));
+              const text = (s: unknown) => String((s as { value?: unknown } | null)?.value ?? '');
+              return (
+                <li key={e.id} className="a-history-item">
+                  <p>
+                    <strong>{field.def.label}</strong> · {auditActionLabel(e.action)} · {e.actor} · <time dateTime={new Date(e.at).toISOString()}>{when}</time>
+                  </p>
+                  <p className="a-muted">
+                    <span lang="en">{text(e.before)}</span> → <span lang="en">{text(e.after)}</span>
+                  </p>
+                  {choices.length ? (
+                    <div className="a-actions">
+                      {choices.map((c) => (
+                        <RestoreButton
+                          key={c.side}
+                          action={restoreScreenString}
+                          id={field.key}
+                          auditId={e.id}
+                          side={c.side}
+                          token={field.token}
+                          label={c.label}
+                          when={`${field.def.label}, ${when}`}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
+        </RestoreOutcome>
       )}
     </section>
   );

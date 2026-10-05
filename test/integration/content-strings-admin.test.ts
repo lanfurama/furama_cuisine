@@ -61,7 +61,10 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content strings editor (databas
   it('saves only the changed key, as reviewed/human, with an audit row holding both sides', async () => {
     const s = await screen('stories');
     const result = await saveStrings(getPool(), LAN, s.input({ 'stories.title': 'Kitchen Stories', 'stories.lede': REGISTRY['stories.lede'].en }));
-    expect(result).toEqual({ ok: true, data: { changed: ['stories.title'], policyVersion: null } });
+    // The written key's new token, as the screen reads it next (the form's in-flight typing, lib/admin/save-state.ts).
+    const after = (await screen('stories')).fields.find((f) => f.key === 'stories.title')!.token;
+    expect(after).not.toBe('');
+    expect(result).toEqual({ ok: true, data: { changed: ['stories.title'], policyVersion: null, tokens: { 'stories.title': after } } });
     expect(await guestSees('stories.title')).toBe('Kitchen Stories');
     const rows = await query(`SELECT key, status, origin, updated_by FROM content_strings`);
     expect(rows).toEqual([{ key: 'stories.title', status: 'reviewed', origin: 'human', updated_by: 'staff-lan' }]);
@@ -83,6 +86,8 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content strings editor (databas
     s = await screen('stories');
     const result = await saveStrings(getPool(), LAN, s.input({ 'stories.title': REGISTRY['stories.title'].en }));
     expect(result.ok && result.data.changed).toEqual(['stories.title']);
+    // The default shows again: no row, so the key's token is ''.
+    expect(result.ok && result.data.tokens).toEqual({ 'stories.title': '' });
     expect(await query(`SELECT 1 FROM content_strings`)).toEqual([]);
     expect(await query(`SELECT action FROM audit_log WHERE entity_type = 'content_strings' ORDER BY id`)).toEqual([
       { action: 'create' },
@@ -121,6 +126,17 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content strings editor (databas
     const clash = await saveStrings(getPool(), LAN, lan.input({ 'search.popular': 'FAVOURITES' }));
     expect(clash).toMatchObject({ ok: false, code: 'conflict', params: { by: 'Mai' } });
     expect(await guestSees('search.popular')).toBe('TOP CUISINES');
+  });
+
+  it('a key put back to its default since the page loaded is a conflict naming who did it, not "người khác" (7A review UX-10)', async () => {
+    const mai = await screen('ui-text');
+    expect((await saveStrings(getPool(), MAI, mai.input({ 'search.popular': 'TOP CUISINES' }))).ok).toBe(true);
+    const lan = await screen('ui-text');
+    const again = await screen('ui-text');
+    // Mai puts the default back: the key's row is deleted (R20), so no row says who.
+    expect((await saveStrings(getPool(), MAI, again.input({ 'search.popular': REGISTRY['search.popular'].en }))).ok).toBe(true);
+    expect(await query(`SELECT 1 FROM content_strings WHERE key = 'search.popular'`)).toEqual([]);
+    expect(await saveStrings(getPool(), LAN, lan.input({ 'search.popular': 'FAVOURITES' }))).toMatchObject({ ok: false, code: 'conflict', params: { by: 'Mai' } });
   });
 
   it('a stale key refuses the whole save: a key checked earlier is not written, nor audited', async () => {
@@ -164,7 +180,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content strings editor (databas
 
       expect(await saveStrings(getPool(), LAN, (await screen('ui-text')).input({ 'search.popular': 'TOP CUISINES' }))).toEqual({
         ok: true,
-        data: { changed: ['search.popular'], policyVersion: null },
+        data: { changed: ['search.popular'], policyVersion: null, tokens: { 'search.popular': expect.any(String) } },
       });
     });
   });
@@ -180,7 +196,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content strings editor (databas
     // Saving a key with the text it already has changes nothing, so no version.
     s = await screen('legal');
     const unchanged = await saveStrings(getPool(), LAN, s.input({ 'legal.title': REGISTRY['legal.title'].en }));
-    expect(unchanged.ok && unchanged.data).toEqual({ changed: [], policyVersion: null });
+    expect(unchanged.ok && unchanged.data).toEqual({ changed: [], policyVersion: null, tokens: {} });
     // A save on another screen never touches the version.
     const other = await screen('stories');
     const elsewhere = await saveStrings(getPool(), LAN, other.input({ 'stories.title': 'Kitchen Stories' }));
@@ -224,7 +240,10 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content strings editor (databas
   it('the offers screen words the cards’ prices: the offers loader reads its templates (LOADERS.offers carries content:ui)', async () => {
     const s = await screen('offers');
     const saved = await saveStrings(getPool(), LAN, s.input({ 'offers.price_plus_plus': 'From {currency} {amount}++' }));
-    expect(saved).toEqual({ ok: true, data: { changed: ['offers.price_plus_plus'], policyVersion: null } });
+    expect(saved).toEqual({
+      ok: true,
+      data: { changed: ['offers.price_plus_plus'], policyVersion: null, tokens: { 'offers.price_plus_plus': expect.any(String) } },
+    });
     expect((await loadOffers('en')).map((o) => o.detail)).toEqual([
       'From VND 888,000++ · Nightly 18:30–22:00',
       'From VND 799,000++ · Daily 11:00 or 14:00',

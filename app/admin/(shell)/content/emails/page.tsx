@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { EMAIL_EVENTS, EMAIL_EVENT_LABELS } from '@/lib/email/events';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { StringsPanel } from '../_ui/StringsPanel';
@@ -26,6 +27,9 @@ export default async function EmailsPage() {
   await requirePagePermission({ content: ['read'] });
   return (
     <>
+      <p className="a-crumbs">
+        <Link href="/admin/content">← Nội dung</Link>
+      </p>
       <h1>Nội dung email</h1>
       <p className="a-lede">Tiêu đề và nội dung email đặt bàn (tiếng Anh). Bấm “Xem trước” để xem email với một đặt bàn mẫu trước khi lưu.</p>
       <StringsPanel screen="emails" title="Nội dung email" groups={GROUPS}>

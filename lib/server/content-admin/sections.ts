@@ -1,6 +1,7 @@
 import 'server-only';
 import type { Pool, PoolClient } from 'pg';
 import { HERO_AUTOPLAY_MS, SECTION_PARTS, sectionErrors } from '@/lib/admin/content-rules';
+import type { Saved } from '@/lib/admin/save-state';
 import { SECTION_KEYS, type SectionKey } from '@/lib/content/types';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
 import { conflictBy, type Conflict } from '@/lib/server/booking/config';
@@ -33,6 +34,8 @@ type Fail =
   | { ok: false; code: 'missing_reference' }
   | { ok: false; code: 'invalid'; fieldErrors: Record<string, string[]> };
 export type SectionResult = { ok: true; data: null } | Fail;
+/** A save's answer: the token of the version it wrote (Saved, lib/admin/save-state.ts). */
+export type SectionSaved = { ok: true; data: Saved } | Fail;
 
 export const SECTION_LABELS: Record<SectionKey, string> = {
   hero: 'Hero (ảnh lớn đầu trang)',
@@ -115,8 +118,8 @@ async function writeSection(client: PoolClient, key: string, version: { visible:
 }
 
 /** "Lưu" of one section (spec §7.4). A part the section does not have (SECTION_PARTS) keeps its value. */
-export async function saveSection(pool: Pool, actor: AuditActor, input: SectionInput): Promise<SectionResult> {
-  return withTransaction(pool, async (client): Promise<SectionResult> => {
+export async function saveSection(pool: Pool, actor: AuditActor, input: SectionInput): Promise<SectionSaved> {
+  return withTransaction(pool, async (client): Promise<SectionSaved> => {
     const locked = await lockSection(client, input.key, input.token);
     if (failed(locked)) return locked;
     const row = locked.snapshot.row;
@@ -133,8 +136,9 @@ export async function saveSection(pool: Pool, actor: AuditActor, input: SectionI
       return { ok: false, code: 'invalid', fieldErrors: { imageId: [MEDIA_GONE] } };
     }
     await writeSection(client, input.key, version, actor.id);
-    await insertAudit(client, actor, { action: 'update', entityType: 'sections', entityId: input.key, before: locked.snapshot, after: await readSection(client, input.key) });
-    return { ok: true, data: null };
+    const after = await readSection(client, input.key);
+    await insertAudit(client, actor, { action: 'update', entityType: 'sections', entityId: input.key, before: locked.snapshot, after });
+    return { ok: true, data: { token: snapshotToken(after) } };
   });
 }
 
@@ -216,22 +220,29 @@ const autoplayError = (ms: number): Fail | null =>
     ? null
     : { ok: false, code: 'invalid', fieldErrors: { seconds: [`Từ ${HERO_AUTOPLAY_MS.min / 1000} đến ${HERO_AUTOPLAY_MS.max / 1000} giây.`] } };
 
-/** Writes the pace alone: updated_at/by are the shared inbox's token (lockAutoplay); who and when live in the audit row. */
-async function writeAutoplay(client: PoolClient, actor: AuditActor, action: 'update' | 'restore', before: ItemSnapshot, ms: number, meta?: Row) {
+/** Writes the pace alone: updated_at/by are the shared inbox's token (lockAutoplay); who and when live in the audit row. Answers the pace's new token. */
+async function writeAutoplay(
+  client: PoolClient,
+  actor: AuditActor,
+  action: 'update' | 'restore',
+  before: ItemSnapshot,
+  ms: number,
+  meta?: Row,
+): Promise<string> {
   await client.query('UPDATE site_settings SET hero_autoplay_ms = $1 WHERE id', [ms]);
   const after = await readAutoplay(client);
   await insertAudit(client, actor, { action, entityType: 'site_settings', entityId: AUTOPLAY, before, after: meta ? { ...after, meta } : after });
+  return snapshotToken(after);
 }
 
 /** "Lưu" of the hero's pace (spec §7.2 content/hero "thời gian tự chuyển slide"). */
-export async function saveAutoplay(pool: Pool, actor: AuditActor, input: { token: string; ms: number }): Promise<SectionResult> {
-  return withTransaction(pool, async (client): Promise<SectionResult> => {
+export async function saveAutoplay(pool: Pool, actor: AuditActor, input: { token: string; ms: number }): Promise<SectionSaved> {
+  return withTransaction(pool, async (client): Promise<SectionSaved> => {
     const locked = await lockAutoplay(client, input.token);
     if ('ok' in locked) return locked;
     const refused = autoplayError(input.ms);
     if (refused) return refused;
-    await writeAutoplay(client, actor, 'update', locked.snapshot, input.ms);
-    return { ok: true, data: null };
+    return { ok: true, data: { token: await writeAutoplay(client, actor, 'update', locked.snapshot, input.ms) } };
   });
 }
 

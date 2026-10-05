@@ -35,6 +35,8 @@ import { startFakeBlob, type FakeBlob } from '../helpers/fake-blob';
  * refuses all other hosts).
  */
 
+/** A save's answer: the token of the version it wrote (Saved, lib/admin/save-state.ts). */
+const SAVED = { ok: true, data: { token: expect.any(String) } };
 let pool: Pool;
 let fake: FakeBlob;
 const ADMIN = { id: 'admin-1', email: 'owner@furama.test', name: 'Chủ quán' };
@@ -274,12 +276,13 @@ describe.skipIf(!TEST_DATABASE_URL)('media library (database + fake Blob)', () =
   it('edits the EN alt text and the decorative flag under the hash token, and History puts the seed alt back as it was (R3)', async () => {
     const id = await chefId();
     const original = (await getMedia(pool, id))!;
-    expect(await saveMediaDetails(pool, ADMIN, { id, token: original.token, alt: 'The chef at the pass', decorative: false })).toEqual({ ok: true, data: null });
+    const saved = await saveMediaDetails(pool, ADMIN, { id, token: original.token, alt: 'The chef at the pass', decorative: false });
+    expect(saved).toEqual({ ok: true, data: { token: await token(id) } });
     const edited = await lastAudit(id);
     expect((await getMedia(pool, id))!.alt).toBe('The chef at the pass');
     expect(await saveMediaDetails(pool, ADMIN, { id, token: original.token, alt: 'x', decorative: false })).toMatchObject({ ok: false, code: 'conflict' });
     // Empty alt removes the EN row; decorative keeps alt="" wherever it is shown.
-    expect(await saveMediaDetails(pool, ADMIN, { id, token: await token(id), alt: '', decorative: true })).toEqual({ ok: true, data: null });
+    expect(await saveMediaDetails(pool, ADMIN, { id, token: await token(id), alt: '', decorative: true })).toEqual(SAVED);
     expect(await getMedia(pool, id)).toMatchObject({ alt: '', isDecorative: true });
     expect((await lastAudit(id)).after.i18n).toEqual([]);
 
@@ -314,7 +317,7 @@ describe.skipIf(!TEST_DATABASE_URL)('media library (database + fake Blob)', () =
         (await pool.query<{ id: string }>(`SELECT id::text FROM audit_log WHERE entity_type = 'stories' AND entity_id = $1 AND action = 'update' ORDER BY id LIMIT 1`, [story.id])).rows[0].id;
       const picture = await upload(`development/media/${UUIDS[1]}/story.png`, 'A story');
       try {
-        expect(await stories.update(pool, ADMIN, story.id, await storyToken(story.id), { imageId: picture, href: story.href })).toEqual({ ok: true, data: null });
+        expect(await stories.update(pool, ADMIN, story.id, await storyToken(story.id), { imageId: picture, href: story.href })).toEqual(SAVED);
         expect(await stories.remove(pool, ADMIN, story.id, await storyToken(story.id))).toMatchObject({ ok: true });
         expect(await deleteMedia(pool, ADMIN, { id: picture, token: await token(picture) })).toEqual({ ok: true, data: null });
 

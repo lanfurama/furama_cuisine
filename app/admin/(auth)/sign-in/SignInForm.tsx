@@ -1,11 +1,12 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useId } from 'react';
 import { signIn, type SignInState } from './actions';
 
 export function SignInForm({ next }: { next?: string }) {
   const [state, action, pending] = useActionState<SignInState, FormData>(signIn, null);
   const errors = state?.fieldErrors ?? {};
+  const uid = useId();
 
   return (
     <form action={action} noValidate>
@@ -17,37 +18,37 @@ export function SignInForm({ next }: { next?: string }) {
       ) : null}
 
       <div className="a-field">
-        <label htmlFor="signin-email">Email</label>
+        <label htmlFor={`${uid}-email`}>Email</label>
         <input
-          id="signin-email"
+          id={`${uid}-email`}
           name="email"
           type="email"
           autoComplete="username"
           required
           defaultValue={state?.email ?? ''}
           aria-invalid={errors.email ? true : undefined}
-          aria-describedby={errors.email ? 'signin-email-error' : undefined}
+          aria-describedby={errors.email ? `${uid}-email-error` : undefined}
         />
         {errors.email ? (
-          <p className="a-field-error" id="signin-email-error">
+          <p className="a-field-error" id={`${uid}-email-error`}>
             {errors.email[0]}
           </p>
         ) : null}
       </div>
 
       <div className="a-field">
-        <label htmlFor="signin-password">Mật khẩu</label>
+        <label htmlFor={`${uid}-password`}>Mật khẩu</label>
         <input
-          id="signin-password"
+          id={`${uid}-password`}
           name="password"
           type="password"
           autoComplete="current-password"
           required
           aria-invalid={errors.password ? true : undefined}
-          aria-describedby={errors.password ? 'signin-password-error' : undefined}
+          aria-describedby={errors.password ? `${uid}-password-error` : undefined}
         />
         {errors.password ? (
-          <p className="a-field-error" id="signin-password-error">
+          <p className="a-field-error" id={`${uid}-password-error`}>
             {errors.password[0]}
           </p>
         ) : null}

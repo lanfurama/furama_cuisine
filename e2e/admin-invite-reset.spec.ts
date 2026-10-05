@@ -62,13 +62,16 @@ test.describe('accepting an invitation', () => {
     await expect(page.getByRole('main').getByRole('alert')).toHaveText(INVALID);
   });
 
-  test('a short password is refused in Vietnamese and nothing is created', async ({ page }) => {
+  test('a short password is refused in Vietnamese, what was typed stays, and nothing is created', async ({ page }) => {
     const email = `invitee-${unique()}@furama.test`;
     await page.goto(await invitation(email));
     await page.getByLabel('Họ tên', { exact: true }).fill('Ngắn');
     await page.getByLabel('Mật khẩu (12–128 ký tự)', { exact: true }).fill('ngan qua');
     await page.getByRole('button', { name: 'Tạo tài khoản' }).click();
     await expect(page.locator('form').getByText('Mật khẩu cần ít nhất 12 ký tự.')).toBeVisible();
+    // What was typed stays (phase-3 ledger: the form used to clear while saying the input was kept).
+    await expect(page.getByLabel('Họ tên', { exact: true })).toHaveValue('Ngắn');
+    await expect(page.getByLabel('Mật khẩu (12–128 ký tự)', { exact: true })).toHaveValue('ngan qua');
     await expect(page).toHaveURL(/\/admin\/accept-invite\?token=/);
     const client = db();
     await client.connect();
@@ -114,7 +117,9 @@ test.describe('resetting a forgotten password', () => {
     await page.goto(link);
     await page.getByLabel('Mật khẩu mới (12–128 ký tự)', { exact: true }).fill('another passphrase 2026');
     await page.getByRole('button', { name: 'Đặt mật khẩu' }).click();
-    await expect(formAlert(page)).toHaveText('Liên kết không hợp lệ hoặc đã được dùng. Hãy yêu cầu một liên kết mới.');
+    await expect(formAlert(page).getByRole('paragraph')).toHaveText('Liên kết không hợp lệ hoặc đã được dùng. Hãy yêu cầu một liên kết mới.');
+    // With the way out (phase-3 ledger): the request form, without the used token.
+    await expect(formAlert(page).getByRole('link', { name: 'Gửi lại liên kết đặt lại mật khẩu' })).toHaveAttribute('href', '/admin/reset-password');
   });
 
   test('an unknown email gets the same answer, and no email is sent', async ({ page }) => {

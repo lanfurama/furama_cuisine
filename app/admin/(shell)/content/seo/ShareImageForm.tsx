@@ -2,7 +2,7 @@
 
 import { submitKeepingValues } from '@/lib/admin/form';
 import type { MediaOption } from '@/lib/admin/media-option';
-import type { ActionResult } from '@/lib/server/action-result';
+import type { Saved } from '@/lib/admin/save-state';
 import { ImagePicker } from '../../_kit/ImagePicker';
 import { SaveBar } from '../../_kit/SaveBar';
 import { useSaveState } from '../../_kit/useSaveState';
@@ -27,11 +27,11 @@ export function ShareImageForm({
   upload: { prefix: string; configured: boolean };
   lastSaved: { by: string | null; at: string } | null;
 }) {
-  const save = useSaveState<null, string | null>(saveShareImageAction as (prev: ActionResult<null> | null, formData: FormData) => Promise<ActionResult<null>>, token, imageId);
+  const save = useSaveState<Saved, string | null>(saveShareImageAction, token, imageId);
   const error = save.state && !save.state.ok ? save.state.fieldErrors?.ogImageId?.[0] : undefined;
   return (
     <form method="post" className="a-grid-form" onSubmit={submitKeepingValues(save.dispatch)} onInput={save.markDirty} noValidate aria-label="Ảnh chia sẻ">
-      <div className="a-field a-field--wide" key={save.token}>
+      <div className="a-field a-field--wide" key={save.fieldsKey}>
         <input type="hidden" name="token" value={save.token} />
         <ImagePicker
           name="ogImageId"

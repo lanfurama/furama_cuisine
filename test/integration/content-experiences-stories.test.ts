@@ -34,6 +34,8 @@ import { loadExperiences, loadStories } from '@/lib/server/content/home.queries'
  * step; a story's kicker joins only the parts that exist (L7-7).
  */
 
+/** A save's answer: the token of the version it wrote (Saved, lib/admin/save-state.ts). */
+const SAVED = { ok: true, data: { token: expect.any(String) } };
 const pool = getPool();
 const ACTOR: AuditActor = { id: 'staff-lan', email: 'lan@furama.test', name: 'Lan' };
 const OTHER: AuditActor = { id: 'staff-minh', email: 'minh@furama.test', name: 'Minh' };
@@ -97,7 +99,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('experiences and stories editors
       const e = await experience('2');
       expect(e.values).toEqual({ link: null, isPublished: true, title: { en: 'Private Dining & Events' }, blurb: { en: 'Weddings · Corporate · Celebrations · MICE dining' } });
       const link = 'https://furamavietnam.com/meetings-events/';
-      expect(await updateExperience(pool, ACTOR, '2', e.token, { ...e.values, link, title: { en: 'Private Dining & Weddings' } })).toEqual({ ok: true, data: null });
+      expect(await updateExperience(pool, ACTOR, '2', e.token, { ...e.values, link, title: { en: 'Private Dining & Weddings' } })).toEqual(SAVED);
       expect((await loadExperiences('en'))[1]).toMatchObject({ id: 2, title: 'Private Dining & Weddings', href: link });
       const [saved] = await audit();
       expect(saved).toMatchObject({ action: 'update', entity_type: 'experiences', entity_id: '2' });
@@ -143,7 +145,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('experiences and stories editors
     it('a card without a category shows its date alone, with no leading separator (L7-7); History puts the category back', async () => {
       expect((await loadStories('en'))[0].kicker).toBe('Restaurant News · 9 Sep 2026');
       const s = await story('1');
-      expect(await updateStory(pool, ACTOR, '1', s.token, { ...s.values, category: { en: null } })).toEqual({ ok: true, data: null });
+      expect(await updateStory(pool, ACTOR, '1', s.token, { ...s.values, category: { en: null } })).toEqual(SAVED);
       expect((await loadStories('en'))[0].kicker).toBe('9 Sep 2026');
       const [saved] = await audit();
       expect(await restoreStory(pool, OTHER, { id: '1', auditId: saved.id, side: 'before', token: (await story('1')).token })).toEqual({ ok: true, data: null });

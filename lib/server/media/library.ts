@@ -1,8 +1,9 @@
 import 'server-only';
 import type { Pool, PoolClient } from 'pg';
+import type { Saved } from '@/lib/admin/save-state';
 import type { MediaContentType } from '@/lib/media/rules';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
-import { conflictBy, type Conflict } from '@/lib/server/booking/config';
+import { conflictFromHistory, type Conflict } from '@/lib/server/booking/config';
 import type { Db } from '@/lib/server/booking/rules';
 import { getAuditRow } from '@/lib/server/content-admin/history';
 import { readItem, snapshotToken, upsertTranslation, writeItem, type ItemDef, type ItemSnapshot } from '@/lib/server/content-admin/snapshot';
@@ -193,12 +194,20 @@ async function lockLive(client: PoolClient, id: string, token: string): Promise<
   );
   if (!rows[0] || rows[0].deleted) return { ok: false, code: 'not_found' };
   const snapshot = (await readItem(client, MEDIA, id))!;
-  if (snapshotToken(snapshot) !== token) return conflictBy(client, rows[0].updated_by, rows[0].updated_at);
+  if (snapshotToken(snapshot) !== token) return conflictFromHistory(client, MEDIA.entityType, id, { by: rows[0].updated_by, at: rows[0].updated_at });
   return { snapshot };
 }
 
-/** EN alt text and the decorative flag (spec §7.3, R12: edited on the file, shared by every use; other languages are phase 8). */
-export async function saveMediaDetails(pool: Pool, actor: AuditActor, input: { id: string; token: string; alt: string; decorative: boolean }): Promise<Ok | NotFound | Conflict> {
+/**
+ * EN alt text and the decorative flag (spec §7.3, R12: edited on the file,
+ * shared by every use; other languages are phase 8). Answers the token of the
+ * version it wrote (Saved, lib/admin/save-state.ts).
+ */
+export async function saveMediaDetails(
+  pool: Pool,
+  actor: AuditActor,
+  input: { id: string; token: string; alt: string; decorative: boolean },
+): Promise<{ ok: true; data: Saved } | NotFound | Conflict> {
   return withTransaction(pool, async (client) => {
     const locked = await lockLive(client, input.id, input.token);
     if (!('snapshot' in locked)) return locked;
@@ -208,8 +217,9 @@ export async function saveMediaDetails(pool: Pool, actor: AuditActor, input: { i
     // media_i18n holds a row only when there is alt text (008): an empty field removes the language's row.
     if (alt) await upsertTranslation(client, MEDIA, input.id, locale, { alt }, actor.id);
     else await client.query('DELETE FROM media_i18n WHERE media_id = $1::uuid AND locale = $2', [input.id, locale]);
-    await insertAudit(client, actor, { action: 'update', entityType: 'media', entityId: input.id, before: locked.snapshot, after: await readItem(client, MEDIA, input.id) });
-    return { ok: true as const, data: null };
+    const after = await readItem(client, MEDIA, input.id);
+    await insertAudit(client, actor, { action: 'update', entityType: 'media', entityId: input.id, before: locked.snapshot, after });
+    return { ok: true as const, data: { token: snapshotToken(after) } };
   });
 }
 
@@ -261,7 +271,7 @@ export async function restoreMedia(
     const { rows } = await client.query<{ updated_by: string | null; updated_at: Date }>('SELECT updated_by, updated_at FROM media WHERE id = $1::uuid FOR UPDATE', [input.id]);
     if (!rows[0]) return { ok: false as const, code: 'missing_reference' as const };
     const current = (await readItem(client, MEDIA, input.id))!;
-    if (snapshotToken(current) !== input.token) return conflictBy(client, rows[0].updated_by, rows[0].updated_at);
+    if (snapshotToken(current) !== input.token) return conflictFromHistory(client, MEDIA.entityType, input.id, { by: rows[0].updated_by, at: rows[0].updated_at });
     const deleted = snapshot.row.deleted_at != null;
     if (deleted) {
       const uses = await mediaUsage(client, input.id);

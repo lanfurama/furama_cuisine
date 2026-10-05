@@ -4,6 +4,7 @@ import { refresh, updateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getPool } from '@/db/client';
 import { checkbox, readForm, RestoreForm, Token } from '@/lib/admin/content-schemas';
+import type { Saved } from '@/lib/admin/save-state';
 import { z } from '@/lib/admin/zod';
 import { tagsForSave } from '@/lib/cache-plan';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
@@ -64,7 +65,7 @@ const Details = z.object({
   decorative: checkbox,
 });
 
-export async function saveMediaDetailsAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+export async function saveMediaDetailsAction(_prev: ActionResult<Saved> | null, formData: FormData): Promise<ActionResult<Saved>> {
   try {
     const staff = await requirePermission({ content: ['update'] });
     const input = Details.parse(readForm(formData));

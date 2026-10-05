@@ -65,7 +65,7 @@ export type SlideListItem = {
   imageId: string;
   imageMobileId: string | null;
   isPublished: boolean;
-  /** The picture's file name, how the screen names the slide ("hero-taya.jpg"). */
+  /** The picture's file name, how the screen names the slide ("hero-taya.jpg"); with its place when two slides share a picture ("hero-taya.jpg (slide 3)"). */
   name: string;
   token: string;
 };
@@ -84,5 +84,10 @@ export async function listSlidesAdmin(db: Db): Promise<{ items: SlideListItem[];
     name: (pathOf.get(String(s.row.image_id)) ?? '').split('/').pop() ?? '',
     token: snapshotToken(s),
   }));
+  // Two slides on one picture would share every button's name ("Ẩn “hero-taya.jpg”"): say which (7A review A9).
+  const names = items.map((item) => item.name);
+  for (const [i, item] of items.entries()) {
+    if (names.filter((n) => n === names[i]).length > 1) item.name = `${names[i]} (slide ${i + 1})`;
+  }
   return { items, token: orderToken({ v: 1, order: items.map((i) => ({ id: i.id, sort_order: 0 })) }) };
 }

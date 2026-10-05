@@ -3,6 +3,7 @@
 import { updateTag } from 'next/cache';
 import { getPool } from '@/db/client';
 import { readForm, RestaurantForm, RestoreForm } from '@/lib/admin/content-schemas';
+import type { Saved } from '@/lib/admin/save-state';
 import { tagsForSave, type ContentTable } from '@/lib/cache-plan';
 import { TAGS } from '@/lib/cache-tags';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
@@ -30,7 +31,7 @@ const restaurantId = (formData: FormData) => {
   return typeof id === 'string' && /^[a-z0-9-]{1,60}$/.test(id) ? id : '';
 };
 
-export async function saveRestaurantAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+export async function saveRestaurantAction(_prev: ActionResult<Saved> | null, formData: FormData): Promise<ActionResult<Saved>> {
   try {
     const staff = await requirePermission({ content: ['update'] });
     const id = restaurantId(formData);
@@ -38,7 +39,7 @@ export async function saveRestaurantAction(_prev: ActionResult | null, formData:
     const result = await saveRestaurantContent(getPool(), auditActor(staff), id, token, input);
     if (!result.ok) return result;
     expire(id, result.data);
-    return { ok: true, data: null };
+    return { ok: true, data: { token: result.data.token } };
   } catch (err) {
     return actionError(err);
   }

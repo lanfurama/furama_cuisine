@@ -1,5 +1,6 @@
 import 'server-only';
 import type { Pool, PoolClient } from 'pg';
+import type { Saved } from '@/lib/admin/save-state';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
 import { conflictBy } from '@/lib/server/booking/config';
 import type { Db } from '@/lib/server/booking/rules';
@@ -63,8 +64,16 @@ async function lockGroup(client: PoolClient, group: SettingsGroup, token: string
 const mediaOf = (group: SettingsGroup, row: Row) =>
   (group.media ?? []).flatMap((m) => (typeof row[m.column] === 'string' && row[m.column] !== '' ? [{ ...m, id: String(row[m.column]) }] : []));
 
-/** Writes the group's columns alone, and its audit row. */
-async function write(client: PoolClient, actor: AuditActor, group: SettingsGroup, action: 'update' | 'restore', before: ItemSnapshot, row: Row, meta?: Row) {
+/** Writes the group's columns alone, and its audit row; answers the group's new token. */
+async function write(
+  client: PoolClient,
+  actor: AuditActor,
+  group: SettingsGroup,
+  action: 'update' | 'restore',
+  before: ItemSnapshot,
+  row: Row,
+  meta?: Row,
+): Promise<string> {
   const cols = group.columns;
   await client.query(
     `UPDATE site_settings m
@@ -74,11 +83,12 @@ async function write(client: PoolClient, actor: AuditActor, group: SettingsGroup
   );
   const after = await readSettings(client, group);
   await insertAudit(client, actor, { action, entityType: 'site_settings', entityId: group.id, before, after: meta ? { ...after, meta } : after });
+  return snapshotToken(after);
 }
 
-/** "Lưu" of the group: `values` by column. */
-export async function saveSettings(pool: Pool, actor: AuditActor, group: SettingsGroup, input: { token: string; values: Row }): Promise<ListResult> {
-  return withTransaction(pool, async (client): Promise<ListResult> => {
+/** "Lưu" of the group: `values` by column. Answers the token of the version it wrote (Saved, lib/admin/save-state.ts). */
+export async function saveSettings(pool: Pool, actor: AuditActor, group: SettingsGroup, input: { token: string; values: Row }): Promise<ListResult<Saved>> {
+  return withTransaction(pool, async (client): Promise<ListResult<Saved>> => {
     const locked = await lockGroup(client, group, input.token);
     if ('ok' in locked) return locked;
     const refused = await group.validate?.(client, input.values);
@@ -94,8 +104,7 @@ export async function saveSettings(pool: Pool, actor: AuditActor, group: Setting
       for (const r of refs.filter((x) => dead.includes(x.id))) fieldErrors[r.field ?? r.column] = [MEDIA_GONE];
     }
     if (Object.keys(fieldErrors).length) return { ok: false, code: 'invalid', fieldErrors };
-    await write(client, actor, group, 'update', locked.snapshot, input.values);
-    return { ok: true, data: null };
+    return { ok: true, data: { token: await write(client, actor, group, 'update', locked.snapshot, input.values) } };
   });
 }
 

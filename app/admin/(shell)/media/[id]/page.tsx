@@ -89,7 +89,15 @@ export default async function MediaFilePage({ params }: { params: Promise<{ id: 
         </dl>
       </div>
 
-      {!item.deletedAt && !isPdf ? <MediaDetailsForm id={item.id} token={item.token} alt={item.alt} decorative={item.isDecorative} /> : null}
+      {!item.deletedAt && !isPdf ? (
+        <MediaDetailsForm
+          id={item.id}
+          token={item.token}
+          alt={item.alt}
+          decorative={item.isDecorative}
+          lastSaved={history[0] ? { by: history[0].actor, at: formatDateTimeVi(history[0].at) } : null}
+        />
+      ) : null}
 
       <section aria-labelledby="media-uses-title">
         <h2 id="media-uses-title">Đang được dùng ở</h2>
@@ -106,7 +114,7 @@ export default async function MediaFilePage({ params }: { params: Promise<{ id: 
         )}
       </section>
 
-      {!item.deletedAt ? <DeleteMediaForm id={item.id} token={item.token} inUse={uses.length > 0} /> : null}
+      {!item.deletedAt ? <DeleteMediaForm id={item.id} token={item.token} inUse={uses.length > 0} name={name} /> : null}
 
       <HistoryPanel headingId={`media-${id}-history`} entries={history} currentToken={item.token} recordId={id} labels={LABELS} restore={restoreMediaAction} />
     </>

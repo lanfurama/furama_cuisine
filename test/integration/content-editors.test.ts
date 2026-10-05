@@ -29,6 +29,8 @@ import { loadOffers } from '@/lib/server/content/home.queries';
  * it both times.
  */
 
+/** A save's answer: the token of the version it wrote (Saved, lib/admin/save-state.ts). */
+const SAVED = { ok: true, data: { token: expect.any(String) } };
 const pool = getPool();
 const ACTOR: AuditActor = { id: 'staff-mai', email: 'mai@furama.test', name: 'Mai' };
 const OTHER: AuditActor = { id: 'staff-tuan', email: 'tuan@furama.test', name: 'Tuấn' };
@@ -99,7 +101,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content editors: save flow, his
 
         // Edit.
         const input = { ...(await getOfferEditor(pool, '2'))!.values, title: { en: 'Cooking Class with Chef Hép' } };
-        expect(await updateOffer(pool, ACTOR, '2', await offerToken('2'), input)).toEqual({ ok: true, data: null });
+        expect(await updateOffer(pool, ACTOR, '2', await offerToken('2'), input)).toEqual(SAVED);
         expect(await titles()).toEqual(['Seafood & Steak Buffet Dinner', 'Cooking Class with Chef Hép', 'Afternoon Tea & Dessert Buffet']);
         const [edit] = await audit();
         expect(edit).toMatchObject({ actor_id: ACTOR.id, action: 'update', entity_type: 'offers', entity_id: '2' });
@@ -277,7 +279,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content editors: save flow, his
     it('an item’s token is its content: a reorder of the list since the editor opened is no conflict', async () => {
       const opened = await getOfferEditor(pool, '2');
       expect(await reorderOffers(pool, OTHER, (await listOffersAdmin(pool)).token, ['2', '1', '3'])).toMatchObject({ ok: true });
-      expect(await updateOffer(pool, ACTOR, '2', opened!.token, { ...opened!.values, title: { en: 'Cooking Class' } })).toEqual({ ok: true, data: null });
+      expect(await updateOffer(pool, ACTOR, '2', opened!.token, { ...opened!.values, title: { en: 'Cooking Class' } })).toEqual(SAVED);
       expect(await titles()).toEqual(['Cooking Class', 'Seafood & Steak Buffet Dinner', 'Afternoon Tea & Dessert Buffet']);
     });
 

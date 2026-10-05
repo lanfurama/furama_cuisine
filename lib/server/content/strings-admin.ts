@@ -6,7 +6,7 @@ import { REGISTRY, isStringKey, keysForScreen, type AdminScreen, type StringDef,
 import { AGREED_KEYS, PRIVACY_KEYS } from '@/lib/legal';
 import { insertAudit, withTransaction, type AuditActor } from '../audit';
 import { getAuditRow, HISTORY_LIMIT, type HistoryEntry } from '../content-admin/history';
-import { US, conflictBy, type Conflict } from '../booking/config';
+import { US, conflictFromHistory, type Conflict } from '../booking/config';
 import { policyWritesRefused, recordPolicyVersion } from './policy-version';
 
 /*
@@ -60,6 +60,12 @@ export type StringsInput = {
   tokens: Partial<Record<string, string>>;
 };
 export type StringsSaved = { changed: StringKey[]; policyVersion: string | null };
+/**
+ * A save's answer: also each written key's new token ('' where the default now
+ * shows), so the form can tell whether the page holds exactly what it wrote
+ * (its in-flight typing, lib/admin/save-state.ts).
+ */
+export type StringsWritten = StringsSaved & { tokens: Partial<Record<string, string>> };
 type Invalid = { ok: false; code: 'invalid'; fieldErrors: Record<string, string[]> };
 
 /** The field name of a key in the form, and of its error in fieldErrors. */
@@ -95,7 +101,7 @@ const isAgreed = (key: StringKey) => (AGREED_KEYS as readonly string[]).includes
  * their audit rows, and when the change touches what a guest agrees to,
  * records the policy's new version in the same transaction (R21).
  */
-export async function saveStrings(pool: Pool, actor: AuditActor, input: StringsInput): Promise<{ ok: true; data: StringsSaved } | Invalid | Conflict> {
+export async function saveStrings(pool: Pool, actor: AuditActor, input: StringsInput): Promise<{ ok: true; data: StringsWritten } | Invalid | Conflict> {
   const preview = policyWritesRefused();
   const allowed = new Set<string>(keysForScreen(input.screen));
   const fieldErrors: Record<string, string[]> = {};
@@ -124,7 +130,7 @@ export async function saveStrings(pool: Pool, actor: AuditActor, input: StringsI
       const row = await lockedString(client, key);
       if ((row?.value ?? REGISTRY[key].en) === value) continue;
       if ((row?.token ?? '') !== (input.tokens[key] ?? '')) {
-        return row ? conflictBy(client, row.updated_by, row.updated_at) : conflictBy(client, null, new Date());
+        return conflictFromHistory(client, 'content_strings', key, { by: row?.updated_by ?? null, at: row?.updated_at ?? new Date() });
       }
       writes.push({ key, value, row });
     }
@@ -134,7 +140,12 @@ export async function saveStrings(pool: Pool, actor: AuditActor, input: StringsI
       changed.push(key);
     }
     const policyVersion = agreedChanged(changed) ? await recordPolicyVersion(client, actor) : null;
-    return { ok: true, data: { changed, policyVersion } } as const;
+    const { rows } = await client.query<{ key: string; token: string }>(
+      `SELECT key, ${US('updated_at')} AS token FROM content_strings WHERE locale = $1 AND key = ANY($2::text[])`,
+      [LOCALE, changed],
+    );
+    const tokens = Object.fromEntries(changed.map((key) => [key, rows.find((r) => r.key === key)?.token ?? '']));
+    return { ok: true, data: { changed, policyVersion, tokens } } as const;
   });
 }
 
@@ -215,7 +226,7 @@ export async function restoreString(
     if (!audit || audit.entity_type !== 'content_strings' || audit.entity_id !== key || audit.locale !== LOCALE || !isStringVersion(version)) {
       return { ok: false, code: 'not_found' };
     }
-    if ((row?.token ?? '') !== input.token) return row ? conflictBy(client, row.updated_by, row.updated_at) : conflictBy(client, null, new Date());
+    if ((row?.token ?? '') !== input.token) return conflictFromHistory(client, 'content_strings', key, { by: row?.updated_by ?? null, at: row?.updated_at ?? new Date() });
     const errors = validateValue(key, version.value);
     if (errors.length) return { ok: false, code: 'invalid', fieldErrors: { [fieldName(key)]: errors } };
     if ((row?.value ?? REGISTRY[key].en) === version.value) return { ok: true, data: { changed: [], policyVersion: null } };

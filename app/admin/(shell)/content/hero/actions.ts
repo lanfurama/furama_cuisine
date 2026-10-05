@@ -3,6 +3,7 @@
 import { updateTag } from 'next/cache';
 import { getPool } from '@/db/client';
 import { AutoplayForm, OrderForm, PublishForm, readForm, RecordRef, RestoreForm, SlideForm } from '@/lib/admin/content-schemas';
+import type { Saved } from '@/lib/admin/save-state';
 import { tagsForSave } from '@/lib/cache-plan';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
 import {
@@ -50,7 +51,7 @@ export async function createSlideAction(_prev: ActionResult<{ id: string }> | nu
   }
 }
 
-export async function saveSlideAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+export async function saveSlideAction(_prev: ActionResult<Saved> | null, formData: FormData): Promise<ActionResult<Saved>> {
   try {
     const staff = await requirePermission({ content: ['update'] });
     const fields = readForm(formData);
@@ -129,7 +130,7 @@ export async function restoreSlideOrderAction(_prev: ActionResult | null, formDa
   }
 }
 
-export async function saveAutoplayAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+export async function saveAutoplayAction(_prev: ActionResult<Saved> | null, formData: FormData): Promise<ActionResult<Saved>> {
   try {
     const staff = await requirePermission({ content: ['update'] });
     const { token, seconds } = AutoplayForm.parse(readForm(formData));

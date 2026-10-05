@@ -3,6 +3,7 @@
 import { updateTag } from 'next/cache';
 import { getPool } from '@/db/client';
 import { DestinationForm, readForm, RestoreForm, SlugOrderForm, SlugPublishForm, SlugRecordRef } from '@/lib/admin/content-schemas';
+import type { Saved } from '@/lib/admin/save-state';
 import { tagsForSave } from '@/lib/cache-plan';
 import { TAGS } from '@/lib/cache-tags';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
@@ -49,7 +50,7 @@ export async function createDestinationAction(_prev: ActionResult<{ id: string }
   }
 }
 
-export async function saveDestinationAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+export async function saveDestinationAction(_prev: ActionResult<Saved> | null, formData: FormData): Promise<ActionResult<Saved>> {
   try {
     const staff = await requirePermission({ content: ['update'] });
     const fields = readForm(formData);

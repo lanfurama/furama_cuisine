@@ -1,8 +1,9 @@
 import 'server-only';
 import type { Pool, PoolClient } from 'pg';
 import { LIMITS, type LimitKey } from '@/lib/admin/content-rules';
+import type { Saved } from '@/lib/admin/save-state';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
-import { conflictBy, type Conflict } from '@/lib/server/booking/config';
+import { conflictFromHistory, type Conflict } from '@/lib/server/booking/config';
 import { assertLiveMedia, reviveMedia } from '@/lib/server/media/library';
 import { getAuditRow } from './history';
 import {
@@ -164,15 +165,16 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
     );
     if (!rows[0]) return { ok: false, code: 'not_found' };
     const snapshot = (await readItem(client, def, id))!;
-    if (snapshotToken(snapshot) !== token) return conflictBy(client, rows[0].updated_by, rows[0].updated_at);
+    if (snapshotToken(snapshot) !== token) return conflictFromHistory(client, def.entityType, id, { by: rows[0].updated_by, at: rows[0].updated_at });
     return { snapshot };
   }
 
+  /** The order changed since the page: named for the newest row of the order's History (entity_id null), not an item's last editor. */
   async function listConflict(client: PoolClient): Promise<Conflict> {
     const { rows } = await client.query<{ updated_by: string | null; updated_at: Date }>(
       `SELECT updated_by, updated_at FROM ${def.table} ORDER BY updated_at DESC LIMIT 1`,
     );
-    return conflictBy(client, rows[0]?.updated_by ?? null, rows[0]?.updated_at ?? new Date());
+    return conflictFromHistory(client, def.entityType, null, { by: rows[0]?.updated_by ?? null, at: rows[0]?.updated_at ?? new Date() });
   }
 
   /** The media ids a row points at, by column (ItemDef.media). */
@@ -260,7 +262,8 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
       });
     },
 
-    async update(pool: Pool, actor: AuditActor, id: string, token: string, input: I): Promise<ListResult> {
+    /** "Lưu" of one item; answers the token of the version it wrote (Saved: the form's in-flight typing, lib/admin/save-state.ts). */
+    async update(pool: Pool, actor: AuditActor, id: string, token: string, input: I): Promise<ListResult<Saved>> {
       return write(pool, async (client) => {
         await lockList(client, options.listKey);
         const locked = await lockedItem(client, id, token);
@@ -281,8 +284,9 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
         );
         await writeTranslations(client, id, input, actor.id);
         await settled(client);
-        await audited(client, actor, 'update', id, locked.snapshot, await readItem(client, def, id));
-        return { ok: true, data: null };
+        const after = await readItem(client, def, id);
+        await audited(client, actor, 'update', id, locked.snapshot, after);
+        return { ok: true, data: { token: snapshotToken(after) } };
       });
     },
 
@@ -365,7 +369,9 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
           );
           const current = rows[0] ? await readItem(client, def, input.id) : null;
           if (snapshotToken(current) !== input.token) {
-            return rows[0] ? conflictBy(client, rows[0].updated_by, rows[0].updated_at) : { ok: false, code: 'not_found' };
+            return rows[0]
+              ? conflictFromHistory(client, def.entityType, input.id, { by: rows[0].updated_by, at: rows[0].updated_at })
+              : { ok: false, code: 'not_found' };
           }
           const refused =
             (await options.validate?.(client, { row: snapshot.row, i18n: snapshot.i18n }, 'restore')) ??

@@ -30,19 +30,31 @@ export function StaffTable({ staff }: { staff: StaffItem[] }) {
   );
 }
 
+/*
+ * One member. A refusal shows in the cell of the control that was used: a
+ * role change's under the role, a ban's or a removal's under its buttons
+ * (phase-3 ledger: both showed under the role). The buttons sit in a flex
+ * box inside a plain cell, so the cell keeps the table's borders.
+ */
 function StaffRow({ member }: { member: StaffItem }) {
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ at: 'role' | 'actions'; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const run = (action: () => Promise<ActionResult<unknown>>, onFail?: () => void) =>
+  const run = (at: 'role' | 'actions', action: () => Promise<ActionResult<unknown>>, onFail?: () => void) =>
     startTransition(async () => {
       const result = await action();
       if (result.ok) setError(null);
       else {
         onFail?.();
-        setError(actionErrorMessage(result.code));
+        setError({ at, text: actionErrorMessage(result.code) });
       }
     });
+  const alertAt = (at: 'role' | 'actions') =>
+    error?.at === at ? (
+      <p className="a-field-error" role="alert">
+        {error.text}
+      </p>
+    ) : null;
 
   return (
     <tr data-email={member.email}>
@@ -70,6 +82,7 @@ function StaffRow({ member }: { member: StaffItem }) {
               return;
             }
             run(
+              'role',
               () => changeStaffRole(member.id, select.value),
               () => {
                 select.value = member.role;
@@ -80,23 +93,19 @@ function StaffRow({ member }: { member: StaffItem }) {
           <option value="admin">Admin</option>
           <option value="editor">Editor</option>
         </select>
-        {error ? (
-          <p className="a-field-error" role="alert">
-            {error}
-          </p>
-        ) : null}
+        {alertAt('role')}
       </td>
       <td>{member.banned ? 'Đã khóa' : 'Hoạt động'}</td>
       <td>{member.createdLabel}</td>
-      <td className="a-actions">
+      <td>
         {member.isSelf ? null : (
-          <>
+          <div className="a-actions">
             {member.banned ? (
-              <button className="a-btn a-btn--ghost" type="button" disabled={pending} onClick={() => run(() => unbanStaffMember(member.id))}>
+              <button className="a-btn a-btn--ghost" type="button" disabled={pending} onClick={() => run('actions', () => unbanStaffMember(member.id))}>
                 Mở khóa
               </button>
             ) : (
-              <button className="a-btn a-btn--ghost" type="button" disabled={pending} onClick={() => run(() => banStaffMember(member.id))}>
+              <button className="a-btn a-btn--ghost" type="button" disabled={pending} onClick={() => run('actions', () => banStaffMember(member.id))}>
                 Khóa
               </button>
             )}
@@ -105,13 +114,14 @@ function StaffRow({ member }: { member: StaffItem }) {
               type="button"
               disabled={pending}
               onClick={() => {
-                if (window.confirm(`Xóa tài khoản ${member.email}? Không hoàn tác được.`)) run(() => removeStaffMember(member.id));
+                if (window.confirm(`Xóa tài khoản ${member.email}? Không hoàn tác được.`)) run('actions', () => removeStaffMember(member.id));
               }}
             >
               Xóa
             </button>
-          </>
+          </div>
         )}
+        {alertAt('actions')}
       </td>
     </tr>
   );
