@@ -6,16 +6,12 @@ import { MotionProvider } from '@/lib/motion';
 import { getEnabledLocales } from '@/lib/server/content/locales';
 import '../../globals.css';
 
-export const metadata: Metadata = {
-  title: 'Furama Cuisine — Many Flavours. Many Destinations.',
-  description:
-    'From beachfront dining to vibrant city destinations – discover the restaurants, cuisines and people of Furama Cuisine in Da Nang.',
-  openGraph: {
-    title: 'Furama Cuisine',
-    description: 'People · Culture · Great Food — dining across Furama’s Da Nang destinations.',
-    type: 'website',
-  },
-};
+/*
+ * Only the pages that render without the database (the not-found and error
+ * pages of this segment, R8) keep this title: every page below
+ * (guarded)/layout.tsx names itself from the SEO screen's words (seo.*).
+ */
+export const metadata: Metadata = { title: 'Furama Cuisine' };
 
 export const viewport: Viewport = {
   width: 'device-width',

@@ -447,3 +447,6 @@ export const BookingDefaultsForm = z.object({
     .pipe(RestaurantId.nullable()),
   defaultOccasion: z.enum(['', 'Breakfast', 'Lunch', 'Dinner', 'Drinks'], { error: 'Chọn một bữa trong danh sách.' }).transform((v) => (v === '' ? null : v)),
 });
+
+/** The SEO screen's share picture (spec §5.2 site_settings.og_image_id): a library file, or none. */
+export const ShareImageForm = z.object({ token: Token, ogImageId: optionalMedia });

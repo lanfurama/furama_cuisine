@@ -18,6 +18,7 @@ import {
   RestaurantSwitchForm,
   RestoreForm,
   SectionForm,
+  ShareImageForm,
   SlideForm,
   SlugOrderForm,
   SlugPublishForm,
@@ -346,5 +347,13 @@ describe('content form schemas (spec §7.3, §7.4)', () => {
     expect(fieldErrors(BookingDefaultsForm.safeParse(readForm(form({ token, defaultRestaurantId: 'Taya House', defaultOccasion: 'Brunch' }))).error)).toMatchObject({
       defaultOccasion: ['Chọn một bữa trong danh sách.'],
     });
+  });
+
+  it('the share picture: a library file or none (plan 7B B7)', () => {
+    const token = 'b'.repeat(32);
+    const id = '6f1c3c43-8a8e-4a43-9f52-7f8f1c0d2b10';
+    expect(ShareImageForm.parse(readForm(form({ token, ogImageId: id })))).toEqual({ token, ogImageId: id });
+    expect(ShareImageForm.parse(readForm(form({ token, ogImageId: '' })))).toEqual({ token, ogImageId: null });
+    expect(fieldErrors(ShareImageForm.safeParse(readForm(form({ token, ogImageId: 'hero-beach.jpg' }))).error)).toEqual({ ogImageId: ['Chọn một file trong thư viện.'] });
   });
 });

@@ -116,7 +116,8 @@ export type RestaurantDetail = {
   /** null hides MENU: no PDF in either language and no highlights to scroll to. */
   menu: MenuAction | null;
   highlights: Highlight[];
-  seo: { title: string | null; description: string | null };
+  /** Its own SEO title, description and share picture; null: the SEO screen's (L7-13). */
+  seo: { title: string | null; description: string | null; image: Media | null };
 };
 
 /** Everything the chrome (header, menu, footer, finder, search, booking bar) needs, on every guest page. */

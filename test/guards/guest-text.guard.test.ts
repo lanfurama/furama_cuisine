@@ -17,6 +17,7 @@ import { findingId, looksLikeProse, scanGuestText, templateHasWord } from './gue
 const LOCKED: Record<string, string> = {
   "app/(site)/[lang]/(guarded)/privacy/page.tsx: UTC": "code token, not text",
   "app/(site)/[lang]/(guarded)/privacy/page.tsx: en-GB": "code token, not text",
+  "app/(site)/[lang]/layout.tsx: Furama Cuisine": "the title of the pages that render without the database (R8); every page with one names itself from seo.* ((guarded)/layout.tsx)",
   "app/(site)/[lang]/error.tsx: Please try again, or call us to book:": "renders without the database or a language (spec §12): code text by design",
   "app/(site)/[lang]/error.tsx: TRY AGAIN": "renders without the database or a language (spec §12): code text by design",
   "app/(site)/[lang]/error.tsx: We could not load this page.": "renders without the database or a language (spec §12): code text by design",
@@ -49,13 +50,6 @@ const LOCKED: Record<string, string> = {
 
 /** Still inline. Each moves to the registry key named (proposed names; spec §5.1 item 2), or to its phase. */
 const PENDING: Record<string, string> = {
-  "app/(site)/[lang]/(guarded)/privacy/page.tsx: — Furama Cuisine": "seo.page_title ('{page} — Furama Cuisine')",
-  "app/(site)/[lang]/(guarded)/restaurants/[slug]/page.tsx: Page not found — Furama Cuisine": "seo.not_found_title",
-  "app/(site)/[lang]/(guarded)/restaurants/[slug]/page.tsx: — Furama Cuisine": "seo.page_title",
-  "app/(site)/[lang]/layout.tsx: From beachfront dining to vibrant city destinations – discover the restaurants, cuisines and people of Furama Cuisine in Da Nang.": "seo.home_description",
-  "app/(site)/[lang]/layout.tsx: Furama Cuisine": "seo.og_title",
-  "app/(site)/[lang]/layout.tsx: Furama Cuisine — Many Flavours. Many Destinations.": "seo.home_title",
-  "app/(site)/[lang]/layout.tsx: People · Culture · Great Food — dining across Furama’s Da Nang destinations.": "seo.og_description",
   "components/overlays/MenuOverlay.tsx: EN": "phase 8: locales.short_label (language switcher)",
   "components/overlays/MenuOverlay.tsx: VI": "phase 8: locales.short_label",
   "components/site/Header.tsx: EN": "phase 8: locales.short_label",
@@ -86,9 +80,10 @@ describe('guest-visible text lives in the registry or the database (spec §13)',
     // 7B task B1, the two of the cuisines section moved in B2, the three of the experiences section
     // moved in B3, the eighteen of the header, the phone menu and tab bar, the restaurant page's
     // and the reservation form's RESERVE A TABLE and the 404 page moved in B4, the twelve of the
-    // footer and the phone menu's tagline moved in B5 and the sixty-two of the booking bar, the
-    // finder and the reservation form moved in B6. Plan 7B empties it.
-    expect(Object.keys(PENDING).length).toBeLessThanOrEqual(15);
+    // footer and the phone menu's tagline moved in B5, the sixty-two of the booking bar, the
+    // finder and the reservation form moved in B6 and the seven of the metadata moved in B7 (the
+    // root layout's brand title is LOCKED). Plan 7B empties it.
+    expect(Object.keys(PENDING).length).toBeLessThanOrEqual(8);
   });
 });
 

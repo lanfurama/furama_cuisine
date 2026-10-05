@@ -126,6 +126,15 @@ export async function restoreSettings(pool: Pool, actor: AuditActor, group: Sett
   }
 }
 
+// ── The SEO screen's share picture (spec §5.2 site_settings.og_image_id, §7.2 content/seo) ──
+
+/** The picture a shared link shows, for the home page and every page without its own (L7-13); NULL: none. */
+export const SHARE_IMAGE: SettingsGroup = {
+  id: 'og_image',
+  columns: ['og_image_id'],
+  media: [{ column: 'og_image_id', kind: 'image', field: 'ogImageId' }],
+};
+
 // ── The booking screen's defaults (spec §5.2, §7.2 content/booking) ─────────
 
 /** The meals the finder may start on (CHECK site_settings.default_occasion, migration 008). */

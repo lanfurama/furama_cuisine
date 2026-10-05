@@ -1293,6 +1293,51 @@ export const REGISTRY = {
     screen: 'contact',
     label: 'Tên link LINE (chân trang)',
   },
+  // ── Metadata: read on the server by generateMetadata, never sent to the browser; the SEO screen ──
+  'seo.home_title': {
+    en: 'Furama Cuisine — Many Flavours. Many Destinations.',
+    maxLength: 70,
+    context: 'The browser tab title of the home page, and what search results show as its link. About 60 characters at most is best for search results.',
+    screen: 'seo',
+    label: 'Tiêu đề trang chủ (tab trình duyệt, kết quả tìm kiếm)',
+  },
+  'seo.home_description': {
+    en: 'From beachfront dining to vibrant city destinations – discover the restaurants, cuisines and people of Furama Cuisine in Da Nang.',
+    maxLength: 200,
+    context:
+      'The home page’s description for search results (meta description); also the description of a restaurant page that has none of its own. About 160 characters at most is best.',
+    screen: 'seo',
+    label: 'Mô tả trang chủ (kết quả tìm kiếm; trang nhà hàng chưa có mô tả riêng cũng dùng)',
+  },
+  'seo.og_title': {
+    en: 'Furama Cuisine',
+    maxLength: 70,
+    context: 'The title a shared link to the home page shows (Facebook, Zalo, messaging apps: og:title).',
+    screen: 'seo',
+    label: 'Tiêu đề khi chia sẻ link trang chủ',
+  },
+  'seo.og_description': {
+    en: 'People · Culture · Great Food — dining across Furama’s Da Nang destinations.',
+    maxLength: 200,
+    context: 'The description a shared link to the home page shows under its title (og:description).',
+    screen: 'seo',
+    label: 'Mô tả khi chia sẻ link trang chủ',
+  },
+  'seo.page_title': {
+    en: '{page} — Furama Cuisine',
+    maxLength: 70,
+    vars: ['page'],
+    context: 'The tab title of a page other than the home page: a restaurant page without an SEO title of its own, the privacy policy. {page} is the page’s name (the restaurant’s, “Privacy policy”); keep it.',
+    screen: 'seo',
+    label: 'Mẫu tiêu đề các trang khác',
+  },
+  'seo.not_found_title': {
+    en: 'Page not found — Furama Cuisine',
+    maxLength: 70,
+    context: 'The tab title of the page shown for an address that does not exist (an unknown restaurant).',
+    screen: 'seo',
+    label: 'Tiêu đề trang không tồn tại',
+  },
   // ── Search overlay: a client component of the chrome (CLIENT_KEYS) ──
   'search.aria': {
     en: 'Search',

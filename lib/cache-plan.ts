@@ -102,6 +102,8 @@ export const LOADERS = {
   },
   nav: { reads: ['locales', 'nav_items', 'nav_item_i18n', 'sections'], tags: [TAGS.contentNav, TAGS.contentSections] },
   socials: { reads: ['social_links'], tags: [TAGS.contentContact] },
+  // The SEO screen's share picture (site_settings.og_image_id) with its alt, for every page's metadata.
+  shareImage: { reads: ['locales', 'site_settings', 'media', 'media_i18n'], tags: [TAGS.contentContact, TAGS.media] },
   // The search text folds cuisine labels and the destination's name in; CALL falls back to the destination's number.
   restaurants: {
     reads: [

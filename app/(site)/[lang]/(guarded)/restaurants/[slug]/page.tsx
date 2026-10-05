@@ -6,10 +6,13 @@ import { MoreRestaurants } from '@/components/detail/MoreRestaurants';
 import { IntroTrigger } from '@/components/site/IntroTrigger';
 import { MobileBar } from '@/components/site/MobileBar';
 import { ViewMarker } from '@/components/site/ViewMarker';
+import { notFoundMetadata, restaurantMetadata } from '@/lib/content/seo';
 import { isRestaurantSlug } from '@/lib/content/slug';
 import { formatMessage } from '@/lib/i18n/format';
+import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
 import { getEnabledLocales, requireEnabledLocale } from '@/lib/server/content/locales';
 import { getDetailSlugs, getRestaurantDetail } from '@/lib/server/content/restaurants';
+import { getShareImage, SEO_KEYS } from '@/lib/server/content/seo';
 import { getStrings } from '@/lib/server/content/strings';
 
 type Props = { params: Promise<{ lang: string; slug: string }> };
@@ -35,21 +38,18 @@ export async function generateStaticParams() {
   return (slugs.length > 0 ? slugs : [NO_PAGE_SLUG]).map((slug) => ({ slug }));
 }
 
-const NOT_FOUND: Metadata = { title: 'Page not found — Furama Cuisine', robots: { index: false } };
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { lang, slug } = await params;
-  // A language that is off 404s in the layout; its tab must not carry the restaurant's title (phase-2 risk 7, R14).
-  if (!(await getEnabledLocales()).some((l) => l.code === lang)) return NOT_FOUND;
+  // A language that is off 404s in the layout; its tab must not carry the restaurant's title (phase-2 risk 7, R14),
+  // and its words are the default language's.
+  if (!(await getEnabledLocales()).some((l) => l.code === lang)) return notFoundMetadata(await getStrings(DEFAULT_LOCALE, ['seo.not_found_title']));
+  const t = await getStrings(lang, SEO_KEYS);
   // A segment no restaurant can have never reaches the database (a NUL byte made Postgres throw).
-  if (!isRestaurantSlug(slug)) return NOT_FOUND;
-  const detail = await getRestaurantDetail(slug, lang);
-  if (!detail) return NOT_FOUND;
-  // PHASE 7: the SEO editor fills these, and "{name} — Furama Cuisine" becomes a registry template.
-  return {
-    title: detail.seo.title ?? `${detail.name} — Furama Cuisine`,
-    ...(detail.seo.description ? { description: detail.seo.description } : {}),
-  };
+  if (!isRestaurantSlug(slug)) return notFoundMetadata(t);
+  const [detail, share] = await Promise.all([getRestaurantDetail(slug, lang), getShareImage(lang)]);
+  if (!detail) return notFoundMetadata(t);
+  // L7-13: its own title, description and picture, else the SEO screen's; its share text is always its own.
+  return restaurantMetadata(t, detail, share, lang);
 }
 
 /* The params read below blocks on purpose (see the comment on the page); this tells dev validation so. */

@@ -138,6 +138,7 @@ type DetailRow = {
   phone_display: string | null;
   map_url: string | null;
   portrait: Media | null;
+  og_image: Media | null;
 };
 
 /**
@@ -160,12 +161,13 @@ export async function loadRestaurantDetail(slug: string, locale: string): Promis
             CASE WHEN r.phone_e164 IS NOT NULL THEN r.phone_e164 ELSE d.phone_e164 END AS phone_e164,
             CASE WHEN r.phone_e164 IS NOT NULL THEN r.phone_display ELSE d.phone_display END AS phone_display,
             coalesce(r.map_url, d.map_url) AS map_url,
-            img.j AS portrait
+            img.j AS portrait, og.j AS og_image
        FROM restaurants r CROSS JOIN lc
        JOIN destinations d ON d.id = r.destination_id
        ${i18nJoin('restaurant_i18n', 'rt', 'restaurant_id', 'r.id')}
        ${i18nJoin('destination_i18n', 'dt', 'destination_id', 'd.id')}
        LEFT JOIN LATERAL ${mediaJson('r.detail_image_id')} AS img ON true
+       LEFT JOIN LATERAL ${mediaJson('r.og_image_id')} AS og ON true
       WHERE r.slug = $2 AND ${HAS_PAGE('r')}`,
     [locale, slug],
   );
@@ -201,6 +203,6 @@ export async function loadRestaurantDetail(slug: string, locale: string): Promis
     map: row.map_url,
     menu: row.menu_pdf ? { kind: 'pdf', url: row.menu_pdf } : cards.length > 0 ? { kind: 'scroll' } : null,
     highlights: cards,
-    seo: { title: row.seo_title, description: row.seo_description },
+    seo: { title: row.seo_title, description: row.seo_description, image: row.og_image },
   };
 }
