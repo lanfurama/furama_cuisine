@@ -664,11 +664,12 @@ a new deployment.
    above (008 at sha256 `8f0869…d755`). The site has never been deployed,
    so launch A's first deploy is phase-6 code, and it builds only on a Neon
    branch that has 008 (without it, the build fails before it prerenders
-   anything: `column "slug" does not exist`). Every preview branch now forks
-   from production with 007 and 008. Any later migration follows the same
-   order: dev branch, then the preview's branch, then production, each time
-   before the deploy that builds on it; with Vercel's Git integration,
-   pushing or merging `main` is the Production deploy.
+   anything: `column "slug" does not exist`). Previews do not get their own
+   database: Preview uses the production database (owner, 2026-10-05), so a
+   later migration is applied to production once, before the first deploy
+   (preview or production) that builds on it; with Vercel's Git integration,
+   pushing or merging `main` is the Production deploy. Older sections of this
+   README that mention preview branches no longer apply.
 2. **Neon plan:** the project is on Neon Free (owner, 2026-10-05). Free
    suspends an idle compute after 5 minutes, and its monthly compute
    allowance is limited; once it runs out, Neon suspends the compute and
@@ -676,8 +677,7 @@ a new deployment.
    hourly, not every 5 minutes: a 5-minute cron would keep the production
    compute awake around the clock (about 183 CU-hours a month at the
    0.25 CU minimum). The cost is that a failed email is retried up to an hour
-   late. Each preview branch also uses compute: delete old preview branches
-   in Neon. Watch the usage in Vercel → Storage → Neon during the first
+   late. Watch the usage in Vercel → Storage → Neon during the first
    month; if it nears the allowance, move to Launch (check
    neon.tech/pricing) and the cron can go back to `*/5 * * * *` (change
    `vercel.json` and `test/guards/vercel-crons.guard.test.ts` together).
@@ -723,13 +723,13 @@ a new deployment.
    `BETTER_AUTH_URL=<the preview's branch URL>` (set for that Git branch, and
    open the preview at that URL: every emailed link, from `staff.new`'s
    booking link to invitations and resets, needs it, and fails with
-   `missing_app_url` without it). Preview branches fork production's staff
-   and recipients, so redirect is mandatory there; a password reset on a
-   Preview changes only that branch. Remove `RESEND_API_KEY` from every
+   `missing_app_url` without it). A Preview runs on the production database,
+   with its real staff and recipients, so redirect is mandatory there; a
+   password reset or any edit on a Preview changes production data. Cancel
+   test bookings made on a Preview. Remove `RESEND_API_KEY` from every
    environment.
-9. **First preview:** push a branch other than `main`. Its Neon branch
-   forks from production, which already has 007 and 008 (step 1), so it
-   builds as is; run the post-check of "Migration 008" on it once. On the preview, "Gửi email thử" in
+9. **First preview:** push a branch other than `main`. It builds on the
+   production database, which already has 007 and 008 (step 1). On the preview, "Gửi email thử" in
    `/admin/settings/notifications` arrives at the redirect inbox (that proves
    port 587/465 is reachable from Vercel Functions, the login, and SPF/DKIM
    passing in the headers).
