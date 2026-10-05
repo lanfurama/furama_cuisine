@@ -38,7 +38,14 @@ export const GUEST_SOURCES = [
   'lib/booking.ts',
   'lib/booking-errors.ts',
   'lib/motion.tsx',
+  // The booking emails a guest receives (AC2): their layout and the code that fills it from the registry.
+  'lib/server/email/templates/booking.tsx',
+  'lib/server/email/templates/layout.tsx',
+  'lib/server/email/booking',
 ] as const;
+
+/** Under GUEST_SOURCES, yet never sent to a guest: the admin's made-up booking for "Gửi email thử" and the preview. */
+export const NOT_GUEST_SOURCES = new Set(['lib/server/email/booking/sample.ts']);
 
 /** JSX attributes whose string is never shown to a guest: element plumbing, enums and URLs. */
 export const NON_TEXT_ATTRIBUTES = new Set([
@@ -212,6 +219,7 @@ export function scanFile(file: string, root = process.cwd()): Finding[] {
 export function scanGuestText(root = process.cwd()): Finding[] {
   return GUEST_SOURCES.flatMap((p) => sourceFiles(join(root, p)))
     .map((abs) => relative(root, abs))
+    .filter((file) => !NOT_GUEST_SOURCES.has(file))
     .sort()
     .flatMap((file) => scanFile(file, root));
 }

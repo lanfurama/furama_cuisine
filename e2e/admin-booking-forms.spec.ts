@@ -183,16 +183,19 @@ test('the inbox keeps five searches: Back to the first still shows it; an expire
 
   // A session that ended while the inbox stayed open (T12.4): the search goes to sign-in, then back.
   const lapsed = await newVisitor(browser, testInfo);
-  await signInAs(lapsed, STAFF.editor);
-  await lapsed.goto('/admin/reservations');
-  await expectHydrated(lapsed);
-  const cookie = (await lapsed.context().cookies()).find((c) => c.name.endsWith('session_token'));
-  await one(`DELETE FROM staff_session WHERE token = $1`, [decodeURIComponent(cookie!.value).split('.')[0]]);
-  await lapsed.getByLabel('Tìm theo mã, số điện thoại, tên hoặc email', { exact: true }).fill(first.reference);
-  await lapsed.getByRole('button', { name: 'Tìm', exact: true }).click();
-  await expect(lapsed).toHaveURL(/\/admin\/sign-in\?next=%2Fadmin%2Freservations$/);
-  await expect(lapsed.getByRole('heading', { level: 1 })).toHaveText('Đăng nhập');
-  await lapsed.context().close();
+  try {
+    await signInAs(lapsed, STAFF.editor);
+    await lapsed.goto('/admin/reservations');
+    await expectHydrated(lapsed);
+    const cookie = (await lapsed.context().cookies()).find((c) => c.name.endsWith('session_token'));
+    await one(`DELETE FROM staff_session WHERE token = $1`, [decodeURIComponent(cookie!.value).split('.')[0]]);
+    await lapsed.getByLabel('Tìm theo mã, số điện thoại, tên hoặc email', { exact: true }).fill(first.reference);
+    await lapsed.getByRole('button', { name: 'Tìm', exact: true }).click();
+    await expect(lapsed).toHaveURL(/\/admin\/sign-in\?next=%2Fadmin%2Freservations$/);
+    await expect(lapsed.getByRole('heading', { level: 1 })).toHaveText('Đăng nhập');
+  } finally {
+    await lapsed.context().close();
+  }
 });
 
 test('“Báo khách” is gone once the sitting has started, and the notice says why no email went, only after a change that emails the guest (phase-5 residual)', async ({ page }) => {

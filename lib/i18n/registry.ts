@@ -319,9 +319,6 @@ export const REGISTRY = {
     screen: 'booking',
     label: 'Nút “thử lại” khi không tải được ngày giờ',
   },
-  // ── The privacy notice and consent (spec §11, Law 91/2025/QH15). English only until a reviewed ──
-  // Vietnamese text exists (R17); lib/legal.test.ts pins a hash of these texts to PRIVACY_POLICY_VERSION.
-  // booking.* so they reach the reservation form; legal.link reaches the browser too (form and footer).
   // ── Booking bar and reservation form (client: SiteProvider) ──
   'booking.title': {
     en: 'Where would you like to dine?',
@@ -510,6 +507,9 @@ export const REGISTRY = {
     screen: 'booking',
     label: 'Nút gửi yêu cầu đặt bàn',
   },
+  // ── The privacy notice and consent (spec §11, Law 91/2025/QH15). English only until a reviewed ──
+  // Vietnamese text exists (R17); lib/legal.test.ts pins a hash of these texts to PRIVACY_POLICY_VERSION.
+  // booking.* so they reach the reservation form; legal.link reaches the browser too (form and footer).
   'booking.privacy_notice': {
     en: 'We use your name, phone number and email to arrange this booking and to contact you about it. To stop abuse, we also check how many online requests your phone number has made for the same day, and run an automated bot check.',
     maxLength: 240,

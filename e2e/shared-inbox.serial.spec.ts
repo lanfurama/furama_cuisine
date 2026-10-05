@@ -31,7 +31,7 @@ async function saveInbox(page: Page, email: string) {
 
 test.beforeAll(() => seedStaff());
 
-test('saving the shared inbox changes the footer and the privacy policy at once', async ({ page, browser }) => {
+test('saving the shared inbox changes the footer and the privacy policy within seconds', async ({ page, browser }) => {
   const visitor = await guest(browser);
   try {
     await visitor.goto(HOME_PATH);

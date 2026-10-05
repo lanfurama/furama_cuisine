@@ -38,7 +38,8 @@ test.afterAll(async ({ browser }) => {
   );
   if (!broken) return;
   await one(`DELETE FROM content_strings WHERE key = 'booking.find_table'`);
-  // A save through the screen expires content:contact (the settings) and content:ui (the strings' cache follows it).
+  // A save through the screen expires content:contact (the settings) only. It does not expire content:ui:
+  // after a half-failed run, the SQL-deleted string stays cached for guests until the next strings save.
   const page = await (await browser.newContext()).newPage();
   await signInAs(page, STAFF.editor);
   await page.goto('/admin/content/booking');

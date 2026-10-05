@@ -10,8 +10,11 @@ import { TEST_DATABASE_URL } from '../helpers/db';
  * key of the schema with its ON DELETE action as the database has it: a new
  * key, or a changed action, fails the first test until it is placed here,
  * with the test that drives its action through an editor's delete or
- * restore, or with the reason no phase-7 path deletes its parent. The second
- * test checks each named test still exists, word for word, in its file.
+ * restore, or with the reason no phase-7 path deletes its parent. The files'
+ * keys (MEDIA_TEST) name a schema-shape test instead: the library refuses a
+ * delete in the app, through MEDIA_REFERENCES, before RESTRICT is reached,
+ * and that test pins the list to the database's columns. The second test
+ * checks each named test still exists, word for word, in its file.
  *
  * ON DELETE: a = NO ACTION, r = RESTRICT, c = CASCADE, n = SET NULL.
  */

@@ -41,7 +41,9 @@ test.afterAll(async ({ browser }) => {
   if (!broken) return;
   await one(`UPDATE social_links SET href = '${SEEDED}' WHERE platform = 'facebook'`);
   await one(`DELETE FROM content_strings WHERE key = 'footer.tagline'`);
-  // The SQL expires nothing: a save of the link, unchanged, does (content:contact; every guest page carries it).
+  // The SQL expires nothing: a save of the link, unchanged, expires content:contact (every guest page carries it).
+  // It does not expire content:ui: after a half-failed run, the SQL-deleted tagline stays cached for guests until
+  // the next strings save.
   const page = await (await browser.newContext()).newPage();
   await signInAs(page, STAFF.editor);
   await page.goto('/admin/content/contact');

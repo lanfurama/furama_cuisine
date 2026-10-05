@@ -1,4 +1,4 @@
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, BrowserContext, Page } from '@playwright/test';
 import { EDIT_SCREENS } from '../lib/admin/content-screens';
 import { REGISTRY, type StringDef, type StringKey } from '../lib/i18n/registry';
 import { expectHydrated } from './csp';
@@ -17,11 +17,15 @@ import { STAFF, expect, one, seedStaff, signInAs, test, uniqueIp } from './staff
  * One test per section of the map, one step per row. A row's guest check
  * reads what a guest is served (the page's HTML, the availability answer,
  * or an email), polled for at most 5 s from the save. Each row puts back
- * what it changed through the History of the screen it edited, except the
- * two screens that have none (spec §7.5 gives History to content): the
- * booking switch (phase 4) and the shared inbox (phase 5, the Admin's),
- * which are saved back to their old value. afterAll repairs by SQL anything
- * a failed step left: every row's marker contains "AC1-".
+ * what it changed through the History of the screen it edited, and the guest
+ * check runs again until the change is gone (spec §14.1 row 7: every item
+ * can be restored), except the two screens that have none (spec §7.5 gives
+ * History to content): the booking switch (phase 4) and the shared inbox
+ * (phase 5, the Admin's), which are saved back to their old value.
+ *
+ * afterAll deletes only the override strings a failed string row left (each
+ * marker contains "AC1-"). A table row that fails half-way leaves its change
+ * in the E2E database (plan risk 20); the report names the step that failed.
  *
  * Serial (desktop-serial): it touches every guest page.
  */
@@ -36,6 +40,7 @@ const mark = (row: number) => `AC1-${row}`;
 
 /** The Editor's admin page, signed in once for the file, and a guest's plain HTTP client. */
 let editor: Page;
+let guestContext: BrowserContext;
 let guestApi: APIRequestContext;
 let guestPage: Page;
 
@@ -43,7 +48,8 @@ test.beforeAll(async ({ browser }, testInfo) => {
   await seedStaff();
   editor = await (await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': uniqueIp(testInfo) } })).newPage();
   await signInAs(editor, STAFF.editor);
-  guestApi = (await browser.newContext()).request;
+  guestContext = await browser.newContext();
+  guestApi = guestContext.request;
   const guest = await browser.newContext({ viewport: { width: 1280, height: 860 }, reducedMotion: 'reduce' });
   await guest.addInitScript(() => sessionStorage.setItem('fc-intro-seen', '1'));
   guestPage = await guest.newPage();
@@ -52,6 +58,7 @@ test.beforeAll(async ({ browser }, testInfo) => {
 test.afterAll(async () => {
   await editor.context().close();
   await guestPage.context().close();
+  await guestContext.close();
   // A step that failed half-way leaves its marker: the override rows go (the next save of any key expires them).
   await one(`DELETE FROM content_strings WHERE value LIKE '%AC1-%'`);
 });
@@ -61,14 +68,15 @@ async function served(api: APIRequestContext, path: string): Promise<string> {
   return (await api.get(path)).text();
 }
 
+const contains = (html: string, text: string | RegExp) => (typeof text === 'string' ? html.includes(text) : text.test(html));
+
 /** The guest gets `seen` (a string, or a pattern) at `path` within 5 s of the save, or `absent` no longer. */
-async function reachesGuest(api: APIRequestContext, path: string, check: { seen?: string | RegExp; absent?: string }) {
+async function reachesGuest(api: APIRequestContext, path: string, check: { seen?: string | RegExp; absent?: string | RegExp }) {
   await expect
     .poll(
       async () => {
         const html = await served(api, path);
-        const seen = check.seen === undefined || (typeof check.seen === 'string' ? html.includes(check.seen) : check.seen.test(html));
-        return seen && (check.absent === undefined || !html.includes(check.absent));
+        return (check.seen === undefined || contains(html, check.seen)) && (check.absent === undefined || !contains(html, check.absent));
       },
       { timeout: GUEST_MS, intervals: [200, 300, 500] },
     )
@@ -131,7 +139,10 @@ async function openItem(admin: Page, route: string, list: string, name: string) 
   return item;
 }
 
-/** The restaurant content screen of Tàya House: change fields, save, check the guest, restore through History. */
+/**
+ * The restaurant content screen of Tàya House: change fields, save, check the guest, restore through History,
+ * then check the guest again. `seen` must be absent before the edit, so each check proves its half.
+ */
 async function restaurantRow(admin: Page, api: APIRequestContext, edit: (form: ReturnType<Page['getByRole']>) => Promise<void>, path: string, seen: string | RegExp) {
   await admin.goto('/admin/restaurants/taya-house');
   await expectHydrated(admin);
@@ -141,6 +152,7 @@ async function restaurantRow(admin: Page, api: APIRequestContext, edit: (form: R
   await expect(form.getByRole('status').filter({ hasText: 'Đã lưu' })).toBeVisible();
   await reachesGuest(api, path, { seen });
   await restoreNewest(admin, admin.getByRole('region', { name: 'Lịch sử', exact: true }));
+  await reachesGuest(api, path, { absent: seen });
 }
 
 test('2.1 head of the page: title and description, the shared title, the shared picture', async () => {
@@ -158,8 +170,10 @@ test('2.1 head of the page: title and description, the shared title, the shared 
         await form.getByRole('radio', { name: 'hero-beach.jpg' }).check();
         await form.getByRole('button', { name: 'Lưu', exact: true }).click();
         await expect(form.getByRole('status')).toHaveText(SAVED);
-        await reachesGuest(api, HOME_PATH, { seen: /property="og:image" content="[^"]*hero-beach\.jpg"/ });
+        const shared = /property="og:image" content="[^"]*hero-beach\.jpg"/;
+        await reachesGuest(api, HOME_PATH, { seen: shared });
         await restoreNewest(admin, admin.getByRole('region', { name: 'Lịch sử: ảnh chia sẻ' }));
+        await reachesGuest(api, HOME_PATH, { absent: shared });
       },
     },
   ]);
@@ -176,6 +190,7 @@ const navRow = (row: number, item: string, section: string, label: string): Row 
     await expect(entry.getByRole('status')).toHaveText(SAVED);
     await reachesGuest(api, HOME_PATH, { seen: `>${mark(row)}<` });
     await restoreNewest(admin, entry.getByRole('region', { name: /^Lịch sử: / }));
+    await reachesGuest(api, HOME_PATH, { absent: `>${mark(row)}<` });
     expect(await one(`SELECT label FROM nav_item_i18n t JOIN nav_items n ON n.id = t.nav_item_id WHERE n.target_section = $1 AND t.locale = 'en'`, [section])).toEqual({ label });
   },
 });
@@ -242,6 +257,7 @@ test('2.5 hero and film', async () => {
         await expect(form.getByRole('status')).toHaveText(SAVED);
         await reachesGuest(api, HOME_PATH, { seen: `alt="${mark(16)}"` });
         await restoreNewest(admin, admin.getByRole('region', { name: 'Lịch sử', exact: true }));
+        await reachesGuest(api, HOME_PATH, { absent: `alt="${mark(16)}"` });
       },
     },
     { row: 17, item: 'kicker, title 1/2/3, lede', key: 'hero.kicker' },
@@ -256,8 +272,10 @@ test('2.5 hero and film', async () => {
         await form.getByLabel('Thời gian mỗi slide (giây)', { exact: true }).fill('9');
         await form.getByRole('button', { name: 'Lưu', exact: true }).click();
         await expect(form.getByRole('status')).toHaveText(SAVED);
-        await reachesGuest(api, HOME_PATH, { seen: /heroAutoplayMs\\?":9000/ });
+        const autoplay = /heroAutoplayMs\\?":9000/;
+        await reachesGuest(api, HOME_PATH, { seen: autoplay });
         await restoreNewest(admin, admin.getByRole('region', { name: 'Lịch sử: tốc độ slide' }));
+        await reachesGuest(api, HOME_PATH, { absent: autoplay });
       },
     },
     {
@@ -272,6 +290,7 @@ test('2.5 hero and film', async () => {
         await expect(form.getByRole('status')).toHaveText(SAVED);
         await reachesGuest(api, HOME_PATH, { seen: 'dQw4w9WgXcQ' });
         await restoreNewest(admin, admin.getByRole('region', { name: 'Lịch sử: phim' }));
+        await reachesGuest(api, HOME_PATH, { absent: 'dQw4w9WgXcQ' });
       },
     },
     { row: 21, item: 'film title, coming soon, 2 aria labels', key: 'film.title' },
@@ -291,6 +310,7 @@ const defaultsRow = (row: number, item: string, field: string, value: string, se
     await expect(form.getByRole('status')).toHaveText(SAVED);
     await reachesGuest(api, HOME_PATH, { seen });
     await restoreNewest(admin, admin.getByRole('region', { name: 'Lịch sử: lựa chọn sẵn' }));
+    await reachesGuest(api, HOME_PATH, { absent: seen });
   },
 });
 
@@ -305,6 +325,7 @@ const cuisineRow = (row: number, item: string, name: string): Row => ({
     await expect(entry.getByRole('status').first()).toHaveText(SAVED);
     await reachesGuest(api, HOME_PATH, { seen: mark(row) });
     await restoreNewest(admin, entry.getByRole('region', { name: /^Lịch sử: / }));
+    await reachesGuest(api, HOME_PATH, { absent: mark(row) });
   },
 });
 
@@ -363,9 +384,13 @@ test('2.8 restaurants', async () => {
           await expect(rules.getByRole('status')).toHaveText('Đã lưu.');
         };
         const status = async () => (await api.get('/api/availability?restaurant=taya-house')).status();
-        await save(false);
-        await expect.poll(status, { timeout: GUEST_MS }).toBe(404);
-        await save(true);
+        // The switch goes back on whatever happens: the later serial specs book Tàya House online.
+        try {
+          await save(false);
+          await expect.poll(status, { timeout: GUEST_MS }).toBe(404);
+        } finally {
+          await save(true);
+        }
         await expect.poll(status, { timeout: GUEST_MS }).toBe(200);
       },
     },
@@ -387,6 +412,7 @@ const listRow = (
     await expect(entry.getByRole('status').first()).toHaveText(SAVED);
     await reachesGuest(api, HOME_PATH, { seen: mark(row) });
     await restoreNewest(admin, entry.getByRole('region', { name: /^Lịch sử: / }));
+    await reachesGuest(api, HOME_PATH, { absent: mark(row) });
   },
 });
 
@@ -404,6 +430,7 @@ const sectionRow = (row: number, item: string, label: string, change: (form: Ret
     await expect(form.getByRole('status')).toHaveText(SAVED);
     await reachesGuest(api, HOME_PATH, { seen });
     await restoreNewest(admin, card.getByRole('region', { name: `Lịch sử: ${label}` }));
+    await reachesGuest(api, HOME_PATH, { absent: seen });
   },
 });
 
@@ -471,6 +498,7 @@ const offerRow = (row: number, item: string, field: string, value: string, seen:
     await expect(form.getByRole('status')).toHaveText(SAVED);
     await reachesGuest(api, HOME_PATH, { seen });
     await restoreNewest(admin, admin.getByRole('region', { name: 'Lịch sử', exact: true }));
+    await reachesGuest(api, HOME_PATH, { absent: seen });
   },
 });
 
@@ -508,6 +536,7 @@ test('2.17 footer', async ({ browser }) => {
         await expect(entry.getByRole('status').first()).toHaveText(SAVED);
         await reachesGuest(api, HOME_PATH, { seen: 'facebook.com/ac1-64' });
         await restoreNewest(admin, entry.getByRole('region', { name: 'Lịch sử: Facebook' }));
+        await reachesGuest(api, HOME_PATH, { absent: 'facebook.com/ac1-64' });
       },
     },
     { row: 65, item: 'platform labels (social.<platform>)', key: 'social.facebook' },
@@ -571,7 +600,10 @@ test('2.19 and later: restaurant pages, the policy, the 404, the booking emails'
             await portrait.getByRole('radio', { name: 'dest-future.jpg' }).check();
           },
           TAYA,
-          'dest-future.jpg',
+          // The portrait as the page draws it. The file name alone proves nothing: the published `future` teaser's
+          // card already carries dest-future.jpg in the payload. Its alt is the chosen file's own (mediaJson), and
+          // dest-future.jpg is decorative, so alt="".
+          /class="taya-portrait"[^>]*><img alt=""[^>]*url=%2Fassets%2Fdest-future\.jpg/,
         ),
     },
     {
@@ -610,7 +642,8 @@ test('2.19 and later: restaurant pages, the policy, the 404, the booking emails'
         await field.fill(`${mark(79)} ({reference})`);
         await form.getByRole('button', { name: /^Lưu / }).click();
         await expect(form.getByRole('status').filter({ hasText: 'Đã lưu' })).toBeVisible();
-        // The guest's next confirmation: queued as the panel queues it, sent by the cron.
+        // The guest's next confirmation: an outbox row inserted by SQL the way the panel would queue it, with the
+        // env 'development' that the E2E prefix's blank VERCEL_ENV resolves to; the cron sends it.
         await one(
           `INSERT INTO email_outbox (env, event, audience, reservation_id, to_email, locale) VALUES ('development', 'guest.confirmed', 'guest', $1, $2, 'en')`,
           [r.id, guestEmail],

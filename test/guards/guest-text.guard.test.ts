@@ -21,7 +21,7 @@ import { findingId, looksLikeProse, scanGuestText, templateHasWord } from './gue
  */
 const LANGUAGE_SWITCHER = 'language switcher placeholder (R35): phase 8 builds it on the locales table (short_label, native_name)';
 
-/** Not content: brand marks, pages that render without a database, code tokens, the phase-8 language switcher. */
+/** Not content: brand marks, pages that render without a database, code tokens and SQL, the staff emails' footer, the phase-8 language switcher. */
 const LOCKED: Record<string, string> = {
   "app/(site)/[lang]/(guarded)/privacy/page.tsx: UTC": "code token, not text",
   "app/(site)/[lang]/(guarded)/privacy/page.tsx: en-GB": "code token, not text",
@@ -60,6 +60,22 @@ const LOCKED: Record<string, string> = {
   "lib/booking.ts: NFD": "code token, not text",
   "lib/content/format.ts: UTC": "code token, not text",
   "lib/content/format.ts: en-US": "code token, not text",
+  "lib/server/email/booking/format.ts: UTC": "code token, not text",
+  "lib/server/email/booking/load.ts: SELECT r.id::text, r.reference, t.name AS restaurant_name, to_char(r.reserved_on, 'YYYY-MM-DD') AS date, r.reserved_at AS time, r.guests, r.status, r.status_reason, r.guest_name, r.phone, r.email, r.note, (SELECT oi.title FROM offer_i18n oi JOIN locales l ON l.code = oi.locale AND l.is_default WHERE oi.offer_id = r.offer_id) AS offer_title,": "SQL, not text",
+  "lib/server/email/booking/load.ts: AS group_phone, r.anonymized_at IS NOT NULL AS anonymized FROM reservations r JOIN restaurants t ON t.id = r.restaurant_id WHERE r.id = $1": "SQL, not text",
+  "lib/server/email/booking/render.ts: SELECT code, bcp47, is_enabled, is_default FROM locales WHERE code = $1 OR is_default": "SQL, not text",
+  "lib/server/email/booking/render.ts: SELECT to_status FROM reservation_events WHERE id = $1": "SQL, not text",
+  "lib/server/email/templates/booking.tsx: h1": "code token, not text",
+  "lib/server/email/templates/layout.tsx: 10px 14px": "code token, not text",
+  "lib/server/email/templates/layout.tsx: 12px 24px": "code token, not text",
+  "lib/server/email/templates/layout.tsx: 32px 28px": "code token, not text",
+  "lib/server/email/templates/layout.tsx: 3px solid": "code token, not text",
+  "lib/server/email/templates/layout.tsx: 4px solid": "code token, not text",
+  "lib/server/email/templates/layout.tsx: 6px 16px 6px 0": "code token, not text",
+  "lib/server/email/templates/layout.tsx: Furama Cuisine": "brand wordmark at the top of every email (inventory class L)",
+  "lib/server/email/templates/layout.tsx: Helvetica, Arial, sans-serif": "code token, not text",
+  "lib/server/email/templates/layout.tsx: Đây là email tự động từ hệ thống quản trị Furama Cuisine. Vui lòng không trả lời email này.":
+    "STAFF_FOOTER: the staff account emails' footer (invite, reset; Vietnamese, R7); a booking email passes its footer from the registry",
   "lib/motion.tsx: 0px 0px -8% 0px": "code token, not text",
 };
 

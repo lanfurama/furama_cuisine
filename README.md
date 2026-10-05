@@ -230,7 +230,8 @@ or an Admin (spec §7; other languages are phase 8). Start at
 | Pictures and PDFs, their descriptions | `/admin/media` |
 
 A save reaches guests within seconds (`updateTag`; the checklist below
-measures it). Every record has its History: who changed what and when, and
+measures it; a save made on a preview may not reach Production's pages, see
+"First preview checks" under "Media in Vercel Blob"). Every record has its History: who changed what and when, and
 "Khôi phục bản trước lần này" / "Khôi phục bản này" bring a version back
 through the same rules a save meets (a restore the rules refuse says which
 rule); a list's "Đã xóa gần đây" brings a deleted item back under its own
@@ -680,7 +681,14 @@ change, through History, and delete the test upload when done.
   `/admin/content/legal` is refused with "Chữ khách đồng ý (chính sách, câu
   đồng ý) chỉ sửa trên trang chính thức: bản preview dùng chung dữ liệu với
   Production." (a preview would stamp production's bookings with its own
-  branch's wording); other words still save.
+  branch's wording); other words still save;
+- a content save on a preview writes production's rows (the shared
+  database), but whether its `updateTag` also expires **Production's**
+  cached pages depends on how Vercel scopes cache tags, which no test
+  covers. Save an alt text or a string on the preview, then open the
+  Production site within seconds. If Production does not show it, make
+  content edits on the Production admin only, and after any preview edit
+  save once on Production (or put the change back through History).
 
 **Media sweep.** `/api/cron/media-sweep` runs daily at 18:35 UTC (01:35 in
 Da Nang, `vercel.json`) with the same `CRON_SECRET` as the other crons.
