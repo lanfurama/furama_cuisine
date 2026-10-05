@@ -73,7 +73,7 @@ export function MenuOverlay() {
               </button>
             ))}
           </div>
-          <div className="menu-tagline">PEOPLE | CULTURE | GREAT FOOD</div>
+          <div className="menu-tagline">{strings['footer.tagline']}</div>
         </div>
       </div>
     </div>

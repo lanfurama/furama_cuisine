@@ -9,18 +9,15 @@ import { describe, expect, it } from 'vitest';
  * tagsForSave(…)) updateTag(tag)` or the same over tagsForStrings(…), so the
  * tags of every table a transaction wrote are expired and lib/cache-plan.test.ts
  * keeps them in step with the loaders. The booking screens' own tag
- * (TAGS.bookingRules(id)) is not a content tag. Two older calls are listed
- * with the task that retires them.
+ * (TAGS.bookingRules(id)) is not a content tag. One older call is listed
+ * with its reason (phase 5's saveInbox went through the cache plan in plan
+ * 7B task B5, L7-6).
  */
 
 const ROOT = join(__dirname, '..', '..');
 
 /** `<file>: <argument as written>` → why it may stay. */
 const ALLOWED = new Map([
-  [
-    'app/admin/(shell)/settings/notifications/actions.ts: TAGS.contentContact',
-    'saveInbox (phase 5) writes site_settings.email; plan 7B (B5) moves it to tagsForSave([site_settings]) (L7-6)',
-  ],
   [
     'app/admin/(shell)/restaurants/[id]/booking/actions.ts: TAGS.restaurants',
     'the booking screen (phase 4): service periods and the booking switch change the catalogue’s meals and bookingEnabled',

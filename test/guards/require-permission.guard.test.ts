@@ -134,6 +134,16 @@ const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; edito
     saveAutoplayAction: { permission: { content: ['update'] }, editor: true },
     restoreAutoplayAction: { permission: { content: ['restore'] }, editor: true },
   },
+  // The footer's social links (spec §7.2 content/contact, plan 7B task B5).
+  'app/admin/(shell)/content/contact/actions.ts': {
+    createSocialLinkAction: { permission: { content: ['update'] }, editor: true },
+    saveSocialLinkAction: { permission: { content: ['update'] }, editor: true },
+    toggleSocialLinkAction: { permission: { content: ['update'] }, editor: true },
+    deleteSocialLinkAction: { permission: { content: ['update'] }, editor: true },
+    reorderSocialLinksAction: { permission: { content: ['update'] }, editor: true },
+    restoreSocialLinkAction: { permission: { content: ['restore'] }, editor: true },
+    restoreSocialLinkOrderAction: { permission: { content: ['restore'] }, editor: true },
+  },
   // The navigation menu (spec §7.2 content/navigation, plan 7B task B4).
   'app/admin/(shell)/content/navigation/actions.ts': {
     createNavItemAction: { permission: { content: ['update'] }, editor: true },

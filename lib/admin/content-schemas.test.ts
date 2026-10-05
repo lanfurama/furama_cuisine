@@ -21,6 +21,7 @@ import {
   SlugOrderForm,
   SlugPublishForm,
   SlugRecordRef,
+  SocialForm,
   StoryForm,
 } from './content-schemas';
 import { z } from './zod';
@@ -314,5 +315,18 @@ describe('content form schemas (spec §7.3, §7.4)', () => {
       targetSection: ['Chọn section mà mục này trỏ tới.'],
       label: ['Tối đa 18 ký tự.'],
     });
+  });
+
+  it('a social link: a platform migration 008 allows, an https address (plan 7B B5)', () => {
+    expect(SocialForm.parse(readForm(form({ platform: 'zalo', href: ' https://zalo.me/furama ', isPublished: 'on' })))).toEqual({
+      platform: 'zalo',
+      href: 'https://zalo.me/furama',
+      isPublished: true,
+    });
+    expect(fieldErrors(SocialForm.safeParse(readForm(form({ platform: 'myspace', href: 'http://example.com' }))).error)).toEqual({
+      platform: ['Chọn một mạng xã hội trong danh sách.'],
+      href: ['Đường dẫn phải bắt đầu bằng https://'],
+    });
+    expect(fieldErrors(SocialForm.safeParse(readForm(form({ platform: 'x', href: '' }))).error)).toEqual({ href: ['Nhập đường dẫn https://'] });
   });
 });

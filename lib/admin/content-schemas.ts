@@ -1,3 +1,4 @@
+import { SOCIAL_PLATFORMS } from '@/lib/content/footer';
 import { SECTION_KEYS } from '@/lib/content/types';
 import { toE164 } from '@/lib/phone';
 import { HERO_AUTOPLAY_MS, LENGTHS, LIMITS, NAV_TARGETS } from './content-rules';
@@ -414,4 +415,20 @@ export const NavItemForm = z.object({
   targetSection: z.enum(NAV_TARGETS, { error: 'Chọn section mà mục này trỏ tới.' }),
   isPublished: checkbox,
   label: translatable(LENGTHS.navLabel.max, 'Nhập nhãn tiếng Anh.'),
+});
+
+/**
+ * One footer social link (spec §7.2 content/contact): its platform (CHECK
+ * social_links.platform), its https address (CHECK: required, at most 2000)
+ * and its switch.
+ */
+export const SocialForm = z.object({
+  platform: z.enum(SOCIAL_PLATFORMS, { error: 'Chọn một mạng xã hội trong danh sách.' }),
+  href: z
+    .string()
+    .trim()
+    .min(1, { error: 'Nhập đường dẫn https://', abort: true })
+    .max(2000, tooLong(2000))
+    .regex(/^https:\/\/[^\s]+$/, 'Đường dẫn phải bắt đầu bằng https://'),
+  isPublished: checkbox,
 });

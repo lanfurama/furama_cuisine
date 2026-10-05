@@ -246,7 +246,8 @@ export const COLUMN_SCREENS: Record<ContentTable, Record<string, ColumnOwner>> =
   offer_i18n: { offer_id: KEY, title: 'offers', schedule: 'offers', venue_override: 'offers', ...I18N_META },
   nav_items: { ...LIST_META, target_section: 'navigation', is_published: 'navigation' },
   nav_item_i18n: { nav_item_id: KEY, label: 'navigation', ...I18N_META },
-  social_links: { ...LIST_META, platform: 'contact', href: 'contact', visible_locales: 'contact', is_published: 'contact' },
+  // Which languages show a link: phase 8 (L8-6), with the language tabs; the contact screen leaves it as it is (NULL: every language).
+  social_links: { ...LIST_META, platform: 'contact', href: 'contact', visible_locales: 'locales', is_published: 'contact' },
   legal_versions: {
     version: { none: 'written by a legal save that changes the agreed text (lib/server/content/policy-version.ts)' },
     effective_on: { none: 'computed by the save' },

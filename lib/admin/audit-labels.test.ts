@@ -74,6 +74,7 @@ describe('audit labels', () => {
       'lib/server/content-admin/destinations.ts',
       'lib/server/content-admin/experiences.ts',
       'lib/server/content-admin/nav.ts',
+      'lib/server/content-admin/socials.ts',
       'lib/server/content-admin/stories.ts',
       'lib/server/content-admin/hero.ts',
       'lib/server/content-admin/sections.ts',
@@ -98,6 +99,7 @@ describe('audit labels', () => {
       'restaurants',
       'sections',
       'site_settings',
+      'social_links',
       'stories',
     ]);
     expect(entities.map(auditEntityLabel)).toEqual([
@@ -114,6 +116,7 @@ describe('audit labels', () => {
       'Nhà hàng',
       'Section trang chủ',
       'Cài đặt chung',
+      'Mạng xã hội',
       'Câu chuyện',
     ]);
   });

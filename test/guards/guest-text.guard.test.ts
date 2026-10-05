@@ -83,7 +83,6 @@ const PENDING: Record<string, string> = {
   "components/overlays/FinderSheet.tsx: Occasion": "finder.occasion",
   "components/overlays/FinderSheet.tsx: SHOW RESTAURANTS": "finder.submit",
   "components/overlays/MenuOverlay.tsx: EN": "phase 8: locales.short_label (language switcher)",
-  "components/overlays/MenuOverlay.tsx: PEOPLE | CULTURE | GREAT FOOD": "footer.tagline",
   "components/overlays/MenuOverlay.tsx: VI": "phase 8: locales.short_label",
   "components/overlays/ReserveDrawer.tsx: Close": "common.close",
   "components/overlays/ReserveDrawer.tsx: DATE": "booking.section_date",
@@ -118,17 +117,6 @@ const PENDING: Record<string, string> = {
   "components/overlays/ReserveDrawer.tsx: you": "booking.thanks_anon",
   "components/overlays/ReserveDrawer.tsx: you@example.com": "form.ph_email",
   "components/overlays/ReserveDrawer.tsx: — fully booked": "booking.slot_full_aria ('{time} — fully booked')",
-  "components/site/Footer.tsx: A MEMBER OF FURAMA": "footer.member",
-  "components/site/Footer.tsx: FACEBOOK": "social.facebook (L7-15)",
-  "components/site/Footer.tsx: INSTAGRAM": "social.instagram",
-  "components/site/Footer.tsx: KAKAOTALK": "social.kakao",
-  "components/site/Footer.tsx: LINE": "social.line",
-  "components/site/Footer.tsx: PEOPLE | CULTURE | GREAT FOOD": "footer.tagline",
-  "components/site/Footer.tsx: TIKTOK": "social.tiktok",
-  "components/site/Footer.tsx: TRIPADVISOR": "social.tripadvisor",
-  "components/site/Footer.tsx: WECHAT": "social.wechat",
-  "components/site/Footer.tsx: YOUTUBE": "social.youtube",
-  "components/site/Footer.tsx: ZALO": "social.zalo",
   "components/site/Header.tsx: EN": "phase 8: locales.short_label",
   "components/site/Header.tsx: English": "phase 8: locales.native_name",
   "components/site/Header.tsx: Tiếng Việt": "phase 8: locales.native_name",
@@ -158,9 +146,10 @@ describe('guest-visible text lives in the registry or the database (spec §13)',
     // thirteen hero.* and film.* ones moved in A9, the thirteen detail.* ones moved in A10, the
     // thirteen restaurants.* ones moved in A11, the four of the destinations section moved in plan
     // 7B task B1, the two of the cuisines section moved in B2, the three of the experiences section
-    // moved in B3 and the eighteen of the header, the phone menu and tab bar, the restaurant page's
-    // and the reservation form's RESERVE A TABLE and the 404 page moved in B4. Plan 7B empties it.
-    expect(Object.keys(PENDING).length).toBeLessThanOrEqual(89);
+    // moved in B3, the eighteen of the header, the phone menu and tab bar, the restaurant page's
+    // and the reservation form's RESERVE A TABLE and the 404 page moved in B4 and the twelve of the
+    // footer and the phone menu's tagline moved in B5. Plan 7B empties it.
+    expect(Object.keys(PENDING).length).toBeLessThanOrEqual(77);
   });
 });
 

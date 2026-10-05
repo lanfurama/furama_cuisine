@@ -5,6 +5,7 @@
  * (spec §5.1 item 5). Safe in the browser: Server Components pass these as
  * props, and the (guarded) layout passes the site-wide ones to SiteProvider.
  */
+import type { SocialPlatform } from './footer';
 
 /**
  * An image as a component draws it: alt already chosen ("" for a decorative
@@ -55,7 +56,8 @@ export type Destination = {
 
 export type NavItem = { target: SectionKey; label: string };
 
-export type SocialLink = { platform: string; href: string };
+/** A footer link: its platform (CHECK social_links.platform; the footer prints social.<platform>) and its https address. */
+export type SocialLink = { platform: SocialPlatform; href: string };
 
 /** site_settings as the guest site reads it. */
 export type SiteSettings = {

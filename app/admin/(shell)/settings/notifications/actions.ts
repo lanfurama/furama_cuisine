@@ -2,8 +2,8 @@
 
 import { refresh, updateTag } from 'next/cache';
 import { getPool } from '@/db/client';
-import { TAGS } from '@/lib/cache-tags';
 import { RecipientForm, RecipientTarget, SharedInboxForm, TestEmailForm } from '@/lib/admin/notification-schemas';
+import { tagsForSave } from '@/lib/cache-plan';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
 import { auditActor, requirePermission } from '@/lib/server/dal/session';
 import { createRecipient, deleteRecipient, saveSharedInbox, updateRecipient, type RecipientInput } from '@/lib/server/email/recipients';
@@ -17,7 +17,8 @@ import type { EmailDeliveryMode } from '@/lib/server/email/types';
  * Recipients are not cached: the queue reads them live when it writes
  * staff.new, so there is no tag to expire; refresh() redraws this page. The
  * shared inbox is also the guest site's general email (footer, privacy page),
- * cached under content:contact: saveInbox expires that tag after its commit.
+ * cached under content:contact: saveInbox expires tagsForSave([site_settings])
+ * after its commit, like every content save (phase-6 L7-6).
  */
 
 const DUPLICATE = { email: ['Địa chỉ này đã nhận thông báo cho cùng phạm vi.'] };
@@ -79,8 +80,8 @@ export async function saveInbox(_prev: ActionResult | null, formData: FormData):
     const input = SharedInboxForm.parse(Object.fromEntries(formData));
     const result = await saveSharedInbox(getPool(), auditActor(staff), input);
     if (!result.ok) return result;
-    // The footer and the privacy page print this address (lib/cache-plan.ts SAVE_TAGS.site_settings).
-    updateTag(TAGS.contentContact);
+    // The footer and the privacy page print this address: the cache plan's tags for site_settings (L7-6, code rule 1).
+    for (const tag of tagsForSave(['site_settings'])) updateTag(tag);
     refresh();
     return result;
   } catch (err) {

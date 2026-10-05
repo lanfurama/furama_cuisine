@@ -926,6 +926,91 @@ export const REGISTRY = {
     screen: 'ui-text',
     label: 'Trang không tồn tại: link về trang chủ',
   },
+  // ── Footer and the phone menu's foot: client components of the chrome (CLIENT_KEYS); the contact screen ──
+  'footer.tagline': {
+    en: 'PEOPLE | CULTURE | GREAT FOOD',
+    maxLength: 60,
+    context: 'The line under the FURAMA CUISINE wordmark in the footer, and at the foot of the phone menu. Capitals, three short parts.',
+    screen: 'contact',
+    label: 'Khẩu hiệu (chân trang, cuối menu điện thoại)',
+  },
+  'footer.member': {
+    en: 'A MEMBER OF FURAMA',
+    maxLength: 40,
+    context: 'The small line at the right of the footer’s top band, under the social links. Capitals.',
+    screen: 'contact',
+    label: 'Dòng “thành viên của Furama” (chân trang)',
+  },
+  'social.facebook': {
+    en: 'FACEBOOK',
+    maxLength: 20,
+    context: 'The footer’s link to the Facebook page, by the name of the platform (social_links.platform facebook). Capitals, like the other links.',
+    screen: 'contact',
+    label: 'Tên link Facebook (chân trang)',
+  },
+  'social.instagram': {
+    en: 'INSTAGRAM',
+    maxLength: 20,
+    context: 'The footer’s link to the Instagram page, by the name of the platform (social_links.platform instagram). Capitals, like the other links.',
+    screen: 'contact',
+    label: 'Tên link Instagram (chân trang)',
+  },
+  'social.youtube': {
+    en: 'YOUTUBE',
+    maxLength: 20,
+    context: 'The footer’s link to the YouTube page, by the name of the platform (social_links.platform youtube). Capitals, like the other links.',
+    screen: 'contact',
+    label: 'Tên link YouTube (chân trang)',
+  },
+  'social.tiktok': {
+    en: 'TIKTOK',
+    maxLength: 20,
+    context: 'The footer’s link to the TikTok page, by the name of the platform (social_links.platform tiktok). Capitals, like the other links.',
+    screen: 'contact',
+    label: 'Tên link TikTok (chân trang)',
+  },
+  'social.zalo': {
+    en: 'ZALO',
+    maxLength: 20,
+    context: 'The footer’s link to the Zalo page, by the name of the platform (social_links.platform zalo). Capitals, like the other links.',
+    screen: 'contact',
+    label: 'Tên link Zalo (chân trang)',
+  },
+  'social.x': {
+    en: 'X',
+    maxLength: 20,
+    context: 'The footer’s link to the X (Twitter) page, by the name of the platform (social_links.platform x). Capitals, like the other links.',
+    screen: 'contact',
+    label: 'Tên link X (Twitter) (chân trang)',
+  },
+  'social.tripadvisor': {
+    en: 'TRIPADVISOR',
+    maxLength: 20,
+    context: 'The footer’s link to the Tripadvisor page, by the name of the platform (social_links.platform tripadvisor). Capitals, like the other links.',
+    screen: 'contact',
+    label: 'Tên link Tripadvisor (chân trang)',
+  },
+  'social.wechat': {
+    en: 'WECHAT',
+    maxLength: 20,
+    context: 'The footer’s link to the WeChat page, by the name of the platform (social_links.platform wechat). Capitals, like the other links.',
+    screen: 'contact',
+    label: 'Tên link WeChat (chân trang)',
+  },
+  'social.kakao': {
+    en: 'KAKAOTALK',
+    maxLength: 20,
+    context: 'The footer’s link to the KakaoTalk page, by the name of the platform (social_links.platform kakao). Capitals, like the other links.',
+    screen: 'contact',
+    label: 'Tên link KakaoTalk (chân trang)',
+  },
+  'social.line': {
+    en: 'LINE',
+    maxLength: 20,
+    context: 'The footer’s link to the LINE page, by the name of the platform (social_links.platform line). Capitals, like the other links.',
+    screen: 'contact',
+    label: 'Tên link LINE (chân trang)',
+  },
   // ── Search overlay: a client component of the chrome (CLIENT_KEYS) ──
   'search.aria': {
     en: 'Search',
@@ -1284,19 +1369,20 @@ export const KEY_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/;
 /**
  * Keys the browser needs at first paint, passed to SiteProvider by the
  * (guarded) layout: the chrome's client components (header, phone menu and tab
- * bar: ui.*; reservation form, search, finder, booking bar, film dialog), the
+ * bar: ui.*; footer: footer.*, social.*; reservation form, search, finder,
+ * booking bar, film dialog), the
  * words they share (common.*), the restaurants section and its cards, a restaurant
  * page's client parts (its hero, tab bar and "More at") and the policy link. Everything
  * else is read on the
  * server: a page's own section copy (pageKeys), metadata (seo.*), the policy
  * page (legal.*) and emails (email.*).
  */
-const CLIENT_PREFIXES = ['error.', 'booking.', 'search.', 'meal.', 'finder.', 'film.', 'detail.', 'restaurants.', 'common.', 'ui.'] as const;
+const CLIENT_PREFIXES = ['error.', 'booking.', 'search.', 'meal.', 'finder.', 'film.', 'detail.', 'restaurants.', 'common.', 'ui.', 'footer.', 'social.'] as const;
 /** Single keys the chrome needs beyond the prefixes: the policy link (form, footer), VIEW OFFER's note (form). */
 const CLIENT_SINGLES = ['legal.link', 'offers.note'] as const;
 export type ClientKey = Extract<
   StringKey,
-  `${'error' | 'booking' | 'search' | 'meal' | 'finder' | 'film' | 'detail' | 'restaurants' | 'common' | 'ui'}.${string}` | (typeof CLIENT_SINGLES)[number]
+  `${'error' | 'booking' | 'search' | 'meal' | 'finder' | 'film' | 'detail' | 'restaurants' | 'common' | 'ui' | 'footer' | 'social'}.${string}` | (typeof CLIENT_SINGLES)[number]
 >;
 
 export const CLIENT_KEYS = STRING_KEYS.filter(
