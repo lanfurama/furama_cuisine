@@ -134,6 +134,25 @@ const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; edito
     saveAutoplayAction: { permission: { content: ['update'] }, editor: true },
     restoreAutoplayAction: { permission: { content: ['restore'] }, editor: true },
   },
+  // The Experiences rows and the Stories cards (spec §7.2 content/experiences, content/stories, plan 7B task B3).
+  'app/admin/(shell)/content/experiences/actions.ts': {
+    createExperienceAction: { permission: { content: ['update'] }, editor: true },
+    saveExperienceAction: { permission: { content: ['update'] }, editor: true },
+    toggleExperienceAction: { permission: { content: ['update'] }, editor: true },
+    deleteExperienceAction: { permission: { content: ['update'] }, editor: true },
+    reorderExperiencesAction: { permission: { content: ['update'] }, editor: true },
+    restoreExperienceAction: { permission: { content: ['restore'] }, editor: true },
+    restoreExperienceOrderAction: { permission: { content: ['restore'] }, editor: true },
+  },
+  'app/admin/(shell)/content/stories/actions.ts': {
+    createStoryAction: { permission: { content: ['update'] }, editor: true },
+    saveStoryAction: { permission: { content: ['update'] }, editor: true },
+    toggleStoryAction: { permission: { content: ['update'] }, editor: true },
+    deleteStoryAction: { permission: { content: ['update'] }, editor: true },
+    reorderStoriesAction: { permission: { content: ['update'] }, editor: true },
+    restoreStoryAction: { permission: { content: ['restore'] }, editor: true },
+    restoreStoryOrderAction: { permission: { content: ['restore'] }, editor: true },
+  },
   // The cuisines list (spec §7.2 content/cuisines, plan 7B task B2).
   'app/admin/(shell)/content/cuisines/actions.ts': {
     createCuisineAction: { permission: { content: ['update'] }, editor: true },

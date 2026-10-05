@@ -1,12 +1,16 @@
 'use client';
 
 import type { Experience } from '@/lib/content/types';
+import type { Copy } from '@/lib/i18n/registry';
 import { useSite } from '@/components/site/SiteProvider';
 import { CmsImage } from '@/components/ui/CmsImage';
 import { useReveal } from '@/lib/motion';
 
-/** The rows (experiences) come from the page; the picture is the section's own (sections.image_id), optimised by next/image (CmsImage). */
-export function Experiences({ items }: { items: Experience[] }) {
+/**
+ * The rows (experiences) and the section's copy (experiences.*) come from the page; the picture is the
+ * section's own (sections.image_id), optimised by next/image (CmsImage).
+ */
+export function Experiences({ items, copy }: { items: Experience[]; copy: Copy<'experiences'> }) {
   const { site } = useSite();
   const image = site.sections.experiences.image;
   const media = useReveal<HTMLDivElement>('wipe');
@@ -21,12 +25,12 @@ export function Experiences({ items }: { items: Experience[] }) {
 
       <div className="experiences-body">
         <div ref={kicker} data-reveal="fade" className="eyebrow">
-          Experiences
+          {copy['experiences.eyebrow']}
         </div>
         <h2 ref={title} data-reveal="title" className="experiences-title">
-          More than a meal.
+          {copy['experiences.title_1']}
           <br />
-          A meaningful experience.
+          {copy['experiences.title_2']}
         </h2>
 
         <div className="experiences-list">

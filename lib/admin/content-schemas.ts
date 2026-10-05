@@ -380,3 +380,31 @@ export const CuisineForm = z.object({
   isPublished: checkbox,
   label: translatable(40, 'Nhập tên ẩm thực tiếng Anh.'),
 });
+
+/** One Experiences row (spec §7.2 content/experiences): its EN title and blurb, its link (https or none: the row points at its section) and its switch. */
+export const ExperienceForm = z.object({
+  isPublished: checkbox,
+  link: httpsUrl(2000),
+  title: translatable(80, 'Nhập tiêu đề tiếng Anh.'),
+  blurb: translatable(200),
+});
+
+/**
+ * One Stories card (spec §7.2 content/stories): its picture, the article it
+ * links to (CHECK stories.href: https, required) and, per language, an
+ * article of that language; its date (optional), category and title.
+ */
+export const StoryForm = z.object({
+  imageId: z.uuid({ error: 'Chọn ảnh cho câu chuyện.' }),
+  href: z
+    .string()
+    .trim()
+    .min(1, { error: 'Nhập link bài viết.', abort: true })
+    .max(2000, tooLong(2000))
+    .regex(/^https:\/\/[^\s]+$/, 'Đường dẫn phải bắt đầu bằng https://'),
+  publishedOn: isoDate,
+  isPublished: checkbox,
+  category: translatable(60),
+  title: translatable(160, 'Nhập tiêu đề tiếng Anh.'),
+  localHref: z.object({ en: httpsUrl(2000) }),
+});

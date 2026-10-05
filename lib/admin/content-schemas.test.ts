@@ -4,6 +4,7 @@ import {
   checkbox,
   CuisineForm,
   DestinationForm,
+  ExperienceForm,
   NewRestaurantForm,
   OfferForm,
   OrderForm,
@@ -19,6 +20,7 @@ import {
   SlugOrderForm,
   SlugPublishForm,
   SlugRecordRef,
+  StoryForm,
 } from './content-schemas';
 import { z } from './zod';
 
@@ -264,6 +266,39 @@ describe('content form schemas (spec §7.3, §7.4)', () => {
       id: ['Chỉ chữ thường không dấu, số và gạch nối, ví dụ korean.'],
       imageId: ['Chọn ảnh cho ẩm thực.'],
       label: ['Nhập tên ẩm thực tiếng Anh.'],
+    });
+  });
+
+  it('an Experiences row: its EN title; a link is https or nothing (plan 7B B3)', () => {
+    expect(ExperienceForm.parse(readForm(form({ isPublished: 'on', link: '', 'title.en': ' Furama Fabulous ', 'blurb.en': '' })))).toEqual({
+      isPublished: true,
+      link: null,
+      title: { en: 'Furama Fabulous' },
+      blurb: { en: null },
+    });
+    expect(fieldErrors(ExperienceForm.safeParse(readForm(form({ link: '#private-dining', 'title.en': '', 'blurb.en': '' }))).error)).toEqual({
+      link: ['Đường dẫn phải bắt đầu bằng https://'],
+      title: ['Nhập tiêu đề tiếng Anh.'],
+    });
+  });
+
+  it('a Stories card: its picture, its https article, an optional date and category, its EN title (plan 7B B3)', () => {
+    const imageId = '5b0b1f3a-2b1c-4c1e-9a43-3f1d2c7b9e10';
+    const base = { imageId, href: 'https://furamavietnam.com/news/', publishedOn: '', 'category.en': '', 'title.en': 'Gala night', 'localHref.en': '' };
+    expect(StoryForm.parse(readForm(form(base)))).toEqual({
+      imageId,
+      href: 'https://furamavietnam.com/news/',
+      publishedOn: null,
+      isPublished: false,
+      category: { en: null },
+      title: { en: 'Gala night' },
+      localHref: { en: null },
+    });
+    expect(fieldErrors(StoryForm.safeParse(readForm(form({ ...base, imageId: '', href: '', publishedOn: '2026-02-30', 'localHref.en': 'www.x' }))).error)).toEqual({
+      imageId: ['Chọn ảnh cho câu chuyện.'],
+      href: ['Nhập link bài viết.'],
+      publishedOn: ['Ngày không hợp lệ.'],
+      localHref: ['Đường dẫn phải bắt đầu bằng https://'],
     });
   });
 });

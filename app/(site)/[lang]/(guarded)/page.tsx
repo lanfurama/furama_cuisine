@@ -51,7 +51,7 @@ export default async function HomePage() {
       {shown.has('cuisines') && <Cuisines copy={copyOf(strings, 'cuisines')} />}
       {shown.has('restaurants') && <Restaurants />}
       {shown.has('destinations') && <Destinations copy={copyOf(strings, 'destinations')} />}
-      {shown.has('experiences') && <Experiences items={experiences} />}
+      {shown.has('experiences') && <Experiences items={experiences} copy={copyOf(strings, 'experiences')} />}
       {shown.has('heritage') && <Heritage copy={copyOf(strings, 'heritage')} />}
       {shown.has('stories') && <Stories items={stories} copy={copyOf(strings, 'stories')} />}
       {shown.has('offers') && <Offers items={offers} copy={copyOf(strings, 'offers')} />}

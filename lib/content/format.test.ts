@@ -19,6 +19,12 @@ describe('story kicker', () => {
     expect(storyKicker('Furama Resort Danang', null, 'en')).toBe('Furama Resort Danang');
   });
 
+  it('is the date alone for a story without a category, never with a stray separator (L7-7)', () => {
+    expect(storyKicker('', '2026-09-09', 'en')).toBe('9 Sep 2026');
+    expect(storyKicker('  ', '2026-09-09', 'en')).toBe('9 Sep 2026');
+    expect(storyKicker('', null, 'en')).toBe('');
+  });
+
   it('cannot move the date with the server’s zone (a calendar date, formatted in UTC)', () => {
     const tz = process.env.TZ;
     const had = 'TZ' in process.env;

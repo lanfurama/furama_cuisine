@@ -72,6 +72,8 @@ describe('audit labels', () => {
       'lib/server/content-admin/offers.ts',
       'lib/server/content-admin/cuisines.ts',
       'lib/server/content-admin/destinations.ts',
+      'lib/server/content-admin/experiences.ts',
+      'lib/server/content-admin/stories.ts',
       'lib/server/content-admin/hero.ts',
       'lib/server/content-admin/sections.ts',
       'lib/server/content-admin/restaurants.ts',
@@ -85,6 +87,7 @@ describe('audit labels', () => {
       'content_strings',
       'cuisines',
       'destinations',
+      'experiences',
       'hero_slides',
       'legal_versions',
       'media',
@@ -93,11 +96,13 @@ describe('audit labels', () => {
       'restaurants',
       'sections',
       'site_settings',
+      'stories',
     ]);
     expect(entities.map(auditEntityLabel)).toEqual([
       'Chữ trên web',
       'Ẩm thực',
       'Điểm đến',
+      'Experiences',
       'Slide hero',
       'Phiên bản chính sách',
       'File trong thư viện',
@@ -106,6 +111,7 @@ describe('audit labels', () => {
       'Nhà hàng',
       'Section trang chủ',
       'Cài đặt chung',
+      'Câu chuyện',
     ]);
   });
 });

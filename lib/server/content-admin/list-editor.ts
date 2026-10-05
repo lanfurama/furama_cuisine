@@ -124,6 +124,16 @@ export const MEDIA_GONE = 'File này đã bị xóa khỏi thư viện. Hãy ch�
 
 /** A new item whose text id (a slug: destinations, cuisines) another item has. */
 export const ID_TAKEN = 'Mã này đã có. Hãy chọn mã khác.';
+/** A list item the guest loader drops without its EN title (experiences, stories). */
+export const NEEDS_EN_TITLE = 'Nhập tiêu đề tiếng Anh: thiếu tiêu đề, mục này không hiện trên web.';
+
+/** `validate` for such a list, on a save and on a restore alike (code rule 5). */
+export async function enTitleRequired(_client: PoolClient, { i18n }: Candidate): Promise<ListFailure | null> {
+  return i18n.some((r) => r.locale === 'en' && typeof r.title === 'string' && r.title.trim())
+    ? null
+    : { ok: false, code: 'invalid', fieldErrors: { title: [NEEDS_EN_TITLE] } };
+}
+
 /** A delete that a foreign key refused after refuseDelete found nothing (a row added by a path it does not know). */
 export const STILL_IN_USE = 'Mục này còn được dùng ở nơi khác nên không xóa được. Hãy ẩn nó thay vì xóa.';
 

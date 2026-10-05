@@ -754,6 +754,29 @@ export const REGISTRY = {
     screen: 'restaurants',
     label: 'Link xem mọi nhà hàng',
   },
+  // ── Experiences (spec §7.2 content/experiences): the home page reads them on the server and hands them to the
+  // section (page props); the rows themselves are experiences rows ──
+  'experiences.eyebrow': {
+    en: 'Experiences',
+    maxLength: 32,
+    context: 'Home page, small line above the Experiences title (beside a large photo).',
+    screen: 'experiences',
+    label: 'Dòng nhỏ phía trên tiêu đề',
+  },
+  'experiences.title_1': {
+    en: 'More than a meal.',
+    maxLength: 40,
+    context: 'Home page, Experiences title, first of two lines (each line is one short sentence).',
+    screen: 'experiences',
+    label: 'Tiêu đề, dòng 1',
+  },
+  'experiences.title_2': {
+    en: 'A meaningful experience.',
+    maxLength: 40,
+    context: 'Home page, Experiences title, second line.',
+    screen: 'experiences',
+    label: 'Tiêu đề, dòng 2',
+  },
   // ── Explore by Cuisine (spec §7.2 content/cuisines): the home page reads them on the server and hands them to the
   // section (page props); the chips themselves are cuisines rows ──
   'cuisines.title': {
@@ -1188,7 +1211,7 @@ export function sectionKeys<P extends string>(prefix: P): SectionKey<P>[] {
 }
 
 /** The home sections whose copy the home page reads on the server and passes down as props. */
-export const HOME_SECTIONS = ['hero', 'cuisines', 'destinations', 'stories', 'heritage', 'offers'] as const;
+export const HOME_SECTIONS = ['hero', 'cuisines', 'destinations', 'experiences', 'stories', 'heritage', 'offers'] as const;
 export const HOME_KEYS = HOME_SECTIONS.flatMap((s) => sectionKeys(s));
 
 /** Every key one admin screen edits. */

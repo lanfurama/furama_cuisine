@@ -37,9 +37,13 @@ export function formatStoryDate(iso: string, locale: string): string {
   return `${part('day')} ${part('month')} ${part('year')}`;
 }
 
-/** A story card's kicker: "Restaurant News · 9 Sep 2026", or the category alone when the story has no date. */
+/**
+ * A story card's kicker: "Restaurant News · 9 Sep 2026", the category alone
+ * when the story has no date, the date alone when it has no category (L7-7:
+ * never a leading or trailing separator).
+ */
 export function storyKicker(category: string, publishedOn: string | null, locale: string): string {
-  return publishedOn ? `${category} · ${formatStoryDate(publishedOn, locale)}` : category;
+  return [category.trim(), publishedOn ? formatStoryDate(publishedOn, locale) : ''].filter(Boolean).join(' · ');
 }
 
 export type OfferPrice = { amount: string | number; currency: string; basis: 'plus_plus' | 'net' };
