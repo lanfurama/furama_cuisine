@@ -13,7 +13,7 @@ import { getSharedInbox } from '@/lib/server/email/recipients';
 import { DeletedList } from '../../_kit/DeletedList';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
 import { ItemList } from '../../_kit/ItemList';
-import { StringsPanel } from '../_ui/StringsPanel';
+import { StringsPanel, type ScreenSearchParams } from '../_ui/StringsPanel';
 import { deleteSocialLinkAction, reorderSocialLinksAction, restoreSocialLinkAction, restoreSocialLinkOrderAction, toggleSocialLinkAction } from './actions';
 import { SocialForm } from './SocialForm';
 
@@ -35,7 +35,7 @@ const PLATFORMS = SOCIAL_PLATFORMS.map((key) => ({ key, label: SOCIAL_NAMES[key]
  * shared email, which only an Admin edits, on "Thông báo email" (R10: it is
  * also where booking mail falls back to).
  */
-export default async function ContactPage() {
+export default async function ContactPage({ searchParams }: { searchParams: ScreenSearchParams }) {
   const staff = await requirePagePermission({ content: ['read'] });
   const pool = getPool();
   const [{ items, token }, deleted, orderHistory, destinations, inbox] = await Promise.all([
@@ -123,7 +123,7 @@ export default async function ContactPage() {
 
       <section aria-labelledby="footer-copy">
         <h2 id="footer-copy">Chữ của chân trang</h2>
-        <StringsPanel
+        <StringsPanel searchParams={searchParams}
           screen="contact"
           title="Chữ chân trang"
           groups={[

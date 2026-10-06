@@ -8,7 +8,7 @@ import { listOffersAdmin, OFFER } from '@/lib/server/content-admin/offers';
 import { orderToken, type OrderSnapshot } from '@/lib/server/content-admin/snapshot';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
-import { StringsPanel } from '../_ui/StringsPanel';
+import { StringsPanel, type ScreenSearchParams } from '../_ui/StringsPanel';
 import { restoreOfferOrderAction } from './actions';
 import { OfferList } from './OfferList';
 
@@ -18,7 +18,7 @@ export const instant = false;
 export const metadata: Metadata = { title: 'Ưu đãi' };
 
 /* Spec §7.2 content/offers: the list (order, show/hide, delete), the deleted ones to restore, and the order's history. */
-export default async function OffersPage() {
+export default async function OffersPage({ searchParams }: { searchParams: ScreenSearchParams }) {
   await requirePagePermission({ content: ['read'] });
   const pool = getPool();
   const [{ items, token }, deleted, orderHistory] = await Promise.all([listOffersAdmin(pool), listDeleted(pool, OFFER), listHistory(pool, 'offers', null, 10)]);
@@ -44,8 +44,8 @@ export default async function OffersPage() {
 
       <section aria-labelledby="offers-copy">
         <h2 id="offers-copy">Chữ của mục Offers</h2>
-        <p className="a-muted">Tiêu đề, câu dẫn, nút trên thẻ, cách ghi giá và ghi chú điền sẵn vào form đặt bàn (tiếng Anh).</p>
-        <StringsPanel screen="offers" title="Chữ mục Offers" />
+        <p className="a-muted">Tiêu đề, câu dẫn, nút trên thẻ, cách ghi giá và ghi chú điền sẵn vào form đặt bàn.</p>
+        <StringsPanel searchParams={searchParams} screen="offers" title="Chữ mục Offers" />
       </section>
 
       <section aria-labelledby="offers-deleted">

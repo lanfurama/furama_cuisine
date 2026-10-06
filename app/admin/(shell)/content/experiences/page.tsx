@@ -11,7 +11,7 @@ import { DeletedList, enOf } from '../../_kit/DeletedList';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
 import { ItemList } from '../../_kit/ItemList';
 import { LocaleTabs } from '../../_kit/LocaleTabs';
-import { StringsPanel } from '../_ui/StringsPanel';
+import { StringsPanel, type ScreenSearchParams } from '../_ui/StringsPanel';
 import { deleteExperienceAction, reorderExperiencesAction, restoreExperienceAction, restoreExperienceOrderAction, toggleExperienceAction } from './actions';
 import { ExperienceForm } from './ExperienceForm';
 
@@ -29,7 +29,7 @@ const LABELS = { title: 'Tiêu đề', blurb: 'Mô tả', link_url: 'Link', is_p
  * History, and the section's words (experiences.*). The picture beside the
  * rows is the section's own (the sections screen).
  */
-export default async function ExperiencesPage() {
+export default async function ExperiencesPage({ searchParams }: { searchParams: ScreenSearchParams }) {
   await requirePagePermission({ content: ['read'] });
   const pool = getPool();
   const [{ items, token }, deleted, orderHistory] = await Promise.all([
@@ -117,7 +117,7 @@ export default async function ExperiencesPage() {
 
       <section aria-labelledby="experiences-copy">
         <h2 id="experiences-copy">Chữ của mục Experiences</h2>
-        <StringsPanel screen="experiences" title="Chữ mục Experiences" />
+        <StringsPanel searchParams={searchParams} screen="experiences" title="Chữ mục Experiences" />
       </section>
     </LocaleTabs>
   );

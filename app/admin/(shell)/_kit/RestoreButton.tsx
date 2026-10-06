@@ -25,6 +25,7 @@ export function RestoreButton({
   token,
   label,
   when,
+  extra,
 }: {
   action: Restore;
   id: string;
@@ -34,6 +35,8 @@ export function RestoreButton({
   label: string;
   /** "08:15 05/10/2026", for the confirm and the button's accessible name. */
   when: string;
+  /** More hidden fields the action reads (a string's language). */
+  extra?: Record<string, string>;
 }) {
   const report = useRestoreReport();
   const [state, dispatch, pending] = useActionState<ActionResult | null, FormData>(async (prev, formData) => {
@@ -48,6 +51,9 @@ export function RestoreButton({
       <input type="hidden" name="auditId" value={auditId} />
       <input type="hidden" name="side" value={side} />
       <input type="hidden" name="token" value={token} />
+      {Object.entries(extra ?? {}).map(([name, value]) => (
+        <input key={name} type="hidden" name={name} value={value} />
+      ))}
       <button
         type="submit"
         className="a-btn a-btn--ghost a-btn--small"

@@ -4,6 +4,7 @@ import { refresh, updateTag } from 'next/cache';
 import { getPool } from '@/db/client';
 import { readForm, StringRestoreForm } from '@/lib/admin/content-schemas';
 import { z } from '@/lib/admin/zod';
+import { DEFAULT_LOCALE, LOCALE_CODE_RE } from '@/lib/i18n/locales';
 import { ADMIN_SCREENS } from '@/lib/i18n/registry';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
 import { auditActor, requirePermission } from '@/lib/server/dal/session';
@@ -20,7 +21,7 @@ import { restoreString, saveStrings, tagsForStrings, type StringsWritten } from 
  * screen when nothing was tagged (email.* keys, read uncached: R6).
  */
 
-const Screen = z.object({ screen: z.enum(ADMIN_SCREENS) });
+const Screen = z.object({ screen: z.enum(ADMIN_SCREENS), locale: z.string().regex(LOCALE_CODE_RE).default(DEFAULT_LOCALE) });
 
 /** v:<key> = value, o:<key> = the value the form was loaded with, t:<key> = the row's token. */
 function fields(formData: FormData, prefix: string): Record<string, string> {
@@ -32,15 +33,16 @@ function fields(formData: FormData, prefix: string): Record<string, string> {
 export async function saveScreenStrings(_prev: ActionResult<StringsWritten> | null, formData: FormData): Promise<ActionResult<StringsWritten>> {
   try {
     const staff = await requirePermission({ content: ['update'] });
-    const { screen } = Screen.parse({ screen: formData.get('screen') });
+    const { screen, locale } = Screen.parse({ screen: formData.get('screen'), locale: formData.get('locale') ?? undefined });
     const result = await saveStrings(getPool(), auditActor(staff), {
       screen,
+      locale,
       values: fields(formData, 'v:'),
       originals: fields(formData, 'o:'),
       tokens: fields(formData, 't:'),
     });
     if (!result.ok) return result;
-    for (const tag of tagsForStrings(result.data.changed, result.data.policyVersion !== null)) updateTag(tag);
+    for (const tag of tagsForStrings(result.data.changed, result.data.policyChanged)) updateTag(tag);
     refresh();
     return result;
   } catch (err) {
@@ -55,7 +57,7 @@ export async function restoreScreenString(_prev: ActionResult | null, formData: 
     const { id, ...input } = StringRestoreForm.parse(readForm(formData));
     const result = await restoreString(getPool(), auditActor(staff), { key: id, ...input });
     if (!result.ok) return result;
-    for (const tag of tagsForStrings(result.data.changed, result.data.policyVersion !== null)) updateTag(tag);
+    for (const tag of tagsForStrings(result.data.changed, result.data.policyChanged)) updateTag(tag);
     refresh();
     return { ok: true, data: null };
   } catch (err) {

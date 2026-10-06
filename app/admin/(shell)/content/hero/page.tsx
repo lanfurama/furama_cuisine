@@ -13,7 +13,7 @@ import { envPrefix, isBlobConfigured } from '@/lib/server/media/blob';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
 import { RestoreButton } from '../../_kit/RestoreButton';
 import { RestoreOutcome } from '../../_kit/RestoreOutcome';
-import { StringsPanel } from '../_ui/StringsPanel';
+import { StringsPanel, type ScreenSearchParams } from '../_ui/StringsPanel';
 import { restoreSectionAction } from '../sections/actions';
 import { SectionForm } from '../sections/SectionForm';
 import { restoreAutoplayAction, restoreSlideAction, restoreSlideOrderAction } from './actions';
@@ -34,7 +34,7 @@ const SLIDE_LABELS = { image_id: 'Ảnh', image_mobile_id: 'Ảnh cho điện th
  * (poster, link, on/off: the sections screen's writer, C5) with its words
  * (film.*). Every part has its History.
  */
-export default async function HeroPage() {
+export default async function HeroPage({ searchParams }: { searchParams: ScreenSearchParams }) {
   await requirePagePermission({ content: ['read'] });
   const pool = getPool();
   const [{ items, token }, deleted, orderHistory, images, autoplay, autoplayHistory, sections, filmHistory] = await Promise.all([
@@ -160,7 +160,7 @@ export default async function HeroPage() {
 
       <section aria-labelledby="hero-copy-title">
         <h2 id="hero-copy-title">Chữ trên hero và trong hộp phim</h2>
-        <StringsPanel
+        <StringsPanel searchParams={searchParams}
           screen="hero"
           title="Chữ hero và phim"
           groups={[

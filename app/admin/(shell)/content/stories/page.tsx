@@ -13,7 +13,7 @@ import { DeletedList, enOf } from '../../_kit/DeletedList';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
 import { ItemList } from '../../_kit/ItemList';
 import { LocaleTabs } from '../../_kit/LocaleTabs';
-import { StringsPanel } from '../_ui/StringsPanel';
+import { StringsPanel, type ScreenSearchParams } from '../_ui/StringsPanel';
 import { deleteStoryAction, reorderStoriesAction, restoreStoryAction, restoreStoryOrderAction, toggleStoryAction } from './actions';
 import { StoryForm } from './StoryForm';
 
@@ -37,7 +37,7 @@ const LABELS = {
  * shown), each card's form and History, the deleted ones to bring back, the
  * order's History, and the section's words (stories.*, plan 7A A3).
  */
-export default async function StoriesPage() {
+export default async function StoriesPage({ searchParams }: { searchParams: ScreenSearchParams }) {
   await requirePagePermission({ content: ['read'] });
   const pool = getPool();
   const [{ items, token }, deleted, orderHistory, images] = await Promise.all([
@@ -134,7 +134,7 @@ export default async function StoriesPage() {
 
       <section aria-labelledby="stories-copy">
         <h2 id="stories-copy">Chữ của mục Stories</h2>
-        <StringsPanel screen="stories" title="Stories" />
+        <StringsPanel searchParams={searchParams} screen="stories" title="Stories" />
       </section>
     </LocaleTabs>
   );

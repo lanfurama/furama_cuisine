@@ -23,12 +23,16 @@ export async function getPrivacyStrings(locale: string) {
   return resolveStrings(rows, PRIVACY_KEYS, locale, defaultLocale);
 }
 
-/** The policy version in force and the date the page prints (legal_versions, migration 009). Not per language. */
-export async function getPolicyVersion() {
+/**
+ * The policy version a guest reading `locale` agrees to, and the date the page
+ * prints (legal_versions, migrations 009 and 010): that language's own
+ * newest, else the English one (`locale` names which, R8-7).
+ */
+export async function getPolicyVersion(locale: string) {
   'use cache';
   cacheLife('max');
-  cacheTag(...LOADERS.policyVersion.tags);
+  cacheTag(...LOADERS.policyVersion.tags, TAGS.i18n(locale));
 
-  const { version, effectiveOn } = await currentPolicyVersion(getPool());
-  return { version, effectiveOn };
+  const { version, effectiveOn, locale: consentLocale } = await currentPolicyVersion(getPool(), locale);
+  return { version, effectiveOn, consentLocale };
 }

@@ -156,6 +156,8 @@ export const StringRestoreForm = z.object({
   auditId: z.string().regex(/^\d{1,18}$/),
   side: z.enum(['before', 'after']),
   token: z.string().regex(/^\d{0,20}$/, 'Trang đã cũ, hãy tải lại.'),
+  /** The language of the row (phase 8: a strings screen edits one language). */
+  locale: z.string().regex(LOCALE_CODE_RE).default(DEFAULT_LOCALE),
 });
 
 /** A restaurant's id: its first slug (R22), never changed. */

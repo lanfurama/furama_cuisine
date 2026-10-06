@@ -48,8 +48,8 @@ export async function renderSampleEmail(
 ): Promise<{ subject: string; html: string; text: string; replyTo?: string; locale: string }> {
   const sample = sampleBooking(options.now);
   const resolved = await resolveEmailLocale(pool, locale, 'staff', event);
-  // /admin/content/emails previews unsaved English text (phase 7 edits the default language only).
-  const strings = { ...(await loadEmailStrings(pool, event, resolved.code)), ...(resolved.code === 'en' ? options.overrides : {}) };
+  // /admin/content/emails previews the unsaved text of the language it edits (the overrides are in `locale`).
+  const strings = { ...(await loadEmailStrings(pool, event, resolved.code)), ...(resolved.code === locale ? options.overrides : {}) };
   const built = buildBookingEmail(event, sample, strings, resolved, { adminOrigin: options.adminOrigin });
   const { html, text } = await renderEmail(built.element);
   const replyTo = audienceOf(event) === 'staff' ? (sample.email ?? undefined) : ((await sharedInbox(pool)) ?? undefined);

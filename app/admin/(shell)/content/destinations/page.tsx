@@ -13,7 +13,7 @@ import { DeletedList, enOf } from '../../_kit/DeletedList';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
 import { ItemList } from '../../_kit/ItemList';
 import { LocaleTabs } from '../../_kit/LocaleTabs';
-import { StringsPanel } from '../_ui/StringsPanel';
+import { StringsPanel, type ScreenSearchParams } from '../_ui/StringsPanel';
 import {
   deleteDestinationAction,
   reorderDestinationsAction,
@@ -57,7 +57,7 @@ function hideWarning(d: DestinationListItem): string | null {
  * at most one teaser), each card's form and History, the deleted ones to
  * bring back, the order's History, and the section's words (destinations.*).
  */
-export default async function DestinationsPage() {
+export default async function DestinationsPage({ searchParams }: { searchParams: ScreenSearchParams }) {
   await requirePagePermission({ content: ['read'] });
   const pool = getPool();
   const [{ items, token }, deleted, orderHistory, images] = await Promise.all([
@@ -175,7 +175,7 @@ export default async function DestinationsPage() {
 
       <section aria-labelledby="destinations-copy">
         <h2 id="destinations-copy">Chữ của mục Our Destinations</h2>
-        <StringsPanel screen="destinations" title="Chữ mục Our Destinations" />
+        <StringsPanel searchParams={searchParams} screen="destinations" title="Chữ mục Our Destinations" />
       </section>
     </LocaleTabs>
   );

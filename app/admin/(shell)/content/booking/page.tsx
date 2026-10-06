@@ -7,7 +7,7 @@ import { listHistory } from '@/lib/server/content-admin/history';
 import { BOOKING_DEFAULTS, getSettingsEditor, OCCASIONS } from '@/lib/server/content-admin/settings';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
-import { StringsPanel } from '../_ui/StringsPanel';
+import { StringsPanel, type ScreenSearchParams } from '../_ui/StringsPanel';
 import { restoreBookingDefaultsAction } from './actions';
 import { BookingDefaultsForm } from './BookingDefaultsForm';
 
@@ -27,7 +27,7 @@ const OCCASION_LABELS: Record<(typeof OCCASIONS)[number], string> = { Breakfast:
  * themselves (periods, window, party size) on each restaurant's booking
  * screen.
  */
-export default async function BookingContentPage() {
+export default async function BookingContentPage({ searchParams }: { searchParams: ScreenSearchParams }) {
   await requirePagePermission({ content: ['read'] });
   const pool = getPool();
   const [editor, history, restaurants] = await Promise.all([
@@ -46,7 +46,7 @@ export default async function BookingContentPage() {
       </p>
       <h1>Đặt bàn</h1>
       <p className="a-lede">
-        Thanh đặt bàn, ô tìm nhà hàng và form đặt bàn của web khách: lựa chọn sẵn và chữ (tiếng Anh). Nhãn các ô nhập và chữ dùng chung sửa ở{' '}
+        Thanh đặt bàn, ô tìm nhà hàng và form đặt bàn của web khách: lựa chọn sẵn và chữ. Nhãn các ô nhập và chữ dùng chung sửa ở{' '}
         <Link href="/admin/content/ui-text">Chữ giao diện</Link>. Lưu là lên web ngay; mọi thay đổi khôi phục được từ Lịch sử.
       </p>
 
@@ -72,7 +72,7 @@ export default async function BookingContentPage() {
 
       <section aria-labelledby="booking-copy">
         <h2 id="booking-copy">Chữ của đặt bàn</h2>
-        <StringsPanel
+        <StringsPanel searchParams={searchParams}
           screen="booking"
           title="Chữ đặt bàn"
           groups={[

@@ -1,4 +1,5 @@
 import type { Browser, Page } from '@playwright/test';
+import { expectHydrated } from './csp';
 import { STAFF, db, expect, seedStaff, signInAs, test } from './staff-fixtures';
 
 /*
@@ -128,6 +129,107 @@ test('a content form has a tab per language: a Vietnamese save shows on /vi, and
   } finally {
     await c.query(`DELETE FROM offer_i18n WHERE offer_id = 2 AND locale <> 'en'`);
     await c.query(`UPDATE offer_i18n SET title = $1 WHERE offer_id = 2 AND locale = 'en'`, [original]);
+    await c.end();
+  }
+});
+
+test('a strings screen edits one language: Vietnamese text saved on ?lang=vi shows on /vi, English stays', async ({ page, browser }) => {
+  const c = db();
+  await c.connect();
+  try {
+    await signInAs(page, STAFF.admin);
+    await page.goto('/admin/locales');
+    await row(page, 'Tiếng Việt (vi)').getByRole('button', { name: 'Bật cho khách' }).click();
+    await expect(row(page, 'Tiếng Việt (vi)')).toContainText('Đang bật');
+
+    await page.goto('/admin/content/stories');
+    await expectHydrated(page);
+    await page.getByRole('navigation', { name: 'Ngôn ngữ đang sửa' }).getByRole('link', { name: 'Tiếng Việt' }).click();
+    await page.waitForURL(/\?lang=vi#strings-stories$/);
+    // The screen's strings form (the cards' list has its own form of the same name).
+    const form = page.locator('form').filter({ has: page.locator('[name="v:stories.title"]') });
+    await expect(form).toContainText('Đang sửa: Tiếng Việt');
+    await expectHydrated(page);
+    const field = form.getByLabel(/^Tiêu đề mục Stories/);
+    await expect(field).toHaveValue('');
+    await expect(field).toHaveAttribute('placeholder', 'Stories from our Kitchens');
+    await expect(form.locator('label', { hasText: 'Tiêu đề mục Stories' })).toContainText('Chưa dịch');
+    await field.fill('Chuyện từ gian bếp');
+    await form.getByRole('button', { name: 'Lưu stories' }).click();
+    await expect(form.getByRole('status')).toContainText('Đã lưu 1 mục');
+    await expect(form.locator('label', { hasText: 'Tiêu đề mục Stories' })).toContainText('Đã duyệt');
+
+    const visitor = await guest(browser);
+    await visitor.goto('/vi');
+    await expect(visitor.getByRole('heading', { level: 2, name: 'Chuyện từ gian bếp' })).toBeVisible();
+    await visitor.goto('/en');
+    await expect(visitor.getByRole('heading', { level: 2, name: 'Stories from our Kitchens' })).toBeVisible();
+    await visitor.context().close();
+  } finally {
+    await c.query(`DELETE FROM content_strings WHERE key = 'stories.title'`);
+    await c.end();
+  }
+});
+
+test('the Vietnamese email screen previews the Vietnamese being typed, the staff email too (R7, 7A ledger A4)', async ({ page }) => {
+  await signInAs(page, STAFF.editor);
+  await page.goto('/admin/content/emails?lang=vi');
+  await expectHydrated(page);
+  const form = page.getByRole('form', { name: 'Nội dung email' });
+  await expect(form).toContainText('Đang sửa: Tiếng Việt');
+  const heading = form.getByLabel(/^Dòng tiêu đề trong email \(Báo nhân viên: đặt bàn mới\)/);
+  await expect(heading).toHaveValue('Có đặt bàn online mới');
+  await heading.fill('Đặt bàn mới, chưa lưu');
+  await form.getByLabel('Loại email', { exact: true }).selectOption('staff.new');
+  const [response] = await Promise.all([
+    page.waitForResponse((r) => r.url().endsWith('/api/admin/emails/preview') && r.request().method() === 'POST'),
+    form.getByRole('button', { name: 'Xem trước' }).click(),
+  ]);
+  expect(response.status()).toBe(200);
+  const body = await response.text();
+  expect(body).toContain('Đặt bàn mới, chưa lưu');
+  expect(body).toContain('· vi</div>');
+});
+
+test('an Editor approves a machine translation on Bản dịch: /vi shows it only once it is reviewed (serve_machine off)', async ({ page, browser }) => {
+  const c = db();
+  await c.connect();
+  const { rows } = await c.query<{ title: string }>(`SELECT title FROM offer_i18n WHERE offer_id = 2 AND locale = 'en'`);
+  const english = rows[0].title;
+  const machine = 'Lớp nấu ăn (máy dịch)';
+  try {
+    await c.query(`INSERT INTO offer_i18n (offer_id, locale, title, status, origin, ai_model) VALUES (2, 'vi', $1, 'machine', 'ai', 'e2e')`, [machine]);
+    await signInAs(page, STAFF.admin);
+    await page.goto('/admin/locales');
+    await row(page, 'Tiếng Việt (vi)').getByRole('button', { name: 'Bật cho khách' }).click();
+    await expect(row(page, 'Tiếng Việt (vi)')).toContainText('Đang bật');
+
+    const visitor = await guest(browser);
+    const titles = () => visitor.locator('#offers .offer-title').allTextContents();
+    await visitor.goto('/vi');
+    expect(await titles()).toContain(english);
+    expect(await titles()).not.toContain(machine);
+
+    const editor = await (await browser.newContext()).newPage();
+    await signInAs(editor, STAFF.editor);
+    await editor.getByRole('link', { name: 'Bản dịch' }).click();
+    await expect(editor.getByRole('heading', { level: 1, name: 'Bản dịch' })).toBeVisible();
+    await editor.getByRole('combobox', { name: 'Ngôn ngữ' }).selectOption('vi');
+    await editor.getByRole('combobox', { name: 'Loại' }).selectOption('offers');
+    await editor.getByRole('button', { name: 'Lọc' }).click();
+    const queue = editor.getByRole('form', { name: 'Hàng chờ duyệt' });
+    await expect(queue.getByRole('row')).toHaveCount(2);
+    await expect(queue).toContainText(machine);
+    await expectHydrated(editor);
+    await queue.getByRole('button', { name: /^Duyệt: Ưu đãi 2 \(VI\)$/ }).click();
+    await expect(editor.getByText('Không có bản dịch nào chờ duyệt.')).toBeVisible();
+
+    await visitor.reload();
+    expect(await titles()).toContain(machine);
+    await visitor.context().close();
+    await editor.context().close();
+  } finally {
+    await c.query(`DELETE FROM offer_i18n WHERE offer_id = 2 AND locale <> 'en'`);
     await c.end();
   }
 });

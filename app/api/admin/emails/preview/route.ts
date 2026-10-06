@@ -1,5 +1,6 @@
 import { getPool } from '@/db/client';
 import { isEmailEvent } from '@/lib/email/events';
+import { DEFAULT_LOCALE, LOCALE_CODE_RE } from '@/lib/i18n/locales';
 import { isStringKey } from '@/lib/i18n/registry';
 import { requirePermission } from '@/lib/server/dal/session';
 import { emailKeys, type EmailKey } from '@/lib/server/email/booking/render';
@@ -10,7 +11,9 @@ import { validateValue } from '@/lib/server/content/strings-admin';
 /*
  * "Xem trước với dữ liệu mẫu" of /admin/content/emails (spec §7.2): the sample
  * booking's email (lib/server/email/booking/sample.ts, no guest data), with
- * the English text the editor has typed but not saved. The form posts here
+ * the text the editor has typed but not saved, in the language the screen
+ * edits (phase-7A ledger A4: a Vietnamese preview shows the Vietnamese being
+ * typed). The form posts here
  * into an <iframe> (a formAction button), so nothing is written.
  *
  * A route handler, not a Server Action, because the email's HTML is inline
@@ -46,7 +49,9 @@ export async function POST(request: Request): Promise<Response> {
 
   const form = await request.formData();
   const event = form.get('preview_event');
-  const locale = form.get('preview_locale') === 'vi' ? 'vi' : 'en';
+  // The language the screen edits (its hidden locale field); renderSampleEmail falls back for a code the table lacks.
+  const asked = form.get('locale');
+  const locale = typeof asked === 'string' && LOCALE_CODE_RE.test(asked) ? asked : DEFAULT_LOCALE;
   if (!isEmailEvent(event)) return page('<p>Chọn loại email.</p>', 400);
 
   const overrides: Partial<Record<EmailKey, string>> = {};
@@ -55,9 +60,10 @@ export async function POST(request: Request): Promise<Response> {
     const raw = form.get(`v:${key}`);
     if (typeof raw !== 'string' || !isStringKey(key)) continue;
     const value = raw.replace(/\r\n?/g, '\n').trim();
-    const errors = validateValue(key, value);
+    const errors = validateValue(key, value, locale);
     if (errors.length) problems.push(`${key}: ${errors.join(' ')}`);
-    else overrides[key] = value;
+    // An empty translation is no text: the email reads its fallback, as a saved one would.
+    else if (value !== '') overrides[key] = value;
   }
   if (problems.length) {
     return page(`<p>Chưa xem trước được, vì:</p><ul>${problems.map((p) => `<li>${escape(p)}</li>`).join('')}</ul>`, 422);

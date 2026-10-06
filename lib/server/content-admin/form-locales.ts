@@ -50,3 +50,17 @@ export function itemStates(def: ItemDef, s: ItemSnapshot, locales: readonly Form
 export async function listStates(db: Db, def: ItemDef, locales: readonly FormLocale[]): Promise<Map<string, Record<string, TranslationState>>> {
   return new Map((await readItems(db, def)).map((s) => [String(s.row.id), itemStates(def, s, locales)]));
 }
+
+/** The languages a strings screen can edit (its LocalePicker), the default first, by their own names. */
+export async function pickerLocales(db: Db): Promise<{ code: string; name: string; isEnabled: boolean; isDefault: boolean }[]> {
+  const { rows } = await db.query<{ code: string; native_name: string; is_default: boolean; is_enabled: boolean }>(
+    'SELECT code, native_name, is_default, is_enabled FROM locales ORDER BY is_default DESC, sort_order, code',
+  );
+  return rows.map((r) => ({ code: r.code, name: r.native_name, isEnabled: r.is_enabled, isDefault: r.is_default }));
+}
+
+/** The language a screen's ?lang= asks for, when the table has it; else the default one. */
+export function screenLocale(locales: readonly { code: string; isDefault: boolean }[], asked: string | string[] | undefined): string {
+  const code = typeof asked === 'string' ? asked : undefined;
+  return locales.find((l) => l.code === code)?.code ?? locales.find((l) => l.isDefault)?.code ?? DEFAULT_LOCALE;
+}

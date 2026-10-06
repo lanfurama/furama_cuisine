@@ -8,7 +8,7 @@ import { getSettingsEditor, SHARE_IMAGE } from '@/lib/server/content-admin/setti
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { envPrefix, isBlobConfigured } from '@/lib/server/media/blob';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
-import { StringsPanel } from '../_ui/StringsPanel';
+import { StringsPanel, type ScreenSearchParams } from '../_ui/StringsPanel';
 import { restoreShareImageAction } from './actions';
 import { ShareImageForm } from './ShareImageForm';
 
@@ -25,7 +25,7 @@ export const metadata: Metadata = { title: 'SEO' };
  * title, description and picture are on its screen; a restaurant page
  * without them uses these (L7-13).
  */
-export default async function SeoPage() {
+export default async function SeoPage({ searchParams }: { searchParams: ScreenSearchParams }) {
   await requirePagePermission({ content: ['read'] });
   const pool = getPool();
   const [editor, history, images] = await Promise.all([
@@ -42,14 +42,14 @@ export default async function SeoPage() {
       </p>
       <h1>SEO</h1>
       <p className="a-lede">
-        Tên và mô tả của web trong kết quả tìm kiếm và khi chia sẻ link (tiếng Anh). Trang nhà hàng có tiêu đề, mô tả và ảnh riêng ở{' '}
+        Tên và mô tả của web trong kết quả tìm kiếm và khi chia sẻ link. Trang nhà hàng có tiêu đề, mô tả và ảnh riêng ở{' '}
         <Link href="/admin/restaurants">màn của từng nhà hàng</Link>; trang nào chưa có thì dùng mô tả và ảnh ở đây. Lưu là lên web ngay; mọi thay đổi khôi
         phục được từ Lịch sử.
       </p>
 
       <section aria-labelledby="seo-copy">
         <h2 id="seo-copy">Tiêu đề và mô tả</h2>
-        <StringsPanel screen="seo" title="Chữ SEO" />
+        <StringsPanel searchParams={searchParams} screen="seo" title="Chữ SEO" />
       </section>
 
       <section className="a-section-card" aria-labelledby="seo-share">

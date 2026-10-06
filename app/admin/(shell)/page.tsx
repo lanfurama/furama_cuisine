@@ -4,6 +4,7 @@ import { getPool } from '@/db/client';
 import { todayVi } from '@/lib/admin/format';
 import { roleCan } from '@/lib/server/auth/permissions';
 import { listOpenInvitations } from '@/lib/server/auth/staff-queries';
+import { coverageSummary } from '@/lib/server/content-admin/translations';
 import { overviewCounts } from '@/lib/server/booking/queries';
 import { verifySession } from '@/lib/server/dal/session';
 import { outboxEnv } from '@/lib/server/email/env';
@@ -23,7 +24,9 @@ export const metadata: Metadata = { title: 'Tổng quan' };
  * ahead, for roles that read bookings;
  * to Admins, invitations whose email failed, and the restaurants whose "đặt
  * bàn mới" goes to the shared inbox ("nhà hàng chưa có người nhận thông báo",
- * R21). Translation widgets arrive with phase 8.
+ * R21); to roles that read content, each language's share of reviewed
+ * translations and how many are "EN đã đổi" (spec §7.2 "bản dịch thiếu hoặc
+ * lỗi thời"), shown once there is a language besides the default one.
  */
 export default async function OverviewPage() {
   const staff = await verifySession();
@@ -33,6 +36,7 @@ export default async function OverviewPage() {
   const bookings = roleCan(staff.role, { reservations: ['read'] }) ? await overviewCounts(pool, venueNow().date) : null;
   const emails = bookings ? await emailOverview(pool, outboxEnv()) : null;
   const unrouted = emails && roleCan(staff.role, { settings: ['read'] }) ? emails.unrouted : [];
+  const translations = roleCan(staff.role, { content: ['read'] }) ? await coverageSummary(pool) : [];
 
   return (
     <>
@@ -65,6 +69,23 @@ export default async function OverviewPage() {
               </Link>
             </li>
           </ul>
+        </section>
+      ) : null}
+      {translations.length > 0 ? (
+        <section aria-labelledby="overview-translations">
+          <h2 id="overview-translations">Bản dịch</h2>
+          <ul className="a-stats" data-testid="translation-coverage">
+            {translations.map((t) => (
+              <li key={t.code}>
+                <Link href={`/admin/translations?locale=${t.code}#queue`}>
+                  <strong>{t.percent}%</strong> {t.name} đã duyệt{t.stale ? ` · ${t.stale} EN đã đổi` : ''}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p>
+            <Link href="/admin/translations#queue">Xem hàng chờ</Link>
+          </p>
         </section>
       ) : null}
       {unrouted.length > 0 ? (

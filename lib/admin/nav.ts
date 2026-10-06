@@ -13,6 +13,7 @@ export const ADMIN_NAV: readonly NavItem[] = [
   { href: '/admin/restaurants', label: 'Nhà hàng', permission: { schedule: ['read'] } },
   { href: '/admin/content', label: 'Nội dung', permission: { content: ['read'] } },
   { href: '/admin/media', label: 'Thư viện', permission: { content: ['read'] } },
+  { href: '/admin/translations', label: 'Bản dịch', permission: { content: ['read'] } },
   { href: '/admin/settings/booking', label: 'Cài đặt đặt bàn', permission: { settings: ['read'] } },
   { href: '/admin/settings/notifications', label: 'Thông báo email', permission: { settings: ['read'] } },
   { href: '/admin/locales', label: 'Ngôn ngữ', permission: { locales: ['read'] } },

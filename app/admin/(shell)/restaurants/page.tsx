@@ -10,7 +10,7 @@ import { orderToken, type OrderSnapshot } from '@/lib/server/content-admin/snaps
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { HistoryPanel } from '../_kit/HistoryPanel';
 import { Thumb } from '../_kit/Thumb';
-import { StringsPanel } from '../content/_ui/StringsPanel';
+import { StringsPanel, type ScreenSearchParams } from '../content/_ui/StringsPanel';
 import { restoreRestaurantOrderAction } from './actions';
 import { NewRestaurantForm } from './NewRestaurantForm';
 import { RestaurantOrder } from './RestaurantOrder';
@@ -29,7 +29,7 @@ export const metadata: Metadata = { title: 'Nhà hàng' };
  * restaurant card and page shares (restaurants.*, detail.*): they belong to no
  * one restaurant, so they are edited here, once (registry screen `restaurants`).
  */
-export default async function RestaurantsPage() {
+export default async function RestaurantsPage({ searchParams }: { searchParams: ScreenSearchParams }) {
   await requirePagePermission({ schedule: ['read'] });
   const pool = getPool();
   const [{ items, token }, bookings, settings, destinations, orderHistory] = await Promise.all([
@@ -109,8 +109,8 @@ export default async function RestaurantsPage() {
 
       <section aria-labelledby="restaurants-copy">
         <h2 id="restaurants-copy">Chữ của mục nhà hàng và trang nhà hàng</h2>
-        <p className="a-muted">Tiêu đề, nút và nhãn mọi thẻ và trang nhà hàng dùng chung (tiếng Anh). Chữ riêng của một nhà hàng sửa ở màn Nội dung của nhà hàng đó.</p>
-        <StringsPanel
+        <p className="a-muted">Tiêu đề, nút và nhãn mọi thẻ và trang nhà hàng dùng chung. Chữ riêng của một nhà hàng sửa ở màn Nội dung của nhà hàng đó.</p>
+        <StringsPanel searchParams={searchParams}
           screen="restaurants"
           title="Chữ trang nhà hàng"
           groups={[

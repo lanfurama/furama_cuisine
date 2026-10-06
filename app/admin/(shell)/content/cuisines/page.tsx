@@ -13,7 +13,7 @@ import { DeletedList, enOf } from '../../_kit/DeletedList';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
 import { ItemList } from '../../_kit/ItemList';
 import { LocaleTabs } from '../../_kit/LocaleTabs';
-import { StringsPanel } from '../_ui/StringsPanel';
+import { StringsPanel, type ScreenSearchParams } from '../_ui/StringsPanel';
 import { deleteCuisineAction, reorderCuisinesAction, restoreCuisineAction, restoreCuisineOrderAction, toggleCuisineAction } from './actions';
 import { CuisineForm } from './CuisineForm';
 
@@ -30,7 +30,7 @@ const LABELS = { label: 'Tên ẩm thực', image_id: 'Ảnh', is_published: 'Hi
  * advised), each cuisine's form and History, the deleted ones to bring back,
  * the order's History, and the section's words (cuisines.*).
  */
-export default async function CuisinesPage() {
+export default async function CuisinesPage({ searchParams }: { searchParams: ScreenSearchParams }) {
   await requirePagePermission({ content: ['read'] });
   const pool = getPool();
   const [{ items, token }, deleted, orderHistory, images] = await Promise.all([
@@ -123,7 +123,7 @@ export default async function CuisinesPage() {
 
       <section aria-labelledby="cuisines-copy">
         <h2 id="cuisines-copy">Chữ của mục Explore by Cuisine</h2>
-        <StringsPanel screen="cuisines" title="Chữ mục ẩm thực" />
+        <StringsPanel searchParams={searchParams} screen="cuisines" title="Chữ mục ẩm thực" />
       </section>
     </LocaleTabs>
   );

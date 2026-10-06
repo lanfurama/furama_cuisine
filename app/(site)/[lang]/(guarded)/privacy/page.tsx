@@ -42,7 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function PrivacyPage() {
   const locale = await requireEnabledLocale(await lang());
-  const [t, settings, policy] = await Promise.all([getPrivacyStrings(locale), getSiteSettings(), getPolicyVersion()]);
+  const [t, settings, policy] = await Promise.all([getPrivacyStrings(locale), getSiteSettings(), getPolicyVersion(locale)]);
   // A calendar date: format it in UTC so the server's zone cannot move it. English reads day first, as the
   // booking form does ("Thu, 1 Oct"); other languages take their own order (phase 8).
   const updated = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : toBcp47(locale), {

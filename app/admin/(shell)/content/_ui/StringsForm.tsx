@@ -1,10 +1,14 @@
 'use client';
 
 import { useId, useRef, useState } from 'react';
+import { checkLength, TRANSLATION_STRETCH } from '@/lib/admin/content-rules';
 import { submitKeepingValues } from '@/lib/admin/form';
+import { toBcp47 } from '@/lib/i18n/locales';
+import type { TranslationState } from '@/lib/i18n/source-hash';
 import type { ActionResult } from '@/lib/server/action-result';
 import type { StringsSaved, StringsWritten } from '@/lib/server/content/strings-admin';
 import { SaveBar } from '../../_kit/SaveBar';
+import { STATUS_LABELS } from '../../_kit/TranslatableField';
 import { useSaveState } from '../../_kit/useSaveState';
 import { saveScreenStrings } from '../actions';
 
@@ -13,7 +17,11 @@ export type StringFieldView = {
   value: string;
   token: string;
   overridden: boolean;
+  /** The registry's English default ("Khôi phục mặc định" in English). */
   en: string;
+  /** The English text guests read now: a translation's placeholder and length reference. */
+  english: string;
+  state: TranslationState;
   label: string;
   maxLength: number;
   vars: string[];
@@ -46,11 +54,18 @@ export function StringsForm({
   title,
   fields,
   groups,
+  locale,
+  localeName,
+  isDefault,
   children,
 }: {
   screen: string;
   title: string;
   fields: StringFieldView[];
+  /** The language this form edits (the screen's ?lang=), its own name, and whether it is the default one. */
+  locale: string;
+  localeName: string;
+  isDefault: boolean;
   /** Keys under a titled fieldset each; keys no group takes come first, ungrouped. */
   groups?: readonly StringGroup[];
   /**
@@ -81,7 +96,12 @@ export function StringsForm({
       aria-label={title}
     >
       <input type="hidden" name="screen" value={screen} />
-      <StringFields key={save.fieldsKey} fields={save.view} groups={groups ?? []} state={save.state} />
+      <input type="hidden" name="locale" value={locale} />
+      <p className="a-muted">
+        Đang sửa: <strong>{localeName}</strong>
+        {isDefault ? '' : '. Ô để trống: khách thấy bản tiếng Anh.'}
+      </p>
+      <StringFields key={save.fieldsKey} fields={save.view} groups={groups ?? []} state={save.state} lang={isDefault ? null : locale} />
       <SaveBar
         state={save.state as ActionResult<unknown> | null}
         pending={save.pending}
@@ -101,8 +121,21 @@ function versionOf(fields: readonly StringFieldView[], written: Partial<Record<s
   return fields.map((f) => written[f.key] ?? f.token).join('|');
 }
 
-function StringFields({ fields, groups, state }: { fields: StringFieldView[]; groups: readonly StringGroup[]; state: ActionResult<StringsSaved> | null }) {
-  const field = (f: StringFieldView) => <StringField key={f.key} field={f} error={state && !state.ok ? state.fieldErrors?.[`v:${f.key}`] : undefined} />;
+function StringFields({
+  fields,
+  groups,
+  state,
+  lang,
+}: {
+  fields: StringFieldView[];
+  groups: readonly StringGroup[];
+  state: ActionResult<StringsSaved> | null;
+  /** A translation's language; null for the default one. */
+  lang: string | null;
+}) {
+  const field = (f: StringFieldView) => (
+    <StringField key={f.key} field={f} lang={lang} error={state && !state.ok ? state.fieldErrors?.[`v:${f.key}`] : undefined} />
+  );
   const grouped = (f: StringFieldView) => groups.some((g) => f.key.startsWith(g.prefix));
   return (
     <>
@@ -120,57 +153,77 @@ function StringFields({ fields, groups, state }: { fields: StringFieldView[]; gr
   );
 }
 
-function StringField({ field: f, error }: { field: StringFieldView; error?: string[] }) {
+function StringField({ field: f, lang, error }: { field: StringFieldView; lang: string | null; error?: string[] }) {
   const id = useId();
   const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
-  const [length, setLength] = useState([...f.value].length);
-  const multiline = f.maxLength > 120 || f.value.includes('\n');
+  const [value, setValue] = useState(f.value);
+  // A translation warns past 1.3 times the English length (spec §7.3), and is refused past the maximum.
+  const length = checkLength(value, f.maxLength, lang ? Math.floor([...f.english].length * TRANSLATION_STRETCH) : undefined);
+  const multiline = f.maxLength > 120 || f.value.includes('\n') || f.english.includes('\n');
   const describedBy = [`${id}-hint`, error ? `${id}-error` : null].filter(Boolean).join(' ');
   const common = {
     id,
     ref,
     name: `v:${f.key}`,
     defaultValue: f.value,
+    lang: lang ? toBcp47(lang) : undefined,
+    placeholder: lang ? f.english : undefined,
     'aria-describedby': describedBy,
     'aria-invalid': error ? true : undefined,
-    onInput: (e: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => setLength([...e.currentTarget.value].length),
+    onInput: (e: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => setValue(e.currentTarget.value),
   };
 
   return (
     <div className="a-field a-field--wide" data-key={f.key}>
-      <label htmlFor={id}>{f.label}</label>
+      <label htmlFor={id}>
+        {f.label}
+        {lang ? (
+          <>
+            {' '}
+            <span className={f.state === 'reviewed' ? 'a-tag' : 'a-tag a-tag--warn'}>{STATUS_LABELS[f.state]}</span>
+          </>
+        ) : null}
+      </label>
       <input type="hidden" name={`o:${f.key}`} value={f.value} />
       <input type="hidden" name={`t:${f.key}`} value={f.token} />
       {multiline ? <textarea rows={4} {...common} /> : <input type="text" autoComplete="off" {...common} />}
-      <p className={`a-counter${length > f.maxLength ? ' a-counter--error' : ''}`} id={`${id}-hint`}>
-        {length}/{f.maxLength} ký tự
+      <p className={`a-counter${length.level === 'error' ? ' a-counter--error' : length.level === 'warn' ? ' a-counter--warn' : ''}`} id={`${id}-hint`}>
+        {length.count}/{f.maxLength} ký tự
+        {length.level === 'warn' ? ' · Dài hơn nhiều so với bản tiếng Anh' : ''}
         {f.vars.length > 0 ? ` · Giữ nguyên biến: ${f.vars.map((v) => `{${v}}`).join(', ')}` : ''}
-        {f.overridden ? ' · Đã sửa so với mặc định' : ' · Đang dùng chữ mặc định'}
+        {lang ? '' : f.overridden ? ' · Đã sửa so với mặc định' : ' · Đang dùng chữ mặc định'}
       </p>
+      {lang && f.state !== 'missing' ? (
+        <p className="a-muted">
+          Bản tiếng Anh: <span lang="en">{f.english}</span>
+        </p>
+      ) : null}
       {error ? (
         <p className="a-field-error" id={`${id}-error`}>
           {error.join(' ')}
         </p>
       ) : null}
       <details>
-        <summary>Ngữ cảnh và chữ mặc định</summary>
+        <summary>{lang ? 'Ngữ cảnh' : 'Ngữ cảnh và chữ mặc định'}</summary>
         <p lang="en">{f.context}</p>
-        <p>
-          Mặc định: <span lang="en">{f.en}</span>{' '}
-          <button
-            type="button"
-            className="a-btn a-btn--ghost a-btn--small"
-            onClick={() => {
-              if (!ref.current) return;
-              ref.current.value = f.en;
-              setLength([...f.en].length);
-              // A programmatic value fires no input event: tell the form it changed.
-              ref.current.dispatchEvent(new Event('input', { bubbles: true }));
-            }}
-          >
-            Khôi phục mặc định
-          </button>
-        </p>
+        {lang ? null : (
+          <p>
+            Mặc định: <span lang="en">{f.en}</span>{' '}
+            <button
+              type="button"
+              className="a-btn a-btn--ghost a-btn--small"
+              onClick={() => {
+                if (!ref.current) return;
+                ref.current.value = f.en;
+                setValue(f.en);
+                // A programmatic value fires no input event: tell the form it changed.
+                ref.current.dispatchEvent(new Event('input', { bubbles: true }));
+              }}
+            >
+              Khôi phục mặc định
+            </button>
+          </p>
+        )}
       </details>
     </div>
   );

@@ -28,7 +28,7 @@ const SCREENS = [
   { href: '/admin/content/seo', label: 'SEO', about: 'Tiêu đề và mô tả của web trong kết quả tìm kiếm và khi chia sẻ link; ảnh chia sẻ.' },
   { href: '/admin/content/ui-text', label: 'Chữ giao diện', about: 'Nút, nhãn và thông báo chung: đầu trang, tìm kiếm, ô nhập và lỗi của form đặt bàn.' },
   { href: '/admin/content/legal', label: 'Chính sách bảo mật', about: 'Trang chính sách và câu đồng ý ở form đặt bàn; mỗi lần đổi chữ khách đồng ý là một phiên bản mới.' },
-  { href: '/admin/content/emails', label: 'Nội dung email', about: 'Tiêu đề và nội dung email đặt bàn (tiếng Anh), xem trước với một đặt bàn mẫu.' },
+  { href: '/admin/content/emails', label: 'Nội dung email', about: 'Tiêu đề và nội dung email đặt bàn, xem trước với một đặt bàn mẫu.' },
 ];
 
 export default async function ContentIndex() {

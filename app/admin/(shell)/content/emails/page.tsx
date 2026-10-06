@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { EMAIL_EVENTS, EMAIL_EVENT_LABELS } from '@/lib/email/events';
 import { requirePagePermission } from '@/lib/server/dal/session';
-import { StringsPanel } from '../_ui/StringsPanel';
+import { StringsPanel, type ScreenSearchParams } from '../_ui/StringsPanel';
 
 /** One group per email, then the words every email shares (email.common.*). */
 const GROUPS = [
@@ -19,11 +19,12 @@ export const metadata: Metadata = { title: 'Nội dung email' };
  * Spec §7.2 /admin/content/emails: the email.* keys, and "xem trước với dữ
  * liệu mẫu". The preview button posts this same form (unsaved text included)
  * to /api/admin/emails/preview into the frame below; Save posts to the action.
- * Phase 7 edits English (R7); the Vietnamese staff email keeps its registry
- * text until phase 8 opens the language tabs. email.* is read uncached by the
- * sender, so a save expires no tag (R6) and the next email uses it.
+ * One language at a time (?lang=, phase 8): every email, the staff one too
+ * (R7), and the preview shows the language being edited with its unsaved
+ * text (phase-7A ledger A4). email.* is read uncached by the sender, so a save
+ * expires no tag (R6) and the next email uses it.
  */
-export default async function EmailsPage() {
+export default async function EmailsPage({ searchParams }: { searchParams: ScreenSearchParams }) {
   await requirePagePermission({ content: ['read'] });
   return (
     <>
@@ -31,8 +32,10 @@ export default async function EmailsPage() {
         <Link href="/admin/content">← Nội dung</Link>
       </p>
       <h1>Nội dung email</h1>
-      <p className="a-lede">Tiêu đề và nội dung email đặt bàn (tiếng Anh). Bấm “Xem trước” để xem email với một đặt bàn mẫu trước khi lưu.</p>
-      <StringsPanel screen="emails" title="Nội dung email" groups={GROUPS}>
+      <p className="a-lede">
+        Tiêu đề và nội dung email đặt bàn, từng ngôn ngữ một. Bấm “Xem trước” để xem email với một đặt bàn mẫu, bằng chữ đang sửa, trước khi lưu.
+      </p>
+      <StringsPanel searchParams={searchParams} screen="emails" title="Nội dung email" groups={GROUPS}>
         <fieldset className="a-email-preview-box">
           <legend>Xem trước</legend>
           <div className="a-field">
@@ -43,13 +46,6 @@ export default async function EmailsPage() {
                   {EMAIL_EVENT_LABELS[e]}
                 </option>
               ))}
-            </select>
-          </div>
-          <div className="a-field">
-            <label htmlFor="email-preview-locale">Ngôn ngữ</label>
-            <select id="email-preview-locale" name="preview_locale" defaultValue="en">
-              <option value="en">Tiếng Anh (chữ đang sửa)</option>
-              <option value="vi">Tiếng Việt (chữ đã lưu)</option>
             </select>
           </div>
           <button className="a-btn a-btn--ghost" type="submit" formAction="/api/admin/emails/preview" formMethod="post" formTarget="email-preview">

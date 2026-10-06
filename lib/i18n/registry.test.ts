@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatMessage, usesIcuSyntax } from './format';
-import { checkMessage } from './icu';
+import { checkMessage, messageArgs } from './icu';
 import { ADMIN_SCREENS, CLIENT_KEYS, HOME_KEYS, KEY_PATTERN, REGISTRY, STRING_KEYS, keysForScreen, sectionKeys, type StringDef } from './registry';
 import { resolveStrings } from './resolve';
 
@@ -13,9 +13,9 @@ describe('registry', () => {
     if (def.vi) expect(def.vi.length).toBeLessThanOrEqual(def.maxLength);
     expect(def.context.length).toBeGreaterThan(10);
     expect(ADMIN_SCREENS).toContain(def.screen);
-    // Valid ICU, and the declared variables are exactly the ones used, in every language (spec §7.4).
+    // Valid ICU, and the declared variables are exactly the ones used, of the English kinds, in every language (spec §7.4).
     for (const text of [def.en, def.vi].filter((t): t is string => !!t)) {
-      expect(checkMessage(text, def.vars ?? [])).toEqual([]);
+      expect(checkMessage(text, def.vars ?? [], messageArgs(def.en))).toEqual([]);
     }
   });
 

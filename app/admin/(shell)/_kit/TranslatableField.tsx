@@ -12,7 +12,7 @@ export type TranslationStatus = TranslationState;
 /** A form whose page gives no languages: English alone, no tabs. */
 export const EN_ONLY: readonly LocaleTab[] = [{ code: DEFAULT_LOCALE, label: 'EN' }];
 
-const STATUS_LABELS: Record<TranslationStatus, string> = { missing: 'Chưa dịch', machine: 'Máy dịch', reviewed: 'Đã duyệt', stale: 'EN đã đổi' };
+export const STATUS_LABELS: Record<TranslationStatus, string> = { missing: 'Chưa dịch', machine: 'Máy dịch', reviewed: 'Đã duyệt', stale: 'EN đã đổi' };
 
 /*
  * One translatable text (spec §7.3). The value is per language

@@ -46,10 +46,14 @@ export async function conflictFromHistory(
   entityType: string,
   entityId: string | null,
   fallback: { by: string | null; at: Date },
+  /** The language of a per-language row (content_strings): the newest write of that language only. */
+  locale?: string,
 ): Promise<Conflict> {
   const { rows } = await client.query<{ actor_id: string | null; at: Date }>(
-    `SELECT actor_id, at FROM audit_log WHERE entity_type = $1 AND entity_id IS NOT DISTINCT FROM $2 ORDER BY at DESC, id DESC LIMIT 1`,
-    [entityType, entityId],
+    `SELECT actor_id, at FROM audit_log
+      WHERE entity_type = $1 AND entity_id IS NOT DISTINCT FROM $2 AND ($3::text IS NULL OR locale = $3)
+      ORDER BY at DESC, id DESC LIMIT 1`,
+    [entityType, entityId, locale ?? null],
   );
   return rows[0] ? conflictBy(client, rows[0].actor_id, rows[0].at) : conflictBy(client, fallback.by, fallback.at);
 }
