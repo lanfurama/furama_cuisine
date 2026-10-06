@@ -2,6 +2,7 @@ import 'server-only';
 import type { Db } from '@/lib/server/booking/rules';
 import { makeListEditor, WHOLE_ITEM, type ListFailure } from './list-editor';
 import { orderToken, readItems, snapshotToken, type ItemDef, type ItemSnapshot } from './snapshot';
+import { localeTexts } from './form-locales';
 
 /*
  * The cuisines list (spec §7.2 content/cuisines, §6.5 "Cuisines: nên tối đa
@@ -33,7 +34,7 @@ export type CuisineInput = {
   id: string;
   imageId: string;
   isPublished: boolean;
-  /** One language per key: the form sends EN only until phase 8 adds its tabs. */
+  /** One language per key (the form's tabs, phase 8). */
   label: Record<string, string | null>;
 };
 
@@ -76,12 +77,11 @@ export const restoreCuisineOrder = cuisines.restoreOrder;
 
 /** The form's values for one cuisine, from its snapshot. */
 export function cuisineValues(s: ItemSnapshot): CuisineInput {
-  const en = s.i18n.find((r) => r.locale === 'en');
   return {
     id: String(s.row.id),
     imageId: String(s.row.image_id),
     isPublished: Boolean(s.row.is_published),
-    label: { en: (en?.label as string | null | undefined) ?? null },
+    label: localeTexts(s.i18n, 'label'),
   };
 }
 

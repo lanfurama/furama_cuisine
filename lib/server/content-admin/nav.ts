@@ -4,6 +4,7 @@ import type { SectionKey } from '@/lib/content/types';
 import type { Db } from '@/lib/server/booking/rules';
 import { makeListEditor, type ListFailure } from './list-editor';
 import { orderToken, readItems, snapshotToken, type ItemDef, type ItemSnapshot } from './snapshot';
+import { localeTexts } from './form-locales';
 
 /*
  * The navigation menu (spec §7.2 content/navigation, §6.5 "Menu điều hướng
@@ -32,7 +33,7 @@ export type NavInput = {
   id: string | null;
   targetSection: SectionKey;
   isPublished: boolean;
-  /** One language per key: the form sends EN only until phase 8 adds its tabs. */
+  /** One language per key (the form's tabs, phase 8). */
   label: Record<string, string | null>;
 };
 
@@ -76,12 +77,11 @@ export const restoreNavItemOrder = nav.restoreOrder;
 
 /** The form's values for one item, from its snapshot. */
 export function navValues(s: ItemSnapshot): NavInput {
-  const en = s.i18n.find((r) => r.locale === 'en');
   return {
     id: String(s.row.id),
     targetSection: s.row.target_section as SectionKey,
     isPublished: Boolean(s.row.is_published),
-    label: { en: (en?.label as string | null | undefined) ?? null },
+    label: localeTexts(s.i18n, 'label'),
   };
 }
 

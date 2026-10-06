@@ -15,7 +15,7 @@ import {
   readItem,
   readOrder,
   snapshotToken,
-  upsertTranslation,
+  writeChangedTranslations,
   writeItem,
   writeOrder,
   type I18nRow,
@@ -219,7 +219,7 @@ export function makeListEditor<I>(def: ItemDef, options: ListEditorOptions<I>) {
 
   async function writeTranslations(client: PoolClient, id: string, input: I, actorId: string): Promise<void> {
     if (!options.toI18n) return;
-    for (const [locale, values] of Object.entries(options.toI18n(input))) await upsertTranslation(client, def, id, locale, values, actorId);
+    await writeChangedTranslations(client, def, id, options.toI18n(input), actorId);
   }
 
   async function audited(client: PoolClient, actor: AuditActor, action: string, id: string, before: ItemSnapshot | null, after: unknown) {

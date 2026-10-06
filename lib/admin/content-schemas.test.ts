@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  translatable,
   AutoplayForm,
   BookingDefaultsForm,
   checkbox,
@@ -52,6 +53,16 @@ const fieldErrors = (err: unknown) => z.flattenError(err as z.ZodError).fieldErr
 describe('content form schemas (spec §7.3, §7.4)', () => {
   it('folds `<field>.<locale>` inputs into one value per language (phase 8 adds keys, not fields)', () => {
     expect(readForm(form({ 'title.en': 'A', 'title.vi': 'B', id: '2', $ACTION_ID_x: '' }))).toEqual({ title: { en: 'A', vi: 'B' }, id: '2' });
+  });
+
+  it('a translatable field takes any language code, needs the default one when required, and empties the others to null', () => {
+    const Title = z.object({ title: translatable(80, 'Nhập tiêu đề.') });
+    expect(Title.parse(readForm(form({ 'title.en': ' Sunset ', 'title.vi': '', 'title.zh-hans': '日落' })))).toEqual({
+      title: { en: 'Sunset', vi: null, 'zh-hans': '日落' },
+    });
+    expect(Title.safeParse(readForm(form({ 'title.en': '', 'title.vi': 'Hoàng hôn' }))).error?.issues[0]).toMatchObject({ path: ['title', 'en'], message: 'Nhập tiêu đề.' });
+    expect(Title.safeParse({ title: { EN: 'x' } }).success).toBe(false);
+    expect(Title.safeParse(readForm(form({ 'title.en': 'A', 'title.vi': 'x'.repeat(81) }))).success).toBe(false);
   });
 
   it('an unticked checkbox is simply absent, and reads as false (zod 4: .optional(), not a union with undefined)', () => {

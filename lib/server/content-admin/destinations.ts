@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import type { Db } from '@/lib/server/booking/rules';
 import { makeListEditor, WHOLE_ITEM, type ListFailure } from './list-editor';
 import { orderToken, readItems, snapshotToken, type ItemDef, type ItemSnapshot } from './snapshot';
+import { localeTexts } from './form-locales';
 
 /*
  * The destinations list (spec §7.2 content/destinations, §6.5 "Destinations
@@ -32,7 +33,7 @@ export const DESTINATION: ItemDef = {
   media: [{ column: 'card_image_id', kind: 'image', field: 'cardImageId' }],
 };
 
-/** One language per key: the form sends EN only until phase 8 adds its tabs. */
+/** One language per key (the form's tabs, phase 8). */
 type Text = Record<string, string | null>;
 
 export type DestinationInput = {
@@ -149,7 +150,6 @@ export const restoreDestinationOrder = destinations.restoreOrder;
 
 // ── reads ─────────────────────────────────────────────────────────────────
 
-const en = (s: ItemSnapshot, col: string) => (s.i18n.find((r) => r.locale === 'en')?.[col] as string | null | undefined) ?? null;
 
 /** The form's values for one destination, from its snapshot. */
 export function destinationValues(s: ItemSnapshot): DestinationInput {
@@ -164,12 +164,12 @@ export function destinationValues(s: ItemSnapshot): DestinationInput {
     phoneE164: (r.phone_e164 as string | null) ?? null,
     email: (r.email as string | null) ?? null,
     mapUrl: (r.map_url as string | null) ?? null,
-    name: { en: en(s, 'name') },
-    cardTitle1: { en: en(s, 'card_title_1') },
-    cardTitle2: { en: en(s, 'card_title_2') },
-    cardBlurb1: { en: en(s, 'card_blurb_1') },
-    cardBlurb2: { en: en(s, 'card_blurb_2') },
-    address: { en: en(s, 'address') },
+    name: localeTexts(s.i18n, 'name'),
+    cardTitle1: localeTexts(s.i18n, 'card_title_1'),
+    cardTitle2: localeTexts(s.i18n, 'card_title_2'),
+    cardBlurb1: localeTexts(s.i18n, 'card_blurb_1'),
+    cardBlurb2: localeTexts(s.i18n, 'card_blurb_2'),
+    address: localeTexts(s.i18n, 'address'),
   };
 }
 

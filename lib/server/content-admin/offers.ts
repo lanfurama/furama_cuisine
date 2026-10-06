@@ -3,6 +3,7 @@ import type { Db } from '@/lib/server/booking/rules';
 import { staffName } from './history';
 import { makeListEditor, type ListFailure } from './list-editor';
 import { orderToken, readItem, readItems, snapshotToken, type ItemDef, type ItemSnapshot } from './snapshot';
+import { localeTexts } from './form-locales';
 
 /*
  * The offers list (spec §7.2 content/offers, §6.5 "Offers 0–6"): its ItemDef,
@@ -36,7 +37,7 @@ export type OfferInput = {
   validFrom: string | null;
   validUntil: string | null;
   isPublished: boolean;
-  /** One language per key: the form sends EN only until phase 8 adds its tabs. */
+  /** One language per key (the form's tabs, phase 8). */
   title: Record<string, string | null>;
   schedule: Record<string, string | null>;
   venueOverride: Record<string, string | null>;
@@ -138,7 +139,6 @@ export type OfferEditor = {
   updatedBy: string | null;
 };
 
-const en = (s: ItemSnapshot, col: string) => (s.i18n.find((r) => r.locale === 'en')?.[col] as string | null | undefined) ?? null;
 
 export function offerValues(s: ItemSnapshot): OfferInput {
   const r = s.row;
@@ -150,9 +150,9 @@ export function offerValues(s: ItemSnapshot): OfferInput {
     validFrom: (r.valid_from as string | null) ?? null,
     validUntil: (r.valid_until as string | null) ?? null,
     isPublished: Boolean(r.is_published),
-    title: { en: en(s, 'title') },
-    schedule: { en: en(s, 'schedule') },
-    venueOverride: { en: en(s, 'venue_override') },
+    title: localeTexts(s.i18n, 'title'),
+    schedule: localeTexts(s.i18n, 'schedule'),
+    venueOverride: localeTexts(s.i18n, 'venue_override'),
   };
 }
 

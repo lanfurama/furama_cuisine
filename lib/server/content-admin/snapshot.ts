@@ -2,6 +2,7 @@ import 'server-only';
 import { createHash } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { ContentTable } from '@/lib/cache-plan';
+import { sourceHash } from '@/lib/i18n/source-hash';
 import type { Db } from '@/lib/server/booking/rules';
 
 /*
@@ -227,20 +228,77 @@ export async function upsertTranslation(
   locale: string,
   values: Record<string, string | null>,
   actorId: string,
+  /** sourceHash of the default row at this save (a translation), or null (the default row itself). */
+  source: string | null = null,
 ): Promise<void> {
   if (!def.i18n) throw new Error(`${def.entityType} has no translations`);
   const { table, fk, columns } = def.i18n;
   const written = columns.filter((c) => c in values);
-  const params = [id, locale, actorId, ...written.map((c) => values[c])];
-  const placeholders = written.map((_, i) => `$${i + 4}`);
+  const params = [id, locale, actorId, source, ...written.map((c) => values[c])];
+  const placeholders = written.map((_, i) => `$${i + 5}`);
   await client.query(
-    `INSERT INTO ${table} (${fk}, locale, ${written.join(', ')}, status, origin, ai_model, reviewed_by, reviewed_at, updated_at, updated_by)
-     VALUES ($1${cast(def)}, $2, ${placeholders.join(', ')}, 'reviewed', 'human', NULL, $3, now(), now(), $3)
+    `INSERT INTO ${table} (${fk}, locale, ${written.join(', ')}, status, origin, ai_model, source_hash, reviewed_by, reviewed_at, updated_at, updated_by)
+     VALUES ($1${cast(def)}, $2, ${placeholders.join(', ')}, 'reviewed', 'human', NULL, $4, $3, now(), now(), $3)
      ON CONFLICT (${fk}, locale) DO UPDATE
        SET ${written.map((c) => `${c} = EXCLUDED.${c}`).join(', ')},
-           status = 'reviewed', origin = 'human', ai_model = NULL, reviewed_by = $3, reviewed_at = now(), updated_at = now(), updated_by = $3`,
+           status = 'reviewed', origin = 'human', ai_model = NULL, source_hash = $4, reviewed_by = $3, reviewed_at = now(), updated_at = now(), updated_by = $3`,
     params,
   );
+}
+
+const unset = (v: unknown) => v === null || v === undefined || v === '';
+const sameValue = (a: unknown, b: unknown) => (unset(a) && unset(b)) || (!unset(a) && !unset(b) && String(a) === String(b));
+
+/** One item's translation rows, by language. */
+async function translationsOf(client: PoolClient, def: ItemDef, id: string): Promise<Map<string, Row>> {
+  const { table, fk } = def.i18n!;
+  const { rows } = await client.query<Row & { locale: string }>(`SELECT * FROM ${table} WHERE ${fk} = $1${cast(def)}`, [id]);
+  return new Map(rows.map((r) => [r.locale, r]));
+}
+
+/**
+ * A form's save of one item's translations (phase 8, spec §5.1 item 3). The
+ * form shows every language's tab and posts them all, so only a language whose
+ * text changed is written: the default language first, then each translation,
+ * stamped reviewed by this member of staff with the default row's sourceHash
+ * as it stands now. A translation left as it was keeps its status (a machine
+ * translation stays one) and its source_hash, so an English edit leaves it
+ * "EN đã đổi" until someone saves it or confirms it. A translation emptied is
+ * deleted (NULL everywhere is "use English"). Codes not in the table are
+ * ignored (only a forged post has one).
+ */
+export async function writeChangedTranslations(
+  client: PoolClient,
+  def: ItemDef,
+  id: string,
+  translations: Record<string, Record<string, string | null>>,
+  actorId: string,
+): Promise<void> {
+  if (!def.i18n) throw new Error(`${def.entityType} has no translations`);
+  const { table, fk, columns } = def.i18n;
+  const { rows: locales } = await client.query<{ code: string; is_default: boolean }>('SELECT code, is_default FROM locales');
+  const known = new Set(locales.map((l) => l.code));
+  const defaultCode = locales.find((l) => l.is_default)?.code ?? 'en';
+  const current = await translationsOf(client, def, id);
+  const entries = Object.entries(translations)
+    .filter(([locale]) => known.has(locale))
+    .sort(([a], [b]) => Number(b === defaultCode) - Number(a === defaultCode));
+  let source: string | undefined;
+  for (const [locale, values] of entries) {
+    const written = columns.filter((c) => c in values);
+    const before = current.get(locale);
+    if (before && written.every((c) => sameValue(before[c], values[c]))) continue;
+    if (locale !== defaultCode && written.every((c) => unset(values[c]))) {
+      if (before) await client.query(`DELETE FROM ${table} WHERE ${fk} = $1${cast(def)} AND locale = $2`, [id, locale]);
+      continue;
+    }
+    if (locale === defaultCode) {
+      await upsertTranslation(client, def, id, locale, values, actorId, null);
+      continue;
+    }
+    source ??= sourceHash(columns, (await translationsOf(client, def, id)).get(defaultCode));
+    await upsertTranslation(client, def, id, locale, values, actorId, source);
+  }
 }
 
 /** Postgres' foreign_key_violation: a restore pointing at a restaurant or file that is gone. */

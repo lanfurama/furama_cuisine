@@ -2,20 +2,24 @@
 
 import { useId, useState, type ChangeEvent } from 'react';
 import { checkLength, TRANSLATION_STRETCH } from '@/lib/admin/content-rules';
+import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
+import type { TranslationState } from '@/lib/i18n/source-hash';
 
 export type LocaleTab = { code: string; label: string };
-export type TranslationStatus = 'machine' | 'reviewed' | 'stale';
+export type TranslationStatus = TranslationState;
 
-/** Until phase 8 (spec §7.3, §8) the editors show English only. */
-export const EN_ONLY: readonly LocaleTab[] = [{ code: 'en', label: 'EN' }];
+/** A form whose page gives no languages: English alone, no tabs. */
+export const EN_ONLY: readonly LocaleTab[] = [{ code: DEFAULT_LOCALE, label: 'EN' }];
 
-const STATUS_LABELS: Record<TranslationStatus, string> = { machine: 'Máy dịch', reviewed: 'Đã duyệt', stale: 'EN đã đổi' };
+const STATUS_LABELS: Record<TranslationStatus, string> = { missing: 'Chưa dịch', machine: 'Máy dịch', reviewed: 'Đã duyệt', stale: 'EN đã đổi' };
 
 /*
  * One translatable text (spec §7.3). The value is per language
- * (`{ en: '…', vi: '…' }`) and each language posts as `<name>.<code>`, so
- * phase 8 turns `locales` into tabs ("Dịch từ EN", the status badge) without
- * changing a form or a schema. Today `locales` is EN_ONLY and no tab shows.
+ * (`{ en: '…', vi: '…' }`) and each language posts as `<name>.<code>`. With
+ * more than one language (lib/server/content-admin/form-locales.ts) each is a
+ * tab with its state (Chưa dịch, Máy dịch, Đã duyệt, EN đã đổi); a translation
+ * left empty means "use English", and a tab that needs work shows the English
+ * text under its field. "Dịch từ EN" arrives with phase 9 (R8-13).
  *
  * The counter compares with the column's or registry's maximum (the server
  * refuses beyond it) and with an optional warning length (spec §6.5: a menu
@@ -74,7 +78,9 @@ export function TranslatableField({
               onClick={() => setActive(l.code)}
             >
               {l.label}
-              {status?.[l.code] ? <span className="a-tag">{STATUS_LABELS[status[l.code]!]}</span> : null}
+              {status?.[l.code] && l.code !== DEFAULT_LOCALE ? (
+                <span className={status[l.code] === 'reviewed' ? 'a-tag' : 'a-tag a-tag--warn'}>{STATUS_LABELS[status[l.code]!]}</span>
+              ) : null}
             </button>
           ))}
         </div>
@@ -83,18 +89,20 @@ export function TranslatableField({
         const id = `${uid}-${l.code}`;
         const value = text(l.code);
         const length = checkLength(value, max, warnAt);
-        const enCount = [...text('en')].length;
-        const longerThanEn = l.code !== 'en' && enCount > 0 && length.count > enCount * TRANSLATION_STRETCH;
+        const english = text(DEFAULT_LOCALE);
+        const enCount = [...english].length;
+        const longerThanEn = l.code !== DEFAULT_LOCALE && enCount > 0 && length.count > enCount * TRANSLATION_STRETCH;
+        const needsWork = l.code !== DEFAULT_LOCALE && (status?.[l.code] === 'stale' || status?.[l.code] === 'missing' || status?.[l.code] === 'machine');
         const counterId = `${id}-count`;
         const errorId = `${id}-error`;
         const hintId = `${id}-hint`;
-        const describedBy = [hint && hintId, counterId, error && l.code === 'en' && errorId].filter(Boolean).join(' ');
+        const describedBy = [hint && hintId, counterId, error && l.code === DEFAULT_LOCALE && errorId].filter(Boolean).join(' ');
         const props = {
           id,
           name: name ? `${name}.${l.code}` : undefined,
           'aria-describedby': describedBy,
-          'aria-invalid': (error && l.code === 'en') || length.level === 'error' ? true : undefined,
-          'aria-required': required && l.code === 'en' ? true : undefined,
+          'aria-invalid': (error && l.code === DEFAULT_LOCALE) || length.level === 'error' ? true : undefined,
+          'aria-required': required && l.code === DEFAULT_LOCALE ? true : undefined,
           ...(onChange
             ? { value, onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(l.code, e.currentTarget.value) }
             : {
@@ -116,7 +124,7 @@ export function TranslatableField({
             <div className="a-tfield-head">
               <label htmlFor={id}>{label}</label>
               {locales.length === 1 ? <span className="a-tag">{l.label}</span> : null}
-              {required && l.code === 'en' ? <span className="a-muted">bắt buộc</span> : null}
+              {required && l.code === DEFAULT_LOCALE ? <span className="a-muted">bắt buộc</span> : null}
             </div>
             {rows ? <textarea rows={rows} {...props} /> : <input type="text" {...props} />}
             {hint ? (
@@ -124,13 +132,15 @@ export function TranslatableField({
                 {hint}
               </p>
             ) : null}
+            {needsWork && english ? <p className="a-muted">Bản tiếng Anh: {english}</p> : null}
+            {l.code !== DEFAULT_LOCALE && locales.length > 1 && !value ? <p className="a-muted">Để trống: khách thấy bản tiếng Anh.</p> : null}
             <p className={`a-counter a-counter--${length.level}`} id={counterId}>
               {length.count}/{max} ký tự
               {length.level === 'warn' ? ` · ${warnMessage ?? `Dài hơn ${warnAt} ký tự, có thể không vừa bố cục.`}` : null}
               {length.level === 'error' ? ` · Vượt quá ${max} ký tự: sẽ không lưu được.` : null}
               {longerThanEn ? ' · Dài hơn bản EN khá nhiều.' : null}
             </p>
-            {error && l.code === 'en' ? (
+            {error && l.code === DEFAULT_LOCALE ? (
               <p className="a-field-error" id={errorId}>
                 {error}
               </p>

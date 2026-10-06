@@ -2,6 +2,7 @@ import 'server-only';
 import type { Db } from '@/lib/server/booking/rules';
 import { enTitleRequired, makeListEditor } from './list-editor';
 import { orderToken, readItems, snapshotToken, type ItemDef, type ItemSnapshot } from './snapshot';
+import { localeTexts } from './form-locales';
 
 /*
  * The Experiences rows (spec §7.2 content/experiences, §6.5 "Experiences
@@ -26,7 +27,7 @@ export const EXPERIENCE: ItemDef = {
 export type ExperienceInput = {
   link: string | null;
   isPublished: boolean;
-  /** One language per key: the form sends EN only until phase 8 adds its tabs. */
+  /** One language per key (the form's tabs, phase 8). */
   title: Record<string, string | null>;
   blurb: Record<string, string | null>;
 };
@@ -50,12 +51,11 @@ export const restoreExperienceOrder = experiences.restoreOrder;
 
 /** The form's values for one row, from its snapshot. */
 export function experienceValues(s: ItemSnapshot): ExperienceInput {
-  const en = s.i18n.find((r) => r.locale === 'en');
   return {
     link: (s.row.link_url as string | null) ?? null,
     isPublished: Boolean(s.row.is_published),
-    title: { en: (en?.title as string | null | undefined) ?? null },
-    blurb: { en: (en?.blurb as string | null | undefined) ?? null },
+    title: localeTexts(s.i18n, 'title'),
+    blurb: localeTexts(s.i18n, 'blurb'),
   };
 }
 

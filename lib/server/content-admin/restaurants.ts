@@ -6,6 +6,7 @@ import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audi
 import { conflictFromHistory, type Conflict } from '@/lib/server/booking/config';
 import type { Db } from '@/lib/server/booking/rules';
 import { assertLiveMedia, MEDIA, reviveMedia } from '@/lib/server/media/library';
+import { localeTexts } from './form-locales';
 import { getAuditRow } from './history';
 import { makeListEditor, MEDIA_GONE } from './list-editor';
 import {
@@ -16,6 +17,7 @@ import {
   snapshotToken,
   uniqueViolation,
   upsertTranslation,
+  writeChangedTranslations,
   writeItem,
   type I18nRow,
   type ItemDef,
@@ -156,7 +158,7 @@ const enOf = (rows: readonly I18nRow[], col: string) => (rows.find((r) => r.loca
 
 export function restaurantValues(s: RestaurantSnapshot): RestaurantInput {
   const r = s.row;
-  const t = (col: string) => ({ en: enOf(s.i18n, col) });
+  const t = (col: string) => localeTexts(s.i18n, col);
   const str = (v: unknown) => (v === null || v === undefined ? null : String(v));
   return {
     name: String(r.name),
@@ -184,8 +186,8 @@ export function restaurantValues(s: RestaurantSnapshot): RestaurantInput {
       id: String(h.row.id),
       imageId: String(h.row.image_id),
       isPublished: Boolean(h.row.is_published),
-      title: { en: enOf(h.i18n, 'title') },
-      detail: { en: enOf(h.i18n, 'detail') },
+      title: localeTexts(h.i18n, 'title'),
+      detail: localeTexts(h.i18n, 'detail'),
     })),
   };
 }
@@ -402,26 +404,28 @@ export async function saveRestaurantContent(
         actor.id,
       ],
     );
-    for (const locale of Object.keys(input.typeLabel)) {
-      await upsertTranslation(
-        client,
-        RESTAURANT,
-        id,
-        locale,
-        {
-          type_label: input.typeLabel[locale] ?? null,
-          detail_kicker: input.detailKicker[locale] ?? null,
-          story_label: input.storyLabel[locale] ?? null,
-          story: input.story[locale] ?? null,
-          highlights_title: input.highlightsTitle[locale] ?? null,
-          menu_pdf_media_id: input.menuPdfMediaId[locale] ?? null,
-          menu_pdf_url: input.menuPdfUrl[locale] ?? null,
-          seo_title: input.seoTitle[locale] ?? null,
-          seo_description: input.seoDescription[locale] ?? null,
-        },
-        actor.id,
-      );
-    }
+    await writeChangedTranslations(
+      client,
+      RESTAURANT,
+      id,
+      Object.fromEntries(
+        Object.keys(input.typeLabel).map((locale) => [
+          locale,
+          {
+            type_label: input.typeLabel[locale] ?? null,
+            detail_kicker: input.detailKicker[locale] ?? null,
+            story_label: input.storyLabel[locale] ?? null,
+            story: input.story[locale] ?? null,
+            highlights_title: input.highlightsTitle[locale] ?? null,
+            menu_pdf_media_id: input.menuPdfMediaId[locale] ?? null,
+            menu_pdf_url: input.menuPdfUrl[locale] ?? null,
+            seo_title: input.seoTitle[locale] ?? null,
+            seo_description: input.seoDescription[locale] ?? null,
+          },
+        ]),
+      ),
+      actor.id,
+    );
     await replaceCuisines(client, id, input.cuisines);
 
     const keep = input.highlights.flatMap((h) => (h.id ? [h.id] : []));
@@ -443,9 +447,13 @@ export async function saveRestaurantContent(
         );
         highlightId = rows[0].id;
       }
-      for (const locale of Object.keys(h.title)) {
-        await upsertTranslation(client, HIGHLIGHT, highlightId, locale, { title: h.title[locale] ?? null, detail: h.detail[locale] ?? null }, actor.id);
-      }
+      await writeChangedTranslations(
+        client,
+        HIGHLIGHT,
+        highlightId,
+        Object.fromEntries(Object.keys(h.title).map((locale) => [locale, { title: h.title[locale] ?? null, detail: h.detail[locale] ?? null }])),
+        actor.id,
+      );
     }
 
     const altChanged = await followCardAlt(client, actor, before.row, { name: input.name, cardImageId: input.cardImageId });

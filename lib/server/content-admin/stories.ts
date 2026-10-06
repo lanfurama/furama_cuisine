@@ -2,6 +2,7 @@ import 'server-only';
 import type { Db } from '@/lib/server/booking/rules';
 import { enTitleRequired, makeListEditor } from './list-editor';
 import { orderToken, readItems, snapshotToken, type ItemDef, type ItemSnapshot } from './snapshot';
+import { localeTexts } from './form-locales';
 
 /*
  * The Stories cards (spec §7.2 content/stories, §6.5 "Stories tối đa 4"):
@@ -28,7 +29,7 @@ export type StoryInput = {
   href: string;
   publishedOn: string | null;
   isPublished: boolean;
-  /** One language per key: the form sends EN only until phase 8 adds its tabs. */
+  /** One language per key (the form's tabs, phase 8). */
   category: Record<string, string | null>;
   title: Record<string, string | null>;
   /** The article in that language, when it differs from `href`. */
@@ -59,16 +60,14 @@ export const restoreStoryOrder = stories.restoreOrder;
 
 /** The form's values for one card, from its snapshot. */
 export function storyValues(s: ItemSnapshot): StoryInput {
-  const en = s.i18n.find((r) => r.locale === 'en');
-  const text = (col: string) => (en?.[col] as string | null | undefined) ?? null;
   return {
     imageId: String(s.row.image_id),
     href: String(s.row.href),
     publishedOn: (s.row.published_on as string | null) ?? null,
     isPublished: Boolean(s.row.is_published),
-    category: { en: text('category') },
-    title: { en: text('title') },
-    localHref: { en: text('href') },
+    category: localeTexts(s.i18n, 'category'),
+    title: localeTexts(s.i18n, 'title'),
+    localHref: localeTexts(s.i18n, 'href'),
   };
 }
 

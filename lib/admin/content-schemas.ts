@@ -1,5 +1,6 @@
 import { SOCIAL_PLATFORMS } from '@/lib/content/footer';
 import { SECTION_KEYS } from '@/lib/content/types';
+import { DEFAULT_LOCALE, LOCALE_CODE_RE } from '@/lib/i18n/locales';
 import { toE164 } from '@/lib/phone';
 import { HERO_AUTOPLAY_MS, LENGTHS, LIMITS, NAV_TARGETS } from './content-rules';
 import { z } from './zod';
@@ -45,9 +46,18 @@ const requiredText = (max: number, message: string) =>
     .min(1, message)
     .refine((v) => [...v].length <= max, tooLong(max));
 
-/** One translatable field: EN only until phase 8; `required` = the EN row must carry it (the loader drops a row without it). */
+/** One value per language code (`<field>.<code>`, phase 8): a code the table may hold, any number of them. */
+const perLocale = <T extends z.ZodType>(value: T) => z.record(z.string().regex(LOCALE_CODE_RE), value);
+
+/**
+ * One translatable field, one key per language (the form's tabs). `required`:
+ * the default language must carry it (the loader drops a row without it);
+ * every other language may be empty ("use English").
+ */
 export const translatable = (max: number, required?: string) =>
-  z.object({ en: required ? requiredText(max, required) : optionalText(max) }, { error: () => (required ? required : 'Thiếu ô tiếng Anh.') });
+  perLocale(optionalText(max)).superRefine((v, ctx) => {
+    if (required && !v[DEFAULT_LOCALE]) ctx.addIssue({ code: 'custom', path: [DEFAULT_LOCALE], message: required });
+  });
 
 const isoDate = z
   .string()
@@ -259,8 +269,8 @@ const Highlight = z.object({
   id: z.string().regex(/^\d{1,18}$/).nullable(),
   imageId: z.string(),
   isPublished: z.boolean(),
-  title: z.object({ en: z.string().nullable() }),
-  detail: z.object({ en: z.string().nullable() }),
+  title: perLocale(z.string().nullable()),
+  detail: perLocale(z.string().nullable()),
 });
 
 /**
@@ -294,8 +304,8 @@ export const RestaurantForm = z
     storyLabel: translatable(40),
     story: translatable(1500),
     highlightsTitle: translatable(60),
-    menuPdfMediaId: z.object({ en: optionalMedia }),
-    menuPdfUrl: z.object({ en: httpsUrl(2000) }),
+    menuPdfMediaId: perLocale(optionalMedia),
+    menuPdfUrl: perLocale(httpsUrl(2000)),
     seoTitle: translatable(120),
     seoDescription: translatable(320),
     cuisines: json(z.array(z.string().max(40)).max(LIMITS.cuisines.max, `Tối đa ${LIMITS.cuisines.max} ẩm thực.`)),
@@ -310,14 +320,19 @@ export const RestaurantForm = z
     const ids = v.highlights.flatMap((h) => (h.id === null ? [] : [h.id]));
     if (new Set(ids).size !== ids.length) ctx.addIssue({ code: 'custom', path: ['highlights'], message: 'Dữ liệu không hợp lệ, hãy tải lại trang.' });
     const highlights = v.highlights.map((h, i) => {
-      const title = h.title.en?.trim() ?? '';
-      const detail = h.detail.en?.trim() ?? '';
       const at = `Điểm nổi bật ${i + 1}`;
       if (!z.uuid().safeParse(h.imageId).success) ctx.addIssue({ code: 'custom', path: ['highlights'], message: `${at}: chọn ảnh.` });
-      if (!title) ctx.addIssue({ code: 'custom', path: ['highlights'], message: `${at}: nhập tiêu đề tiếng Anh.` });
-      if ([...title].length > 80) ctx.addIssue({ code: 'custom', path: ['highlights'], message: `${at}: tiêu đề ${tooLong(80).toLowerCase()}` });
-      if ([...detail].length > 200) ctx.addIssue({ code: 'custom', path: ['highlights'], message: `${at}: mô tả ${tooLong(200).toLowerCase()}` });
-      return { ...h, title: { en: title || null }, detail: { en: detail || null } };
+      if (!h.title[DEFAULT_LOCALE]?.trim()) ctx.addIssue({ code: 'custom', path: ['highlights'], message: `${at}: nhập tiêu đề tiếng Anh.` });
+      // Every language's text, trimmed ('' is "use English"), within the column's length.
+      const tidy = (texts: Record<string, string | null>, max: number, what: string) =>
+        Object.fromEntries(
+          Object.entries(texts).map(([locale, text]) => {
+            const t = text?.trim() ?? '';
+            if ([...t].length > max) ctx.addIssue({ code: 'custom', path: ['highlights'], message: `${at} (${locale}): ${what} ${tooLong(max).toLowerCase()}` });
+            return [locale, t || null];
+          }),
+        );
+      return { ...h, title: tidy(h.title, 80, 'tiêu đề'), detail: tidy(h.detail, 200, 'mô tả') };
     });
     return { ...v, phoneE164, highlights };
   });
@@ -416,7 +431,7 @@ export const StoryForm = z.object({
   isPublished: checkbox,
   category: translatable(60),
   title: translatable(160, 'Nhập tiêu đề tiếng Anh.'),
-  localHref: z.object({ en: httpsUrl(2000) }),
+  localHref: perLocale(httpsUrl(2000)),
 });
 
 /** One menu item (spec §7.2 content/navigation, §6.5): the section it scrolls to, its EN label (at most 18 characters), its switch. */
