@@ -685,6 +685,14 @@ this. So:
 **Rollback:** leave 010 in place (phase-7 code runs on it) and roll back
 the deployment only.
 
+**Done on production 2026-10-06** (`neon-violet-yacht`, while phase-7 code was
+live), as the one `DO` statement above through Neon's HTTPS SQL endpoint:
+
+- the pre-flight returned all true, at 009, with no booking carrying a
+  consent version;
+- the post-check returned all true, and `legal_versions` holds
+  `en 2026-10-03`.
+
 ### Media in Vercel Blob (phase 7A)
 
 Uploads go to Vercel Blob (spec §11), in a store connected to the project in
