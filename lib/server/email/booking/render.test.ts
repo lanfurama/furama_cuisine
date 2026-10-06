@@ -157,7 +157,9 @@ describe('booking emails', () => {
 
   it('staff.new: Vietnamese, the guest’s details and own request, a link to the booking, whether staff must act', async () => {
     const { subject, html, text } = await render('staff.new', VI);
-    expect(subject).toBe('Đặt bàn mới FC-7K3QH9XA: Tàya House, Th 2, 5 thg 10, 2026 19:00, 4 khách');
+    // The weekday as this process's ICU spells it ("Th 2" on Node 22, "Thứ 2" on Node 24).
+    const monday = new Intl.DateTimeFormat('vi', { weekday: 'short', timeZone: 'UTC' }).format(new Date('2026-10-05T00:00:00Z'));
+    expect(subject).toBe(`Đặt bàn mới FC-7K3QH9XA: Tàya House, ${monday}, 5 thg 10, 2026 19:00, 4 khách`);
     for (const out of [html, text]) {
       expect(out).toContain('Nguyễn Thị Ánh');
       expect(out).toContain('0905 123 456');

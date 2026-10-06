@@ -259,7 +259,8 @@ describe.skipIf(!TEST_DATABASE_URL)('email outbox (database + local SMTP sink)',
       }
       expect(s.received.map((m) => [m.to[0], m.messageId])).toEqual(rows.rows.map((r, i) => [['gm@furama.test', 'guest@example.com'][i], r.message_id]));
       expect(s.received.map((m) => m.subject)).toEqual([
-        `Đặt bàn mới ${booking.reference}: Tàya House, Th 2, 5 thg 10, 2026 19:00, 2 khách`,
+        // The weekday as this process's ICU spells it ("Th 2" on Node 22, "Thứ 2" on Node 24).
+        `Đặt bàn mới ${booking.reference}: Tàya House, ${new Intl.DateTimeFormat('vi', { weekday: 'short', timeZone: 'UTC' }).format(new Date('2026-10-05T00:00:00Z'))}, 5 thg 10, 2026 19:00, 2 khách`,
         `We have received your table request (${booking.reference})`,
       ]);
       // Staff reply to the guest; the guest replies to the shared inbox (R11).

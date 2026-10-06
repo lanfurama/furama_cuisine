@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { formatDateTimeVi, formatFileSize, formatIsoDayVi, formatLongDateVi, todayVi } from './format';
 
+/** The short Vietnamese weekday as this process's ICU spells it: "Th 2" (Node 22), "Thứ 2" (Node 24's newer CLDR). */
+const viWeekday = (iso: string) => new Intl.DateTimeFormat('vi', { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
+
 // npm test runs with TZ=UTC, like Vercel: the formatting must still be Vietnam's clock.
 describe('admin dates', () => {
   it('formats in vi-VN on Asia/Ho_Chi_Minh, across the UTC midnight', () => {
@@ -11,7 +14,8 @@ describe('admin dates', () => {
   });
 
   it('formats a calendar date as itself, whatever the server timezone', () => {
-    expect(formatIsoDayVi('2026-10-05')).toBe('Th 2, 05/10/2026');
+    expect(formatIsoDayVi('2026-10-05')).toBe(`${viWeekday('2026-10-05')}, 05/10/2026`);
+    expect(viWeekday('2026-10-05')).toMatch(/^Th(ứ)? 2$/);
     expect(formatIsoDayVi('2026-10-04')).toBe('CN, 04/10/2026');
   });
 });
