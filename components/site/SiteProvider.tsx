@@ -33,6 +33,7 @@ import type { IsoDate } from '@/lib/venue-time';
 import { submitReservation } from '@/app/actions';
 import { coverThen } from '@/components/site/PageCurtain';
 import { homeHref, restaurantHref } from '@/lib/i18n/href';
+import type { SwitcherLanguage } from '@/components/site/LanguageSwitcher';
 import { markHero } from '@/lib/content/home-sections';
 
 export type Filter = { cuisine: string; occasion: string; destination: string };
@@ -205,8 +206,8 @@ type SiteState = {
   query: string;
   setQuery: (q: string) => void;
 
-  lang: 'EN' | 'VI';
-  setLang: (l: 'EN' | 'VI') => void;
+  /** The enabled languages, for the switcher (components/site/LanguageSwitcher.tsx); one means no switcher. */
+  languages: SwitcherLanguage[];
 
   openDropdown: string | null;
   toggleDropdown: (id: string) => void;
@@ -228,12 +229,15 @@ export function useSite(): SiteState {
 
 export function SiteProvider({
   locale,
+  languages,
   restaurants,
   site,
   strings,
   children,
 }: {
   locale: string;
+  /** The enabled languages, in the table's order (getEnabledLocales). */
+  languages: SwitcherLanguage[];
   restaurants: Restaurant[];
   /** The chrome's content (lib/server/content/site.ts), resolved on the server for this language. */
   site: SiteContent;
@@ -316,7 +320,6 @@ export function SiteProvider({
     if (!drawerOpen) setDateMoved(null);
   }
   const [query, setQuery] = useState('');
-  const [lang, setLang] = useState<'EN' | 'VI'>('EN');
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const pendingScroll = useRef<string | null>(null);
   /* The latest booking and answers, for callbacks that must not re-create on every change. */
@@ -877,8 +880,7 @@ export function SiteProvider({
       close,
       query,
       setQuery,
-      lang,
-      setLang,
+      languages,
       openDropdown,
       toggleDropdown,
       closeDropdown,
@@ -890,7 +892,7 @@ export function SiteProvider({
     [
       applyFinder, booked, booking, bookable, chosenBoard, clearFilters, close, closeDrawer, closeDropdown,
       confirmedDate, consent, dateMoved, days, destName, done, errors, failureNudge, filter, finder, footLoading, form, goBackToRestaurants,
-      goHomeTop, groupPhone, honeypot, invalidNudge, lang, loadFailed, locale, matches, maxParty, now, open, openDropdown, openReserve,
+      goHomeTop, groupPhone, honeypot, invalidNudge, languages, loadFailed, locale, matches, maxParty, now, open, openDropdown, openReserve,
       openRestaurant, overlay, pageRoot, pending, pickCuisine, pickDestination, query, reference, restaurants,
       retryAvailability, scrollToId, scrolled, serverError, setBooking, setFilter, setFinder, setFormField, showPage, shownCount, site,
       strings, submit, tab, today, toggleDropdown, tried, view,

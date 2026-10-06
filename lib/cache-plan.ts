@@ -90,8 +90,9 @@ type Loader = { reads: readonly ContentTable[]; tags: readonly string[] };
 /** Every cached guest loader: the tables its SQL touches and the tags it carries (besides i18n:<locale>). */
 export const LOADERS = {
   locales: { reads: ['locales'], tags: [TAGS.locales] },
-  strings: { reads: ['locales', 'content_strings'], tags: [TAGS.contentUi] },
-  legal: { reads: ['locales', 'content_strings'], tags: [TAGS.contentLegal] },
+  // Both read serve_machine and the default language from locales (loadStringRows), so they carry its tag (phase-2 M9).
+  strings: { reads: ['locales', 'content_strings'], tags: [TAGS.contentUi, TAGS.locales] },
+  legal: { reads: ['locales', 'content_strings'], tags: [TAGS.contentLegal, TAGS.locales] },
   policyVersion: { reads: ['legal_versions'], tags: [TAGS.contentLegal] },
   sections: { reads: ['locales', 'sections', 'media', 'media_i18n'], tags: [TAGS.contentSections, TAGS.media] },
   settings: { reads: ['site_settings'], tags: [TAGS.contentContact] },

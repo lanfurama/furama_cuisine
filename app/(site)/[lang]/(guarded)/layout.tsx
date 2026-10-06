@@ -53,7 +53,13 @@ export default async function GuardedLayout({ children }: { children: React.Reac
 
   // A default restaurant guests cannot see (a draft, or at a hidden destination) stays off the payload (L7-2).
   return (
-    <SiteProvider locale={locale} restaurants={restaurants} site={{ ...site, settings: guestSettings(site.settings, restaurants) }} strings={strings}>
+    <SiteProvider
+      locale={locale}
+      languages={enabled.map((l) => ({ code: l.code, bcp47: l.bcp47, shortLabel: l.shortLabel, nativeName: l.nativeName }))}
+      restaurants={restaurants}
+      site={{ ...site, settings: guestSettings(site.settings, restaurants) }}
+      strings={strings}
+    >
       <Chrome>{children}</Chrome>
     </SiteProvider>
   );

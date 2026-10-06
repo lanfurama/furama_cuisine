@@ -1,10 +1,11 @@
 'use client';
 
+import { MenuLanguages } from '@/components/site/LanguageSwitcher';
 import { useSite } from '@/components/site/SiteProvider';
 import { useOpenAnimation } from '@/lib/motion';
 
 export function MenuOverlay() {
-  const { site, overlay, close, open, scrollToId, openReserve, lang, setLang, strings } = useSite();
+  const { site, overlay, close, open, scrollToId, openReserve, strings } = useSite();
   const isOpen = overlay === 'menu';
 
   useOpenAnimation(isOpen, (animate) => {
@@ -59,20 +60,7 @@ export function MenuOverlay() {
           {strings['ui.reserve_table']}
         </button>
         <div className="menu-foot-row">
-          <div className="menu-langs">
-            {(['EN', 'VI'] as const).map((l) => (
-              <button
-                key={l}
-                type="button"
-                className="menu-lang"
-                data-selected={lang === l}
-                aria-pressed={lang === l}
-                onClick={() => setLang(l)}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
+          <MenuLanguages />
           <div className="menu-tagline">{strings['footer.tagline']}</div>
         </div>
       </div>

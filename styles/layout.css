@@ -224,6 +224,7 @@ main[data-view='home'][data-hero='none'] {
 
 .hdr-lang-option {
   display: flex;
+  text-decoration: none;
   align-items: center;
   justify-content: space-between;
   width: 100%;

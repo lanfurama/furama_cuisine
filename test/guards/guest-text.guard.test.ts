@@ -13,15 +13,7 @@ import { findingId, looksLikeProse, scanGuestText, templateHasWord } from './gue
  * any more fails too, so the lists only shrink and never go stale.
  */
 
-/**
- * R35: the header's and the phone menu's language switcher is a placeholder
- * that switches nothing; each language names itself by its own code and name,
- * which the locales table already holds (short_label, native_name). Phase 8
- * builds the real switcher on that table (/admin/locales).
- */
-const LANGUAGE_SWITCHER = 'language switcher placeholder (R35): phase 8 builds it on the locales table (short_label, native_name)';
-
-/** Not content: brand marks, pages that render without a database, code tokens and SQL, the staff emails' footer, the phase-8 language switcher. */
+/** Not content: brand marks, pages that render without a database, code tokens and SQL, the staff emails' footer. */
 const LOCKED: Record<string, string> = {
   "app/(site)/[lang]/(guarded)/privacy/page.tsx: UTC": "code token, not text",
   "app/(site)/[lang]/(guarded)/privacy/page.tsx: en-GB": "code token, not text",
@@ -39,23 +31,16 @@ const LOCKED: Record<string, string> = {
   "app/global-not-found.tsx: Page not found": "renders without the database or a language (spec §12): code text by design",
   "app/global-not-found.tsx: Page not found — Furama Cuisine": "renders without the database or a language (spec §12): code text by design",
   "components/overlays/Honeypot.tsx: Website": "honeypot label: hidden from people (aria-hidden, off-screen), bait for bots",
-  "components/overlays/MenuOverlay.tsx: EN": LANGUAGE_SWITCHER,
   "components/overlays/MenuOverlay.tsx: FURAMA CUISINE": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
-  "components/overlays/MenuOverlay.tsx: VI": LANGUAGE_SWITCHER,
   "components/overlays/ReserveDrawer.tsx: .daystrip .day[aria-pressed=\"true\"]": "code token, not text",
   "components/overlays/SearchOverlay.tsx: FURAMA CUISINE": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
   "components/site/Footer.tsx: FURAMA CUISINE": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
   "components/site/Header.tsx: CUISINE": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
-  "components/site/Header.tsx: EN": LANGUAGE_SWITCHER,
-  "components/site/Header.tsx: English": LANGUAGE_SWITCHER,
   "components/site/Header.tsx: FURAMA": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
   "components/site/Header.tsx: FURAMA CUISINE": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
-  "components/site/Header.tsx: Tiếng Việt": LANGUAGE_SWITCHER,
-  "components/site/Header.tsx: VI": LANGUAGE_SWITCHER,
   "components/site/IntroCurtain.tsx: CUISINE": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
   "components/site/IntroCurtain.tsx: FURAMA": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
   "components/site/PageCurtain.tsx: FURAMA": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
-  "components/site/SiteProvider.tsx: EN": LANGUAGE_SWITCHER,
   "components/site/SiteProvider.tsx: Escape": "code token, not text",
   "lib/booking.ts: NFD": "code token, not text",
   "lib/content/format.ts: UTC": "code token, not text",
@@ -113,7 +98,7 @@ describe('guest-visible text lives in the registry or the database (spec §13)',
     // footer and the phone menu's tagline moved in B5, the sixty-two of the booking bar, the
     // finder and the reservation form moved in B6, the seven of the metadata moved in B7 (the
     // root layout's brand title is LOCKED), and in B8 error.restaurant_fallback and the seven of
-    // the language switcher (LOCKED, R35).
+    // the language switcher (LOCKED, R35, until phase 8 read them from the locales table).
     expect(Object.keys(PENDING).length).toBe(0);
   });
 });

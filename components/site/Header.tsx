@@ -1,12 +1,8 @@
 'use client';
 
+import { HeaderLanguages } from '@/components/site/LanguageSwitcher';
 import { useSite } from '@/components/site/SiteProvider';
 import { homeHref } from '@/lib/i18n/href';
-
-const LANGS: { value: 'EN' | 'VI'; label: string }[] = [
-  { value: 'EN', label: 'English' },
-  { value: 'VI', label: 'Tiếng Việt' },
-];
 
 export function Header() {
   const {
@@ -17,15 +13,8 @@ export function Header() {
     openReserve,
     scrollToId,
     goHomeTop,
-    lang,
-    setLang,
-    openDropdown,
-    toggleDropdown,
-    closeDropdown,
     strings,
   } = useSite();
-
-  const langOpen = openDropdown === 'lang';
 
   return (
     <>
@@ -61,38 +50,7 @@ export function Header() {
               {strings['ui.search']}
             </button>
 
-            <div className="hdr-lang" data-dd="1">
-              <button
-                type="button"
-                className="hdr-link hdr-lang-btn"
-                aria-expanded={langOpen}
-                onClick={() => toggleDropdown('lang')}
-              >
-                {lang}
-                <span className="hdr-lang-caret">▾</span>
-              </button>
-              {langOpen && (
-                <div className="hdr-lang-panel" role="listbox" aria-label={strings['ui.language_aria']}>
-                  {LANGS.map((l) => (
-                    <button
-                      type="button"
-                      key={l.value}
-                      role="option"
-                      aria-selected={lang === l.value}
-                      className="hdr-lang-option"
-                      data-selected={lang === l.value}
-                      onClick={() => {
-                        setLang(l.value);
-                        closeDropdown();
-                      }}
-                    >
-                      <span>{l.label}</span>
-                      <span className="hdr-lang-mark">{lang === l.value ? '●' : ''}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <HeaderLanguages />
 
             <button type="button" className="btn-gold" onClick={() => openReserve()}>
               {strings['ui.reserve']}
