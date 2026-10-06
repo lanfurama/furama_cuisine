@@ -1090,6 +1090,20 @@ export const REGISTRY = {
     screen: 'ui-text',
     label: 'Tên danh sách ngôn ngữ (trình đọc màn hình)',
   },
+  'ui.preview_banner': {
+    en: 'Preview — this language is not open to guests yet.',
+    maxLength: 80,
+    context: 'Bar at the top of a page staff preview in a language that is still off (Draft Mode). Only staff see it.',
+    screen: 'ui-text',
+    label: 'Dải xem trước ngôn ngữ đang tắt (chỉ nhân viên thấy)',
+  },
+  'ui.preview_exit': {
+    en: 'Exit preview',
+    maxLength: 30,
+    context: 'Link in the preview bar that leaves Draft Mode. Keep short.',
+    screen: 'ui-text',
+    label: 'Nút thoát xem trước',
+  },
   'ui.open_menu': {
     en: 'Open menu',
     maxLength: 40,

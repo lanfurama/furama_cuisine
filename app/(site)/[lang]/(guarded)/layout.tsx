@@ -1,17 +1,18 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import { lang } from 'next/root-params';
+import { Suspense } from 'react';
 import { homeMetadata, languageAlternates } from '@/lib/content/seo';
 import { guestSettings } from '@/lib/content/settings';
 import { CLIENT_KEYS } from '@/lib/i18n/registry';
 import { siteOrigin } from '@/lib/site-origin';
 import { getSiteContent } from '@/lib/server/content/home-content';
-import { getEnabledLocales } from '@/lib/server/content/locales';
+import { getEnabledLocales, isLocalePreview, requireEnabledLocale } from '@/lib/server/content/locales';
 import { getRestaurants } from '@/lib/server/content/restaurants';
 import { getShareImage, SEO_KEYS } from '@/lib/server/content/seo';
 import { getStrings } from '@/lib/server/content/strings';
 import { SiteProvider } from '@/components/site/SiteProvider';
 import { Chrome } from '@/components/site/Chrome';
+import { PreviewBanner } from '@/components/site/PreviewBanner';
 
 /**
  * The home page's title, description and share text and picture, from the
@@ -27,9 +28,14 @@ import { Chrome } from '@/components/site/Chrome';
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await lang();
   const enabled = await getEnabledLocales();
-  if (!locale || !enabled.some((l) => l.code === locale)) return { metadataBase: siteOrigin() };
+  const on = !!locale && enabled.some((l) => l.code === locale);
+  // Draft Mode's preview of a language that is off (C6): never indexed, and in no one's hreflang.
+  const preview = !on && (await isLocalePreview(locale));
+  if (!locale || (!on && !preview)) return { metadataBase: siteOrigin() };
   const [t, share] = await Promise.all([getStrings(locale, SEO_KEYS), getShareImage(locale)]);
-  return { ...homeMetadata(t, share), metadataBase: siteOrigin(), alternates: languageAlternates(locale, '/', enabled) };
+  return preview
+    ? { ...homeMetadata(t, share), metadataBase: siteOrigin(), robots: { index: false, follow: false }, alternates: null }
+    : { ...homeMetadata(t, share), metadataBase: siteOrigin(), alternates: languageAlternates(locale, '/', enabled) };
 }
 
 /*
@@ -47,10 +53,10 @@ export async function generateMetadata(): Promise<Metadata> {
  * page (scripts/check-prerender.mjs checks it).
  */
 export default async function GuardedLayout({ children }: { children: React.ReactNode }) {
-  const locale = await lang();
+  // `lang()` is string | undefined since app/admin added a second root layout (next-root-params.md:286-313).
+  // A language that is off is a 404, unless staff preview it in Draft Mode (C6).
+  const locale = await requireEnabledLocale(await lang());
   const enabled = await getEnabledLocales();
-  // `locale` is string | undefined since app/admin added a second root layout (next-root-params.md:286-313).
-  if (!locale || !enabled.some((l) => l.code === locale)) notFound();
   const [restaurants, site, strings] = await Promise.all([
     getRestaurants(locale),
     getSiteContent(locale),
@@ -67,6 +73,9 @@ export default async function GuardedLayout({ children }: { children: React.Reac
       strings={strings}
     >
       <Chrome>{children}</Chrome>
+      <Suspense>
+        <PreviewBanner locale={locale} />
+      </Suspense>
     </SiteProvider>
   );
 }

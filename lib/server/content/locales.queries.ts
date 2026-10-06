@@ -39,3 +39,9 @@ export async function loadEnabledLocales(): Promise<SiteLocale[]> {
     serveMachine: r.serve_machine,
   }));
 }
+
+/** Every language in the table, enabled or not: what Draft Mode may preview (C6). Uncached; locales.ts wraps it. */
+export async function loadAllLocaleCodes(): Promise<string[]> {
+  const rows = await query<{ code: string }>(`SELECT code FROM locales ORDER BY sort_order, code`);
+  return rows.map((r) => r.code);
+}

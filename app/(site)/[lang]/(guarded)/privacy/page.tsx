@@ -33,10 +33,11 @@ export async function generateMetadata(): Promise<Metadata> {
   ]);
   // A page's openGraph replaces the layout's whole object (generate-metadata.md, "Merging"), so a shared link
   // previews the policy instead of the home page; its picture is the SEO screen's (lib/content/seo.ts).
-  return {
-    ...ownPageMetadata(pageTitle(seo, t['legal.title'], locale), t['legal.intro'], share),
-    alternates: languageAlternates(locale, '/privacy', enabled),
-  };
+  const own = ownPageMetadata(pageTitle(seo, t['legal.title'], locale), t['legal.intro'], share);
+  // Draft Mode's preview of a language that is off (C6): never indexed, and in no one's hreflang.
+  return enabled.some((l) => l.code === locale)
+    ? { ...own, alternates: languageAlternates(locale, '/privacy', enabled) }
+    : { ...own, robots: { index: false, follow: false }, alternates: null };
 }
 
 export default async function PrivacyPage() {
