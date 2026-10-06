@@ -924,7 +924,11 @@ a new deployment.
    1. **009 on production** (the controller, "Migration 009" above: the
       pre-flight, the apply, the post-check) before the first deploy,
       preview or production. The phase-7A build stops without it
-      (`relation "legal_versions" does not exist`).
+      (`relation "legal_versions" does not exist`). Done 2026-10-06 on the
+      Neon database the Vercel project is connected to (Storage →
+      `neon-violet-yacht`): pre-flight and post-check all true, then its
+      schema and row counts matched a local `scripts/migrate.mjs` run of
+      001–009 (no bookings or staff yet).
    2. **Create and connect the one Blob store** ("Media in Vercel Blob"
       above, "Setting up the store") before the first deploy: a Vercel
       build that names no store lets next/image draw no Blob picture, and
