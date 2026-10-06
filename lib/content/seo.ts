@@ -15,9 +15,34 @@ import type { Media } from './types';
 
 export type SeoCopy = Copy<'seo'>;
 
-/** og:image of a library file. A Blob file's URL is absolute; a static one's path is resolved by Next against the deployment's address. */
+/**
+ * og:image of a library file. A Blob file's URL is absolute; a static one's
+ * path is resolved against metadataBase (siteOrigin). A decorative picture has
+ * an empty alt, and says none rather than og:image:alt="" (7B ledger).
+ */
 function images(image: Media | null): NonNullable<Metadata['openGraph']>['images'] | undefined {
-  return image ? [{ url: image.url, width: image.width, height: image.height, alt: image.alt }] : undefined;
+  return image ? [{ url: image.url, width: image.width, height: image.height, ...(image.alt ? { alt: image.alt } : {}) }] : undefined;
+}
+
+/** A language as hreflang needs it (getEnabledLocales). */
+export type AlternateLanguage = { code: string; bcp47: string; isDefault: boolean };
+
+/**
+ * canonical, one hreflang per enabled language and x-default (the default
+ * language), for `path` after the language segment ('/' for the home page).
+ * Relative: metadataBase makes them absolute. Never a disabled language: the
+ * caller passes getEnabledLocales(), and Draft Mode passes none (C6).
+ */
+export function languageAlternates(locale: string, path: string, languages: readonly AlternateLanguage[]): NonNullable<Metadata['alternates']> {
+  const suffix = path === '/' ? '' : path;
+  const fallback = languages.find((l) => l.isDefault) ?? languages[0];
+  return {
+    canonical: `/${locale}${suffix}`,
+    languages: {
+      ...Object.fromEntries(languages.map((l) => [l.bcp47, `/${l.code}${suffix}`])),
+      ...(fallback ? { 'x-default': `/${fallback.code}${suffix}` } : {}),
+    },
+  };
 }
 
 function page(title: string, description: string, image: Media | null): Metadata {
@@ -60,7 +85,7 @@ export function restaurantMetadata(
   return page(title, detail.seo.description ?? t['seo.home_description'], detail.seo.image ?? share);
 }
 
-/** A page that does not exist (an unknown restaurant): its own tab title, never indexed. */
+/** A page that does not exist (an unknown restaurant): its own tab title, never indexed, and none of the home page's links. */
 export function notFoundMetadata(t: Pick<SeoCopy, 'seo.not_found_title'>): Metadata {
-  return { title: t['seo.not_found_title'], robots: { index: false } };
+  return { title: t['seo.not_found_title'], robots: { index: false }, alternates: null };
 }

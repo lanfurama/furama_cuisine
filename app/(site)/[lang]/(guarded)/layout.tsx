@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { lang } from 'next/root-params';
-import { homeMetadata } from '@/lib/content/seo';
+import { homeMetadata, languageAlternates } from '@/lib/content/seo';
 import { guestSettings } from '@/lib/content/settings';
 import { CLIENT_KEYS } from '@/lib/i18n/registry';
+import { siteOrigin } from '@/lib/site-origin';
 import { getSiteContent } from '@/lib/server/content/home-content';
 import { getEnabledLocales } from '@/lib/server/content/locales';
 import { getRestaurants } from '@/lib/server/content/restaurants';
@@ -18,12 +19,17 @@ import { Chrome } from '@/components/site/Chrome';
  * A language that is off says nothing here: the layout below 404s it, and
  * its tab keeps the root layout's title. Cached reads only, so the home page
  * stays prerendered with its metadata in <head>.
+ *
+ * metadataBase makes every relative URL below absolute (siteOrigin, R8-9), and
+ * the alternates here are the home page's (it has no metadata of its own):
+ * every other page sets its own, and a 404 none (notFoundMetadata).
  */
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await lang();
-  if (!locale || !(await getEnabledLocales()).some((l) => l.code === locale)) return {};
+  const enabled = await getEnabledLocales();
+  if (!locale || !enabled.some((l) => l.code === locale)) return { metadataBase: siteOrigin() };
   const [t, share] = await Promise.all([getStrings(locale, SEO_KEYS), getShareImage(locale)]);
-  return homeMetadata(t, share);
+  return { ...homeMetadata(t, share), metadataBase: siteOrigin(), alternates: languageAlternates(locale, '/', enabled) };
 }
 
 /*

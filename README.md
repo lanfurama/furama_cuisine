@@ -845,6 +845,7 @@ undone by restoring the rows from their audit rows.
 | `BLOB_READ_WRITE_TOKEN` | set by connecting the Blob store | the same store's (Preview shares production's database, so it shares the store too) | **never** a real one: blank for the build, the visual server and local runs; Playwright gives the E2E app the fake store's token |
 | `FAKE_BLOB_SECRET` | never | never | a fresh `openssl rand -hex 16` per E2E run (16+ letters and digits); `FAKE_BLOB_PORT` moves the fake (default 3102) |
 | `VERCEL_ENV`, `NEXT_PUBLIC_VERCEL_ENV` | set by Vercel | set by Vercel | never set: they turn on BotID and the deployment rules of the email gate |
+| `SITE_URL` | `https://<production domain>` once there is one: the origin of canonical and hreflang links, the sitemap and robots.txt (`lib/site-origin.ts`). Unset: Vercel's `VERCEL_PROJECT_PRODUCTION_URL` (a system variable), so set it when a custom domain is added | unset: previews point canonical at production, and Vercel keeps them out of search engines (`X-Robots-Tag: noindex`) | unset (`http://localhost:3000`), or the test server's origin where a test checks absolute URLs |
 | `EMAIL_LOG_FILE` | never | never | a scratch file; log mode appends each email as one JSON line |
 | `BOOTSTRAP_ADMIN_EMAIL` | never (only in the shell that runs `scripts/create-admin.mjs`) | never | — |
 
@@ -1185,7 +1186,8 @@ bootstrapping production is what you mean to do.
 
 | Route | Rendering | Notes |
 | --- | --- | --- |
-| `/` and other unprefixed paths | Proxy (`proxy.ts`) | 307 to `/<locale>…` by the `NEXT_LOCALE` cookie, then `Accept-Language`, then `en` (only `en` is enabled in phase 2); the query is kept |
+| `/` and other unprefixed paths | Proxy (`proxy.ts`) | 307 to `/<locale>…` by the `NEXT_LOCALE` cookie, then `Accept-Language` (a tag, then the tag without its last subtag: `zh-Hans-CN` finds `zh-hans`), then `en`, among the enabled languages it reads from the database at most once a minute per instance, within 500 ms (`lib/i18n/enabled-locales.ts`; `en` alone when it cannot); the query is kept. An upper-case language prefix (`/EN/…`) gets a 308 to the lower-case one |
+| `/sitemap.xml`, `/robots.txt` | Static, tagged (`locales`, `restaurants`, …) | Every guest page in every enabled language with its hreflang alternates; robots.txt keeps `/admin` and `/api` out and names the sitemap. Both use `SITE_URL` (`lib/site-origin.ts`) |
 | `/en` | Static, revalidated hourly (`cacheLife('hours')`, for today's offers) | Home: hero, finder, cuisines, restaurants, destinations, experiences, heritage, stories, offers, read from the database; a section switched off or with nothing to show is left out |
 | `/en/restaurants/[slug]` | Static for each restaurant with `has_detail_page` at build time (`_none` when there is none), revalidated hourly (the layout reads today's offers for the nav); a page switched on later renders on its first visit. Any other slug is a 404, and one no restaurant can have (outside the pattern and length of 008's `restaurants.slug` CHECK, `lib/content/slug.ts`) is refused before any database read: the first visit is a soft 404 (status 200 with `noindex`), later visits get the cached 404, and without JavaScript the body is empty | Restaurant detail, read from the database (`taya-house` today). The cached 404 carries `restaurants`, so a save that expires the catalogue opens a page that was just switched on |
 | `/taya-house` | Redirect | 308 to `/en/restaurants/taya-house` (`next.config.ts`) |

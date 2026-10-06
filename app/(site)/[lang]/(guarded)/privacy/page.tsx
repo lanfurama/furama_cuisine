@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import { lang } from 'next/root-params';
 import { WithEmail } from '@/components/legal/WithEmail';
 import { ViewMarker } from '@/components/site/ViewMarker';
-import { ownPageMetadata, pageTitle } from '@/lib/content/seo';
+import { languageAlternates, ownPageMetadata, pageTitle } from '@/lib/content/seo';
 import { formatMessage } from '@/lib/i18n/format';
 import { toBcp47 } from '@/lib/i18n/locales';
 import { PRIVACY_SECTIONS } from '@/lib/legal';
 import { getPolicyVersion, getPrivacyStrings } from '@/lib/server/content/legal';
-import { requireEnabledLocale } from '@/lib/server/content/locales';
+import { getEnabledLocales, requireEnabledLocale } from '@/lib/server/content/locales';
 import { getShareImage } from '@/lib/server/content/seo';
 import { getSiteSettings } from '@/lib/server/content/site';
 import { getStrings } from '@/lib/server/content/strings';
@@ -25,10 +25,18 @@ import { getStrings } from '@/lib/server/content/strings';
 export async function generateMetadata(): Promise<Metadata> {
   // The language first, as the page does (L8-8): no read for a language that is off, or for a segment like favicon.ico.
   const locale = await requireEnabledLocale(await lang());
-  const [t, seo, share] = await Promise.all([getPrivacyStrings(locale), getStrings(locale, ['seo.page_title']), getShareImage(locale)]);
+  const [t, seo, share, enabled] = await Promise.all([
+    getPrivacyStrings(locale),
+    getStrings(locale, ['seo.page_title']),
+    getShareImage(locale),
+    getEnabledLocales(),
+  ]);
   // A page's openGraph replaces the layout's whole object (generate-metadata.md, "Merging"), so a shared link
   // previews the policy instead of the home page; its picture is the SEO screen's (lib/content/seo.ts).
-  return ownPageMetadata(pageTitle(seo, t['legal.title'], locale), t['legal.intro'], share);
+  return {
+    ...ownPageMetadata(pageTitle(seo, t['legal.title'], locale), t['legal.intro'], share),
+    alternates: languageAlternates(locale, '/privacy', enabled),
+  };
 }
 
 export default async function PrivacyPage() {

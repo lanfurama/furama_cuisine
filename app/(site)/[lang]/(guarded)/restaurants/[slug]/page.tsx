@@ -6,7 +6,7 @@ import { MoreRestaurants } from '@/components/detail/MoreRestaurants';
 import { IntroTrigger } from '@/components/site/IntroTrigger';
 import { MobileBar } from '@/components/site/MobileBar';
 import { ViewMarker } from '@/components/site/ViewMarker';
-import { notFoundMetadata, restaurantMetadata } from '@/lib/content/seo';
+import { languageAlternates, notFoundMetadata, restaurantMetadata } from '@/lib/content/seo';
 import { isRestaurantSlug } from '@/lib/content/slug';
 import { formatMessage } from '@/lib/i18n/format';
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
@@ -42,14 +42,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { lang, slug } = await params;
   // A language that is off 404s in the layout; its tab must not carry the restaurant's title (phase-2 risk 7, R14),
   // and its words are the default language's.
-  if (!(await getEnabledLocales()).some((l) => l.code === lang)) return notFoundMetadata(await getStrings(DEFAULT_LOCALE, ['seo.not_found_title']));
+  const enabled = await getEnabledLocales();
+  if (!enabled.some((l) => l.code === lang)) return notFoundMetadata(await getStrings(DEFAULT_LOCALE, ['seo.not_found_title']));
   const t = await getStrings(lang, SEO_KEYS);
   // A segment no restaurant can have never reaches the database (a NUL byte made Postgres throw).
   if (!isRestaurantSlug(slug)) return notFoundMetadata(t);
   const [detail, share] = await Promise.all([getRestaurantDetail(slug, lang), getShareImage(lang)]);
   if (!detail) return notFoundMetadata(t);
   // L7-13: its own title, description and picture, else the SEO screen's; its share text is always its own.
-  return restaurantMetadata(t, detail, share, lang);
+  return { ...restaurantMetadata(t, detail, share, lang), alternates: languageAlternates(lang, `/restaurants/${slug}`, enabled) };
 }
 
 /* The params read below blocks on purpose (see the comment on the page); this tells dev validation so. */
