@@ -1,13 +1,14 @@
 /*
  * Locale constants and pure helpers, safe in the proxy, on the server and in
- * the browser. Which languages are enabled is the `locales` table's job; the
- * proxy still uses ENABLED_LOCALES until phase 8 (spec §6.1).
+ * the browser. Which languages are enabled is the `locales` table's job: the
+ * proxy reads it best effort (lib/i18n/enabled-locales.ts, spec §6.1), the
+ * pages through getEnabledLocales.
  */
 export const DEFAULT_LOCALE = 'en';
 export const LOCALE_COOKIE = 'NEXT_LOCALE';
 
-/** Phase 2: only 'en' exists. Phase 8 swaps this for a best-effort read of the locales table. */
-export const ENABLED_LOCALES: readonly string[] = ['en'];
+/** What the proxy redirects to when it cannot read the locales table (spec §6.1). */
+export const FALLBACK_LOCALES: readonly string[] = [DEFAULT_LOCALE];
 
 /**
  * A URL locale code: en, vi, zh-hans, pt-br. The same shape as the CHECK on
@@ -31,28 +32,36 @@ export function toBcp47(code: string): string {
     .join('-');
 }
 
-/** Pure: cookie, then Accept-Language (q-sorted, primary-subtag fallback), then default. */
+/**
+ * Pure: cookie, then Accept-Language, then default. Accept-Language is sorted
+ * by q (clamped to 0–1; an unreadable q counts as 0), and each tag is tried
+ * whole, then with its last subtag dropped, so zh-Hans-CN finds zh-hans and
+ * vi-VN finds vi.
+ */
 export function pickLocale(
   cookie: string | undefined,
   acceptLanguage: string | null,
   enabled: readonly string[],
 ): string {
   const set = new Set(enabled.map((l) => l.toLowerCase()));
-  const c = cookie?.toLowerCase();
+  const c = cookie?.trim().toLowerCase();
   if (c && set.has(c)) return c;
   const ranked = (acceptLanguage ?? '')
     .split(',')
     .map((part) => {
       const [tag, ...params] = part.trim().split(';');
       const q = params.map((p) => p.trim()).find((p) => p.startsWith('q='));
-      return { tag: tag.toLowerCase(), q: q ? Number(q.slice(2)) : 1 };
+      const n = q ? Number(q.slice(2)) : 1;
+      return { tag: tag.trim().toLowerCase(), q: Number.isFinite(n) ? Math.min(Math.max(n, 0), 1) : 0 };
     })
     .filter((x) => x.tag && x.tag !== '*' && x.q > 0)
     .sort((a, b) => b.q - a.q);
   for (const { tag } of ranked) {
-    if (set.has(tag)) return tag;
-    const primary = tag.split('-')[0];
-    if (set.has(primary)) return primary;
+    const parts = tag.split('-');
+    for (let n = parts.length; n > 0; n--) {
+      const candidate = parts.slice(0, n).join('-');
+      if (set.has(candidate)) return candidate;
+    }
   }
   return DEFAULT_LOCALE;
 }

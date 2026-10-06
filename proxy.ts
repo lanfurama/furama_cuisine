@@ -2,7 +2,8 @@ import { getSessionCookie } from 'better-auth/cookies';
 import { NextResponse, type NextRequest } from 'next/server';
 import { adminContentSecurityPolicy, adminSecurityHeaders, createNonce } from '@/lib/admin/csp';
 import { ADMIN_SIGN_IN, isAdminPath, isPublicAdminPath } from '@/lib/admin/paths';
-import { ENABLED_LOCALES, LOCALE_COOKIE, pickLocale } from '@/lib/i18n/locales';
+import { enabledLocalesBestEffort } from '@/lib/i18n/enabled-locales';
+import { LOCALE_CODE_RE, LOCALE_COOKIE, pickLocale } from '@/lib/i18n/locales';
 
 /*
  * Runs only on paths without a locale prefix, and on /admin. Guest pages under
@@ -22,14 +23,23 @@ export const config = {
   ],
 };
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (isAdminPath(pathname)) return adminProxy(request);
+
+  // /EN/… is not locale-shaped for the matcher (lower case only), so it lands here: send it to /en/…
+  // (permanent: it depends on nothing but the URL). Whether the language is on is the page's job.
+  const [, first = '', ...rest] = pathname.split('/');
+  if (first !== first.toLowerCase() && LOCALE_CODE_RE.test(first.toLowerCase())) {
+    const url = request.nextUrl.clone(); // keeps the query string
+    url.pathname = ['', first.toLowerCase(), ...rest].join('/');
+    return NextResponse.redirect(url, 308);
+  }
 
   const locale = pickLocale(
     request.cookies.get(LOCALE_COOKIE)?.value,
     request.headers.get('accept-language'),
-    ENABLED_LOCALES, // phase 8: the enabled locales from the database, best effort
+    await enabledLocalesBestEffort(), // the proxy's only database read (spec §6.1): 60 s per instance, 500 ms at most
   );
   const url = request.nextUrl.clone(); // keeps the query string
   url.pathname = `/${locale}${pathname === '/' ? '' : pathname}`;

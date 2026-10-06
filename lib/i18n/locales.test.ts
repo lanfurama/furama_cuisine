@@ -12,6 +12,12 @@ describe('pickLocale', () => {
   it('uses q ordering and the primary subtag', () =>
     expect(pickLocale(undefined, 'fr;q=0.9, vi-VN;q=0.8, en;q=0.1', multi)).toBe('vi'));
   it('falls back when nothing enabled matches', () => expect(pickLocale(undefined, 'fr,de', multi)).toBe('en'));
+  it('drops subtags one at a time: zh-Hans-CN finds zh-hans', () =>
+    expect(pickLocale(undefined, 'zh-Hans-CN,zh;q=0.9', multi)).toBe('zh-hans'));
+  it('trims and lower-cases the cookie', () => expect(pickLocale(' VI ', null, multi)).toBe('vi'));
+  it('clamps q above 1, so a q=5 tag does not outrank an unweighted one listed first', () =>
+    expect(pickLocale(undefined, 'vi, zh-hans;q=5', multi)).toBe('vi'));
+  it('ignores a tag whose q cannot be read', () => expect(pickLocale(undefined, 'vi;q=abc, zh-hans;q=0.5', multi)).toBe('zh-hans'));
 });
 
 describe('LOCALE_CODE_RE', () => {

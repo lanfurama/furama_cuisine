@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { SCRIPTS } from '@/lib/i18n/scripts';
 import { PRIVACY_POLICY_VERSION } from '@/lib/legal';
 import { TEST_DATABASE_URL, databaseUrl, migrate, resetDatabase, withClient } from '../helpers/db';
 
@@ -93,6 +94,11 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 010: languages (database)', () =>
     }
     await expect(add('ru', 'cyrillic')).rejects.toThrow(/locales_script_check/);
     await sql(`DELETE FROM locales WHERE code IN ('ko', 'zh-hans', 'ja', 'fr')`);
+  });
+
+  it('allows exactly the scripts the code has fonts for (lib/i18n/scripts.ts SCRIPTS)', async () => {
+    const { def } = await one(`SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = 'locales_script_check'`);
+    expect(new Set([...(def as string).matchAll(/'([^']+)'::text/g)].map((m) => m[1]))).toEqual(new Set(SCRIPTS));
   });
 
   it('refuses to delete a language a social link names, until the link no longer does', async () => {
