@@ -154,6 +154,9 @@ const FK_MATRIX: Record<string, Covered> = {
   story_i18n_locale_fkey: { action: 'c', none: LOCALES },
   offer_i18n_locale_fkey: { action: 'c', none: LOCALES },
   nav_item_i18n_locale_fkey: { action: 'c', none: LOCALES },
+  // Migration 010: a policy version and a booking's consent name their language; no path deletes a language they name (R8-2).
+  legal_versions_locale_fk: { action: 'a', none: LOCALES },
+  reservations_consent_locale_fk: { action: 'a', none: LOCALES },
 };
 
 const ROOT = join(__dirname, '..', '..');

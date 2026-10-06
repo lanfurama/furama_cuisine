@@ -613,6 +613,78 @@ table that code from before phase 7A never reads, so it can go on at any
 time before that deploy. **Rollback:** leave 009 in place (every earlier
 build runs on it) and roll back the deployment only.
 
+### Migration 010 (phase 8: languages)
+
+`010_locales_phase8.sql` prepares the languages admin (spec §8):
+
+- **Scripts.** `locales.script` may only name a script this build has
+  fonts for (`latin`, `vietnamese`, `hangul`, `han-simplified`,
+  `japanese`). A language in another script needs fonts, a deploy and a
+  migration widening that CHECK.
+- **Deleting a language.** It is refused while a social link names that
+  language in `visible_locales`.
+- **Policy versions per language.** The privacy policy is versioned per
+  language: `legal_versions` gains `locale`, and its key becomes
+  `(locale, version)`. `reservations` gains `consent_locale`, the language
+  of the wording the guest agreed to. Every existing version and every
+  booking that agreed to one become English (`en`), the only language ever
+  served.
+
+It only adds, in one transaction, and is safe to run again.
+
+**010 goes first, then the phase-8 deploy.** Phase-7 code keeps working
+on a database at 010:
+
+- its policy saves name no locale, and `legal_versions.locale` defaults to
+  `en`;
+- its bookings write a consent version without a consent locale, which
+  the one-way CHECK allows (a locale needs a version, not the reverse).
+
+Phase-8 code needs 010: it reads `legal_versions.locale` and writes
+`consent_locale`. A re-run of 010 fills `consent_locale` for bookings made
+in between.
+
+Run these three steps on production's direct URL. From a machine with
+`psql`:
+
+- **Pre-flight**, read-only:
+  `psql "<production's direct URL>" -v ON_ERROR_STOP=1 -f db/checks/preflight-010.sql`.
+  Every row must be `ok` = `t`:
+  - 001–009 are applied and 010 is not;
+  - every language is in a covered script;
+  - `legal_versions` has no `locale` column yet;
+  - every booking's consent version and time go together.
+
+  Any `f`: stop and report.
+- **Apply:** `DATABASE_URL_UNPOOLED=<production's direct URL> node scripts/migrate.mjs`
+  (it prints `✓ 010_locales_phase8.sql`).
+- **Post-check**, read-only:
+  `psql "<production's direct URL>" -v ON_ERROR_STOP=1 -f db/checks/postcheck-010.sql`.
+  Every row must be `t`.
+
+**In the Neon SQL Editor.** The editor splits a script at every `;`,
+including one inside a `--` comment. On 2026-10-06 a multi-statement
+install failed with `relation "sections" does not exist` because of
+this. So:
+
+- run each check file on its own (each is one statement);
+- apply 010 as **one** statement that records it too:
+
+  ```sql
+  DO $furama_010$
+  BEGIN
+    IF EXISTS (SELECT 1 FROM _migrations WHERE name = '010_locales_phase8.sql') THEN
+      RAISE EXCEPTION '010 is already applied';
+    END IF;
+    EXECUTE $furama_sql$ <the whole of db/migrations/010_locales_phase8.sql> $furama_sql$;
+    INSERT INTO _migrations (name) VALUES ('010_locales_phase8.sql');
+  END
+  $furama_010$;
+  ```
+
+**Rollback:** leave 010 in place (phase-7 code runs on it) and roll back
+the deployment only.
+
 ### Media in Vercel Blob (phase 7A)
 
 Uploads go to Vercel Blob (spec §11), in a store connected to the project in

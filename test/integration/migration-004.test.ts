@@ -60,9 +60,10 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 004: locales, content_strings, de
   });
 
   it('accepts zh-hans and ko', async () => {
+    // The scripts are the keys migration 010 allows (lib/i18n/scripts.ts SCRIPTS): this database runs every migration.
     await sql(
       `INSERT INTO locales (code, bcp47, native_name, short_label, script, sort_order)
-       VALUES ('zh-hans', 'zh-Hans', '简体中文', '中文', 'han-sc', 30), ('ko', 'ko', '한국어', 'KO', 'hangul', 40)`,
+       VALUES ('zh-hans', 'zh-Hans', '简体中文', '中文', 'han-simplified', 30), ('ko', 'ko', '한국어', 'KO', 'hangul', 40)`,
     );
     expect((await sql('SELECT count(*)::int AS n FROM locales')).rows[0].n).toBe(4);
   });
