@@ -208,10 +208,13 @@ refuses anything but a local database named `*_test` or `*_ci`, whichever way
 Playwright runs. Never update the visual baselines to make a run
 pass: open `test-results/**/*-diff.png` and fix the page.
 
-## Editing content (phase 7)
+## Editing content (phases 7–8)
 
-Everything a guest reads is edited in the admin, in English, by an Editor
-or an Admin (spec §7; other languages are phase 8). Start at
+Everything a guest reads is edited in the admin by an Editor or an Admin
+(spec §7), in every language in the table: a form has a tab per language,
+a strings screen edits one language at a time (`?lang=`), and
+`/admin/translations` lists what is missing, machine-made or behind its
+English ("EN đã đổi"). Start at
 `/admin/content`, which lists every screen; each screen leads back with
 "← Nội dung". Where a guest sees something, and the screen that edits it:
 
@@ -1159,6 +1162,40 @@ and a new code default of agreed text (`legal.*`, `booking.consent`,
 row, shipped in the same deploy window as the code (`lib/legal.test.ts`
 says how).
 
+### Before launch B: languages
+
+Phase 8 lets the owner open the site in another language without a deploy
+(spec §8). Vietnamese (`vi`) is in the table from migration 004, off. To open
+it:
+
+1. **Migration 010 on production** (above). It was applied on 2026-10-06; a
+   new database gets it with the others.
+2. **Guest emails in the language.** `/admin/locales` refuses to turn a
+   language on while any guest email key has no text in it (R8-6). Vietnamese
+   has the registry's own text for every `email.*` key, so it is not blocked;
+   change those words on `/admin/content/emails?lang=vi` if they should differ.
+   Another language (`ko`, `ja`, …) needs every guest email key translated
+   there first.
+3. **The privacy policy in the language.** A language without its own
+   policy text shows the English one, and its bookings record the English
+   version (`reservations.consent_locale = 'en'`). The Vietnamese wording of
+   the policy and of the consent sentence needs the lawyer's review (Law
+   91/2025/QH15, "Before launch A") before it is saved on
+   `/admin/content/legal?lang=vi`: each save of agreed text is a new policy
+   version of that language.
+4. **Translate the content** in each form's VI tab and on the strings screens
+   (`?lang=vi`), or wait for phase 9's AI and review its work on
+   `/admin/translations`. Whatever is not translated shows in English.
+5. **Preview**: "Xem trước" on `/admin/locales` opens `/vi` for staff only
+   (Draft Mode, `noindex`), with a bar to leave it.
+6. **Turn it on** ("Bật cho khách"): `/vi`, the language switcher, the
+   sitemap and hreflang follow at once; the proxy's language redirect within
+   a minute.
+7. **Search engines**: check `https://<domain>/sitemap.xml` lists the `/vi`
+   pages with their alternates, then submit it in Google Search Console. Set
+   `SITE_URL` first once there is a custom domain. Previews need nothing:
+   Vercel sends `X-Robots-Tag: noindex` on every preview deployment.
+
 ### First Admin
 
 Staff accounts exist only by invitation (spec §7.1); the one exception is the
@@ -1191,14 +1228,14 @@ bootstrapping production is what you mean to do.
 | `/en` | Static, revalidated hourly (`cacheLife('hours')`, for today's offers) | Home: hero, finder, cuisines, restaurants, destinations, experiences, heritage, stories, offers, read from the database; a section switched off or with nothing to show is left out |
 | `/en/restaurants/[slug]` | Static for each restaurant with `has_detail_page` at build time (`_none` when there is none), revalidated hourly (the layout reads today's offers for the nav); a page switched on later renders on its first visit. Any other slug is a 404, and one no restaurant can have (outside the pattern and length of 008's `restaurants.slug` CHECK, `lib/content/slug.ts`) is refused before any database read: the first visit is a soft 404 (status 200 with `noindex`), later visits get the cached 404, and without JavaScript the body is empty | Restaurant detail, read from the database (`taya-house` today). The cached 404 carries `restaurants`, so a save that expires the catalogue opens a page that was just switched on |
 | `/taya-house` | Redirect | 308 to `/en/restaurants/taya-house` (`next.config.ts`) |
-| `/en/privacy` | Static, revalidated hourly (the layout reads today's offers for the nav), tag `content:legal` | The privacy policy (`legal.*`), linked from the footer and the reserve drawer's consent box |
+| `/en/privacy` | Static, revalidated hourly (the layout reads today's offers for the nav) | The privacy policy (`legal.*`) in the page's language, with the date of that language's own policy version (else the English one), linked from the footer and the reserve drawer's consent box. Every guest page carries `content:legal`: the layout hands the drawer the policy version a booking records (SEC-3) |
 | `/api/availability` | Dynamic, `no-store` | `?restaurant=&lang=[&from=&to=]`: each day's state (open, full, past, closed, too_large, outside) and public closure reason, with the clock, the party limit and the number to call; `?restaurant=&date=&lang=[&guests=]`: one day's services and slots with the covers left. 404 for an unknown restaurant or one with online booking off; a range given in full that is backwards or too long (400) and an id that cannot exist (404) are answered before any query. `scripts/check-prerender.mjs` fails if it is ever prerendered, or missing from the build |
 | `/api/cron/outbox` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, hourly: sends the due outbox rows of its environment (at most 500 or 240 s) and answers only the counts. 401 without `Authorization: Bearer $CRON_SECRET` |
 | `/api/cron/daily` | Dynamic, `no-store`, `maxDuration` 60 | Vercel Cron, daily at 17:05 UTC (00:05 in Da Nang): `revalidateTag('content:offers', 'max')`, so the home page drops an offer past its `valid_until` and shows one whose `valid_from` has come, and on a day with no offer every guest page's header and menu drop Offers. The first visit to each page after it may still get yesterday's offers and nav once; in exchange, a database that is down then cannot break a guest page. 401 without `Authorization: Bearer $CRON_SECRET` |
 | `/api/cron/media-sweep` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, daily at 18:35 UTC (01:35 in Da Nang), Production only: purges rows 30 days in the trash (a row content uses again stays) and deletes their files from whatever folder holds them; then, in `production/` only, deletes files no `media` row names after 24 hours. `?dry=1` lists what it would do and deletes nothing, rows included; `{"skipped":"blob_not_configured"}` without a store. 401 without `Authorization: Bearer $CRON_SECRET` |
 | `/api/admin/media/upload` | Dynamic, `no-store` | Upload step 1: a presigned URL for one pathname of this environment's folder, its type, 15 MB and ten minutes. Session and `content:update` first, then the `Origin`; Vercel's completion callback is refused |
-| `/admin/media`, `/admin/media/[id]` | Request time, nonce CSP | The library: upload, search, the trash; one file's EN alt text, decorative flag, uses, delete (refused while it is shown) and History. `content:read`; writes `content:update`, restores `content:restore` |
-| `/admin/content` and `/admin/content/{sections,hero,offers,offers/new,offers/[id],cuisines,destinations,experiences,stories,heritage,navigation,contact,booking,seo,ui-text,legal,emails}` | Request time, nonce CSP | The content editors (spec §7.2), in English until phase 8 ("Editing content" above): the home sections' switches, pictures and links; the hero's slides, words and pace and the film; the offers; the cuisines, destinations, Experiences rows, stories and menu items, each a list with its order and "Đã xóa gần đây"; the footer's social links and words; the booking bar's defaults and words; the page titles and the share picture; the registry's words by screen; the privacy policy (each change of the agreed wording is a policy version); the booking emails with a preview. Every record has its History. `content:read`; writes `content:update`, restores `content:restore` |
+| `/admin/media`, `/admin/media/[id]` | Request time, nonce CSP | The library: upload, search, the trash; one file's alt text in each language, decorative flag, uses, delete (refused while it is shown) and History. `content:read`; writes `content:update`, restores `content:restore` |
+| `/admin/content` and `/admin/content/{sections,hero,offers,offers/new,offers/[id],cuisines,destinations,experiences,stories,heritage,navigation,contact,booking,seo,ui-text,legal,emails}` | Request time, nonce CSP | The content editors (spec §7.2), every language in one form (a tab per language with its state: Đã duyệt, Máy dịch, EN đã đổi, Chưa dịch) and the strings screens one language at a time (`?lang=`) ("Editing content" above): the home sections' switches, pictures and links; the hero's slides, words and pace and the film; the offers; the cuisines, destinations, Experiences rows, stories and menu items, each a list with its order and "Đã xóa gần đây"; the footer's social links and words; the booking bar's defaults and words; the page titles and the share picture; the registry's words by screen; the privacy policy (each change of the agreed wording is a policy version); the booking emails with a preview. Every record has its History. `content:read`; writes `content:update`, restores `content:restore` |
 | `/admin/restaurants/[id]` | Request time, nonce CSP | One restaurant's content: name, slug, pictures, contact, detail page, highlights, menu (a PDF from the library or a link), SEO, History. `content:read`; writes `content:update`, restores `content:restore` |
 | `/api/admin/preview?path=/<code>/…` | Dynamic | Draft Mode for staff (`content:read`): a guest page in a language that is in the table but off renders for them, with a "Preview" bar, `noindex` and no hreflang, outside the switcher and the sitemap (spec §6.1). Only a path on this site whose first segment is a language in the table (`lib/server/content/preview.ts`); anything else is a 400 |
 | `/api/preview/exit?path=` | Dynamic | Leaves Draft Mode, back to the path if its language is on, else to `/en`. Open to anyone: it only turns off the caller's own Draft Mode |
@@ -1211,6 +1248,7 @@ bootstrapping production is what you mean to do.
 | `/admin/reservations/closures`, `/admin/restaurants`, `/admin/restaurants/[id]/booking` | Request time, nonce CSP | Closures with the bookings each covers; the restaurants (add one, show or hide it, archive it: never deleted; their order with its History; the words every restaurant card and page shares); "Giờ và sức chứa" (switch, overrides, service periods, slot preview, affected bookings; auto-confirm for Admins). `schedule:read`; the list's writes `content:update`, restores `content:restore` |
 | `/admin/settings/booking` | Request time, nonce CSP | Booking defaults. Admin (`settings:read`) |
 | `/admin/locales` | Request time, nonce CSP | The languages (spec §8): add one from the catalogue (off), turn it on once its guest emails have a text in it, machine translations on or off, the order, "Xem trước" (Draft Mode), delete one nothing keeps (no booking, email, recipient, policy version or social link names it); which languages each social link shows in. Every change expires `locales` and that language's `i18n:` tag, so guests see it at once. Admin (`locales:read`; writes `locales:update`) |
+| `/admin/translations` | Request time, nonce CSP | Coverage per kind of content and language, and the review queue: machine translations ("Duyệt") and translations whose English changed since ("Vẫn đúng"), one at a time or up to 50 ticked, each with its History row; "Sửa" opens the item's form in that language. Machine translation of what is missing comes with phase 9. `content:read`; reviews `content:update` |
 | `/admin/settings/notifications` | Request time, nonce CSP | Who hears about new bookings, the shared inbox, the restaurants that fall back to it, "Gửi email thử". Admin (`settings:read`; every save `settings:update`) |
 | `/api/auth/*` | Dynamic | Better Auth; `/api/auth/admin/*` is refused with 403 |
 

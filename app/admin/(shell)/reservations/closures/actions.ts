@@ -28,6 +28,8 @@ function closureInput(formData: FormData): ClosureInput {
     // No meal ticked: the whole day.
     meals: c.meals.length ? (c.meals as Meal[]) : null,
     showReason: c.showReason,
+    // The phase-4 form has an English and a Vietnamese field; a reason in another language is kept as it is
+    // (writeReasons writes only the languages posted, phase 8 C8).
     publicReason: { ...(c.reasonEn ? { en: c.reasonEn } : {}), ...(c.reasonVi ? { vi: c.reasonVi } : {}) },
     internalNote: c.internalNote,
   };

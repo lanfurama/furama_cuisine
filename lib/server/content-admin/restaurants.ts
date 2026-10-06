@@ -232,6 +232,7 @@ export async function getRestaurantEditor(db: Db, id: string): Promise<Restauran
 
 export async function listCuisineOptions(db: Db): Promise<{ id: string; label: string }[]> {
   const { rows } = await db.query<{ id: string; label: string }>(
+    // The admin's pickers name content in the default language (spec §7).
     `SELECT c.id, coalesce(ci.label, c.id) AS label FROM cuisines c
        LEFT JOIN cuisine_i18n ci ON ci.cuisine_id = c.id AND ci.locale = 'en'
       ORDER BY c.sort_order, c.id`,
@@ -320,6 +321,7 @@ async function deadFiles(client: PoolClient, files: ReturnType<typeof filesOf>):
  */
 async function followCardAlt(client: PoolClient, actor: AuditActor, before: Row, after: { name: string; cardImageId: string | null }): Promise<boolean> {
   if (!after.cardImageId || String(before.card_image_id) !== after.cardImageId) return false;
+  // English only: the name is not translated, so only the default language's alt can still be the old name.
   const { rows } = await client.query<{ alt: string }>("SELECT alt FROM media_i18n WHERE media_id = $1::uuid AND locale = 'en' FOR UPDATE", [after.cardImageId]);
   const alt = followRename(rows[0]?.alt ?? null, String(before.name), after.name);
   if (alt === null) return false;

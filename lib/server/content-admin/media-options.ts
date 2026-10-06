@@ -15,6 +15,7 @@ export async function listMediaOptions(db: Db, kind: 'image' | 'pdf' = 'image'):
     `SELECT m.id::text, m.url, m.pathname, mi.alt, m.width, m.height, m.is_decorative AS "isDecorative",
             CASE WHEN m.content_type = 'application/pdf' THEN 'pdf' ELSE 'image' END AS kind
        FROM media m
+       -- The picker describes a file by its default-language alt (the admin's language for content, spec §7).
        LEFT JOIN media_i18n mi ON mi.media_id = m.id AND mi.locale = 'en'
       WHERE m.deleted_at IS NULL AND (m.content_type = 'application/pdf') = ($1 = 'pdf')
       ORDER BY m.created_at DESC, m.pathname`,

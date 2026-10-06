@@ -72,7 +72,8 @@ const offers = makeListEditor<OfferInput>(OFFER, {
     return rowCount ? null : { ok: false, code: 'invalid', fieldErrors: { restaurantId: ['Nhà hàng này không còn nữa.'] } };
   },
   async beforeDelete(client, id, actor) {
-    // Before the delete: the bookings its SET NULL is about to unlink, each told why in its timeline (R9).
+    // Before the delete: the bookings its SET NULL is about to unlink, each told why in its timeline (R9),
+    // by the offer's English title: the admin names content in the default language (spec §7).
     const { rows } = await client.query<{ id: string }>(
       `INSERT INTO reservation_events (reservation_id, actor_kind, actor_id, actor_label, type, changes)
        SELECT r.id, 'staff', $2, $3, 'edited',
@@ -121,6 +122,7 @@ export async function listOffersAdmin(db: Db): Promise<{ items: OfferListItem[];
                  ELSE 'shown' END AS state
        FROM offers o
        JOIN restaurants r ON r.id = o.restaurant_id
+       -- The list names each offer by its default-language title (the admin's language for content, spec §7).
        LEFT JOIN offer_i18n t ON t.offer_id = o.id AND t.locale = 'en'
       ORDER BY o.sort_order, o.id`,
   );

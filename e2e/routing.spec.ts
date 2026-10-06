@@ -110,9 +110,12 @@ test.describe('pages that do not exist', () => {
     // case-insensitive disk their cached 404 would overwrite taya-house.html, and a long one overflows the file name.
     const path = '/en/restaurants/taya-house%00';
     const statuses: number[] = [];
-    for (let i = 0; i < 3; i++) statuses.push((await request.get(path, { maxRedirects: 0 })).status());
+    const hit = async () => statuses[statuses.push((await request.get(path, { maxRedirects: 0 })).status()) - 1];
+    // The first visit streams a soft 404 (200) and caches the 404 after answering; on a server that has just
+    // started, the next visit can arrive before that write lands, so wait for the cached 404, then it stays.
+    await expect.poll(hit, { timeout: 10_000, intervals: [250] }).toBe(404);
+    expect(await hit()).toBe(404);
     expect(statuses.filter((s) => s >= 500), statuses.join(' ')).toEqual([]);
-    expect(statuses.slice(1), statuses.join(' ')).toEqual([404, 404]);
     await page.goto(path);
     await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
   });
