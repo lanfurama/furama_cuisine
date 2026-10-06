@@ -48,7 +48,7 @@ export async function loadStories(locale: string): Promise<Story[]> {
   }>(
     `WITH ${LOCALE_CTE}
      SELECT s.id::text, ${tr('st', 'category')} AS category, ${tr('st', 'title')} AS title,
-            coalesce(st.href, s.href) AS href, to_char(s.published_on, 'YYYY-MM-DD') AS published_on, img.j AS image
+            coalesce(st.href, st_d.href, s.href) AS href, to_char(s.published_on, 'YYYY-MM-DD') AS published_on, img.j AS image
        FROM stories s CROSS JOIN lc
        ${i18nJoin('story_i18n', 'st', 'story_id', 's.id')}
        LEFT JOIN LATERAL ${mediaJson('s.image_id')} AS img ON true

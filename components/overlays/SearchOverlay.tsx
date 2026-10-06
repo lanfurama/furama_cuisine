@@ -115,7 +115,7 @@ export function SearchOverlay() {
 
         {q && results.length === 0 && (
           <div className="search-none">
-            {formatMessage(strings['search.none'], { query })}
+            {formatMessage(strings['search.none'], { query }, locale)}
           </div>
         )}
       </div>

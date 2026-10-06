@@ -40,7 +40,7 @@ const PAGES = {
 };
 /**
  * The (guarded) layout's tags: the catalogue, the chrome's content and the UI
- * strings. The chrome's nav follows the home page's own answer (getHomeContent
+ * strings, and the policy version in force. The chrome's nav follows the home page's own answer (getHomeContent
  * in lib/server/content/home-content.ts), so the layout reads the home page's
  * lists too: the hero slides, experiences, stories and today's offers.
  */
@@ -59,11 +59,12 @@ const TAGS = [
   'content:experiences',
   'content:stories',
   'content:offers',
+  // The policy version the drawer's consent box books under (getPolicyVersion, SEC-3).
+  'content:legal',
 ];
-/** Tags a page carries beyond the layout's: a restaurant page's own (restaurants.ts), the privacy policy's text (legal.ts). */
+/** Tags a page carries beyond the layout's: a restaurant page's own (restaurants.ts). */
 const PAGE_TAGS = {
   '/en/restaurants/taya-house': ['restaurant:taya-house'],
-  '/en/privacy': ['content:legal'],
 };
 /**
  * A prerendered page lives as long as its shortest cacheLife (cacheLife.md:144-147).

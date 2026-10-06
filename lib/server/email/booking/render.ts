@@ -4,6 +4,7 @@ import type { Pool, PoolClient } from 'pg';
 import type { ReservationStatus } from '@/lib/booking/rules';
 import { audienceOf, type EmailAudience, type EmailEvent } from '@/lib/email/events';
 import { formatMessage } from '@/lib/i18n/format';
+import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
 import { registryLocaleDefault, type StringKey } from '@/lib/i18n/registry';
 import { resolveStrings } from '@/lib/i18n/resolve';
 import { loadSiteSettings } from '@/lib/server/content/settings.queries';
@@ -178,7 +179,8 @@ export async function resolveEmailLocale(db: Db, requested: string, audience: Em
   );
   const asked = rows.find((r) => r.code === requested);
   const fallback = rows.find((r) => r.is_default) ?? { code: 'en', bcp47: 'en' };
-  const ownCopy = (code: string) => emailKeys(event).every((key) => registryLocaleDefault(key, code) !== undefined);
+  // The default language always has its own copy (the registry's English); another one when the registry writes every key in it (T5.2).
+  const ownCopy = (code: string) => code === DEFAULT_LOCALE || emailKeys(event).every((key) => registryLocaleDefault(key, code) !== undefined);
   const usable = asked && (audience === 'staff' || asked.is_enabled || ownCopy(asked.code));
   const picked = usable ? asked : fallback;
   return { code: picked.code, bcp47: picked.bcp47 };

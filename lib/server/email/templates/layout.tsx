@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react';
 import { Body, Container, Head, Hr, Html, Preview, Text } from 'react-email';
 
+/** Latin first, then the system faces of Korean, Simplified Chinese and Japanese mail clients (phase 8: a ko/zh/ja email). */
+const FONT_STACK = "Helvetica, Arial, 'Apple SD Gothic Neo', 'Malgun Gothic', 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans', sans-serif";
+
 const brand = '#7a1f2b';
 
 const STAFF_FOOTER = 'Đây là email tự động từ hệ thống quản trị Furama Cuisine. Vui lòng không trả lời email này.';
@@ -15,7 +18,7 @@ export function EmailLayout({ preview, children, lang = 'vi', footer = STAFF_FOO
     <Html lang={lang}>
       <Head />
       <Preview>{preview}</Preview>
-      <Body lang={lang} style={{ backgroundColor: '#f6f3ee', margin: 0, padding: '24px 0', fontFamily: 'Helvetica, Arial, sans-serif', color: '#2b2622' }}>
+      <Body lang={lang} style={{ backgroundColor: '#f6f3ee', margin: 0, padding: '24px 0', fontFamily: FONT_STACK, color: '#2b2622' }}>
         <Container style={{ backgroundColor: '#ffffff', maxWidth: 520, margin: '0 auto', padding: '32px 28px', borderTop: `4px solid ${brand}` }}>
           <Text style={{ margin: '0 0 24px', fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', color: brand }}>
             Furama Cuisine

@@ -121,6 +121,13 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('submitReservation v2 (database)
     expect((await sql('SELECT DISTINCT locale FROM reservations')).rows).toEqual([{ locale: 'en' }]);
   });
 
+  it('keeps the guest’s language once it is enabled, with its consent stamped in the policy’s language', async () => {
+    await sql(`UPDATE locales SET is_enabled = true WHERE code = 'vi'`);
+    expect(await submitReservation({ ...request, locale: 'vi' })).toMatchObject({ ok: true });
+    // vi has no policy version of its own yet: the guest agreed to the English wording, and the booking says so.
+    expect((await sql('SELECT locale, consent_locale FROM reservations')).rows).toEqual([{ locale: 'vi', consent_locale: 'en' }]);
+  });
+
   it('confirms at once under auto_confirm, globally or per restaurant', async () => {
     await sql(`UPDATE restaurants SET auto_confirm = true WHERE id = 'taya-house'`);
     expect(await submitReservation(request)).toMatchObject({ ok: true, data: { status: 'confirmed' } });
@@ -346,6 +353,36 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('submitReservation v2 (database)
       // Fake timers move Date only: the database's now() is the real time.
       const { rows } = await sql(`SELECT consent_version, consented_at > now() - interval '1 minute' AS recent FROM reservations`);
       expect(rows).toEqual([{ consent_version: PRIVACY_POLICY_VERSION, recent: true }]);
+    });
+
+    describe('the version the page showed (SEC-3, R8-7)', () => {
+      const versions = async (...rows: [locale: string, version: string, at: string][]) => {
+        for (const [locale, version, at] of rows) {
+          await sql(`INSERT INTO legal_versions (locale, version, effective_on, text_sha256, created_at, created_by) VALUES ($1, $2, $3::date, repeat('a', 64), $4, 'test')`, [
+            locale,
+            version,
+            version.slice(0, 10),
+            at,
+          ]);
+        }
+      };
+      const stamped = async () => (await sql(`SELECT consent_version, consent_locale FROM reservations`)).rows;
+      afterEach(() => sql(`DELETE FROM legal_versions WHERE created_by = 'test'`));
+
+      it('a page opened before the policy changed books under the version it showed', async () => {
+        await versions(['en', '2026-10-04', '2026-10-04T00:00:00Z']);
+        expect(await submitReservation({ ...request, consentVersion: PRIVACY_POLICY_VERSION, consentLocale: 'en' })).toMatchObject({ ok: true });
+        expect(await stamped()).toEqual([{ consent_version: PRIVACY_POLICY_VERSION, consent_locale: 'en' }]);
+      });
+
+      it('a version that does not exist books under the newest of that language; a language without versions under English', async () => {
+        await versions(['en', '2026-10-04', '2026-10-04T00:00:00Z'], ['vi', '2026-10-05', '2026-10-05T00:00:00Z']);
+        await submitReservation({ ...request, consentVersion: '2030-01-01', consentLocale: 'vi' });
+        expect(await stamped()).toEqual([{ consent_version: '2026-10-05', consent_locale: 'vi' }]);
+        await sql('DELETE FROM reservations');
+        await submitReservation({ ...request, consentVersion: '2026-10-05', consentLocale: 'ko' });
+        expect(await stamped()).toEqual([{ consent_version: '2026-10-04', consent_locale: 'en' }]);
+      });
     });
 
     it('the database keeps the version and the time together (reservations_consent_check)', async () => {

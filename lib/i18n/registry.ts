@@ -205,7 +205,8 @@ export const REGISTRY = {
   'booking.day_past': {
     en: 'No more tables today',
     maxLength: 40,
-    context: 'Reservation form, on today once every sitting has closed to online booking.',
+    context:
+      'Reservation form, on today once every sitting has closed to online booking. Short: it also fits a dropdown note, and follows a date in booking.day_note ("Mon 5 Oct: No more tables today").',
     screen: 'booking',
     label: 'Hôm nay đã hết giờ đặt online',
   },
@@ -237,7 +238,8 @@ export const REGISTRY = {
     en: 'No dates are open for online booking. Please call us on {phone}.',
     maxLength: 140,
     vars: ['phone'],
-    context: 'Reservation form, when no date in the booking window takes bookings. {phone} is the restaurant’s number; keep it.',
+    context:
+      'Reservation form, when no date in the booking window takes bookings. {phone} is the reservations number of the restaurant’s destination (the group’s line, not the restaurant’s own), printed as a link; keep it.',
     screen: 'booking',
     label: 'Không còn ngày nào đặt online',
   },
@@ -256,7 +258,7 @@ export const REGISTRY = {
     maxLength: 40,
     vars: ['phone'],
     context:
-      'Restaurant card on the home page, the tag shown on hover (in capitals by CSS; "→" follows), for a restaurant with no page of its own whose online booking staff have switched off: a tap calls it. {phone} is the restaurant’s number, else its destination’s, as printed; keep it.',
+      'Restaurant card on the home page, the tag shown on hover and on keyboard focus (in capitals by CSS; "→" follows), for a restaurant with no page of its own whose online booking staff have switched off: a tap calls it. {phone} is the restaurant’s number, else its destination’s, as printed; keep it. Keep it short: one line on the card, a long word wraps.',
     screen: 'booking',
     label: 'Nhãn “Gọi” kèm số điện thoại',
   },
@@ -1578,7 +1580,7 @@ export const REGISTRY = {
     vi: '{time} (giờ Đà Nẵng, GMT+7)',
     maxLength: 60,
     vars: ['time'],
-    context: 'Booking emails, the time of the sitting. {time} is formatted for the language (7:00 PM, 19:00); keep it. Guests may read the email in another timezone.',
+    context: 'Booking emails, the time of the sitting. {time} is formatted for the language (19:00 in English and Vietnamese, a 24-hour clock); keep it. Guests may read the email in another timezone.',
     screen: 'emails',
     label: 'Giờ kèm múi giờ Đà Nẵng',
   },

@@ -25,9 +25,18 @@ export const MEAL_KEYS = {
 
 export const mealLabel = (strings: Strings, meal: Meal): string => strings[MEAL_KEYS[meal]];
 
+/**
+ * A cuisine's name wherever the site prints one (L8-2: one fallback): its
+ * label in the page's language, else the default language's (the loaders'
+ * tr(); a cuisine with neither is not listed), else, for a cuisine no longer
+ * listed (unpublished since a filter named it), its slug, so a chip names
+ * itself rather than nothing.
+ */
+export const cuisineLabel = (cuisines: readonly Cuisine[], id: string): string => cuisines.find((c) => c.id === id)?.label ?? id;
+
 export const cuisineOptions = (cuisines: readonly Cuisine[], strings: Strings): Choice[] => [
   { value: 'all', label: strings['finder.all_cuisines'] },
-  ...cuisines.map((c) => ({ value: c.id, label: c.label })),
+  ...cuisines.map((c) => ({ value: c.id, label: cuisineLabel(cuisines, c.id) })),
 ];
 
 export const occasionOptions = (strings: Strings): Choice[] => [

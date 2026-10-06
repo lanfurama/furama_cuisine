@@ -7,20 +7,23 @@ import { toBcp47 } from '@/lib/i18n/locales';
  * only (inside 'use cache'), so the browser never formats these and server
  * and browser ICU data cannot disagree at hydration. `server-only` holds that:
  * a client component that imports this module fails the build. English
- * wording and order are the site's as of phase 5, pixel for pixel; other
- * languages use Intl's own order until phase 8 gives them registry templates.
+ * wording and order are the site's as of phase 5, pixel for pixel; every
+ * other language takes Intl's order for its dates, which is that language's
+ * own, and its number grouping. The words around them (an offer's price) are
+ * registry templates each language edits on its strings screens (phase 8).
  */
 
 /**
- * The code itself, or 'en' when Intl refuses its BCP 47 form. Every code the
+ * The code itself, or 'en' when Intl has no data for it. Every code the
  * locales table holds passes; a path such as /favicon.ico or /wp-login.php
  * reaches a loader with its first segment as the language, and a loader must
- * answer for it, not throw a RangeError.
+ * answer for it, not throw a RangeError; and a well-formed code Intl has no
+ * data for ('zz') must not fall to the process's default locale, which
+ * differs between machines (L8-3).
  */
 function intlSafe(locale: string): string {
   try {
-    Intl.getCanonicalLocales(toBcp47(locale));
-    return locale;
+    return Intl.DateTimeFormat.supportedLocalesOf([toBcp47(locale)]).length > 0 ? locale : 'en';
   } catch {
     return 'en';
   }

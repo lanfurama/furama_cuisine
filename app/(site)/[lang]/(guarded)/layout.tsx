@@ -10,6 +10,7 @@ import { getEnabledLocales, isLocalePreview, requireEnabledLocale } from '@/lib/
 import { getRestaurants } from '@/lib/server/content/restaurants';
 import { getShareImage, SEO_KEYS } from '@/lib/server/content/seo';
 import { getStrings } from '@/lib/server/content/strings';
+import { getPolicyVersion } from '@/lib/server/content/legal';
 import { SiteProvider } from '@/components/site/SiteProvider';
 import { Chrome } from '@/components/site/Chrome';
 import { PreviewBanner } from '@/components/site/PreviewBanner';
@@ -57,10 +58,11 @@ export default async function GuardedLayout({ children }: { children: React.Reac
   // A language that is off is a 404, unless staff preview it in Draft Mode (C6).
   const locale = await requireEnabledLocale(await lang());
   const enabled = await getEnabledLocales();
-  const [restaurants, site, strings] = await Promise.all([
+  const [restaurants, site, strings, policy] = await Promise.all([
     getRestaurants(locale),
     getSiteContent(locale),
     getStrings(locale, CLIENT_KEYS),
+    getPolicyVersion(locale),
   ]);
 
   // A default restaurant guests cannot see (a draft, or at a hidden destination) stays off the payload (L7-2).
@@ -71,6 +73,7 @@ export default async function GuardedLayout({ children }: { children: React.Reac
       restaurants={restaurants}
       site={{ ...site, settings: guestSettings(site.settings, restaurants) }}
       strings={strings}
+      policy={{ version: policy.version, locale: policy.consentLocale }}
     >
       <Chrome>{children}</Chrome>
       <Suspense>

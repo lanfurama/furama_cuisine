@@ -30,7 +30,8 @@ describe('parseReservationInput', () => {
         email: null,
         note: 'window seat',
         locale: 'en',
-        consentVersion: PRIVACY_POLICY_VERSION,
+        consentVersion: null,
+        consentLocale: null,
         offerId: null,
       },
     });
@@ -98,10 +99,21 @@ describe('parseReservationInput', () => {
 });
 
 describe('consent (spec §11)', () => {
-  it('books only with the box ticked, and stamps the policy version this server shows', () => {
+  it('books only with the box ticked, and carries the version and language the page showed (SEC-3: create.ts checks them)', () => {
     const { consent: _consent, ...unticked } = valid;
     expect(parseReservationInput(unticked)).toEqual({ ok: false, code: 'consent_required' });
-    expect(parseReservationInput(valid)).toMatchObject({ ok: true, value: { consentVersion: PRIVACY_POLICY_VERSION } });
+    expect(parseReservationInput({ ...valid, consentVersion: PRIVACY_POLICY_VERSION, consentLocale: 'vi' })).toMatchObject({
+      ok: true,
+      value: { consentVersion: PRIVACY_POLICY_VERSION, consentLocale: 'vi' },
+    });
+    expect(parseReservationInput({ ...valid, consentVersion: '2026-10-06.2', consentLocale: 'en' })).toMatchObject({ ok: true, value: { consentVersion: '2026-10-06.2' } });
+  });
+
+  it('drops a malformed version or language rather than refusing the booking', () => {
+    expect(parseReservationInput({ ...valid, consentVersion: "x'; DROP", consentLocale: 'EN_us' })).toMatchObject({
+      ok: true,
+      value: { consentVersion: null, consentLocale: null },
+    });
   });
 
   it('a field above the box still comes first (form order)', () => {

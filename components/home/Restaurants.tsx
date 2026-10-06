@@ -1,7 +1,7 @@
 'use client';
 
 import type { Meal } from '@/lib/data';
-import { mealLabel } from '@/lib/content/options';
+import { cuisineLabel, mealLabel } from '@/lib/content/options';
 import { formatMessage } from '@/lib/i18n/format';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
@@ -14,9 +14,7 @@ export function Restaurants() {
 
   const chips: { label: string; clear: () => void }[] = [];
   if (filter.cuisine !== 'all') {
-    // A cuisine no longer listed (unpublished since the filter was set) still names itself rather than nothing.
-    const label = site.cuisines.find((c) => c.id === filter.cuisine)?.label ?? filter.cuisine;
-    chips.push({ label, clear: () => setFilter({ cuisine: 'all' }) });
+    chips.push({ label: cuisineLabel(site.cuisines, filter.cuisine), clear: () => setFilter({ cuisine: 'all' }) });
   }
   if (filter.occasion !== 'all') {
     chips.push({ label: mealLabel(strings, filter.occasion as Meal), clear: () => setFilter({ occasion: 'all' }) });

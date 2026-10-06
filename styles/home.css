@@ -549,10 +549,12 @@
 /* "Call +84 236 651 9999 →" (R20) is about 171 px on one line, wider than a
    card from 150 px: the frame clipped it, at some widths down to a wrong
    number ("+84 236 651 999"). It wraps instead, 10 px clear of either edge,
-   and `pretty` keeps the arrow from a line of its own. */
+   and `pretty` keeps the arrow from a line of its own. A translated word
+   longer than the card breaks too (L8-5), rather than leave the frame. */
 .rcard-tag-call {
   max-width: calc(100% - 20px);
   white-space: normal;
+  overflow-wrap: anywhere;
   line-height: 1.6;
   text-wrap: pretty;
 }

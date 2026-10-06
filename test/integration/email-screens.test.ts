@@ -180,7 +180,7 @@ describe.skipIf(!TEST_DATABASE_URL)('email screens and templates (database)', ()
       const ko = await seedReservation({ locale: 'ko', status: 'confirmed', date: '2026-10-05' });
       const fallback = await render('guest.confirmed', ko, 'ko');
       expect(fallback).toMatchObject({ locale: 'en', subject: expect.stringMatching(/^Your table is confirmed \(FC-/) });
-      expect(fallback.text).toContain('Monday, October 5, 2026');
+      expect(fallback.text).toContain('Monday, 5 October 2026');
       // Switched on, it is the guest's language: English copy per key, its own date format (Known risk 19).
       await pool.query(`UPDATE locales SET is_enabled = true WHERE code = 'ko'`);
       const on = await render('guest.confirmed', ko, 'ko');

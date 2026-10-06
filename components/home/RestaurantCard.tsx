@@ -11,7 +11,7 @@ import { useReveal } from '@/lib/motion';
  * whole grid does not re-render on pointer move.
  */
 export function RestaurantCard({ restaurant, hidden }: { restaurant: Restaurant; hidden?: boolean }) {
-  const { openRestaurant, strings } = useSite();
+  const { openRestaurant, strings, locale } = useSite();
   const ref = useReveal<HTMLButtonElement>('card');
   // A card without a page reserves; with online booking off (R14) it calls instead (R20), and with
   // no number either it has no action (GX-6).
@@ -21,7 +21,7 @@ export function RestaurantCard({ restaurant, hidden }: { restaurant: Restaurant;
     : restaurant.bookingEnabled
       ? strings['restaurants.card_reserve']
       : restaurant.phone
-        ? formatMessage(strings['booking.call_tag'], { phone: restaurant.phone.display })
+        ? formatMessage(strings['booking.call_tag'], { phone: restaurant.phone.display }, locale)
         : null;
 
   return (

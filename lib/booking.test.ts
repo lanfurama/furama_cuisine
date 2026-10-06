@@ -6,6 +6,20 @@ describe('fold', () => {
   it('ignores accents and đ so guests can search without Vietnamese input', () => {
     expect(fold('Phố Cuốn')).toBe('pho cuon');
     expect(fold('Đà Nẵng')).toBe('da nang');
+    expect(fold('Phở Bò Ưng')).toBe('pho bo ung');
+  });
+
+  it('compares Korean, Chinese and Japanese as written (R8-12), so a search finds what the card says', () => {
+    expect(fold('한식 레스토랑')).toContain(fold('한식'));
+    expect(fold('四川火锅')).toContain(fold('火锅'));
+    expect(fold('ガーデン')).toContain(fold('ガー'));
+    // Not split: a voiced kana stays one character, a Hangul syllable is not its jamo.
+    expect(fold('ガ')).toBe('ガ');
+    expect(fold('한')).toBe('한');
+    // A decomposed syllable or kana (as some keyboards send them) is the composed one.
+    expect(fold('\u1112\u1161\u11ab')).toBe('한');
+    expect(fold('\u30ab\u3099')).toBe('ガ');
+    expect(fold('Phở Cuốn')).toContain(fold('pho'));
   });
 });
 

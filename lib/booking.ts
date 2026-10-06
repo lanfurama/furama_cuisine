@@ -46,10 +46,22 @@ export function validate(form: BookingForm) {
   };
 }
 
-/** Accent- and đ-insensitive fold, so "pho cuon" matches "Phố Cuốn". The SQL twin is fold_search() (migration 006). */
+/**
+ * Accent- and đ-insensitive fold, so "pho cuon" matches "Phố Cuốn": NFD, then
+ * the combining marks go, as fold_search() does in SQL (migration 006, the
+ * admin's booking search; test/integration/migration-006.test.ts holds the two
+ * alike). Korean, Chinese and Japanese runs are kept as written (NFC), never
+ * split into jamo or into kana and a voicing mark, so "한식" finds "한식
+ * 레스토랑" and "ガ" is not "カ" (R8-12).
+ */
+const CJK_RUN = '[\\u1100-\\u11ff\\u3040-\\u30ff\\u3130-\\u318f\\u3400-\\u4dbf\\u4e00-\\u9fff\\uac00-\\ud7af]+';
+const SPLIT = new RegExp(`(${CJK_RUN})`);
+const IS_CJK = new RegExp(`^${CJK_RUN}$`);
+
 export const fold = (x: string) =>
   String(x)
     .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .split(SPLIT)
+    .map((run) => (IS_CJK.test(run) ? run.normalize('NFC') : run.normalize('NFD').replace(/[\u0300-\u036f]/g, '')))
+    .join('')
     .replace(/đ/g, 'd');

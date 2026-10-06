@@ -43,6 +43,7 @@ const LOCKED: Record<string, string> = {
   "components/site/PageCurtain.tsx: FURAMA": "brand wordmark (inventory §2.2/§2.17/§2.18, class L)",
   "components/site/SiteProvider.tsx: Escape": "code token, not text",
   "lib/booking.ts: NFD": "code token, not text",
+  "lib/booking.ts: NFC": "code token, not text",
   "lib/content/format.ts: UTC": "code token, not text",
   "lib/content/format.ts: en-US": "code token, not text",
   "lib/server/email/booking/format.ts: UTC": "code token, not text",
@@ -58,7 +59,9 @@ const LOCKED: Record<string, string> = {
   "lib/server/email/templates/layout.tsx: 4px solid": "code token, not text",
   "lib/server/email/templates/layout.tsx: 6px 16px 6px 0": "code token, not text",
   "lib/server/email/templates/layout.tsx: Furama Cuisine": "brand wordmark at the top of every email (inventory class L)",
-  "lib/server/email/templates/layout.tsx: Helvetica, Arial, sans-serif": "code token, not text",
+  "lib/server/email/templates/layout.tsx: Helvetica, Arial, 'Apple SD Gothic Neo', 'Malgun Gothic', 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans', sans-serif":
+    "code token, not text",
+  "lib/server/email/booking/format.ts: en-GB": "code token, not text",
   "lib/server/email/templates/layout.tsx: Đây là email tự động từ hệ thống quản trị Furama Cuisine. Vui lòng không trả lời email này.":
     "STAFF_FOOTER: the staff account emails' footer (invite, reset; Vietnamese, R7); a booking email passes its footer from the registry",
   "lib/motion.tsx: 0px 0px -8% 0px": "code token, not text",

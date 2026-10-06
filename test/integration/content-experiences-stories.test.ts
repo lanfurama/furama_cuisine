@@ -152,6 +152,19 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('experiences and stories editors
       expect((await loadStories('en'))[0].kicker).toBe('Restaurant News · 9 Sep 2026');
     });
 
+    it('a translated card without a link of its own takes the English one, then the card’s (L8-1)', async () => {
+      const english = (await pool.query(`SELECT href FROM story_i18n WHERE story_id = 1 AND locale = 'en'`)).rows[0]?.href ?? null;
+      try {
+        await pool.query(`UPDATE story_i18n SET href = 'https://example.com/en-article' WHERE story_id = 1 AND locale = 'en'`);
+        await pool.query(`INSERT INTO story_i18n (story_id, locale, title) VALUES (1, 'vi', 'Chuyện từ bếp')`);
+        const [card] = await loadStories('vi');
+        expect(card).toMatchObject({ title: 'Chuyện từ bếp', href: 'https://example.com/en-article' });
+      } finally {
+        await pool.query(`DELETE FROM story_i18n WHERE locale = 'vi'`);
+        await pool.query(`UPDATE story_i18n SET href = $1 WHERE story_id = 1 AND locale = 'en'`, [english]);
+      }
+    });
+
     it('at most 4 shown; a hidden draft is allowed; the picture must be live; deleted, a card comes back under its id', async () => {
       const draft: StoryInput = {
         imageId: String(seedStories[0].row.image_id),

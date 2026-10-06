@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Cuisine, Destination } from './types';
 import { CLIENT_KEYS, REGISTRY, type ClientKey } from '@/lib/i18n/registry';
-import { bookableDestinationOptions, cuisineOptions, destinationOptions, mealLabel, occasionOptions } from './options';
+import { bookableDestinationOptions, cuisineLabel, cuisineOptions, destinationOptions, mealLabel, occasionOptions } from './options';
 
 // The registry's English text, as the SiteProvider hands it to the client with no database rows.
 const EN = Object.fromEntries(CLIENT_KEYS.map((k) => [k, REGISTRY[k].en])) as Record<ClientKey, string>;
@@ -64,5 +64,15 @@ describe('the finder’s and booking form’s option lists (spec §6.3 item 2)',
       { value: 'mm', label: 'Furama MM Supercenter' },
     ]);
     expect(bookableDestinationOptions(DESTINATIONS, [])).toEqual([]);
+  });
+});
+
+describe('cuisineLabel (L8-2: the one fallback of a cuisine’s name)', () => {
+  const list = [cuisine('vietnamese', 'Việt Nam')];
+  it('the listed label, which the loader already took from the page’s language or the default one; else the slug', () => {
+    expect(cuisineLabel(list, 'vietnamese')).toBe('Việt Nam');
+    expect(cuisineLabel(list, 'gone')).toBe('gone');
+    // The finder's option and the filter chip say the same.
+    expect(cuisineOptions(list, EN)[1].label).toBe(cuisineLabel(list, 'vietnamese'));
   });
 });

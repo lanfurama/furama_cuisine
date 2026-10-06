@@ -209,9 +209,10 @@ describe.skipIf(!TEST_DATABASE_URL)('reservation inbox (database)', () => {
   });
 
   it('names the destinations staff pick from: every venue, published or not, by its default-language name (R1)', async () => {
-    await pool.query(`UPDATE destinations SET is_published = false WHERE id = 'mm'`);
-    await pool.query(`INSERT INTO destination_i18n (destination_id, locale, name, status) VALUES ('resort', 'vi', 'Khu nghỉ dưỡng Furama', 'reviewed')`);
+    // Inside the try, so a failed write is put back too; the cleanup takes only this test's row (L8-4), never a seeded vi one.
     try {
+      await pool.query(`UPDATE destinations SET is_published = false WHERE id = 'mm'`);
+      await pool.query(`INSERT INTO destination_i18n (destination_id, locale, name, status) VALUES ('resort', 'vi', 'Khu nghỉ dưỡng Furama', 'reviewed')`);
       // The teaser ("Future Locations") is a home-page card, not a place: no closure or recipient can name it.
       expect(await listDestinationOptions(pool)).toEqual([
         { id: 'resort', name: 'Furama Resort Danang' },
@@ -220,7 +221,7 @@ describe.skipIf(!TEST_DATABASE_URL)('reservation inbox (database)', () => {
       ]);
     } finally {
       await pool.query(`UPDATE destinations SET is_published = true WHERE id = 'mm'`);
-      await pool.query(`DELETE FROM destination_i18n WHERE locale = 'vi'`);
+      await pool.query(`DELETE FROM destination_i18n WHERE destination_id = 'resort' AND locale = 'vi' AND name = 'Khu nghỉ dưỡng Furama'`);
     }
   });
 

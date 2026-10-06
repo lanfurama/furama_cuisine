@@ -342,7 +342,18 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
       });
     });
 
-    it('a language with no rows at all is the default language throughout', async () => {
+    it('each language words the price with its own template (an offers.* row of the strings screen) and groups the number its way', async () => {
+      try {
+        await sql(`INSERT INTO content_strings (key, locale, value, status) VALUES ('offers.price_net', 'vi', '{amount} {currency} đã gồm phí, mỗi khách', 'reviewed')`);
+        const tea = (await loadOffers('vi')).find((o) => o.id === 3);
+        expect(tea?.detail).toMatch(/^450\.000 VND đã gồm phí, mỗi khách · /);
+        expect((await loadOffers('en')).find((o) => o.id === 3)?.detail).toMatch(/^VND 450,000 net per guest · /);
+      } finally {
+        await sql(`DELETE FROM content_strings WHERE key = 'offers.price_net' AND locale = 'vi'`);
+      }
+    });
+
+    it('a language with no rows at all is the default language throughout, its numbers too ("zz": no Intl data, L8-3)', async () => {
       expect(await loadNav('zz')).toEqual(await loadNav('en'));
       expect(await loadDestinations('zz')).toEqual(await loadDestinations('en'));
       expect(await loadOffers('zz')).toEqual(await loadOffers('en'));

@@ -57,17 +57,31 @@ describe('registry: email.* keys', () => {
 });
 
 describe('dates and times in the email’s language, on Da Nang’s calendar whatever the server zone', () => {
-  it('formats the sitting for English and Vietnamese', () => {
-    expect(formatEmailDate('2026-10-05', 'en')).toBe('Monday, October 5, 2026');
+  it('formats the sitting for English (day first, 24-hour, as the site; R8-8) and Vietnamese', () => {
+    expect(formatEmailDate('2026-10-05', 'en')).toBe('Monday, 5 October 2026');
     expect(formatEmailDate('2026-10-05', 'vi')).toBe('Thứ Hai, 5 tháng 10, 2026');
-    expect(formatEmailShortDate('2026-10-05', 'en')).toBe('Mon, Oct 5, 2026');
-    expect(formatEmailTime('19:00', 'en')).toBe('7:00 PM');
+    expect(formatEmailShortDate('2026-10-05', 'en')).toBe('Mon, 5 Oct 2026');
+    expect(formatEmailTime('19:00', 'en')).toBe('19:00');
+    expect(formatEmailTime('00:30', 'en')).toBe('00:30');
     expect(formatEmailTime('19:00', 'vi')).toBe('19:00');
     expect(formatEmailTime('00:30', 'vi')).toBe('00:30');
   });
 
   it('falls back to English formatting for a tag Intl rejects, instead of failing the send', () => {
-    expect(formatEmailDate('2026-10-05', 'not a tag!')).toBe('Monday, October 5, 2026');
+    expect(formatEmailDate('2026-10-05', 'not a tag!')).toBe('Monday, 5 October 2026');
+  });
+});
+
+describe('an email in a language the registry does not write (phase 8: Korean)', () => {
+  it('takes the language’s tag and its own date, and a Korean face in the font stack', async () => {
+    const KO = { code: 'ko', bcp47: 'ko' };
+    const strings = { ...registryStrings('guest.ack', 'en'), 'email.common.label_date': '날짜' };
+    const built = buildBookingEmail('guest.ack', booking, strings, KO, { adminOrigin: ORIGIN });
+    const { html } = await renderEmail(built.element);
+    expect(html).toContain('lang="ko"');
+    expect(html).toContain('2026년 10월 5일');
+    expect(html).toContain('날짜');
+    expect(html).toContain('Apple SD Gothic Neo');
   });
 });
 
@@ -80,8 +94,8 @@ describe('booking emails', () => {
       for (const out of [html, text]) {
         expect(out).toContain('FC-7K3QH9XA');
         expect(out).toContain('Tàya House');
-        expect(out).toContain(locale === EN ? 'Monday, October 5, 2026' : 'Thứ Hai, 5 tháng 10, 2026');
-        expect(out).toContain(locale === EN ? '7:00 PM (Da Nang time, GMT+7)' : '19:00 (giờ Đà Nẵng, GMT+7)');
+        expect(out).toContain(locale === EN ? 'Monday, 5 October 2026' : 'Thứ Hai, 5 tháng 10, 2026');
+        expect(out).toContain(locale === EN ? '19:00 (Da Nang time, GMT+7)' : '19:00 (giờ Đà Nẵng, GMT+7)');
       }
       for (const out of [subject, text]) expect(out).not.toMatch(/\{\w+\}/);
       expect(html).toContain(`lang="${locale.bcp47}"`);
@@ -190,7 +204,7 @@ describe('booking emails', () => {
 
   it('staff.new in English says "party of", so one guest still reads right', async () => {
     const { subject } = await render('staff.new', EN, { ...booking, guests: 1 });
-    expect(subject).toBe('New booking FC-7K3QH9XA: Tàya House, Mon, Oct 5, 2026 7:00 PM, party of 1');
+    expect(subject).toBe('New booking FC-7K3QH9XA: Tàya House, Mon, 5 Oct 2026 19:00, party of 1');
   });
 
   it('escapes what a guest typed: their text cannot become markup', async () => {

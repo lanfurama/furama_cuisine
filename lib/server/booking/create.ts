@@ -10,6 +10,7 @@ import { outboxEnv } from '@/lib/server/email/env';
 import { queueWebBookingEmails } from '@/lib/server/email/outbox';
 import { newReference } from '@/lib/server/reference';
 import { venueNow, type IsoDate } from '@/lib/venue-time';
+import { currentPolicyVersion } from '@/lib/server/content/policy-version';
 import type { ReservationRequest } from './input';
 import { lockBookingDay, lockGuestPhoneDay } from './lock';
 import { loadBookedCovers, loadRestaurantRules } from './rules';
@@ -105,6 +106,22 @@ async function phoneDayFull(client: PoolClient, input: ReservationRequest): Prom
   return rows[0].n >= PHONE_DAY_LIMIT;
 }
 
+/**
+ * The privacy policy version a booking records (SEC-3, R8-7): the one the
+ * page showed when the guest ticked the box, when legal_versions has that
+ * pair (a page opened before the policy changed books under the wording the
+ * guest read); else the version in force for that language, which falls back
+ * to English for a language without versions of its own (currentPolicyVersion).
+ */
+async function consentFor(client: PoolClient, input: ReservationRequest): Promise<{ version: string; locale: string }> {
+  if (input.consentVersion && input.consentLocale) {
+    const { rowCount } = await client.query('SELECT 1 FROM legal_versions WHERE locale = $1 AND version = $2', [input.consentLocale, input.consentVersion]);
+    if (rowCount) return { version: input.consentVersion, locale: input.consentLocale };
+  }
+  const current = await currentPolicyVersion(client, input.consentLocale ?? input.locale);
+  return { version: current.version, locale: current.locale };
+}
+
 async function insertInTransaction(client: PoolClient, input: ReservationRequest, now: Date, reference: string): Promise<CreateOutcome> {
   if (await phoneDayFull(client, input)) return { ok: false, code: 'too_many_requests' };
   // Then the booking-day lock: the rules and the covers read below must be the ones the insert is decided on.
@@ -122,17 +139,18 @@ async function insertInTransaction(client: PoolClient, input: ReservationRequest
     return verdict;
   }
   const status = rules.autoConfirm ? 'confirmed' : 'requested';
+  const consent = await consentFor(client, input);
   // search_text, version and updated_at come from the reservations_before_write trigger.
   const { rows } = await client.query<{ id: string }>(
     `INSERT INTO reservations
        (reference, restaurant_id, reserved_on, reserved_at, meal, guests, guest_name, phone, phone_e164,
-        email, note, status, confirmed_at, source, locale, consent_version, consented_at, offer_id)
+        email, note, status, confirmed_at, source, locale, consent_version, consent_locale, consented_at, offer_id)
      VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8, $9, $10, $11, $12,
              CASE WHEN $12 = 'confirmed' THEN now() END, 'web',
              COALESCE((SELECT code FROM locales WHERE code = $13 AND is_enabled),
                       (SELECT code FROM locales WHERE is_default)),
-             -- The policy version in force now (migration 009); the constant only while the table is empty.
-             COALESCE((SELECT version FROM legal_versions ORDER BY created_at DESC, version DESC LIMIT 1), $14), now(),
+             -- The policy version and language the guest agreed to (consentFor).
+             $14, $16, now(),
              -- R9, a soft link: the id came over the wire, and the guest may have switched
              -- restaurant or date since VIEW OFFER. Kept only for a published offer of this
              -- restaurant that runs on the booked date; anything else books without it.
@@ -155,8 +173,9 @@ async function insertInTransaction(client: PoolClient, input: ReservationRequest
       input.note,
       status,
       input.locale,
-      input.consentVersion,
+      consent.version,
       input.offerId,
+      consent.locale,
     ],
   );
   const id = rows[0].id;

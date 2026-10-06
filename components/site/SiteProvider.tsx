@@ -233,6 +233,7 @@ export function SiteProvider({
   restaurants,
   site,
   strings,
+  policy,
   children,
 }: {
   locale: string;
@@ -243,6 +244,8 @@ export function SiteProvider({
   site: SiteContent;
   /** The booking.* and error.* copy for this language, resolved on the server (DB override, else registry). */
   strings: ClientStrings;
+  /** The privacy policy version in force for this language and its own language (getPolicyVersion): what the consent box books under (SEC-3). */
+  policy: { version: string; locale: string };
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -686,6 +689,8 @@ export function SiteProvider({
       note: form.note,
       locale,
       consent,
+      consentVersion: policy.version,
+      consentLocale: policy.locale,
       honeypot,
       ...(offer && offer.restaurant === booking.restaurant ? { offerId: offer.id } : {}),
     })
@@ -708,7 +713,7 @@ export function SiteProvider({
       // failing or passing its deadline (lib/botid.ts). Every one names the number to call.
       .catch(() => setServerError({ code: 'network', params: errorParams(booking.restaurant) }))
       .finally(() => setPending(false));
-  }, [booking, consent, context, errorParams, failed, form, honeypot, loadBoard, loadCalendar, locale, now, offer, restaurants, valid]);
+  }, [booking, consent, context, errorParams, failed, form, honeypot, loadBoard, loadCalendar, locale, now, offer, policy.locale, policy.version, restaurants, valid]);
 
   const setFormField = useCallback((key: keyof BookingForm, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));

@@ -1,4 +1,6 @@
+import { readFileSync } from 'node:fs';
 import type { Browser, Page } from '@playwright/test';
+import { REGISTRY } from '../lib/i18n/registry';
 import { expectHydrated } from './csp';
 import { STAFF, db, expect, seedStaff, signInAs, test } from './staff-fixtures';
 
@@ -230,6 +232,81 @@ test('an Editor approves a machine translation on Bản dịch: /vi shows it onl
     await editor.context().close();
   } finally {
     await c.query(`DELETE FROM offer_i18n WHERE offer_id = 2 AND locale <> 'en'`);
+    await c.end();
+  }
+});
+
+type Logged = { to: string; subject: string; text: string; html: string };
+function logged(): Logged[] {
+  const file = process.env.EMAIL_LOG_FILE;
+  if (!file) throw new Error('Set EMAIL_LOG_FILE (the server writes emails there) to run the booking email tests.');
+  try {
+    return readFileSync(file, 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => JSON.parse(l) as Logged);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
+  }
+}
+
+/** Books Café Indochine's last open day from `path` (its drawer in English but for `submit`), and returns the reference. */
+async function bookFrom(visitor: Page, path: string, email: string, submit: string): Promise<string> {
+  await visitor.goto(path);
+  await visitor.locator('.rcard:visible', { hasText: 'Café Indochine' }).first().click();
+  const drawer = visitor.getByRole('dialog', { name: 'Reserve a table' });
+  await drawer.locator('.daystrip .day[data-state="open"]').last().click();
+  await drawer.locator('.slot:not([disabled])').first().click();
+  await drawer.getByLabel('Full name *', { exact: true }).fill('Nguyễn Minh Anh');
+  const digits = String(Date.now()).slice(-6);
+  await drawer.getByLabel('Phone *', { exact: true }).fill(`0907 ${digits.slice(0, 3)} ${digits.slice(3)}`);
+  await drawer.getByLabel('Email', { exact: true }).fill(email);
+  await drawer.getByRole('checkbox', { name: REGISTRY['booking.consent'].en }).check();
+  await drawer.getByRole('button', { name: submit }).click();
+  await expect(drawer.locator('.drawer-ref')).toHaveText(/^FC-[0-9A-HJKMNP-TV-Z]{8}$/);
+  return (await drawer.locator('.drawer-ref').textContent()) ?? '';
+}
+
+test('a booking on /vi is kept in Vietnamese with the consent it showed; its emails go out in Vietnamese; /en books in English with en-GB dates (spec §13)', async ({
+  page,
+  browser,
+}) => {
+  const c = db();
+  await c.connect();
+  try {
+    // A Vietnamese drawer word from the strings screen's table (the rest falls back to English).
+    await c.query(`INSERT INTO content_strings (key, locale, value, status) VALUES ('booking.submit', 'vi', 'GỬI YÊU CẦU', 'reviewed')`);
+    await signInAs(page, STAFF.admin);
+    await page.goto('/admin/locales');
+    await row(page, 'Tiếng Việt (vi)').getByRole('button', { name: 'Bật cho khách' }).click();
+    await expect(row(page, 'Tiếng Việt (vi)')).toContainText('Đang bật');
+
+    const visitor = await guest(browser);
+    const viGuest = `vi-${Date.now()}@example.com`;
+    const vi = await bookFrom(visitor, '/vi', viGuest, 'GỬI YÊU CẦU');
+    const policy = (await c.query<{ version: string }>(`SELECT version FROM legal_versions WHERE locale = 'en' ORDER BY created_at DESC, version DESC LIMIT 1`)).rows[0].version;
+    expect((await c.query(`SELECT locale, consent_locale, consent_version FROM reservations WHERE reference = $1`, [vi])).rows).toEqual([
+      // Vietnamese has no policy wording of its own yet: the guest agreed to the English one, and the booking says which.
+      { locale: 'vi', consent_locale: 'en', consent_version: policy },
+    ]);
+    await expect.poll(() => logged().find((e) => e.to === viGuest && e.subject.includes(vi))?.subject).toBe(`Chúng tôi đã nhận yêu cầu đặt bàn của bạn (${vi})`);
+    const ack = logged().find((e) => e.to === viGuest && e.subject.includes(vi))!;
+    expect(ack.html).toContain('lang="vi"');
+    expect(ack.text).toContain('Yêu cầu đặt bàn của bạn tại Café Indochine đã được tiếp nhận.');
+    // The staff email goes to the shared inbox in the staff's language (the default staff locale, Vietnamese).
+    await expect.poll(() => logged().find((e) => e.to !== viGuest && e.subject.includes(vi))?.subject).toMatch(new RegExp(`^Đặt bàn mới ${vi}: Café Indochine, `));
+
+    const enGuest = `en-${Date.now()}@example.com`;
+    const en = await bookFrom(visitor, '/en', enGuest, 'REQUEST BOOKING');
+    await expect.poll(() => logged().find((e) => e.to === enGuest && e.subject.includes(en))?.subject).toBe(`We have received your table request (${en})`);
+    const enAck = logged().find((e) => e.to === enGuest && e.subject.includes(en))!;
+    // Day first and a 24-hour clock (R8-8): "Monday, 5 October 2026", "19:00 (Da Nang time, GMT+7)".
+    expect(enAck.text).toMatch(/[A-Z][a-z]+day, \d{1,2} [A-Z][a-z]+ \d{4}/);
+    expect(enAck.text).toMatch(/\b\d{2}:\d{2} \(Da Nang time, GMT\+7\)/);
+    await visitor.context().close();
+  } finally {
+    await c.query(`DELETE FROM content_strings WHERE key = 'booking.submit' AND locale = 'vi'`);
     await c.end();
   }
 });

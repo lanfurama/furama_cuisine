@@ -2,7 +2,7 @@ import 'server-only';
 import * as z from 'zod';
 import { GUEST_EMAIL } from '@/lib/booking';
 import type { BookingErrorCode } from '@/lib/booking-errors';
-import { PRIVACY_POLICY_VERSION } from '@/lib/legal';
+import { DEFAULT_LOCALE, LOCALE_CODE_RE } from '@/lib/i18n/locales';
 import { toE164 } from '@/lib/phone';
 import { isValidIsoDate, type IsoDate } from '@/lib/venue-time';
 
@@ -47,6 +47,14 @@ const schema = z.object({
   locale: z.string().max(35).optional(),
   /** The privacy consent box (spec §11): only a ticked box books. */
   consent: z.literal(true),
+  /**
+   * The policy version and its language that the page showed when the guest
+   * ticked the box (SEC-3, R8-7). A hint, never trusted: create.ts keeps the
+   * pair only when legal_versions has it, else stamps the version in force.
+   * Anything malformed is dropped, never an error: the booking stands.
+   */
+  consentVersion: z.string().regex(/^\d{4}-\d{2}-\d{2}(\.\d{1,3})?$/).optional().catch(undefined),
+  consentLocale: z.string().regex(LOCALE_CODE_RE).max(35).optional().catch(undefined),
   /** The drawer's hidden field; step 1 (honeypotFilled) has already refused anything but empty. */
   honeypot: z.literal('').optional(),
   /**
@@ -86,8 +94,10 @@ export type ReservationRequest = {
   email: string | null;
   note: string | null;
   locale: string;
-  /** The privacy policy version the guest agreed to (lib/legal.ts), stored on the booking. */
-  consentVersion: string;
+  /** The privacy policy version the page showed (unchecked: create.ts checks it against legal_versions). */
+  consentVersion: string | null;
+  /** That version's language (reservations.consent_locale), unchecked likewise. */
+  consentLocale: string | null;
   /** The offer as sent (R9); reservations.offer_id gets it only if the insert's check passes. */
   offerId: number | null;
 };
@@ -116,9 +126,9 @@ export function parseReservationInput(input: unknown): ParseResult {
       phoneE164,
       email: v.email || null,
       note: v.note || null,
-      locale: v.locale ?? 'en',
-      // The version this server shows; the box links to that page.
-      consentVersion: PRIVACY_POLICY_VERSION,
+      locale: v.locale ?? DEFAULT_LOCALE,
+      consentVersion: v.consentVersion ?? null,
+      consentLocale: v.consentLocale ?? null,
       offerId: v.offerId ?? null,
     },
   };
