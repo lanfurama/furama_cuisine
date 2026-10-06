@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/fetch-script-fonts.mjs && next build",
     "start": "next start",
     "lint": "oxlint",
     "typecheck": "next typegen && tsc --noEmit --incremental false",

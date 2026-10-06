@@ -19,6 +19,10 @@
  *    CSS is checked here: every expected @font-face, under the one family the
  *    CSS variable names, with Google's unicode-range per subset, in Google's
  *    order, its file present, and its stylesheet linked from the pages.
+ *    The script fonts (spec §8 SCRIPT_FONTS) stay out of those pages: no page
+ *    built here is in a script the site's fonts miss, so none may link one of
+ *    public/fonts/<script>.css, and each such stylesheet must exist, fetched by
+ *    scripts/fetch-script-fonts.mjs (or its systems'-fonts stand-in).
  * 3. NEXT_PUBLIC_VERCEL_ENV must be inlined everywhere (next.config.ts `env`):
  *    BotID's browser half (instrumentation-client.ts) and server half
  *    (lib/server/guard/bot.ts) decide by it, and a bundle still reading it at
@@ -149,6 +153,7 @@ for (const route of UNCACHED) {
 
 /* 2. Fonts */
 const fontSummary = checkFonts();
+const scriptFontSummary = checkScriptFonts();
 
 /*
  * 3. BotID's switch. A read left in a bundle is `process.env.NEXT_PUBLIC_VERCEL_ENV`
@@ -173,6 +178,7 @@ console.log(
 console.log(`Admin check passed: ${adminRoutes.map(([route]) => route).join(', ')} have no static shell.`);
 console.log(`Uncached check passed: ${UNCACHED.join(', ')} built as a route handler, not prerendered.`);
 console.log(`Font check passed: ${fontSummary}.`);
+console.log(`Script font check passed: ${scriptFontSummary}.`);
 console.log(`Inlined env check passed: none of ${bundles.length} files under .next/server and .next/static reads NEXT_PUBLIC_VERCEL_ENV at runtime.`);
 
 function checkFonts() {
@@ -256,6 +262,35 @@ function checkFonts() {
   }
   summary.push(`linked from ${FONT_PAGES.map((p) => `/${p}`).join(', ')}`);
   return summary.join('; ');
+}
+
+/**
+ * The script stylesheets of lib/fonts/scripts.ts: each in public/, either the
+ * fetched Noto faces (every file present) or the systems'-fonts stand-in, and
+ * none linked from the Latin pages built here.
+ */
+function checkScriptFonts() {
+  const source = readFileSync(join(process.cwd(), 'lib', 'fonts', 'scripts.ts'), 'utf8');
+  const sheets = [...source.matchAll(/'(\/fonts\/[a-z-]+\.css)'/g)].map((m) => m[1]);
+  if (sheets.length === 0) problems.push('lib/fonts/scripts.ts names no script stylesheet');
+  const states = [];
+  for (const sheet of sheets) {
+    const file = join(process.cwd(), 'public', sheet);
+    if (!existsSync(file)) {
+      problems.push(`${sheet} is missing: run scripts/fetch-script-fonts.mjs (npm run build does)`);
+      continue;
+    }
+    const css = readFileSync(file, 'utf8');
+    if (!css.includes('--font-script:')) problems.push(`${sheet} does not set --font-script`);
+    const files = [...new Set([...css.matchAll(/url\((\/fonts\/[^)]+\.woff2)\)/g)].map((m) => m[1]))];
+    for (const f of files) if (!existsSync(join(process.cwd(), 'public', f))) problems.push(`${sheet} points at ${f}, which is missing`);
+    states.push(`${sheet} ${files.length ? `${files.length} files` : "systems' fonts"}`);
+    for (const page of FONT_PAGES) {
+      const htmlFile = join(dir, 'server', 'app', `${page}.html`);
+      if (existsSync(htmlFile) && readFileSync(htmlFile, 'utf8').includes(`href="${sheet}`)) problems.push(`/${page} links ${sheet}`);
+    }
+  }
+  return `${states.join(', ')}; none linked from ${FONT_PAGES.map((p) => `/${p}`).join(', ')}`;
 }
 
 /** All files below `root`. */

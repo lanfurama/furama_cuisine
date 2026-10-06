@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { lang } from 'next/root-params';
 import { fontVariables } from '@/lib/fonts';
+import { SCRIPT_FONTS } from '@/lib/fonts/scripts';
+import { catalogLanguage } from '@/lib/i18n/catalog';
 import { DEFAULT_LOCALE, LOCALE_CODE_RE, toBcp47 } from '@/lib/i18n/locales';
 import { MotionProvider } from '@/lib/motion';
 import { getEnabledLocales } from '@/lib/server/content/locales';
@@ -36,6 +38,17 @@ export async function generateStaticParams() {
  */
 const MOTION_BOOTSTRAP = `try{document.documentElement.dataset.motion=matchMedia('(prefers-reduced-motion: reduce)').matches?'off':'on'}catch(e){}`;
 
+/**
+ * The script stylesheet of a URL code, or null for Latin and Vietnamese. This
+ * layout reads no database (R38), so the script comes from the catalogue, the
+ * only place /admin/locales adds a language from; a code outside it gets the
+ * site's fonts alone.
+ */
+function scriptStylesheet(code: string): string | null {
+  const language = catalogLanguage(code);
+  return language ? SCRIPT_FONTS[language.script] : null;
+}
+
 /*
  * The guest root layout: the document, fonts and motion only. It reads no
  * database and never calls notFound(): neither an error nor a notFound() thrown
@@ -45,6 +58,7 @@ const MOTION_BOOTSTRAP = `try{document.documentElement.dataset.motion=matchMedia
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   // string | undefined: app/admin has a root layout of its own with no [lang] (next-root-params.md:286-313).
   const code = (await lang()) ?? DEFAULT_LOCALE;
+  const scriptCss = scriptStylesheet(code);
 
   /* suppressHydrationWarning: the inline script below stamps data-motion onto
      <html> before React hydrates, so the server markup differs by design. */
@@ -56,6 +70,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: MOTION_BOOTSTRAP }} />
+        {scriptCss && <link rel="stylesheet" href={scriptCss} precedence="default" />}
       </head>
       <body>
         <MotionProvider>{children}</MotionProvider>

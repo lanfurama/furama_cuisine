@@ -1387,7 +1387,7 @@ reference so future design revisions can be diffed against what was built.
 | Command              | Purpose                        |
 | -------------------- | ------------------------------ |
 | `npm run dev`        | Dev server                     |
-| `npm run build`      | Production build               |
+| `npm run build`      | Fetches the script fonts (below), then the production build |
 | `npm run typecheck`  | `next typegen`, then `tsc` (no incremental cache) |
 | `npm run lint`       | oxlint                         |
 | `npm test`           | Vitest (unit, integration)     |
@@ -1395,5 +1395,6 @@ reference so future design revisions can be diffed against what was built.
 | `npm run test:visual` | Screenshot comparison (local) |
 | `npm run db:migrate` | Apply pending SQL migrations   |
 | `npm run db:psql`    | psql shell against Neon        |
+| `node scripts/fetch-script-fonts.mjs [--force]` | Noto Sans KR, SC and JP from Google Fonts into `public/fonts/` (not committed), for Korean, Chinese and Japanese pages only (spec §8 `SCRIPT_FONTS`, `lib/fonts/scripts.ts`). It runs before every `npm run build`. Files already there are kept unless `--force`. If the fetch fails, the build still runs: those pages use the systems' own CJK fonts, and the script prints a warning |
 | `node scripts/measure-assets.mjs` | The `media` rows of `public/assets` (migration 008's `VALUES`) |
 | `node scripts/move-assets-to-blob.mjs --prefix production [--apply]` | Copies the static `media` files into the Blob store and repoints their rows, once, for production only ("Media in Vercel Blob") |

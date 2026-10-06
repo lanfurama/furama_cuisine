@@ -53,8 +53,9 @@
   --disabled-line: #e9e2d2;
 
   /* Type */
-  --serif: var(--font-crimson), 'Crimson Pro', Georgia, serif;
-  --sans: var(--font-be-vietnam), 'Be Vietnam Pro', system-ui, sans-serif;
+  /* --font-script: a Korean, Chinese or Japanese page's Noto face (lib/fonts/scripts.ts), after the site's own. */
+  --serif: var(--font-crimson), 'Crimson Pro', var(--font-script, Georgia), Georgia, serif;
+  --sans: var(--font-be-vietnam), 'Be Vietnam Pro', var(--font-script, system-ui), system-ui, sans-serif;
 
   /* Rhythm */
   --shell: 1440px;

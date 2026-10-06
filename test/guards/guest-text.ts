@@ -55,6 +55,8 @@ export const NON_TEXT_ATTRIBUTES = new Set([
   'type',
   'role',
   'rel',
+  // React's stylesheet order (<link rel="stylesheet" precedence>): the script font in the guest root layout.
+  'precedence',
   'target',
   'href',
   'src',
