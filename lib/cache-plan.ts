@@ -49,8 +49,8 @@ export type ContentTable = (typeof CONTENT_TABLES)[number];
  * What a save to each table expires. `restaurant:<id>` is added by the caller
  * for a restaurant's own rows (tagsForSave's second argument). content_strings
  * is per key prefix (phase 7: hero.* → content:hero, legal.* → content:legal,
- * the rest → content:ui); locales expire `locales` and the i18n tag of every
- * language whose fallback changed (phase 8).
+ * the rest → content:ui); a change on /admin/locales goes through
+ * tagsForLocales instead (phase 8).
  */
 export const SAVE_TAGS: Record<ContentTable, readonly string[]> = {
   locales: [TAGS.locales],
@@ -152,6 +152,16 @@ export const LOADERS = {
 } as const satisfies Record<string, Loader>;
 
 export type LoaderName = keyof typeof LOADERS;
+
+/**
+ * What a change on /admin/locales expires (spec §8 step 4, §6.2): `locales`
+ * (the switcher, the sitemap, the language checks; the proxy reads the table
+ * itself, within a minute) and `i18n:<code>` of each language whose visible
+ * rows changed: enabled or disabled, serve_machine, deleted.
+ */
+export function tagsForLocales(changed: readonly string[]): string[] {
+  return [TAGS.locales, ...new Set(changed.map((code) => TAGS.i18n(code)))];
+}
 
 /** The tags a transaction that wrote `tables` must expire; `restaurantId` adds that restaurant's own tag. */
 export function tagsForSave(tables: readonly ContentTable[], restaurantId?: string): string[] {

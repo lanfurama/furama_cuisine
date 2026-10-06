@@ -19,7 +19,7 @@ import { walk } from './guest-text';
 /** Screens phase 7 has not built yet: none (plan 7B task B8, X1); a later phase's screen names its phase instead. */
 const NOT_BUILT: readonly EditScreen[] = [];
 
-const CURRENT_PHASE = 7;
+const CURRENT_PHASE = 8;
 
 function screenAttributes(dir: string): Set<string> {
   const found = new Set<string>();

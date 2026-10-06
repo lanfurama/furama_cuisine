@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { CONTENT_TABLES, LOADERS, SAVE_TAGS, tagsForSave, type ContentTable } from './cache-plan';
+import { CONTENT_TABLES, LOADERS, SAVE_TAGS, tagsForLocales, tagsForSave, type ContentTable } from './cache-plan';
 import { TAGS } from './cache-tags';
 
 const ALL_TAGS = new Set<string>(Object.values(TAGS).flatMap((t) => (typeof t === 'string' ? [t] : [])));
@@ -44,5 +44,12 @@ describe('cache plan (spec §6.2)', () => {
     expect(tagged).toHaveLength(cached);
     expect(tagged.filter((n) => !(n in LOADERS))).toEqual([]);
     expect(Object.keys(LOADERS).filter((n) => !tagged.includes(n))).toEqual([]);
+  });
+});
+
+describe('tagsForLocales (phase 8)', () => {
+  it('expires locales, and the i18n tag of each language that changed, once', () => {
+    expect(tagsForLocales(['vi', 'vi', 'ko'])).toEqual(['locales', 'i18n:vi', 'i18n:ko']);
+    expect(tagsForLocales([])).toEqual(['locales']);
   });
 });

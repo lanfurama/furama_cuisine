@@ -6,7 +6,8 @@ import { describe, expect, it } from 'vitest';
 /*
  * Phase-7 code rule 1 (spec §7.4, phase-6 ledger L7-6): a save expires the
  * guest cache only through the cache plan, `for (const tag of
- * tagsForSave(…)) updateTag(tag)` or the same over tagsForStrings(…), so the
+ * tagsForSave(…)) updateTag(tag)` or the same over tagsForStrings(…) or
+ * tagsForLocales(…) (the languages screen, phase 8), so the
  * tags of every table a transaction wrote are expired and lib/cache-plan.test.ts
  * keeps them in step with the loaders. The booking screens' own tag
  * (TAGS.bookingRules(id)) is not a content tag. One older call is listed
@@ -24,7 +25,7 @@ const ALLOWED = new Map([
   ],
 ]);
 
-const CACHE_PLAN_FUNCTIONS = ['tagsForSave', 'tagsForStrings'];
+const CACHE_PLAN_FUNCTIONS = ['tagsForSave', 'tagsForStrings', 'tagsForLocales'];
 
 type Node = { type: string; start: number; end: number; [key: string]: unknown };
 

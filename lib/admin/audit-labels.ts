@@ -58,6 +58,8 @@ const ENTITIES: Record<string, string> = {
   legal_versions: 'Phiên bản chính sách',
   // A library file: the row and its alt text (R5, C6).
   media: 'File trong thư viện',
+  // Languages (phase 8, /admin/locales): one language, or the order (entity_id NULL).
+  locales: 'Ngôn ngữ',
 };
 
 export function auditActionLabel(action: string): string {
