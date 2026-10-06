@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getPool } from '@/db/client';
 import { LIMITS, limitWarnings } from '@/lib/admin/content-rules';
+import { formLocales, listStates } from '@/lib/server/content-admin/form-locales';
 import { EXPERIENCE, listExperiencesAdmin } from '@/lib/server/content-admin/experiences';
 import { listDeleted, listHistory } from '@/lib/server/content-admin/history';
 import { orderToken, type OrderSnapshot } from '@/lib/server/content-admin/snapshot';
@@ -9,6 +10,7 @@ import { requirePagePermission } from '@/lib/server/dal/session';
 import { DeletedList, enOf } from '../../_kit/DeletedList';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
 import { ItemList } from '../../_kit/ItemList';
+import { LocaleTabs } from '../../_kit/LocaleTabs';
 import { StringsPanel } from '../_ui/StringsPanel';
 import { deleteExperienceAction, reorderExperiencesAction, restoreExperienceAction, restoreExperienceOrderAction, toggleExperienceAction } from './actions';
 import { ExperienceForm } from './ExperienceForm';
@@ -35,11 +37,13 @@ export default async function ExperiencesPage() {
     listDeleted(pool, EXPERIENCE),
     listHistory(pool, 'experiences', null, 10),
   ]);
+  const tabs = await formLocales(pool);
+  const states = await listStates(pool, EXPERIENCE, tabs);
   const histories = await Promise.all(items.map((e) => listHistory(pool, 'experiences', e.id, 10)));
   const shown = items.filter((i) => i.isPublished).length;
 
   return (
-    <>
+    <LocaleTabs locales={tabs}>
       <p className="a-crumbs">
         <Link href="/admin/content">← Nội dung</Link>
       </p>
@@ -66,7 +70,9 @@ export default async function ExperiencesPage() {
             items.map((e, i) => [
               e.id,
               <div key={e.id}>
-                <ExperienceForm id={e.id} token={e.token} values={e.values} label={`Mục “${e.name}”`} />
+                <LocaleTabs locales={tabs} states={states.get(e.id)}>
+                  <ExperienceForm id={e.id} token={e.token} values={e.values} label={`Mục “${e.name}”`} />
+                </LocaleTabs>
                 <HistoryPanel
                   title={`Lịch sử: ${e.name}`}
                   headingId={`experience-${e.id}-history`}
@@ -113,6 +119,6 @@ export default async function ExperiencesPage() {
         <h2 id="experiences-copy">Chữ của mục Experiences</h2>
         <StringsPanel screen="experiences" title="Chữ mục Experiences" />
       </section>
-    </>
+    </LocaleTabs>
   );
 }

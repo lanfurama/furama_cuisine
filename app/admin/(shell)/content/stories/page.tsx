@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getPool } from '@/db/client';
 import { LIMITS, limitWarnings } from '@/lib/admin/content-rules';
+import { formLocales, listStates } from '@/lib/server/content-admin/form-locales';
 import { listDeleted, listHistory } from '@/lib/server/content-admin/history';
 import { listMediaOptions } from '@/lib/server/content-admin/media-options';
 import { orderToken, type OrderSnapshot } from '@/lib/server/content-admin/snapshot';
@@ -11,6 +12,7 @@ import { envPrefix, isBlobConfigured } from '@/lib/server/media/blob';
 import { DeletedList, enOf } from '../../_kit/DeletedList';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
 import { ItemList } from '../../_kit/ItemList';
+import { LocaleTabs } from '../../_kit/LocaleTabs';
 import { StringsPanel } from '../_ui/StringsPanel';
 import { deleteStoryAction, reorderStoriesAction, restoreStoryAction, restoreStoryOrderAction, toggleStoryAction } from './actions';
 import { StoryForm } from './StoryForm';
@@ -44,13 +46,15 @@ export default async function StoriesPage() {
     listHistory(pool, 'stories', null, 10),
     listMediaOptions(pool, 'image'),
   ]);
+  const tabs = await formLocales(pool);
+  const states = await listStates(pool, STORY, tabs);
   const histories = await Promise.all(items.map((s) => listHistory(pool, 'stories', s.id, 10)));
   const upload = { prefix: envPrefix(), configured: isBlobConfigured() };
   const shown = items.filter((i) => i.isPublished).length;
   const thumbOf = (id: string) => images.find((i) => i.id === id) ?? null;
 
   return (
-    <>
+    <LocaleTabs locales={tabs}>
       <p className="a-crumbs">
         <Link href="/admin/content">← Nội dung</Link>
       </p>
@@ -81,7 +85,9 @@ export default async function StoriesPage() {
             items.map((s, i) => [
               s.id,
               <div key={s.id}>
-                <StoryForm id={s.id} token={s.token} values={s.values} images={images} upload={upload} label={`Câu chuyện “${s.name}”`} />
+                <LocaleTabs locales={tabs} states={states.get(s.id)}>
+                  <StoryForm id={s.id} token={s.token} values={s.values} images={images} upload={upload} label={`Câu chuyện “${s.name}”`} />
+                </LocaleTabs>
                 <HistoryPanel
                   title={`Lịch sử: ${s.name}`}
                   headingId={`story-${s.id}-history`}
@@ -130,6 +136,6 @@ export default async function StoriesPage() {
         <h2 id="stories-copy">Chữ của mục Stories</h2>
         <StringsPanel screen="stories" title="Stories" />
       </section>
-    </>
+    </LocaleTabs>
   );
 }

@@ -2,7 +2,7 @@ import 'server-only';
 import { sourceHash, translationState, type TranslationState } from '@/lib/i18n/source-hash';
 import type { Db } from '@/lib/server/booking/rules';
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
-import type { I18nRow, ItemDef, ItemSnapshot } from './snapshot';
+import { readItems, type I18nRow, type ItemDef, type ItemSnapshot } from './snapshot';
 
 /*
  * The language tabs of the content forms (phase 8, spec §7.3, R8-5): every
@@ -44,4 +44,9 @@ export function itemStates(def: ItemDef, s: ItemSnapshot, locales: readonly Form
   const fallback = locales.find((l) => l.isDefault)?.code;
   const current = sourceHash(columns, fallback ? byLocale.get(fallback) : undefined);
   return Object.fromEntries(locales.map((l) => [l.code, translationState(byLocale.get(l.code), current, l.isDefault)]));
+}
+
+/** Each item's tab states on a list screen, by id. */
+export async function listStates(db: Db, def: ItemDef, locales: readonly FormLocale[]): Promise<Map<string, Record<string, TranslationState>>> {
+  return new Map((await readItems(db, def)).map((s) => [String(s.row.id), itemStates(def, s, locales)]));
 }

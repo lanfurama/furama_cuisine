@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getPool } from '@/db/client';
 import { LIMITS, limitWarnings, NAV_TARGETS } from '@/lib/admin/content-rules';
+import { formLocales, listStates } from '@/lib/server/content-admin/form-locales';
 import { listDeleted, listHistory } from '@/lib/server/content-admin/history';
 import { listNavAdmin, NAV_ITEM } from '@/lib/server/content-admin/nav';
 import { SECTION_LABELS } from '@/lib/server/content-admin/sections';
@@ -10,6 +11,7 @@ import { requirePagePermission } from '@/lib/server/dal/session';
 import { DeletedList, enOf } from '../../_kit/DeletedList';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
 import { ItemList } from '../../_kit/ItemList';
+import { LocaleTabs } from '../../_kit/LocaleTabs';
 import { deleteNavItemAction, reorderNavItemsAction, restoreNavItemAction, restoreNavItemOrderAction, toggleNavItemAction } from './actions';
 import { NavItemForm } from './NavItemForm';
 
@@ -31,6 +33,8 @@ export default async function NavigationPage() {
   await requirePagePermission({ content: ['read'] });
   const pool = getPool();
   const [{ items, token }, deleted, orderHistory] = await Promise.all([listNavAdmin(pool), listDeleted(pool, NAV_ITEM), listHistory(pool, 'nav_items', null, 10)]);
+  const tabs = await formLocales(pool);
+  const states = await listStates(pool, NAV_ITEM, tabs);
   const histories = await Promise.all(items.map((n) => listHistory(pool, 'nav_items', n.id, 10)));
   const shown = items.filter((i) => i.isPublished).length;
   // A section takes one item (nav_items_target_section_key): each form offers the free ones and its own.
@@ -39,7 +43,7 @@ export default async function NavigationPage() {
   const free = targetsFor(null);
 
   return (
-    <>
+    <LocaleTabs locales={tabs}>
       <p className="a-crumbs">
         <Link href="/admin/content">← Nội dung</Link>
       </p>
@@ -72,7 +76,9 @@ export default async function NavigationPage() {
             items.map((n, i) => [
               n.id,
               <div key={n.id}>
-                <NavItemForm id={n.id} token={n.token} values={n.values} targets={targetsFor(n.values.targetSection)} label={`Mục menu “${n.name}”`} />
+                <LocaleTabs locales={tabs} states={states.get(n.id)}>
+                  <NavItemForm id={n.id} token={n.token} values={n.values} targets={targetsFor(n.values.targetSection)} label={`Mục menu “${n.name}”`} />
+                </LocaleTabs>
                 <HistoryPanel
                   title={`Lịch sử: ${n.name}`}
                   headingId={`nav-${n.id}-history`}
@@ -119,6 +125,6 @@ export default async function NavigationPage() {
         tokenOf={(s: OrderSnapshot) => orderToken(s)}
         describe={(e) => `Thứ tự: ${((e.after as OrderSnapshot | null)?.order ?? []).map((o) => o.id).join(', ')}`}
       />
-    </>
+    </LocaleTabs>
   );
 }

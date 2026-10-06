@@ -32,10 +32,9 @@ async function resetLocales() {
   }
 }
 
-test.beforeAll(async () => {
-  await seedStaff();
-  await resetLocales();
-});
+test.beforeAll(() => seedStaff());
+// Each test starts from the seed's languages (en on, vi off, nothing else), whatever the one before added.
+test.beforeEach(resetLocales);
 test.afterAll(resetLocales);
 
 test('enabling a language on /admin/locales opens it to guests at once, and disabling it closes it', async ({ page, browser }) => {
@@ -94,4 +93,41 @@ test('an Editor has no Ngôn ngữ link, and /admin/locales shows the 403 view w
   await page.goto('/admin/locales');
   await expect(page.getByRole('heading', { name: 'Không có quyền truy cập' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Các ngôn ngữ' })).toHaveCount(0);
+});
+
+test('a content form has a tab per language: a Vietnamese save shows on /vi, and an English edit marks it "EN đã đổi"', async ({ page, browser }) => {
+  const c = db();
+  await c.connect();
+  const { rows } = await c.query<{ title: string }>(`SELECT title FROM offer_i18n WHERE offer_id = 2 AND locale = 'en'`);
+  const original = rows[0].title;
+  try {
+    await signInAs(page, STAFF.admin);
+    await page.goto('/admin/locales');
+    await row(page, 'Tiếng Việt (vi)').getByRole('button', { name: 'Bật cho khách' }).click();
+    await expect(row(page, 'Tiếng Việt (vi)')).toContainText('Đang bật');
+
+    await page.goto('/admin/content/offers/2');
+    const tabs = page.getByRole('tablist', { name: 'Tiêu đề: ngôn ngữ' });
+    await expect(tabs.getByRole('tab')).toHaveText(['EN', 'VIChưa dịch']);
+    await tabs.getByRole('tab', { name: /VI/ }).click();
+    await page.locator('input[name="title.vi"]').fill('Lớp học nấu ăn Việt');
+    await page.getByRole('button', { name: 'Lưu' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Đã lưu' })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('tablist', { name: 'Tiêu đề: ngôn ngữ' }).getByRole('tab')).toHaveText(['EN', 'VIĐã duyệt']);
+
+    const visitor = await guest(browser);
+    await visitor.goto('/vi');
+    await expect(visitor.getByText('Lớp học nấu ăn Việt').first()).toBeAttached();
+
+    await page.locator('input[name="title.en"]').fill(`${original}!`);
+    await page.getByRole('button', { name: 'Lưu' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Đã lưu' })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('tablist', { name: 'Tiêu đề: ngôn ngữ' }).getByRole('tab')).toHaveText(['EN', 'VIEN đã đổi']);
+  } finally {
+    await c.query(`DELETE FROM offer_i18n WHERE offer_id = 2 AND locale <> 'en'`);
+    await c.query(`UPDATE offer_i18n SET title = $1 WHERE offer_id = 2 AND locale = 'en'`, [original]);
+    await c.end();
+  }
 });

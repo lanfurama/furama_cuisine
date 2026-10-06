@@ -4,14 +4,21 @@ import Link from 'next/link';
 import { useActionState, useId } from 'react';
 import { submitKeepingValues } from '@/lib/admin/form';
 import type { Saved } from '@/lib/admin/save-state';
+import type { TranslationState } from '@/lib/i18n/source-hash';
 import type { ActionResult } from '@/lib/server/action-result';
 import { SaveBar } from '../../_kit/SaveBar';
 import { useSaveState } from '../../_kit/useSaveState';
 import { FieldError, FormMessage, invalidField } from '../../_ui/FormMessage';
 import { deleteMediaAction, saveMediaDetailsAction } from '../actions';
 
+/** Another language's alt field: its code, its tab label, and the state of its translation. */
+export type AltLanguage = { code: string; label: string; state: TranslationState };
+
+const STATE_LABELS: Record<TranslationState, string> = { missing: 'Chưa dịch', machine: 'Máy dịch', reviewed: 'Đã duyệt', stale: 'EN đã đổi' };
+
 /*
- * EN alt text (≤ 250, spec §5.2 media_i18n) and the decorative flag (alt=""
+ * EN alt text (≤ 250, spec §5.2 media_i18n), each other language's (phase 8,
+ * `altIn.<code>`: empty is "use English") and the decorative flag (alt="""
  * wherever the file is shown), on the editors' save state and SaveBar (7A
  * review UX-10): the fields remount on the token useSaveState accepted, a
  * newer version while typing is a "Tải lại" notice, unsaved edits guard the
@@ -22,32 +29,40 @@ export function MediaDetailsForm({
   token,
   alt,
   decorative,
+  translations = {},
+  languages = [],
   lastSaved,
 }: {
   id: string;
   token: string;
   alt: string;
   decorative: boolean;
+  translations?: Record<string, string>;
+  languages?: readonly AltLanguage[];
   lastSaved: { by: string | null; at: string } | null;
 }) {
-  const save = useSaveState<Saved, { alt: string; decorative: boolean }>(saveMediaDetailsAction, token, { alt, decorative });
+  const save = useSaveState<Saved, Values>(saveMediaDetailsAction, token, { alt, decorative, translations });
   return (
     <form method="post" className="a-grid-form" onSubmit={submitKeepingValues(save.dispatch)} onInput={save.markDirty} noValidate aria-label="Mô tả ảnh">
-      <DetailsFields key={save.fieldsKey} id={id} token={save.token} values={save.view} state={save.state} />
+      <DetailsFields key={save.fieldsKey} id={id} token={save.token} values={save.view} languages={languages} state={save.state} />
       <SaveBar state={save.state} pending={save.pending} dirty={save.dirty} stale={save.stale} onReload={save.reload} lastSaved={lastSaved} label="Lưu mô tả" />
     </form>
   );
 }
 
+type Values = { alt: string; decorative: boolean; translations: Record<string, string> };
+
 function DetailsFields({
   id,
   token,
   values,
+  languages,
   state,
 }: {
   id: string;
   token: string;
-  values: { alt: string; decorative: boolean };
+  values: Values;
+  languages: readonly AltLanguage[];
   state: ActionResult<unknown> | null;
 }) {
   const uid = useId();
@@ -66,9 +81,18 @@ function DetailsFields({
         aria-describedby={`${uid}-alt-error ${uid}-alt-hint`}
       />
       <p className="a-muted" id={`${uid}-alt-hint`}>
-        Tối đa 250 ký tự. Một mô tả cho mọi chỗ dùng ảnh này; bản dịch làm ở đợt đa ngôn ngữ.
+        Tối đa 250 ký tự. Một mô tả cho mọi chỗ dùng ảnh này.
       </p>
       <FieldError state={state} name="alt" id={`${uid}-alt-error`} />
+      {languages.map((l) => (
+        <div key={l.code} className="a-field">
+          <label htmlFor={`${uid}-alt-${l.code}`}>
+            Mô tả ảnh ({l.label}) <span className={l.state === 'reviewed' ? 'a-tag' : 'a-tag a-tag--warn'}>{STATE_LABELS[l.state]}</span>
+          </label>
+          <textarea id={`${uid}-alt-${l.code}`} name={`altIn.${l.code}`} rows={2} maxLength={250} defaultValue={values.translations[l.code] ?? ''} />
+          <p className="a-muted">Để trống: khách ở ngôn ngữ này nghe mô tả tiếng Anh.</p>
+        </div>
+      ))}
       <label className="a-check">
         <input type="checkbox" name="decorative" defaultChecked={values.decorative} /> Ảnh trang trí (không cần mô tả; trình đọc màn hình bỏ qua)
       </label>

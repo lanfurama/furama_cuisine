@@ -273,6 +273,8 @@ export async function writeChangedTranslations(
   id: string,
   translations: Record<string, Record<string, string | null>>,
   actorId: string,
+  /** The default language's row may be emptied too (a closure's reason: none is required in any language). */
+  options: { defaultMayBeEmpty?: boolean } = {},
 ): Promise<void> {
   if (!def.i18n) throw new Error(`${def.entityType} has no translations`);
   const { table, fk, columns } = def.i18n;
@@ -288,7 +290,7 @@ export async function writeChangedTranslations(
     const written = columns.filter((c) => c in values);
     const before = current.get(locale);
     if (before && written.every((c) => sameValue(before[c], values[c]))) continue;
-    if (locale !== defaultCode && written.every((c) => unset(values[c]))) {
+    if ((locale !== defaultCode || options.defaultMayBeEmpty) && written.every((c) => unset(values[c]))) {
       if (before) await client.query(`DELETE FROM ${table} WHERE ${fk} = $1${cast(def)} AND locale = $2`, [id, locale]);
       continue;
     }

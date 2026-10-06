@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getPool } from '@/db/client';
 import { limitWarnings } from '@/lib/admin/content-rules';
+import { formLocales, listStates } from '@/lib/server/content-admin/form-locales';
 import { CUISINE, listCuisinesAdmin } from '@/lib/server/content-admin/cuisines';
 import { listDeleted, listHistory } from '@/lib/server/content-admin/history';
 import { listMediaOptions } from '@/lib/server/content-admin/media-options';
@@ -11,6 +12,7 @@ import { envPrefix, isBlobConfigured } from '@/lib/server/media/blob';
 import { DeletedList, enOf } from '../../_kit/DeletedList';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
 import { ItemList } from '../../_kit/ItemList';
+import { LocaleTabs } from '../../_kit/LocaleTabs';
 import { StringsPanel } from '../_ui/StringsPanel';
 import { deleteCuisineAction, reorderCuisinesAction, restoreCuisineAction, restoreCuisineOrderAction, toggleCuisineAction } from './actions';
 import { CuisineForm } from './CuisineForm';
@@ -37,13 +39,15 @@ export default async function CuisinesPage() {
     listHistory(pool, 'cuisines', null, 10),
     listMediaOptions(pool, 'image'),
   ]);
+  const tabs = await formLocales(pool);
+  const states = await listStates(pool, CUISINE, tabs);
   const histories = await Promise.all(items.map((c) => listHistory(pool, 'cuisines', c.id, 10)));
   const upload = { prefix: envPrefix(), configured: isBlobConfigured() };
   const shown = items.filter((i) => i.isPublished).length;
   const thumbOf = (id: string) => images.find((i) => i.id === id) ?? null;
 
   return (
-    <>
+    <LocaleTabs locales={tabs}>
       <p className="a-crumbs">
         <Link href="/admin/content">← Nội dung</Link>
       </p>
@@ -77,7 +81,9 @@ export default async function CuisinesPage() {
             items.map((c, i) => [
               c.id,
               <div key={c.id}>
-                <CuisineForm id={c.id} token={c.token} values={c.values} images={images} upload={upload} label={`Ẩm thực “${c.name}”`} />
+                <LocaleTabs locales={tabs} states={states.get(c.id)}>
+                  <CuisineForm id={c.id} token={c.token} values={c.values} images={images} upload={upload} label={`Ẩm thực “${c.name}”`} />
+                </LocaleTabs>
                 <HistoryPanel
                   title={`Lịch sử: ${c.name}`}
                   headingId={`cuisine-${c.id}-history`}
@@ -119,6 +125,6 @@ export default async function CuisinesPage() {
         <h2 id="cuisines-copy">Chữ của mục Explore by Cuisine</h2>
         <StringsPanel screen="cuisines" title="Chữ mục ẩm thực" />
       </section>
-    </>
+    </LocaleTabs>
   );
 }

@@ -12,6 +12,7 @@ import { auditActor, requirePermission } from '@/lib/server/dal/session';
 import { BlobNotConfiguredError } from '@/lib/server/media/blob';
 import { deleteMedia, getMedia, MEDIA, restoreMedia, saveMediaDetails } from '@/lib/server/media/library';
 import { registerUploadedMedia } from '@/lib/server/media/register';
+import { LOCALE_CODE_RE } from '@/lib/i18n/locales';
 
 /*
  * The media library (spec §7.2 /admin/media; §7.1: content:update, a History
@@ -63,13 +64,15 @@ const Details = z.object({
   token: Token,
   alt: z.string().trim().max(250, { error: 'Mô tả ảnh tối đa 250 ký tự.' }),
   decorative: checkbox,
+  // Each other language's alt (`altIn.<code>`, phase 8); empty is "use English".
+  altIn: z.record(z.string().regex(LOCALE_CODE_RE), z.string().trim().max(250, { error: 'Mô tả ảnh tối đa 250 ký tự.' })).optional(),
 });
 
 export async function saveMediaDetailsAction(_prev: ActionResult<Saved> | null, formData: FormData): Promise<ActionResult<Saved>> {
   try {
     const staff = await requirePermission({ content: ['update'] });
-    const input = Details.parse(readForm(formData));
-    const result = await saveMediaDetails(getPool(), auditActor(staff), input);
+    const { altIn, ...input } = Details.parse(readForm(formData));
+    const result = await saveMediaDetails(getPool(), auditActor(staff), { ...input, translations: altIn });
     if (!result.ok) return result;
     await expireIfShown(input.id);
     return result;

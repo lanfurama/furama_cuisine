@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getPool } from '@/db/client';
 import { LIMITS, limitWarnings } from '@/lib/admin/content-rules';
+import { formLocales, listStates } from '@/lib/server/content-admin/form-locales';
 import { DESTINATION, listDestinationsAdmin, type DestinationListItem } from '@/lib/server/content-admin/destinations';
 import { listDeleted, listHistory } from '@/lib/server/content-admin/history';
 import { listMediaOptions } from '@/lib/server/content-admin/media-options';
@@ -11,6 +12,7 @@ import { envPrefix, isBlobConfigured } from '@/lib/server/media/blob';
 import { DeletedList, enOf } from '../../_kit/DeletedList';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
 import { ItemList } from '../../_kit/ItemList';
+import { LocaleTabs } from '../../_kit/LocaleTabs';
 import { StringsPanel } from '../_ui/StringsPanel';
 import {
   deleteDestinationAction,
@@ -64,13 +66,15 @@ export default async function DestinationsPage() {
     listHistory(pool, 'destinations', null, 10),
     listMediaOptions(pool, 'image'),
   ]);
+  const tabs = await formLocales(pool);
+  const states = await listStates(pool, DESTINATION, tabs);
   const histories = await Promise.all(items.map((d) => listHistory(pool, 'destinations', d.id, 10)));
   const upload = { prefix: envPrefix(), configured: isBlobConfigured() };
   const shown = items.filter((i) => i.isPublished).length;
   const thumbOf = (id: string | null) => images.find((i) => i.id === id) ?? null;
 
   return (
-    <>
+    <LocaleTabs locales={tabs}>
       <p className="a-crumbs">
         <Link href="/admin/content">← Nội dung</Link>
       </p>
@@ -105,7 +109,9 @@ export default async function DestinationsPage() {
             items.map((d, i) => [
               d.id,
               <div key={d.id}>
-                <DestinationForm id={d.id} token={d.token} values={d.values} images={images} upload={upload} hideNote={hideWarning(d)} label={`Điểm đến “${d.name}”`} />
+                <LocaleTabs locales={tabs} states={states.get(d.id)}>
+                  <DestinationForm id={d.id} token={d.token} values={d.values} images={images} upload={upload} hideNote={hideWarning(d)} label={`Điểm đến “${d.name}”`} />
+                </LocaleTabs>
                 <HistoryPanel
                   title={`Lịch sử: ${d.name}`}
                   headingId={`destination-${d.id}-history`}
@@ -171,6 +177,6 @@ export default async function DestinationsPage() {
         <h2 id="destinations-copy">Chữ của mục Our Destinations</h2>
         <StringsPanel screen="destinations" title="Chữ mục Our Destinations" />
       </section>
-    </>
+    </LocaleTabs>
   );
 }

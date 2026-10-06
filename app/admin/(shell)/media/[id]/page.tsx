@@ -3,9 +3,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getPool } from '@/db/client';
 import { formatDateTimeVi, formatFileSize } from '@/lib/admin/format';
+import { formLocales, itemStates } from '@/lib/server/content-admin/form-locales';
 import { listHistory } from '@/lib/server/content-admin/history';
 import { requirePagePermission } from '@/lib/server/dal/session';
-import { getMedia, mediaUsage } from '@/lib/server/media/library';
+import { getMedia, MEDIA, mediaUsage } from '@/lib/server/media/library';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
 import { Thumb } from '../../_kit/Thumb';
 import { restoreMediaAction } from '../actions';
@@ -44,7 +45,7 @@ export default async function MediaFilePage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const pool = getPool();
-  const [item, uses, history] = await Promise.all([getMedia(pool, id), mediaUsage(pool, id), listHistory(pool, 'media', id)]);
+  const [item, uses, history, tabs] = await Promise.all([getMedia(pool, id), mediaUsage(pool, id), listHistory(pool, 'media', id), formLocales(pool)]);
   if (!item) notFound();
   const name = item.pathname.split('/').pop() ?? item.pathname;
   const isPdf = item.contentType === 'application/pdf';
@@ -95,6 +96,11 @@ export default async function MediaFilePage({ params }: { params: Promise<{ id: 
           token={item.token}
           alt={item.alt}
           decorative={item.isDecorative}
+          translations={Object.fromEntries(item.snapshot.i18n.map((r) => [r.locale, String(r.alt ?? '')]))}
+          languages={(() => {
+            const states = itemStates(MEDIA, item.snapshot, tabs);
+            return tabs.filter((l) => !l.isDefault).map((l) => ({ code: l.code, label: l.code.toUpperCase(), state: states[l.code] }));
+          })()}
           lastSaved={history[0] ? { by: history[0].actor, at: formatDateTimeVi(history[0].at) } : null}
         />
       ) : null}

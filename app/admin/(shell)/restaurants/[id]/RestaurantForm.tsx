@@ -8,6 +8,7 @@ import { tokenUnlessInserted, type Saved } from '@/lib/admin/save-state';
 import type { ActionResult } from '@/lib/server/action-result';
 import type { RestaurantEditor } from '@/lib/server/content-admin/restaurants';
 import { ImagePicker } from '../../_kit/ImagePicker';
+import { useLocaleTabs } from '../../_kit/LocaleTabs';
 import { SaveBar } from '../../_kit/SaveBar';
 import { LimitNote, moved, SortableList } from '../../_kit/SortableList';
 import { TextField } from '../../_kit/TextField';
@@ -44,6 +45,9 @@ type Props = {
  * next save keeps them instead of deleting them and adding copies; what was
  * typed during that one save is dropped, as with any save that cannot keep it.
  */
+/** A highlight's fields show no badge: the page's states are the restaurant's, not its highlights'. */
+const NO_STATUS = {};
+
 export function RestaurantForm(props: Props) {
   const save = useSaveState<Saved, Values>(saveRestaurantAction, props.token, props.values, (data, posted) =>
     tokenUnlessInserted(data, posted.highlights, props.values.highlights),
@@ -67,6 +71,8 @@ export function RestaurantForm(props: Props) {
 
 function Fields({ id, token, values: v, destinations, cuisines, images, pdfs, upload, state, markDirty }: Props & { state: ActionResult<unknown> | null; markDirty: () => void }) {
   const uid = useId();
+  // The page's languages (LocaleTabs): one menu picker per language, English alone without them.
+  const menuLocales = useLocaleTabs()?.locales ?? [{ code: 'en', label: 'EN' }];
   const error = (name: string) => (state && !state.ok ? state.fieldErrors?.[name]?.[0] : undefined);
   const errors = (name: string) => (state && !state.ok ? (state.fieldErrors?.[name] ?? []) : []);
   const [chosen, setChosen] = useState(v.cuisines);
@@ -149,18 +155,25 @@ function Fields({ id, token, values: v, destinations, cuisines, images, pdfs, up
       <TranslatableField name="storyLabel" label="Nhãn câu chuyện" values={v.storyLabel} max={40} hint="Để trống: “Brand Story”." error={error('storyLabel')} />
       <TranslatableField name="story" label="Câu chuyện" values={v.story} max={1500} rows={6} error={error('story')} />
       <TranslatableField name="highlightsTitle" label="Tiêu đề phần nổi bật" values={v.highlightsTitle} max={60} hint="Để trống: “At {tên nhà hàng}”." error={error('highlightsTitle')} />
-      <div className="a-field--wide">
-        <ImagePicker
-          name="menuPdfMediaId.en"
-          label="Thực đơn PDF (tải lên)"
-          kind="pdf"
-          options={pdfs}
-          value={v.menuPdfMediaId.en ?? null}
-          upload={upload}
-          hint="Một file PDF hoặc một link, không cả hai. Không có cả hai: nút MENU cuộn tới phần nổi bật."
-          error={error('menuPdfMediaId')}
-        />
-      </div>
+      {/* One menu per language (spec §6.3: the page's language, else English, else the highlights). */}
+      {menuLocales.map((l) => (
+        <div className="a-field--wide" key={l.code}>
+          <ImagePicker
+            name={`menuPdfMediaId.${l.code}`}
+            label={menuLocales.length > 1 ? `Thực đơn PDF (tải lên) · ${l.label}` : 'Thực đơn PDF (tải lên)'}
+            kind="pdf"
+            options={pdfs}
+            value={v.menuPdfMediaId[l.code] ?? null}
+            upload={upload}
+            hint={
+              l.code === 'en'
+                ? 'Một file PDF hoặc một link, không cả hai. Không có cả hai: nút MENU cuộn tới phần nổi bật.'
+                : 'Để trống: khách ở ngôn ngữ này thấy thực đơn tiếng Anh.'
+            }
+            error={l.code === 'en' ? error('menuPdfMediaId') : undefined}
+          />
+        </div>
+      ))}
       <TranslatableField name="menuPdfUrl" label="Link thực đơn PDF" values={v.menuPdfUrl} max={2000} hint="https://…" error={error('menuPdfUrl')} />
 
       <h2 className="a-field--wide">SEO</h2>
@@ -223,8 +236,8 @@ function Fields({ id, token, values: v, destinations, cuisines, images, pdfs, up
           renderItem={(h) => (
             <div className="a-highlight">
               <ImagePicker label="Ảnh" options={images} value={h.imageId || null} required upload={upload} onChange={(imageId) => patch(h.key, { imageId: imageId ?? '' })} />
-              <TranslatableField label="Tiêu đề" values={h.title} max={80} required onChange={(locale, value) => patchText(h.key, 'title', locale, value)} />
-              <TranslatableField label="Mô tả" values={h.detail} max={200} onChange={(locale, value) => patchText(h.key, 'detail', locale, value)} />
+              <TranslatableField label="Tiêu đề" values={h.title} max={80} required status={NO_STATUS} onChange={(locale, value) => patchText(h.key, 'title', locale, value)} />
+              <TranslatableField label="Mô tả" values={h.detail} max={200} status={NO_STATUS} onChange={(locale, value) => patchText(h.key, 'detail', locale, value)} />
               <div className="a-actions">
                 <label className="a-check">
                   <input

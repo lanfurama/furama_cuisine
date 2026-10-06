@@ -74,10 +74,14 @@ export default async function ClosuresPage() {
         return (
           <section className="a-card-row" key={c.id} aria-label={title}>
             <h2>{title}</h2>
-            {c.publicReason.en || c.internalNote ? (
+            {Object.values(c.publicReason).some(Boolean) || c.internalNote ? (
               <p>
                 {[
-                  c.publicReason.en ? `Lý do cho khách: ${c.publicReason.en}${c.showReason ? '' : ' (đang ẩn)'}` : null,
+                  // Every language's reason, each named (phase-4 T13: the card showed English only).
+                  ...Object.entries(c.publicReason)
+                    .filter(([, reason]) => reason)
+                    .map(([locale, reason]) => `Lý do cho khách (${locale.toUpperCase()}): ${reason}`),
+                  Object.values(c.publicReason).some(Boolean) && !c.showReason ? '(lý do đang ẩn)' : null,
                   c.internalNote ? `Ghi chú nội bộ: ${c.internalNote}` : null,
                 ]
                   .filter(Boolean)

@@ -6,7 +6,7 @@ import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audi
 import { conflictFromHistory, type Conflict } from '@/lib/server/booking/config';
 import type { Db } from '@/lib/server/booking/rules';
 import { getAuditRow } from '@/lib/server/content-admin/history';
-import { readItem, snapshotToken, upsertTranslation, writeItem, type ItemDef, type ItemSnapshot } from '@/lib/server/content-admin/snapshot';
+import { readItem, snapshotToken, upsertTranslation, writeChangedTranslations, writeItem, type ItemDef, type ItemSnapshot } from '@/lib/server/content-admin/snapshot';
 import type { Measured } from './measure';
 
 /*
@@ -63,7 +63,7 @@ export const MEDIA_REFERENCES = [
   { table: 'site_settings', column: 'og_image_id' },
 ] as const;
 
-// One UNION per reference above; $1 is the media id. Names come from the default language (spec §7: admin in Vietnamese, content in EN until phase 8).
+// One UNION per reference above; $1 is the media id. Names come from the default language, the one every language falls back to (spec §7).
 const USAGE_SQL = `
   SELECT 'Ảnh thẻ nhà hàng ' || r.name AS label, '/admin/restaurants/' || r.id AS href FROM restaurants r WHERE r.card_image_id = $1
   UNION ALL SELECT 'Ảnh chân dung trang ' || r.name, '/admin/restaurants/' || r.id FROM restaurants r WHERE r.detail_image_id = $1
@@ -142,12 +142,12 @@ export async function listTrashed(db: Db, limit = 20): Promise<LibraryItem[]> {
 }
 
 /** One file, live or in the trash, with its page's token (R2); null once the sweep purged it. */
-export async function getMedia(db: Db, id: string): Promise<(LibraryItem & { token: string }) | null> {
+export async function getMedia(db: Db, id: string): Promise<(LibraryItem & { token: string; snapshot: ItemSnapshot }) | null> {
   const [{ rows }, snapshot] = await Promise.all([
     db.query<LibraryItem>(`SELECT ${ITEM_COLUMNS}, (${USES})::int AS uses FROM media m ${ALT_JOIN} WHERE m.id = $1::uuid`, [id]),
     readItem(db, MEDIA, id),
   ]);
-  return rows[0] && snapshot ? { ...rows[0], token: snapshotToken(snapshot) } : null;
+  return rows[0] && snapshot ? { ...rows[0], token: snapshotToken(snapshot), snapshot } : null;
 }
 
 // ── writing ────────────────────────────────────────────────────────────────
@@ -199,14 +199,17 @@ async function lockLive(client: PoolClient, id: string, token: string): Promise<
 }
 
 /**
- * EN alt text and the decorative flag (spec §7.3, R12: edited on the file,
- * shared by every use; other languages are phase 8). Answers the token of the
- * version it wrote (Saved, lib/admin/save-state.ts).
+ * The alt text, in the default language and in each other one (phase 8), and
+ * the decorative flag (spec §7.3, R12: edited on the file, shared by every
+ * use). Another language's alt is written only when it changed, with the
+ * default alt's fingerprint ("EN đã đổi"); emptied, its row goes ("use
+ * English"). Answers the token of the version it wrote (Saved,
+ * lib/admin/save-state.ts).
  */
 export async function saveMediaDetails(
   pool: Pool,
   actor: AuditActor,
-  input: { id: string; token: string; alt: string; decorative: boolean },
+  input: { id: string; token: string; alt: string; decorative: boolean; translations?: Record<string, string> },
 ): Promise<{ ok: true; data: Saved } | NotFound | Conflict> {
   return withTransaction(pool, async (client) => {
     const locked = await lockLive(client, input.id, input.token);
@@ -217,6 +220,10 @@ export async function saveMediaDetails(
     // media_i18n holds a row only when there is alt text (008): an empty field removes the language's row.
     if (alt) await upsertTranslation(client, MEDIA, input.id, locale, { alt }, actor.id);
     else await client.query('DELETE FROM media_i18n WHERE media_id = $1::uuid AND locale = $2', [input.id, locale]);
+    const others = Object.entries(input.translations ?? {}).filter(([code]) => code !== locale);
+    if (others.length) {
+      await writeChangedTranslations(client, MEDIA, input.id, Object.fromEntries(others.map(([code, text]) => [code, { alt: text.trim() || null }])), actor.id);
+    }
     const after = await readItem(client, MEDIA, input.id);
     await insertAudit(client, actor, { action: 'update', entityType: 'media', entityId: input.id, before: locked.snapshot, after });
     return { ok: true as const, data: { token: snapshotToken(after) } };

@@ -6,9 +6,11 @@ import { offerPageTitle } from '@/lib/admin/content-rules';
 import { formatDateTimeVi } from '@/lib/admin/format';
 import { listRestaurantOptions } from '@/lib/server/booking/queries';
 import { listHistory } from '@/lib/server/content-admin/history';
-import { getOfferEditor } from '@/lib/server/content-admin/offers';
+import { formLocales, itemStates } from '@/lib/server/content-admin/form-locales';
+import { getOfferEditor, OFFER } from '@/lib/server/content-admin/offers';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { HistoryPanel } from '../../../_kit/HistoryPanel';
+import { LocaleTabs } from '../../../_kit/LocaleTabs';
 import { restoreOfferAction } from '../actions';
 import { DeleteOffer } from '../DeleteOffer';
 import { OfferForm } from '../OfferForm';
@@ -43,7 +45,12 @@ export default async function OfferPage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   if (!/^\d{1,18}$/.test(id)) notFound();
   const pool = getPool();
-  const [editor, history, restaurants] = await Promise.all([getOfferEditor(pool, id), listHistory(pool, 'offers', id), listRestaurantOptions(pool)]);
+  const [editor, history, restaurants, tabs] = await Promise.all([
+    getOfferEditor(pool, id),
+    listHistory(pool, 'offers', id),
+    listRestaurantOptions(pool),
+    formLocales(pool),
+  ]);
   if (!editor && history.length === 0) notFound();
   const title = offerPageTitle(id, editor);
 
@@ -55,13 +62,15 @@ export default async function OfferPage({ params }: { params: Promise<{ id: stri
       <h1>{title}</h1>
       {editor ? (
         <>
-          <OfferForm
-            id={id}
-            token={editor.token}
-            values={editor.values}
-            restaurants={restaurants}
-            lastSaved={{ by: editor.updatedBy, at: formatDateTimeVi(editor.updatedAt) }}
-          />
+          <LocaleTabs locales={tabs} states={itemStates(OFFER, editor.snapshot, tabs)}>
+            <OfferForm
+              id={id}
+              token={editor.token}
+              values={editor.values}
+              restaurants={restaurants}
+              lastSaved={{ by: editor.updatedBy, at: formatDateTimeVi(editor.updatedAt) }}
+            />
+          </LocaleTabs>
           <DeleteOffer id={id} token={editor.token} title={title} />
         </>
       ) : (

@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, useState, type ChangeEvent } from 'react';
+import { useLocaleTabs } from './LocaleTabs';
 import { checkLength, TRANSLATION_STRETCH } from '@/lib/admin/content-rules';
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
 import type { TranslationState } from '@/lib/i18n/source-hash';
@@ -31,7 +32,7 @@ export function TranslatableField({
   name,
   label,
   values,
-  locales = EN_ONLY,
+  locales: ownLocales,
   max,
   warnAt,
   warnMessage,
@@ -39,7 +40,7 @@ export function TranslatableField({
   required,
   hint,
   error,
-  status,
+  status: ownStatus,
   onChange,
 }: {
   name?: string;
@@ -58,6 +59,9 @@ export function TranslatableField({
   status?: Record<string, TranslationStatus | undefined>;
   onChange?: (locale: string, value: string) => void;
 }) {
+  const tabs = useLocaleTabs();
+  const locales = ownLocales ?? tabs?.locales ?? EN_ONLY;
+  const status = ownStatus ?? tabs?.states;
   const uid = useId();
   const [active, setActive] = useState(locales[0].code);
   const [typed, setTyped] = useState<Record<string, string>>({});
@@ -122,7 +126,8 @@ export function TranslatableField({
             hidden={active !== l.code}
           >
             <div className="a-tfield-head">
-              <label htmlFor={id}>{label}</label>
+              {/* Each language's field has its own name: "Tiêu đề" (English), "Tiêu đề (VI)"; one hidden panel never shares the other's. */}
+              <label htmlFor={id}>{l.code === DEFAULT_LOCALE || locales.length === 1 ? label : `${label} (${l.code.toUpperCase()})`}</label>
               {locales.length === 1 ? <span className="a-tag">{l.label}</span> : null}
               {required && l.code === DEFAULT_LOCALE ? <span className="a-muted">bắt buộc</span> : null}
             </div>

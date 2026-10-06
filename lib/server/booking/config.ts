@@ -6,6 +6,7 @@ import type { PeriodRule } from '@/lib/booking/rules';
 import type { Meal } from '@/lib/data';
 import type { IsoDate } from '@/lib/venue-time';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
+import { writeChangedTranslations, type ItemDef } from '@/lib/server/content-admin/snapshot';
 import type { Db } from './rules';
 
 /*
@@ -337,17 +338,32 @@ async function closureSnapshot(client: PoolClient, id: string): Promise<ClosureI
   return snapshot;
 }
 
+/** closure_i18n as a translation table, for writeChangedTranslations (the closure row itself is written here). */
+const CLOSURE_TEXT: ItemDef = {
+  entityType: 'closure',
+  table: 'closures',
+  idType: 'bigint',
+  columns: [],
+  i18n: { table: 'closure_i18n', fk: 'closure_id', columns: ['public_reason'] },
+  tables: [],
+};
+
+/**
+ * The guest-facing reason in each language the form posted (phase 4 ledger
+ * T13): only a language whose text changed is written, reviewed by this
+ * member of staff (spec §5.1.4); an emptied one is deleted, English included
+ * (no language needs a reason); a language the form did not post keeps its
+ * row, a machine translation among them.
+ */
 async function writeReasons(client: PoolClient, actorId: string, closureId: string, reasons: Record<string, string>) {
-  await client.query('DELETE FROM closure_i18n WHERE closure_id = $1', [closureId]);
-  for (const [locale, reason] of Object.entries(reasons)) {
-    if (!reason) continue;
-    // Typed in an admin form: reviewed, by a human (spec §5.1.4).
-    await client.query(
-      `INSERT INTO closure_i18n (closure_id, locale, public_reason, status, origin, reviewed_by, reviewed_at, updated_by)
-       VALUES ($1, $2, $3, 'reviewed', 'human', $4, now(), $4)`,
-      [closureId, locale, reason, actorId],
-    );
-  }
+  await writeChangedTranslations(
+    client,
+    CLOSURE_TEXT,
+    closureId,
+    Object.fromEntries(Object.entries(reasons).map(([locale, reason]) => [locale, { public_reason: reason.trim() || null }])),
+    actorId,
+    { defaultMayBeEmpty: true },
+  );
 }
 
 export async function createClosure(pool: Pool, actor: AuditActor, input: ClosureInput): Promise<{ ok: true; data: { id: string } }> {

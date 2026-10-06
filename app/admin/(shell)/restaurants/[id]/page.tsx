@@ -7,10 +7,12 @@ import { formatDateTimeVi } from '@/lib/admin/format';
 import { listDestinationOptions } from '@/lib/server/content-admin/destinations';
 import { listHistory } from '@/lib/server/content-admin/history';
 import { listMediaOptions } from '@/lib/server/content-admin/media-options';
-import { getRestaurantEditor, listCuisineOptions } from '@/lib/server/content-admin/restaurants';
+import { formLocales, itemStates } from '@/lib/server/content-admin/form-locales';
+import { getRestaurantEditor, listCuisineOptions, RESTAURANT } from '@/lib/server/content-admin/restaurants';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { envPrefix, isBlobConfigured } from '@/lib/server/media/blob';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
+import { LocaleTabs } from '../../_kit/LocaleTabs';
 import { restoreRestaurantAction } from './actions';
 import { RestaurantForm } from './RestaurantForm';
 import { RestaurantNav } from './RestaurantNav';
@@ -59,13 +61,14 @@ export default async function RestaurantContentPage({ params }: { params: Promis
   const { id } = await params;
   if (!/^[a-z0-9-]{1,60}$/.test(id)) notFound();
   const pool = getPool();
-  const [editor, destinations, cuisines, images, pdfs, history] = await Promise.all([
+  const [editor, destinations, cuisines, images, pdfs, history, tabs] = await Promise.all([
     getRestaurantEditor(pool, id),
     listDestinationOptions(pool),
     listCuisineOptions(pool),
     listMediaOptions(pool, 'image'),
     listMediaOptions(pool, 'pdf'),
     listHistory(pool, 'restaurants', id),
+    formLocales(pool),
   ]);
   if (!editor) notFound();
   const v = editor.values;
@@ -97,6 +100,7 @@ export default async function RestaurantContentPage({ params }: { params: Promis
           ))}
         </ul>
       ) : null}
+      <LocaleTabs locales={tabs} states={itemStates(RESTAURANT, editor.snapshot, tabs)}>
       <RestaurantForm
         id={id}
         token={editor.token}
@@ -109,6 +113,7 @@ export default async function RestaurantContentPage({ params }: { params: Promis
         lastSaved={{ by: editor.updatedBy, at: formatDateTimeVi(editor.updatedAt) }}
         viewHref={editor.archived ? null : v.hasDetailPage && v.isPublished ? `/en/restaurants/${v.slug}` : '/en#restaurants'}
       />
+      </LocaleTabs>
       <HistoryPanel headingId={`restaurant-${id}-history`} entries={history} currentToken={editor.token} recordId={id} labels={LABELS} restore={restoreRestaurantAction} />
     </>
   );
