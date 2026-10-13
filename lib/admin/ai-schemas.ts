@@ -11,6 +11,8 @@ export const FEATURE_LABELS: Record<AiFeature | 'check', string> = {
   alt: 'Mô tả ảnh (alt)',
   check: 'Kiểm tra kết nối',
 };
+/** Which AI features a page may show (mode not off and the feature enabled). */
+export type AiFeatures = Record<AiFeature, boolean>;
 export const REASONING = ['minimal', 'low', 'medium', 'high'] as const;
 
 /** Each feature's default max output tokens: a document of 20 items, a rewrite, two SEO lines, one alt. */

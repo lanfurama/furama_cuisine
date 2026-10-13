@@ -3,7 +3,7 @@ import { actionErrorMessage } from '@/lib/admin/auth-errors';
 import { z } from '@/lib/admin/zod';
 import type { ActionCode } from '@/lib/server/action-result';
 import { PermissionError } from '@/lib/server/dal/session';
-import { AiError, type AiErrorCode } from './ai-error';
+import { AiError, AiOriginError, type AiErrorCode } from './ai-error';
 import { vertexErrorCode } from './errors';
 
 const NO_STORE = { 'cache-control': 'no-store' };
@@ -33,7 +33,7 @@ export function aiErrorResponse(err: unknown): Response {
   let code: ActionCode;
   let status: number;
   let params: Record<string, string> | undefined;
-  if (err instanceof PermissionError) {
+  if (err instanceof PermissionError || err instanceof AiOriginError) {
     code = 'forbidden';
     status = 403;
   } else if (err instanceof z.ZodError) {

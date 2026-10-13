@@ -24,3 +24,11 @@ export class AiError extends Error {
     this.name = 'AiError';
   }
 }
+
+/** A request whose Origin is not this site's (spec §7.1); the route answers 403 `forbidden`. */
+export class AiOriginError extends Error {
+  constructor() {
+    super('bad_origin');
+    this.name = 'AiOriginError';
+  }
+}

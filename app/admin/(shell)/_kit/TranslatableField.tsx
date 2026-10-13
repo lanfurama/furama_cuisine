@@ -1,7 +1,9 @@
 'use client';
 
-import { useId, useState, type ChangeEvent } from 'react';
+import { useId, useRef, useState, type ChangeEvent } from 'react';
+import { AiTranslateButton, fillLikeTyping } from './AiTranslateButton';
 import { useLocaleTabs } from './LocaleTabs';
+import { useAiFeatures } from './useAiFeatures';
 import { checkLength, TRANSLATION_STRETCH } from '@/lib/admin/content-rules';
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
 import type { TranslationState } from '@/lib/i18n/source-hash';
@@ -20,7 +22,8 @@ export const STATUS_LABELS: Record<TranslationStatus, string> = { missing: 'Chư
  * more than one language (lib/server/content-admin/form-locales.ts) each is a
  * tab with its state (Chưa dịch, Máy dịch, Đã duyệt, EN đã đổi); a translation
  * left empty means "use English", and a tab that needs work shows the English
- * text under its field. "Dịch từ EN" arrives with phase 9 (R8-13).
+ * text under its field. In a non-English tab "Dịch từ EN" (phase 9, AI on)
+ * fills the box from the English text; it counts as typing, nothing is saved.
  *
  * The counter compares with the column's or registry's maximum (the server
  * refuses beyond it) and with an optional warning length (spec §6.5: a menu
@@ -63,6 +66,8 @@ export function TranslatableField({
   const locales = ownLocales ?? tabs?.locales ?? EN_ONLY;
   const status = ownStatus ?? tabs?.states;
   const uid = useId();
+  const ai = useAiFeatures();
+  const boxes = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({});
   const [active, setActive] = useState(locales[0].code);
   const [typed, setTyped] = useState<Record<string, string>>({});
   const text = (code: string) => (onChange ? (values[code] ?? '') : (typed[code] ?? values[code] ?? ''));
@@ -103,6 +108,9 @@ export function TranslatableField({
         const describedBy = [hint && hintId, counterId, error && l.code === DEFAULT_LOCALE && errorId].filter(Boolean).join(' ');
         const props = {
           id,
+          ref: (el: HTMLInputElement & HTMLTextAreaElement | null) => {
+            boxes.current[l.code] = el;
+          },
           name: name ? `${name}.${l.code}` : undefined,
           'aria-describedby': describedBy,
           'aria-invalid': (error && l.code === DEFAULT_LOCALE) || length.level === 'error' ? true : undefined,
@@ -132,6 +140,13 @@ export function TranslatableField({
               {required && l.code === DEFAULT_LOCALE ? <span className="a-muted">bắt buộc</span> : null}
             </div>
             {rows ? <textarea rows={rows} {...props} /> : <input type="text" {...props} />}
+            {ai.translate && l.code !== DEFAULT_LOCALE && english.trim() ? (
+              <AiTranslateButton
+                english={english}
+                locale={l.code}
+                onResult={(t) => (onChange ? onChange(l.code, t) : boxes.current[l.code] && fillLikeTyping(boxes.current[l.code]!, t))}
+              />
+            ) : null}
             {hint ? (
               <p className="a-muted" id={hintId}>
                 {hint}
