@@ -26,6 +26,15 @@ export type Translated = { id: string; ok: true; text: string } | { id: string; 
 export const MAX_ITEMS = 20;
 export const MAX_CHARS = 4000;
 
+/** The English text's ICU arguments; unparseable English gives none to compare with (the answer is still checked against `vars`). */
+function referenceArgs(text: string) {
+  try {
+    return messageArgs(text);
+  } catch {
+    return undefined;
+  }
+}
+
 const Result = z.object({ items: z.array(z.object({ id: z.string(), text: z.string() })) });
 
 /** `deps.model` is the tests' seam; the routes never pass it. */
@@ -82,7 +91,7 @@ export async function translateItems(
     const u = unmask(raw, m);
     if (!u.ok) return { id: it.id, ok: false, code: 'ai_placeholder' };
     // Only a registry string (it declares its variables) is ICU; free content may hold any brace.
-    if (it.vars && checkMessage(u.text, it.vars, messageArgs(it.text)).length) return { id: it.id, ok: false, code: 'ai_placeholder' };
+    if (it.vars && checkMessage(u.text, it.vars, referenceArgs(it.text)).length) return { id: it.id, ok: false, code: 'ai_placeholder' };
     if (it.maxLength && [...u.text].length > it.maxLength) return { id: it.id, ok: false, code: 'too_long' };
     return { id: it.id, ok: true, text: u.text };
   });

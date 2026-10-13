@@ -1,7 +1,8 @@
 import { z } from '@/lib/admin/zod';
 import { getPool } from '@/db/client';
+import { checkMessage } from '@/lib/i18n/icu';
 import { DEFAULT_LOCALE, LOCALE_CODE_RE } from '@/lib/i18n/locales';
-import { REGISTRY, type StringKey } from '@/lib/i18n/registry';
+import { REGISTRY, type StringDef } from '@/lib/i18n/registry';
 import { aiErrorResponse } from '@/lib/server/ai/http';
 import { aiRoute } from '@/lib/server/ai/route-guard';
 import { MAX_CHARS, MAX_ITEMS, translateItems, type TranslateItem } from '@/lib/server/ai/translate';
@@ -20,7 +21,8 @@ const Body = z.object({
   items: z
     .array(z.object({ id: z.string().min(1).max(100), text: z.string().min(1).max(MAX_CHARS), key: z.string().max(120).optional() }))
     .min(1)
-    .max(MAX_ITEMS),
+    .max(MAX_ITEMS)
+    .refine((items) => new Set(items.map((i) => i.id)).size === items.length),
 });
 
 export async function POST(request: Request): Promise<Response> {
@@ -35,7 +37,9 @@ export async function POST(request: Request): Promise<Response> {
     const items = body.items.map((i): TranslateItem => {
       if (i.key === undefined) return { id: i.id, text: i.text };
       if (!Object.hasOwn(REGISTRY, i.key)) throw new z.ZodError([]);
-      const def = REGISTRY[i.key as StringKey] as { context: string; maxLength: number; vars?: readonly string[] };
+      const def: StringDef = (REGISTRY as Record<string, StringDef>)[i.key];
+      // The English is client-supplied: refuse what is not valid ICU for this key before any call is billed.
+      if (checkMessage(i.text, def.vars ?? []).length) throw new z.ZodError([]);
       return { id: i.id, text: i.text, context: def.context, maxLength: def.maxLength, vars: def.vars ?? [] };
     });
     const { results } = await translateItems(pool, { items, locale: body.locale, actorId: staff.userId, signal: request.signal });

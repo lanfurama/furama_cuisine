@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 /*
  * "Dịch từ EN" (R9-8): sends the English text the form shows now (saved or not)
@@ -19,15 +19,21 @@ export function AiTranslateButton({ english, locale, itemKey, onResult }: { engl
   const [message, setMessage] = useState('');
   const statusId = useId();
   const inFlight = useRef(false);
+  const controller = useRef<AbortController | null>(null);
+  // Leaving the form drops the request (the route forwards the abort to Vertex).
+  useEffect(() => () => controller.current?.abort(), []);
 
   async function run() {
     if (inFlight.current) return;
     inFlight.current = true;
+    const ctl = new AbortController();
+    controller.current = ctl;
     setBusy(true);
     setMessage('');
     try {
       const res = await fetch('/api/admin/ai/translate', {
         method: 'POST',
+        signal: ctl.signal,
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ locale, items: [{ id: 'x', text: english, ...(itemKey ? { key: itemKey } : {}) }] }),
       });
@@ -41,24 +47,22 @@ export function AiTranslateButton({ english, locale, itemKey, onResult }: { engl
         else setMessage('AI làm mất tên riêng hoặc biến; không dùng được bản dịch này.');
       }
     } catch {
-      setMessage('Không kết nối được. Thử lại sau.');
+      if (!ctl.signal.aborted) setMessage('Không kết nối được. Thử lại sau.');
     } finally {
       inFlight.current = false;
-      setBusy(false);
+      if (!ctl.signal.aborted) setBusy(false);
     }
   }
 
-  // The status exists only while it has something to say: a form holds one role=status (its save notice) and tests find it by that.
+  // A polite live region, always mounted so a screen reader announces what lands in it. Not role=status: a form's save notice is the one role=status (specs find it by that).
   return (
     <span className="a-ai-translate">
       <button type="button" className="a-btn a-btn--ghost a-btn--small" onClick={run} disabled={busy} aria-describedby={message ? statusId : undefined}>
         {busy ? 'Đang dịch…' : 'Dịch từ EN'}
       </button>
-      {message ? (
-        <span role="status" id={statusId} className="a-field-error">
-          {message}
-        </span>
-      ) : null}
+      <span aria-live="polite" id={statusId} className="a-field-error">
+        {message}
+      </span>
     </span>
   );
 }

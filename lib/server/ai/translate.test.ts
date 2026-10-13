@@ -110,6 +110,11 @@ describe.skipIf(!TEST_DATABASE_URL)('translateItems (database)', () => {
     expect(sent).not.toContain('Tàya House opens');
   });
 
+  it('does not throw on unparseable English for a keyed item; the answer is checked against its vars', async () => {
+    const { results } = await translateItems(pool, { locale: 'vi', actorId: STAFF, items: [{ id: 'a', text: '{', vars: ['x'] }] });
+    expect(results).toEqual([{ id: 'a', ok: false, code: 'ai_placeholder' }]);
+  });
+
   it('refuses when the translate feature is off', async () => {
     settings = AiSettingsSchema.parse({ features: { translate: { enabled: false } } });
     await expect(translateItems(pool, { locale: 'vi', actorId: STAFF, items: [{ id: 'a', text: 'Hi' }] })).rejects.toMatchObject({ code: 'ai_off' });
