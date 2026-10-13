@@ -76,6 +76,7 @@ function reply(prompt: LanguageModelV4Prompt): string {
   if (kind === 'seo') return JSON.stringify({ title: 'Fake title', description: 'Fake description' });
   if (kind === 'alt') return 'A fake description of the image.';
   if (kind === 'assist') return `«${/^\s*ACTION:\s*(\w+)/m.exec(instructions)?.[1] ?? 'assist'}» ${user}`;
+  if (kind === 'check' && user.includes('{"ok"')) return '{"ok":true}';
   return 'OK';
 }
 

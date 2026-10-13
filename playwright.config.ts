@@ -117,6 +117,9 @@ export default defineConfig({
           env: {
             BLOB_READ_WRITE_TOKEN: `vercel_blob_rw_fakestore_${process.env.FAKE_BLOB_SECRET ?? ''}`,
             VERCEL_BLOB_RETRIES: '0',
+            // The AI answers with the stand-in model (R9-1); the marker is a fake secret e2e/settings-ai.spec.ts asserts is never rendered.
+            AI_PROVIDER: 'fake',
+            GCP_SERVICE_ACCOUNT_KEY: 'e2e-secret-marker',
             FAKE_BLOB_ORIGIN,
             // A file URL: the checkout's path may hold a space, which NODE_OPTIONS would split on.
             NODE_OPTIONS: `--import=${pathToFileURL(join(__dirname, 'test', 'helpers', 'blob-redirect.mjs')).href}`,
