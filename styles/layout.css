@@ -259,10 +259,18 @@ main[data-view='home'][data-hero='none'] {
 }
 
 .hdr-compact-reserve {
+  position: relative;
   height: 38px;
   padding: 0 22px;
   font-size: 11px;
   display: none;
+}
+
+/* The slab stays 38px; taps 3px above and below it count too (44px). */
+.hdr-compact-reserve::after {
+  content: '';
+  position: absolute;
+  inset: -3px 0;
 }
 
 /* Tablets get a reserve shortcut; phones rely on the bottom bar. */

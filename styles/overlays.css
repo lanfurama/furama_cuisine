@@ -92,8 +92,15 @@
 
 .drawer-selects {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
+}
+
+/* Side by side only where both names fit; stacked on phones so neither is cut. */
+@media (min-width: 760px) {
+  .drawer-selects {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .drawer-label {
@@ -262,7 +269,7 @@
 }
 
 .slot {
-  height: 42px;
+  height: 44px;
   border: 1px solid var(--line);
   background: var(--white);
   color: var(--ink);
@@ -411,7 +418,7 @@
 .drawer-consent {
   margin-top: 18px;
   display: grid;
-  gap: 10px;
+  gap: 16px;
 }
 
 .drawer-privacy {
@@ -422,6 +429,8 @@
 }
 
 .drawer-privacy a {
+  /* A 44px touch area (inline: the padding moves no line); the 16px gap below keeps it off the consent row. */
+  padding: 15px 0;
   color: var(--ink);
   text-decoration: underline;
   text-underline-offset: 2px;

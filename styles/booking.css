@@ -84,6 +84,14 @@
   white-space: nowrap;
 }
 
+/* Phones: the destination and the restaurant, the long names, get a whole row each
+   (half a 390px screen cut "Furama Resort Danang" to "Furama Reso…"). */
+@media (max-width: 759px) {
+  .booking-fields > :nth-child(-n + 2) {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (min-width: 760px) {
   .booking-fields {
     grid-template-columns: repeat(3, minmax(0, 1fr));

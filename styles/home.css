@@ -294,7 +294,9 @@
 }
 
 .hero-dot {
-  padding: 10px 0;
+  /* 44px tall to touch on tablets; the negative margin keeps the old 22px box's spacing. */
+  padding: 21px 0;
+  margin: -11px 0;
 }
 
 .hero-dot span {
