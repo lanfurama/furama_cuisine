@@ -1,4 +1,4 @@
-import { APICallError } from 'ai';
+import { APICallError, NoObjectGeneratedError } from 'ai';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AiSettingsSchema, type AiSettings } from '@/lib/admin/ai-schemas';
@@ -58,21 +58,25 @@ describe.skipIf(!TEST_DATABASE_URL)('AI guard (database)', () => {
     await expect(runAiCall(pool, settings, meta({ feature: 'check', actorId: null }), ok)).rejects.toMatchObject({ code: 'ai_budget' });
   });
 
+  // Rows pinned to the Vietnam day start, with a minute limit nobody reaches: independent of the clock near midnight.
+  const dayStart = `date_trunc('day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh') AT TIME ZONE 'Asia/Ho_Chi_Minh'`;
+  const daySettings: AiSettings = { ...settings, limits: { perMinute: 100, perDay: 5 } };
+
   it('blocks per day from 00:00 Vietnam time', async () => {
     await pool.query(
-      `INSERT INTO ai_usage (at, actor_id, feature, model, region, status) SELECT now() - interval '2 minutes', $1, 'translate', 'gemini-3.8-flash', 'global', 'ok' FROM generate_series(1,5)`,
+      `INSERT INTO ai_usage (at, actor_id, feature, model, region, status) SELECT ${dayStart}, $1, 'translate', 'gemini-3.8-flash', 'global', 'ok' FROM generate_series(1,5)`,
       [STAFF],
     );
-    await expect(runAiCall(pool, settings, meta(), ok)).rejects.toMatchObject({ code: 'ai_rate_day', params: { limit: 5 } });
+    await expect(runAiCall(pool, daySettings, meta(), ok)).rejects.toMatchObject({ code: 'ai_rate_day', params: { limit: 5 } });
   });
 
   it('does not count yesterday (Vietnam time) towards today', async () => {
     await pool.query(
       `INSERT INTO ai_usage (at, actor_id, feature, model, region, status)
-       SELECT date_trunc('day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh') AT TIME ZONE 'Asia/Ho_Chi_Minh' - interval '1 minute', $1, 'translate', 'gemini-3.8-flash', 'global', 'ok' FROM generate_series(1,5)`,
+       SELECT ${dayStart} - interval '1 minute', $1, 'translate', 'gemini-3.8-flash', 'global', 'ok' FROM generate_series(1,5)`,
       [STAFF],
     );
-    await runAiCall(pool, settings, meta(), ok);
+    await runAiCall(pool, daySettings, meta(), ok);
   });
 
   it('blocks when the month plus the ceiling would pass the budget, for every caller', async () => {
@@ -121,6 +125,32 @@ describe.skipIf(!TEST_DATABASE_URL)('AI guard (database)', () => {
   });
 
   describe('reserveAiCall', () => {
+    it('charges the tokens a NoObjectGeneratedError carries, as an error', async () => {
+      const err = new NoObjectGeneratedError({ message: 'n', response: { id: 'i', timestamp: new Date(), modelId: 'm' }, usage: { inputTokens: 1000, outputTokens: 100 } as never, finishReason: 'stop' });
+      await expect(runAiCall(pool, settings, meta(), async () => { throw err; })).rejects.toMatchObject({ code: 'ai_failed' });
+      const { rows } = await pool.query(`SELECT status, input_tokens, output_tokens, cost_usd::float AS c FROM ai_usage`);
+      expect(rows).toEqual([{ status: 'error', input_tokens: 1000, output_tokens: 100, c: expect.closeTo(0.00225, 6) }]);
+    });
+
+    it('a late settle cannot overwrite a fail, nor the reverse', async () => {
+      const a = await reserveAiCall(pool, settings, meta());
+      await a.fail(new Error('x'));
+      await a.settle({ inputTokens: 1000, outputTokens: 1000 });
+      expect((await pool.query(`SELECT status FROM ai_usage`)).rows).toEqual([{ status: 'error' }]);
+      await pool.query('TRUNCATE ai_usage');
+      const b = await reserveAiCall(pool, settings, meta());
+      await b.settle({ inputTokens: 1000, outputTokens: 1000 });
+      await b.fail(new Error('x'));
+      expect((await pool.query(`SELECT status, error_code FROM ai_usage`)).rows).toEqual([{ status: 'ok', error_code: null }]);
+    });
+
+    it('settle with no token counts keeps the ceiling', async () => {
+      const r = await reserveAiCall(pool, settings, meta());
+      await r.settle({});
+      const { rows } = await pool.query(`SELECT status, cost_usd::float AS c FROM ai_usage`);
+      expect(rows).toEqual([{ status: 'ok', c: expect.closeTo(ceilingUsd(meta()), 6) }]);
+    });
+
     it('settle writes the real tokens and cost', async () => {
       const r = await reserveAiCall(pool, settings, meta({ feature: 'assist' }));
       await r.settle({ inputTokens: 2000, outputTokens: 500 });

@@ -1,4 +1,5 @@
 import 'server-only';
+import { NoObjectGeneratedError } from 'ai';
 import type { Pool, PoolClient } from 'pg';
 import type { AiFeature, AiSettings } from '@/lib/admin/ai-schemas';
 import { withTransaction } from '@/lib/server/audit';
@@ -76,27 +77,30 @@ export type AiReservation = {
 export async function reserveAiCall(pool: Pool, settings: AiSettings, meta: AiCallMeta): Promise<AiReservation> {
   const id = await reserve(pool, settings, meta);
   const cost = (u: AiUsage) => priceUsd(meta.model, meta.region, u.inputTokens ?? 0, u.outputTokens ?? 0);
+  const logFailed = (code: string) => console.error('[ai] usage settle failed', { id, code });
   return {
     async settle(usage) {
-      await pool.query(`UPDATE ai_usage SET status = 'ok', input_tokens = $2, output_tokens = $3, cost_usd = $4 WHERE id = $1`, [
+      // A provider that reported no token counts at all keeps the ceiling: unknown is not free.
+      const unknown = usage.inputTokens === undefined && usage.outputTokens === undefined;
+      await pool.query(`UPDATE ai_usage SET status = 'ok', input_tokens = $2, output_tokens = $3, cost_usd = $4 WHERE id = $1 AND status = 'pending'`, [
         id,
         usage.inputTokens ?? 0,
         usage.outputTokens ?? 0,
-        cost(usage),
+        unknown ? ceilingUsd(meta) : cost(usage),
       ]);
     },
     async fail(err, usage = {}) {
       const code = vertexErrorCode(err);
       // A failed UPDATE leaves the row pending at its ceiling, which errs high.
       await pool
-        .query(`UPDATE ai_usage SET status = 'error', error_code = $2, input_tokens = $3, output_tokens = $4, cost_usd = $5 WHERE id = $1`, [
+        .query(`UPDATE ai_usage SET status = 'error', error_code = $2, input_tokens = $3, output_tokens = $4, cost_usd = $5 WHERE id = $1 AND status = 'pending'`, [
           id,
           code,
           usage.inputTokens ?? 0,
           usage.outputTokens ?? 0,
           cost(usage),
         ])
-        .catch(() => {});
+        .catch(() => logFailed(code));
       return err instanceof AiError ? err : new AiError(code);
     },
   };
@@ -115,10 +119,14 @@ export async function runAiCall<T>(
   try {
     result = await fn(meta.signal);
   } catch (err) {
-    throw await reservation.fail(err);
+    // Tokens a failed call already used (an unparseable answer carries them) are still billed.
+    const usage = (NoObjectGeneratedError.isInstance(err) ? err.usage : (err as { usage?: unknown } | null)?.usage) as
+      | { inputTokens?: number; outputTokens?: number }
+      | undefined;
+    throw await reservation.fail(err, usage);
   }
   // The answer is in hand; a failed ledger write leaves the ceiling pending and does not lose it.
-  await reservation.settle(result.usage).catch(() => {});
+  await reservation.settle(result.usage).catch(() => console.error('[ai] usage settle failed', { code: 'settle' }));
   return result.value;
 }
 

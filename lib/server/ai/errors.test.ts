@@ -1,4 +1,4 @@
-import { APICallError, NoObjectGeneratedError } from 'ai';
+import { APICallError, NoObjectGeneratedError, RetryError } from 'ai';
 import { describe, expect, it } from 'vitest';
 import { AiOffError } from './client';
 import { AiError, vertexErrorCode } from './errors';
@@ -35,6 +35,12 @@ describe('vertexErrorCode', () => {
   it('reads the status of a Gaxios error (the WIF token exchange)', () => {
     const gaxios = Object.assign(new Error('Request failed with status code 403'), { name: 'GaxiosError', response: { status: 403 } });
     expect(vertexErrorCode(gaxios)).toBe('ai_auth');
+  });
+
+  it('unwraps a RetryError to the status of the last failure', () => {
+    const retry = (status: number) => new RetryError({ message: 'r', reason: 'maxRetriesExceeded', errors: [api(status), api(status)] });
+    expect(vertexErrorCode(retry(429))).toBe('ai_quota');
+    expect(vertexErrorCode(retry(403))).toBe('ai_auth');
   });
 
   it('falls back to ai_failed for anything else', () => {

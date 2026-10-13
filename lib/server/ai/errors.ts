@@ -1,5 +1,5 @@
 import 'server-only';
-import { APICallError } from 'ai';
+import { APICallError, RetryError } from 'ai';
 import { AiError, type AiErrorCode } from './ai-error';
 import { AiOffError } from './client';
 
@@ -23,6 +23,8 @@ function fromStatus(status: unknown): AiErrorCode {
 export function vertexErrorCode(err: unknown): AiErrorCode {
   if (err instanceof AiError) return err.code;
   if (err instanceof AiOffError) return 'ai_off';
+  // maxRetries: 1 wraps the last failure in a RetryError; the status is on what it wraps.
+  if (RetryError.isInstance(err)) return vertexErrorCode(err.lastError);
   if (APICallError.isInstance(err)) return fromStatus(err.statusCode);
   const status = (err as { response?: { status?: unknown } } | null)?.response?.status;
   return status === undefined ? 'ai_failed' : fromStatus(status);

@@ -41,6 +41,7 @@ export function aiErrorResponse(err: unknown): Response {
     status = 400;
   } else {
     const ai = err instanceof AiError ? err : new AiError(vertexErrorCode(err));
+    if (!(err instanceof AiError)) console.error('[ai] request failed', { code: ai.code, name: err instanceof Error ? err.name : typeof err });
     code = ai.code;
     status = STATUS[ai.code];
     params = ai.params && Object.fromEntries(Object.entries(ai.params).map(([k, v]) => [k, String(v)]));
