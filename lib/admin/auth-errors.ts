@@ -70,6 +70,17 @@ const ACTION_MESSAGES: Record<ActionCode, string> = {
   missing_reference: 'Phiên bản này dùng một nhà hàng, ảnh hoặc mục không còn nữa, nên không khôi phục được.',
   in_use: 'File này đang được dùng nên không xóa được. Hãy thay ảnh ở những chỗ dưới đây trước.',
   blob_not_configured: 'Môi trường này chưa kết nối kho file (Vercel Blob). Liên hệ người quản trị kỹ thuật.',
+  ai_off: 'AI chưa được cấu hình hoặc tính năng đang tắt.',
+  ai_budget: 'Đã dùng hết ngân sách AI tháng này.',
+  ai_rate_minute: 'Bạn đã dùng hết số lượt AI trong một phút. Thử lại sau ít giây.',
+  ai_rate_day: 'Bạn đã dùng hết số lượt AI hôm nay.',
+  ai_auth: 'Thiếu quyền, hoặc model chưa được bật.',
+  ai_not_found: 'Model không có ở region đã chọn.',
+  ai_quota: 'Hết quota Vertex.',
+  ai_bad_request: 'Tham số sai, hoặc bị chính sách của tổ chức GCP chặn.',
+  ai_failed: 'Vertex không trả lời được. Thử lại sau.',
+  ai_placeholder: 'AI làm mất tên riêng hoặc biến; không dùng được bản dịch này.',
+  ai_preview: 'Bản xem trước không gọi AI.',
 };
 
 /** `params` fills in the codes that carry details: who saved first and when, the covers left. */
@@ -82,6 +93,12 @@ export function actionErrorMessage(code: ActionCode, params?: Record<string, str
   }
   if (code === 'limit' && params?.max) {
     return `Tối đa ${params.max} mục được hiện (giới hạn bố cục). Hãy ẩn một mục khác trước.`;
+  }
+  if (code === 'ai_rate_minute' && params?.limit) {
+    return `Bạn đã dùng AI ${params.limit} lần trong một phút. Thử lại sau ít giây.`;
+  }
+  if (code === 'ai_rate_day' && params?.limit) {
+    return `Bạn đã dùng hết ${params.limit} lượt AI hôm nay.`;
   }
   if (code === 'email_failed' && params?.error) {
     return `Không gửi được email thử. ${emailFailureHint(params.error)} (${params.error})`;
