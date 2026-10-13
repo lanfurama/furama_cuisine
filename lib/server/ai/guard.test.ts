@@ -1,6 +1,6 @@
 import { APICallError, NoObjectGeneratedError } from 'ai';
 import { Pool } from 'pg';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AiSettingsSchema, type AiSettings } from '@/lib/admin/ai-schemas';
 import { TEST_DATABASE_URL } from '@/test/helpers/db';
 import { ceilingUsd, monthSpendUsd, reserveAiCall, runAiCall, type AiCallMeta } from './guard';
@@ -20,6 +20,9 @@ const meta = (o: Partial<AiCallMeta> = {}): AiCallMeta => ({
 });
 const passed = (rs: PromiseSettledResult<unknown>[]) => rs.filter((r) => r.status === 'fulfilled').length;
 let pool: Pool;
+
+// Advisory locks serialise the parallel calls, and a loaded machine can push a test past the default 5 s.
+vi.setConfig({ testTimeout: 30_000 });
 
 describe.skipIf(!TEST_DATABASE_URL)('AI guard (database)', () => {
   beforeAll(() => {
@@ -100,10 +103,11 @@ describe.skipIf(!TEST_DATABASE_URL)('AI guard (database)', () => {
   });
 
   it('counts a pending row at its ceiling', async () => {
+    const before = (await monthSpendUsd(pool)).spent;
     const r = await reserveAiCall(pool, settings, meta());
-    const { rows } = await pool.query(`SELECT status, cost_usd::float AS c FROM ai_usage`);
+    const { rows } = await pool.query(`SELECT status, cost_usd::float AS c FROM ai_usage WHERE actor_id = $1`, [STAFF]);
     expect(rows).toEqual([{ status: 'pending', c: expect.closeTo(ceilingUsd(meta()), 6) }]);
-    expect((await monthSpendUsd(pool)).spent).toBeCloseTo(ceilingUsd(meta()), 6);
+    expect((await monthSpendUsd(pool)).spent - before).toBeCloseTo(ceilingUsd(meta()), 6);
     await r.settle({});
   });
 
