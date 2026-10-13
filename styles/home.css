@@ -1068,8 +1068,10 @@
 }
 
 .offer-cta {
-  margin-top: 14px;
-  padding: 6px 0;
+  /* A 44px touch area; the margins keep the layout of the old 6px padding. */
+  margin-top: 5px;
+  margin-bottom: -9px;
+  padding: 15px 0;
   display: flex;
   align-items: center;
   gap: 8px;

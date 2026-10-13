@@ -119,7 +119,9 @@ img {
 
 /* Small caps link, e.g. "ALL CUISINES →" */
 .text-link {
-  padding: 6px 0;
+  /* A 44px touch area; the negative margin keeps the layout of the old 6px padding. */
+  padding: 16px 0;
+  margin: -10px 0;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.16em;

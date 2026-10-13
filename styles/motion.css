@@ -24,16 +24,14 @@
     transform: translateX(20px);
   }
 
-  /* Clip reveals stay opaque and unveil via clip-path instead of fading. */
-  [data-motion='on'] [data-reveal='clip']:not([data-revealed]) {
-    opacity: 1;
-    clip-path: inset(100% 0% 0% 0%);
-  }
-
-  [data-motion='on'] [data-reveal='wipe']:not([data-revealed]) {
-    opacity: 1;
-    clip-path: inset(0% 100% 0% 0%);
-  }
+  /*
+   * Clip and wipe reveals wait hidden by opacity alone (the rule above), never
+   * by clip-path: Chrome's IntersectionObserver measures a target through its
+   * own clip-path, so a fully clipped element reports an intersection ratio of
+   * 0 and never crosses the observer's threshold — it would stay hidden for
+   * good. The reveal animation starts from the clipped keyframe with
+   * fill: backwards (lib/motion.tsx), so nothing flashes when it plays.
+   */
 
   [data-motion='on'] [data-reveal='card']:not([data-revealed]) [data-reveal-img] {
     clip-path: inset(100% 0% 0% 0%);
