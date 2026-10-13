@@ -60,6 +60,9 @@ const ENTITIES: Record<string, string> = {
   media: 'File trong thư viện',
   // Languages (phase 8, /admin/locales): one language, or the order (entity_id NULL).
   locales: 'Ngôn ngữ',
+  // AI (phase 9): the configuration, and the glossary's terms.
+  ai_settings: 'Cấu hình AI',
+  ai_glossary: 'Thuật ngữ AI',
 };
 
 export function auditActionLabel(action: string): string {
