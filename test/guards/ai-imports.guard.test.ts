@@ -20,7 +20,9 @@ const SOURCE = /\.(?:[cm]?[jt]s|[jt]sx)$/;
 const NOT_APP = /\.test\.[cm]?[jt]sx?$|\.d\.[cm]?ts$/;
 
 /** The packages that are the gate's; a module request is checked by its package name. */
-const RESTRICTED = new Set(['ai', '@ai-sdk/google-vertex', '@ai-sdk/google', '@ai-sdk/anthropic', '@ai-sdk/react', 'google-auth-library', '@vercel/oidc']);
+const RESTRICTED = new Set(['ai', 'google-auth-library', '@vercel/oidc']);
+/** Every @ai-sdk/* package is the gate's (providers and @ai-sdk/react alike). */
+const restricted = (m: string) => RESTRICTED.has(packageOf(m)) || m.startsWith('@ai-sdk/');
 const GATE = 'lib/server/ai/';
 const ASSIST_PANEL = 'app/admin/(shell)/_kit/AssistPanel.tsx';
 const AI_ROUTE = /^app\/api\/admin\/ai\/.+\/route\.ts$/;
@@ -76,7 +78,7 @@ const packageOf = (m: string) => (m.startsWith('@') ? m.split('/').slice(0, 2).j
 function aiImportProblems(rel: string, src: string): string[] {
   const requests = moduleRequests(rel, src);
   const problems = requests
-    .filter((m) => RESTRICTED.has(packageOf(m)))
+    .filter(restricted)
     .filter((m) => {
       if (rel.startsWith(GATE)) return packageOf(m) === '@ai-sdk/react';
       if (packageOf(m) === '@ai-sdk/react') return rel !== ASSIST_PANEL;
@@ -126,6 +128,7 @@ describe('AI imports (spec §9.4: one gate to Vertex)', () => {
     expect(aiImportProblems('lib/server/ai/x.ts', "import { useCompletion } from '@ai-sdk/react';")).toEqual(['lib/server/ai/x.ts: imports @ai-sdk/react']);
     // The two exceptions are narrow.
     expect(aiImportProblems(ASSIST_PANEL, "import { useCompletion } from '@ai-sdk/react';")).toEqual([]);
+    expect(aiImportProblems('lib/x.ts', "import { openai } from '@ai-sdk/openai';")).toEqual(['lib/x.ts: imports @ai-sdk/openai']);
     expect(aiImportProblems('app/x/Other.tsx', "import { useCompletion } from '@ai-sdk/react';")).toEqual(['app/x/Other.tsx: imports @ai-sdk/react']);
     expect(aiImportProblems('app/api/admin/ai/assist/route.ts', "import { createTextStreamResponse } from 'ai';")).toEqual([]);
     expect(aiImportProblems('app/api/admin/ai/assist/route.ts', "import { MockLanguageModelV4 } from 'ai/test';")).toEqual([

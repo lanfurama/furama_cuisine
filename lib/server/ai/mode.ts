@@ -18,8 +18,11 @@ type Env = Record<string, string | undefined>;
 
 const has = (env: Env, name: string) => Boolean(env[name]?.trim());
 
+/** Every Workload Identity id is set: the one test for "keyless", used by the mode and by the client. */
+export const wifComplete = (env: Env): boolean => GCP_ENV.every((n) => has(env, n));
+
 export function resolveAiMode(env: Env = process.env): AiMode {
-  if (has(env, 'GOOGLE_VERTEX_API_KEY')) {
+  if (env.GOOGLE_VERTEX_API_KEY !== undefined) {
     throw new Error('GOOGLE_VERTEX_API_KEY must not be set: it switches the Vertex provider to express mode (keyless WIF is the only way in).');
   }
   const provider = env.AI_PROVIDER?.trim();
@@ -28,10 +31,9 @@ export function resolveAiMode(env: Env = process.env): AiMode {
     if (env.VERCEL_ENV === 'production') throw new Error('AI_PROVIDER=fake is refused on Production.');
     return { mode: 'fake' };
   }
-  const wif = GCP_ENV.filter((n) => !has(env, n));
-  if (wif.length === 0) return { mode: 'vertex' };
+  if (wifComplete(env)) return { mode: 'vertex' };
   if (has(env, 'GCP_PROJECT_ID') && has(env, 'GCP_SERVICE_ACCOUNT_KEY')) return { mode: 'vertex' };
-  return { mode: 'off', missing: wif };
+  return { mode: 'off', missing: GCP_ENV.filter((n) => !has(env, n)) };
 }
 
 /** Each variable the AI needs and whether it is set: never a value. */

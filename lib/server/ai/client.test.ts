@@ -1,8 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { generateText } from 'ai';
+import { createGoogleVertex } from '@ai-sdk/google-vertex';
 import { AuthClient } from 'google-auth-library';
 import type { FeatureConfig } from '@/lib/admin/ai-schemas';
 import { AiOffError, languageModel, providerOptions, vertexAuth } from './client';
+
+vi.mock('@ai-sdk/google-vertex', async (orig) => {
+  const m = await orig<typeof import('@ai-sdk/google-vertex')>();
+  return { ...m, createGoogleVertex: vi.fn(m.createGoogleVertex) };
+});
 
 const GCP = { GCP_PROJECT_ID: 'p', GCP_PROJECT_NUMBER: '1', GCP_SERVICE_ACCOUNT_EMAIL: 'sa@p.iam.gserviceaccount.com', GCP_WORKLOAD_IDENTITY_POOL_ID: 'vercel', GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID: 'vercel' };
 
@@ -60,7 +66,28 @@ describe('vertexAuth', () => {
     expect(sts.get('subject_token')).toBe('oidc-jwt');
     expect(sts.get('audience')).toBe('//iam.googleapis.com/projects/1/locations/global/workloadIdentityPools/vercel/providers/vercel');
     expect(getToken).toHaveBeenCalledWith();
+    expect(seen[1].headers.get('authorization')).toBe('Bearer fed');
     expect(seen[1].url).toBe('https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/sa@p.iam.gserviceaccount.com:generateAccessToken');
+  });
+
+  it('uses the key, never projects/undefined, when WIF is only partly set', () => {
+    const key = JSON.stringify({ client_email: 'k@p.iam.gserviceaccount.com', private_key: 'pk' });
+    const auth = vertexAuth({ GCP_PROJECT_ID: 'p', GCP_SERVICE_ACCOUNT_KEY: key, GCP_WORKLOAD_IDENTITY_POOL_ID: 'vercel' });
+    expect(auth).toEqual({ credentials: { client_email: 'k@p.iam.gserviceaccount.com', private_key: 'pk' } });
+  });
+
+  it('rejects a malformed key without echoing it', () => {
+    let message = '';
+    try {
+      vertexAuth({ GCP_PROJECT_ID: 'p', GCP_SERVICE_ACCOUNT_KEY: '{"private_key": "TOPSECRET' });
+    } catch (e) {
+      message = (e as Error).message;
+      expect((e as Error).cause).toBeUndefined();
+    }
+    expect(message).toBe('GCP_SERVICE_ACCOUNT_KEY is not valid service-account JSON');
+    expect(message).not.toContain('TOPSECRET');
+    expect(() => vertexAuth({ GCP_PROJECT_ID: 'p', GCP_SERVICE_ACCOUNT_KEY: '{}' })).toThrow('GCP_SERVICE_ACCOUNT_KEY is not valid service-account JSON');
+    expect(() => vertexAuth({ GCP_PROJECT_ID: 'p', GCP_SERVICE_ACCOUNT_KEY: '{"client_email":"a","private_key":""}' })).toThrow(/not valid/);
   });
 
   it('falls back to the key in GCP_SERVICE_ACCOUNT_KEY only when WIF is not configured', () => {
@@ -89,8 +116,15 @@ describe('languageModel', () => {
   });
 
   it('returns the fake model in fake mode and refuses when off', () => {
-    expect(languageModel(cfg({}), { AI_PROVIDER: 'fake' }).constructor.name).toMatch(/Mock|Fake/);
+    expect((languageModel(cfg({}), { AI_PROVIDER: 'fake' }) as { provider: string }).provider).toBe('fake');
     expect(() => languageModel(cfg({}), {})).toThrow(AiOffError);
+  });
+  it('key-fallback mode hands the provider { credentials, projectId }', () => {
+    const spy = vi.mocked(createGoogleVertex);
+    spy.mockClear();
+    const key = JSON.stringify({ client_email: 'k@p.iam.gserviceaccount.com', private_key: 'pk' });
+    languageModel(cfg({}), { GCP_PROJECT_ID: 'p', GCP_SERVICE_ACCOUNT_KEY: key });
+    expect(spy.mock.calls[0][0]).toMatchObject({ project: 'p', googleAuthOptions: { credentials: { client_email: 'k@p.iam.gserviceaccount.com', private_key: 'pk' }, projectId: 'p' }, apiKey: '' });
   });
   it('refuses to run with GOOGLE_VERTEX_API_KEY present', () => {
     expect(() => languageModel(cfg({}), { ...GCP, GOOGLE_VERTEX_API_KEY: 'k' })).toThrow(/GOOGLE_VERTEX_API_KEY/);

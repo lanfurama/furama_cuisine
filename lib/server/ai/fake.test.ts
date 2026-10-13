@@ -16,10 +16,10 @@ afterEach(() => {
 });
 
 const schema = z.object({ items: z.array(z.object({ id: z.string(), text: z.string() })) });
-const translate = (target = 'Vietnamese', items = [{ id: 'a', text: 'Hello ⟦G1⟧' }]) =>
+const translate = (target = 'vi', items = [{ id: 'a', text: 'Hello ⟦G1⟧' }]) =>
   generateText({
     model: fakeModel(),
-    instructions: `TASK: translate\nTranslate each item's text from English to ${target}.`,
+    instructions: `TASK: translate\nTARGET: ${target}\nTranslate each item's text.`,
     prompt: JSON.stringify({ items }),
     output: Output.object({ schema }),
     maxRetries: 0,
@@ -30,8 +30,20 @@ describe('fake model', () => {
     const r = await translate();
     expect(r.output.items).toEqual([{ id: 'a', text: '«vi» Hello ⟦G1⟧' }]);
     expect(r.totalUsage).toMatchObject({ inputTokens: 100, outputTokens: 50 });
-    expect((await translate('Simplified Chinese')).output.items[0].text).toMatch(/^«zh-hans» /);
-    expect((await translate('Brazilian Portuguese')).output.items[0].text).toMatch(/^«pt-br» /);
+    expect((await translate('zh-hans')).output.items[0].text).toMatch(/^«zh-hans» /);
+  });
+  it('refuses a translate call without a TARGET line', async () => {
+    await expect(generateText({ model: fakeModel(), instructions: 'TASK: translate', prompt: '{"items":[]}', maxRetries: 0 })).rejects.toThrow(/TARGET/);
+  });
+  it('a non-numeric or out-of-range AI_FAKE_FAIL status is 500', async () => {
+    for (const spec of ['translate:abc', 'translate:99', 'translate:700']) {
+      process.env.AI_FAKE_FAIL = spec;
+      await expect(translate()).rejects.toMatchObject({ statusCode: 500 });
+    }
+  });
+  it('keeps its flags on globalThis', () => {
+    setFakeFlags({ dropToken: true });
+    expect((globalThis as { __aiFake?: { flags: unknown } }).__aiFake?.flags).toEqual({ dropToken: true });
   });
   it('answers seo, alt and check', async () => {
     const run = (task: string) => generateText({ model: fakeModel(), instructions: `TASK: ${task}`, prompt: 'x', maxRetries: 0 });

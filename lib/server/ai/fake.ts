@@ -8,7 +8,7 @@ type LanguageModelV4Prompt = Parameters<MockLanguageModelV4['doGenerate']>[0]['p
  * The stand-in model for dev, CI and E2E (AI_PROVIDER=fake, R9-1): answers are
  * predictable and never leave the process. The call kind is the first line of
  * the instructions ("TASK: translate|assist|seo|alt|check"; the modules that
- * make the calls put it there).
+ * make the calls put it there). A translate call also carries "TARGET: <locale code>".
  *
  *   AI_FAKE_FAIL=<feature>:<status>   that feature's calls throw an APICallError with the status
  *   AI_FAKE_DROP_TOKEN=1              the fake translation drops the ⟦G1⟧ token
@@ -17,13 +17,18 @@ type LanguageModelV4Prompt = Parameters<MockLanguageModelV4['doGenerate']>[0]['p
  * server through setFakeFlags/resetFake (an override beats the environment).
  */
 export type FakeFlags = { fail?: string | null; dropToken?: boolean };
-let override: FakeFlags = {};
+/*
+ * Kept on globalThis: Next may bundle this module once per route, and the test
+ * route that flips a flag must reach the instance the AI routes use.
+ */
+const g = globalThis as typeof globalThis & { __aiFake?: { flags: FakeFlags } };
+const state = (g.__aiFake ??= { flags: {} });
 
 export function setFakeFlags(flags: FakeFlags): void {
-  override = { ...override, ...flags };
+  state.flags = { ...state.flags, ...flags };
 }
 export function resetFake(): void {
-  override = {};
+  state.flags = {};
 }
 
 const USAGE = {
@@ -31,25 +36,6 @@ const USAGE = {
   outputTokens: { total: 50, text: 50, reasoning: undefined },
 };
 const STOP = { unified: 'stop', raw: undefined } as const;
-
-/** English language names (lib/i18n/catalog.ts has only native names) → catalogue code. */
-const LOCALE_BY_ENGLISH_NAME: Record<string, string> = {
-  english: 'en',
-  vietnamese: 'vi',
-  korean: 'ko',
-  'simplified chinese': 'zh-hans',
-  chinese: 'zh-hans',
-  japanese: 'ja',
-  french: 'fr',
-  german: 'de',
-  spanish: 'es',
-  italian: 'it',
-  dutch: 'nl',
-  'brazilian portuguese': 'pt-br',
-  'portuguese (brazil)': 'pt-br',
-  indonesian: 'id',
-  malay: 'ms',
-};
 
 type Kind = 'translate' | 'assist' | 'seo' | 'alt' | 'check' | 'unknown';
 
@@ -67,21 +53,22 @@ function read(prompt: LanguageModelV4Prompt): { instructions: string; user: stri
 }
 
 function maybeFail(kind: Kind): void {
-  const spec = override.fail !== undefined ? override.fail : process.env.AI_FAKE_FAIL;
+  const spec = state.flags.fail !== undefined ? state.flags.fail : process.env.AI_FAKE_FAIL;
   if (!spec) return;
   const [feature, status] = spec.split(':');
   if (feature !== kind && feature !== '*') return;
-  const statusCode = Number(status);
+  const n = Number(status);
+  const statusCode = Number.isInteger(n) && n >= 100 && n <= 599 ? n : 500;
   throw new APICallError({ message: `fake ${statusCode}`, url: 'fake://vertex', requestBodyValues: {}, statusCode, isRetryable: false });
 }
 
-const dropToken = () => (override.dropToken !== undefined ? override.dropToken : process.env.AI_FAKE_DROP_TOKEN === '1');
+const dropToken = () => (state.flags.dropToken !== undefined ? state.flags.dropToken : process.env.AI_FAKE_DROP_TOKEN === '1');
 
 function reply(prompt: LanguageModelV4Prompt): string {
   const { instructions, user, kind } = read(prompt);
   if (kind === 'translate') {
-    const name = /Translate each item's text from English to ([^\n.]+)/.exec(instructions)?.[1]?.trim() ?? '';
-    const locale = LOCALE_BY_ENGLISH_NAME[name.toLowerCase()] ?? name.toLowerCase();
+    const locale = /^\s*TARGET:\s*(\S+)\s*$/m.exec(instructions)?.[1];
+    if (!locale) throw new Error('fake model: a translate call needs a "TARGET: <locale code>" line in its instructions');
     const drop = dropToken();
     const doc = JSON.parse(user.slice(user.indexOf('{'))) as { items: { id: string; text: string }[] };
     return JSON.stringify({ items: doc.items.map((i) => ({ id: i.id, text: `«${locale}» ${drop ? i.text.replace('⟦G1⟧', '') : i.text}` })) });

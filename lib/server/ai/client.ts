@@ -8,7 +8,7 @@ import { AuthClient, ExternalAccountClient } from 'google-auth-library';
 import { getVercelOidcToken } from '@vercel/oidc';
 import type { FeatureConfig } from '@/lib/admin/ai-schemas';
 import { fakeModel } from './fake';
-import { resolveAiMode } from './mode';
+import { resolveAiMode, wifComplete } from './mode';
 import { modelById, type ModelId } from './models';
 
 type Env = Record<string, string | undefined>;
@@ -21,16 +21,28 @@ type KeyCredentials = { credentials: { client_email: string; private_key: string
  * wrapper on purpose: called with GCP's audience, getVercelOidcToken would read
  * it as its own and make another request (spike gotcha 2). The fallback is a
  * service-account key in GCP_SERVICE_ACCOUNT_KEY, never in the database; it is
- * used only when WIF is not fully configured.
+ * used only when WIF is not complete (wifComplete, the same test as the mode).
  */
+const BAD_KEY = 'GCP_SERVICE_ACCOUNT_KEY is not valid service-account JSON';
+
+/** The key's two fields; any failure is one generic message (no input text, no cause). */
+function parseKey(json: string): { client_email: string; private_key: string } {
+  let key: unknown;
+  try {
+    key = JSON.parse(json);
+  } catch {
+    throw new Error(BAD_KEY);
+  }
+  const { client_email, private_key } = (key && typeof key === 'object' ? key : {}) as Record<string, unknown>;
+  if (typeof client_email !== 'string' || !client_email || typeof private_key !== 'string' || !private_key) throw new Error(BAD_KEY);
+  return { client_email, private_key };
+}
+
 export function vertexAuth(
   env: Env = process.env,
   deps: { getToken?: () => Promise<string>; fetchImplementation?: typeof fetch } = {},
 ): AuthClient | KeyCredentials {
-  if (env.GCP_SERVICE_ACCOUNT_KEY && !env.GCP_WORKLOAD_IDENTITY_POOL_ID) {
-    const key = JSON.parse(env.GCP_SERVICE_ACCOUNT_KEY) as { client_email: string; private_key: string };
-    return { credentials: { client_email: key.client_email, private_key: key.private_key } };
-  }
+  if (!wifComplete(env) && env.GCP_SERVICE_ACCOUNT_KEY?.trim()) return { credentials: parseKey(env.GCP_SERVICE_ACCOUNT_KEY) };
   const getToken = deps.getToken ?? (() => getVercelOidcToken());
   const client = ExternalAccountClient.fromJSON({
     type: 'external_account',
@@ -60,7 +72,9 @@ export function languageModel(cfg: FeatureConfig, env: Env = process.env, deps: 
   const auth = deps.authClient ?? vertexAuth(env);
   const googleAuthOptions = auth instanceof AuthClient ? { authClient: auth } : { credentials: auth.credentials, projectId: env.GCP_PROJECT_ID };
   const common = { project: env.GCP_PROJECT_ID!, location: cfg.region, googleAuthOptions, fetch: deps.fetch };
-  return modelById(cfg.model as ModelId).provider === 'anthropic' ? createVertexAnthropic(common)(cfg.model) : createGoogleVertex(common)(cfg.model);
+  if (modelById(cfg.model as ModelId).provider === 'anthropic') return createVertexAnthropic(common)(cfg.model);
+  // apiKey '' (not undefined): the provider would otherwise read GOOGLE_VERTEX_API_KEY itself and go to express mode.
+  return createGoogleVertex({ ...common, apiKey: '' })(cfg.model);
 }
 
 type Level = FeatureConfig['reasoning'];

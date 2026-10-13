@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { envStatus, resolveAiMode } from './mode';
+import { envStatus, resolveAiMode, wifComplete } from './mode';
 
 const GCP = { GCP_PROJECT_ID: 'p', GCP_PROJECT_NUMBER: '1', GCP_SERVICE_ACCOUNT_EMAIL: 'sa@p.iam.gserviceaccount.com', GCP_WORKLOAD_IDENTITY_POOL_ID: 'vercel', GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID: 'vercel' };
 
@@ -27,6 +27,10 @@ describe('resolveAiMode', () => {
     expect(() => resolveAiMode({ AI_PROVIDER: 'fake', GOOGLE_VERTEX_API_KEY: 'k' })).toThrow();
     expect(() => resolveAiMode({ GOOGLE_VERTEX_API_KEY: 'k' })).toThrow();
   });
+  it('refuses GOOGLE_VERTEX_API_KEY on presence, even blank', () => {
+    expect(() => resolveAiMode({ ...GCP, GOOGLE_VERTEX_API_KEY: '   ' })).toThrow(/GOOGLE_VERTEX_API_KEY/);
+    expect(() => resolveAiMode({ ...GCP, GOOGLE_VERTEX_API_KEY: '' })).toThrow(/GOOGLE_VERTEX_API_KEY/);
+  });
   it('refuses an unknown AI_PROVIDER', () => expect(() => resolveAiMode({ AI_PROVIDER: 'openai' })).toThrow());
 });
 
@@ -37,5 +41,13 @@ describe('envStatus', () => {
     expect(s.find((x) => x.name === 'GCP_SERVICE_ACCOUNT_KEY')).toEqual({ name: 'GCP_SERVICE_ACCOUNT_KEY', present: true });
     expect(s.find((x) => x.name === 'GCP_PROJECT_ID')).toEqual({ name: 'GCP_PROJECT_ID', present: true });
     expect(envStatus({}).every((x) => !x.present)).toBe(true);
+  });
+});
+
+describe('wifComplete', () => {
+  it('needs all five ids, non-blank', () => {
+    expect(wifComplete(GCP)).toBe(true);
+    expect(wifComplete({ ...GCP, GCP_PROJECT_NUMBER: '  ' })).toBe(false);
+    expect(wifComplete({ GCP_PROJECT_ID: 'p', GCP_WORKLOAD_IDENTITY_POOL_ID: 'v' })).toBe(false);
   });
 });
