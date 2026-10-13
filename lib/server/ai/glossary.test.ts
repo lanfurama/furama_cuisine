@@ -42,6 +42,37 @@ describe('mask and unmask', () => {
     const m = mask('Visit C++ (new) now', [{ term: 'C++ (new)', mode: 'keep', locale: null, target: null }], 'vi');
     expect(m.text).toBe('Visit ⟦G1⟧ now');
   });
+  it('masks hyphenated and slash terms (the pattern has the u flag)', () => {
+    const t: GlossaryEntry[] = [
+      { term: 'Ba-na Hills', mode: 'keep', locale: null, target: null },
+      { term: 'A/B', mode: 'keep', locale: null, target: null },
+    ];
+    const m = mask('Go to Ba-na Hills or A/B.', t, 'vi');
+    expect(m.text).toBe('Go to ⟦G1⟧ or ⟦G2⟧.');
+    expect(unmask('Đến ⟦G1⟧ hoặc ⟦G2⟧.', m)).toEqual({ ok: true, text: 'Đến Ba-na Hills hoặc A/B.' });
+  });
+  it('is not a whole word when a combining mark follows or precedes', () => {
+    const t: GlossaryEntry[] = [{ term: 'Tay', mode: 'keep', locale: null, target: null }];
+    expect(mask('Tay\u0323x', t, 'vi').tokens).toHaveLength(0); // Ṭ-like: letter + dot below, not a boundary
+    expect(mask('Tay\u0e31', t, 'vi').tokens).toHaveLength(0); // Thai mark NFC cannot compose
+    expect(mask('\u0e31Tay', t, 'vi').tokens).toHaveLength(0);
+  });
+  it('masks at the string start and end and next to punctuation', () => {
+    const t: GlossaryEntry[] = [{ term: 'Tàya', mode: 'keep', locale: null, target: null }];
+    expect(mask('Tàya', t, 'vi').text).toBe('⟦G1⟧');
+    expect(mask('(Tàya), "Tàya"; Tàya!', t, 'vi').text).toBe('(⟦G1⟧), "⟦G2⟧"; ⟦G3⟧!');
+  });
+  it('never masks a term inside a variable name', () => {
+    const t: GlossaryEntry[] = [{ term: 'phone', mode: 'keep', locale: null, target: null }];
+    expect(mask('Call {phone} on the phone', t, 'vi').text).toBe('Call ⟦V1⟧ on the ⟦G1⟧');
+    const plural = mask('{n, plural, one {# call} other {# calls}} to {phone}', t, 'vi');
+    expect(plural.text).toBe('{n, plural, one {# call} other {# calls}} to {phone}');
+  });
+  it('fails closed when the source already holds a lookalike token', () => {
+    const m = mask('Tàya ⟦G1⟧', G, 'vi');
+    expect(m.text).toBe('⟦G1⟧ ⟦G1⟧');
+    expect(unmask('⟦G1⟧ ⟦G1⟧', m)).toEqual({ ok: false });
+  });
   it('a map term wins over a keep term of the same text for its language', () => {
     const m = mask('Da Nang', [{ term: 'Da Nang', mode: 'keep', locale: null, target: null }, ...G], 'vi');
     expect(m.tokens.map((t) => t.restore)).toEqual(['Đà Nẵng']);
@@ -105,6 +136,11 @@ describe.skipIf(!TEST_DATABASE_URL)('glossary (database)', () => {
     expect(rows[0].after.term).toBe('Furama');
     const dup = await saveGlossaryEntry(pool, ACTOR, { term: 'Furama', mode: 'keep', locale: null, target: null });
     expect(dup).toEqual({ ok: false, code: 'invalid', fieldErrors: { term: ['Thuật ngữ này đã có.'] } });
+  });
+
+  it('refuses the mask brackets in a term or target', async () => {
+    expect(await saveGlossaryEntry(pool, ACTOR, { term: 'a⟦G1⟧', mode: 'keep', locale: null, target: null })).toMatchObject({ ok: false, code: 'invalid', fieldErrors: { term: [expect.stringContaining('⟦')] } });
+    expect(await saveGlossaryEntry(pool, ACTOR, { term: 'a', mode: 'map', locale: 'vi', target: 'b⟧' })).toMatchObject({ ok: false, code: 'invalid', fieldErrors: { target: [expect.any(String)] } });
   });
 
   it('refuses a map without a target or language, and an unknown language', async () => {

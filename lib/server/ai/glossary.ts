@@ -19,7 +19,7 @@ type Db = Pool | PoolClient;
 export type Masked = { text: string; tokens: { token: string; restore: string }[] };
 
 const nfc = (s: string) => s.normalize('NFC');
-const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\\-/]/g, '\\$&');
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const VARIABLE = /\{[A-Za-z0-9_]+\}/;
 
 /** True when `text` has plural, select or selectordinal: its inner words need translating, so no variable is masked. */
@@ -41,8 +41,10 @@ export function mask(text: string, glossary: readonly GlossaryEntry[], targetLoc
     if (term && !byTerm.has(term)) byTerm.set(term, e);
   }
   const terms = [...byTerm.keys()].sort((a, b) => b.length - a.length || (a < b ? -1 : 1));
-  const alternatives = terms.map((t) => `(?<![\\p{L}\\p{N}])${escapeRe(t)}(?![\\p{L}\\p{N}])`);
-  if (!hasBranches(source)) alternatives.push(VARIABLE.source);
+  const alternatives = terms.map((t) => `(?<![\\p{L}\\p{M}\\p{N}])${escapeRe(t)}(?![\\p{L}\\p{M}\\p{N}])`);
+  // A {name} always matches as one piece, so a term inside its braces is never masked; in a plural/select message it is left as written.
+  const branches = hasBranches(source);
+  alternatives.push(VARIABLE.source);
   if (alternatives.length === 0) return { text: source, tokens: [] };
 
   const tokens: Masked['tokens'] = [];
@@ -50,6 +52,7 @@ export function mask(text: string, glossary: readonly GlossaryEntry[], targetLoc
   let v = 0;
   const out = source.replace(new RegExp(alternatives.join('|'), 'gu'), (found) => {
     const entry = byTerm.get(found);
+    if (!entry && branches) return found;
     const token = entry ? `⟦G${++g}⟧` : `⟦V${++v}⟧`;
     const restore = !entry ? found : entry.mode === 'map' && entry.target ? nfc(entry.target) : found;
     tokens.push({ token, restore });
@@ -98,6 +101,7 @@ export async function saveGlossaryEntry(pool: Pool, actor: AuditActor, input: Gl
   const mode = input.mode;
   const locale = input.locale?.trim() || null;
   const target = mode === 'map' ? nfc((input.target ?? '').trim()) || null : null;
+  if (/[⟦⟧]/.test(term) || (target && /[⟦⟧]/.test(target))) return invalid(/[⟦⟧]/.test(term) ? 'term' : 'target', 'Không được chứa ký tự ⟦ hoặc ⟧.');
   if (term.length < 1 || term.length > 80) return invalid('term', 'Thuật ngữ dài 1 đến 80 ký tự.');
   if (mode === 'map' && !locale) return invalid('locale', 'Chọn ngôn ngữ cho thuật ngữ đổi tên.');
   if (mode === 'map' && !target) return invalid('target', 'Nhập chữ thay thế.');
