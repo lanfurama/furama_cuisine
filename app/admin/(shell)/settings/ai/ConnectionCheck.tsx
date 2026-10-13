@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useId } from 'react';
+import { FEATURE_LABELS } from '@/lib/admin/ai-schemas';
 import { actionErrorMessage } from '@/lib/admin/auth-errors';
 import { submitKeepingValues } from '@/lib/admin/form';
 import type { ActionResult } from '@/lib/server/action-result';
@@ -41,7 +42,7 @@ export function ConnectionCheck() {
         ? state.data.rows.map((row) => (
             <section className="a-card-row" key={`${row.model}|${row.region}`} aria-label={`${row.model} · ${row.region}`}>
               <h3>{`${row.model} · ${row.region}`}</h3>
-              <p className="a-muted">{`Dùng cho: ${row.features.join(', ')}`}</p>
+              <p className="a-muted">{`Dùng cho: ${row.features.map((f) => FEATURE_LABELS[f]).join(', ')}`}</p>
               {row.timedOut ? <p className="a-warn">Hết 20 giây trước khi kiểm xong cặp này. Bấm kiểm tra lại.</p> : null}
               <ul className="a-list" aria-label="Các bước">
                 {row.steps.map((s) => (

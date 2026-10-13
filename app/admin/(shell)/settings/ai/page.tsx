@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { getPool } from '@/db/client';
 import { formatDateTimeVi } from '@/lib/admin/format';
+import { FEATURE_LABELS } from '@/lib/admin/ai-schemas';
+import type { AiErrorCode } from '@/lib/server/ai/ai-error';
 import { actionErrorMessage } from '@/lib/admin/auth-errors';
 import { envStatus, resolveAiMode, type AiMode } from '@/lib/server/ai/mode';
 import { monthSpendUsd } from '@/lib/server/ai/guard';
@@ -17,6 +19,7 @@ export const instant = false;
 
 export const metadata: Metadata = { title: 'Cấu hình AI' };
 
+const labelOf = (f: string) => FEATURE_LABELS[f as keyof typeof FEATURE_LABELS] ?? f;
 const usd = (n: number) => `$${n.toFixed(n < 1 ? 4 : 2)}`;
 
 function modeLabel(mode: AiMode | { mode: 'error' }): string {
@@ -38,7 +41,7 @@ export default async function AiSettingsPage() {
   const [{ settings, token }, spend, recent, glossary, locales] = await Promise.all([
     loadAiSettings(pool),
     monthSpendUsd(pool),
-    pool.query<{ at: Date; name: string | null; feature: string; model: string; input_tokens: number; output_tokens: number; cost: string; status: string; error_code: string | null }>(
+    pool.query<{ at: Date; name: string | null; feature: string; model: string; input_tokens: number; output_tokens: number; cost: string; status: string; error_code: AiErrorCode | null }>(
       `SELECT u.at, s.name, u.feature, u.model, u.input_tokens, u.output_tokens, u.cost_usd::text AS cost, u.status, u.error_code
          FROM ai_usage u LEFT JOIN staff_user s ON s.id = u.actor_id ORDER BY u.at DESC, u.id DESC LIMIT 20`,
     ),
@@ -107,7 +110,7 @@ export default async function AiSettingsPage() {
               ) : (
                 Object.entries(spend.byFeature).map(([feature, cost]) => (
                   <tr key={feature}>
-                    <th scope="row">{feature}</th>
+                    <th scope="row">{labelOf(feature)}</th>
                     <td>{usd(cost)}</td>
                   </tr>
                 ))
@@ -139,11 +142,11 @@ export default async function AiSettingsPage() {
                 <tr key={i}>
                   <td>{formatDateTimeVi(r.at)}</td>
                   <td>{r.name ?? 'Tự động'}</td>
-                  <td>{r.feature}</td>
+                  <td>{labelOf(r.feature)}</td>
                   <td>{r.model}</td>
                   <td>{`${r.input_tokens} / ${r.output_tokens}`}</td>
                   <td>{usd(Number(r.cost))}</td>
-                  <td>{r.status === 'error' ? (r.error_code ? actionErrorMessage(r.error_code as never) : 'Lỗi') : r.status === 'pending' ? 'Đang chạy' : 'Xong'}</td>
+                  <td>{r.status === 'error' ? (r.error_code ? actionErrorMessage(r.error_code) : 'Lỗi') : r.status === 'pending' ? 'Đang chạy' : 'Xong'}</td>
                 </tr>
               ))}
             </tbody>

@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import { MODEL_CATALOGUE, MODEL_REGIONS, type ModelId } from '@/lib/admin/ai-models';
-import { AI_FEATURES, REASONING, type AiFeature, type AiSettings } from '@/lib/admin/ai-schemas';
+import { AI_FEATURES, FEATURE_LABELS, REASONING, type AiFeature, type AiSettings } from '@/lib/admin/ai-schemas';
 import { submitKeepingValues } from '@/lib/admin/form';
 import type { Saved } from '@/lib/admin/save-state';
 import type { ActionResult } from '@/lib/server/action-result';
@@ -11,12 +11,6 @@ import { useSaveState } from '../../_kit/useSaveState';
 import { FieldError, invalidField } from '../../_ui/FormMessage';
 import { saveAiSettingsAction } from './actions';
 
-const FEATURE_LABELS: Record<AiFeature, string> = {
-  translate: 'Dịch',
-  assist: 'Trợ lý viết',
-  seo: 'SEO',
-  alt: 'Mô tả ảnh (alt)',
-};
 const REASONING_LABELS: Record<(typeof REASONING)[number], string> = { minimal: 'Tối thiểu', low: 'Thấp', medium: 'Vừa', high: 'Cao' };
 
 /*

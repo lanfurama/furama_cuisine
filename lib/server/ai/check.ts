@@ -32,7 +32,9 @@ const image = () =>
     .png()
     .toBuffer());
 
-export async function checkConnection(pool: Pool, settings: AiSettings, opts: { deadlineMs: number; withImage: boolean }): Promise<CheckRow[]> {
+type Deps = { auth?: () => { getAccessToken(): Promise<unknown> } | { credentials: unknown } };
+
+export async function checkConnection(pool: Pool, settings: AiSettings, opts: { deadlineMs: number; withImage: boolean }, deps: Deps = {}): Promise<CheckRow[]> {
   const started = Date.now();
   const left = () => opts.deadlineMs - (Date.now() - started);
 
@@ -51,12 +53,12 @@ export async function checkConnection(pool: Pool, settings: AiSettings, opts: { 
       row.timedOut = true;
       continue;
     }
-    await runPair(pool, settings, row, cfg, opts.withImage, left);
+    await runPair(pool, settings, row, cfg, opts.withImage, left, deps);
   }
   return [...pairs.values()].map((p) => p.row);
 }
 
-async function runPair(pool: Pool, settings: AiSettings, row: CheckRow, cfg: FeatureConfig, withImage: boolean, left: () => number): Promise<void> {
+async function runPair(pool: Pool, settings: AiSettings, row: CheckRow, cfg: FeatureConfig, withImage: boolean, left: () => number, deps: Deps): Promise<void> {
   /** Runs one step; false (and the row ends) when it failed. */
   const step = async (name: CheckStepName, fn: (signal: AbortSignal) => Promise<number | undefined | void>): Promise<boolean> => {
     const t0 = Date.now();
@@ -87,10 +89,15 @@ async function runPair(pool: Pool, settings: AiSettings, row: CheckRow, cfg: Fea
     return;
   }
 
-  if (!(await step('token', async () => {
+  if (!(await step('token', async (signal) => {
     if (mode?.mode !== 'vertex') return; // fake: nothing to exchange
-    const auth = vertexAuth();
-    if ('getAccessToken' in auth) await auth.getAccessToken();
+    const auth = deps.auth ? deps.auth() : vertexAuth();
+    if (!('getAccessToken' in auth)) return;
+    // getAccessToken takes no signal: race it, so a hung token exchange cannot outlast the step's time.
+    await new Promise<void>((resolve, reject) => {
+      signal.addEventListener('abort', () => reject(new Error('token timeout')), { once: true });
+      Promise.resolve(auth.getAccessToken()).then(() => resolve(), reject);
+    });
   }))) return;
 
   const model = languageModel(cfg);

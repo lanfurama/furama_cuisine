@@ -3,6 +3,14 @@ import { DEFAULT_MODEL, MODEL_IDS, MODEL_REGIONS, REGIONS } from '@/lib/admin/ai
 
 export const AI_FEATURES = ['translate', 'assist', 'seo', 'alt'] as const;
 export type AiFeature = (typeof AI_FEATURES)[number];
+/** The names staff read; 'check' is the connection check's own usage rows. */
+export const FEATURE_LABELS: Record<AiFeature | 'check', string> = {
+  translate: 'Dịch',
+  assist: 'Trợ lý viết',
+  seo: 'SEO',
+  alt: 'Mô tả ảnh (alt)',
+  check: 'Kiểm tra kết nối',
+};
 export const REASONING = ['minimal', 'low', 'medium', 'high'] as const;
 
 /** Each feature's default max output tokens: a document of 20 items, a rewrite, two SEO lines, one alt. */

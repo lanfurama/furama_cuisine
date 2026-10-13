@@ -91,4 +91,17 @@ describe.skipIf(!TEST_DATABASE_URL)('connection check (database)', () => {
     expect(rows).toHaveLength(2);
     expect(rows.every((r) => r.steps.length === 0 && r.timedOut === true)).toBe(true);
   });
+
+  it('a token exchange that never answers ends at the step time as ai_failed', async () => {
+    vi.stubEnv('AI_PROVIDER', '');
+    for (const n of ['GCP_PROJECT_ID', 'GCP_PROJECT_NUMBER', 'GCP_SERVICE_ACCOUNT_EMAIL', 'GCP_WORKLOAD_IDENTITY_POOL_ID', 'GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID']) vi.stubEnv(n, 'x');
+    const hung = { getAccessToken: () => new Promise<never>(() => {}) };
+    const t0 = Date.now();
+    const [row] = await checkConnection(pool, base, { deadlineMs: 300, withImage: true }, { auth: () => hung });
+    expect(Date.now() - t0).toBeLessThan(2000);
+    expect(row.steps.map((s) => [s.step, s.ok, s.code])).toEqual([
+      ['env', true, undefined],
+      ['token', false, 'ai_failed'],
+    ]);
+  });
 });
