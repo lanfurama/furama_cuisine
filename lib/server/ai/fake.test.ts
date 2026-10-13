@@ -43,7 +43,7 @@ describe('fake model', () => {
   });
   it('keeps its flags on globalThis', () => {
     setFakeFlags({ dropToken: true });
-    expect((globalThis as { __aiFake?: { flags: unknown } }).__aiFake?.flags).toEqual({ dropToken: true });
+    expect((globalThis as { aiFakeState?: { flags: unknown } }).aiFakeState?.flags).toEqual({ dropToken: true });
   });
   it('answers seo, alt and check', async () => {
     const run = (task: string) => generateText({ model: fakeModel(), instructions: `TASK: ${task}`, prompt: 'x', maxRetries: 0 });

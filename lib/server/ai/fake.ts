@@ -21,8 +21,8 @@ export type FakeFlags = { fail?: string | null; dropToken?: boolean };
  * Kept on globalThis: Next may bundle this module once per route, and the test
  * route that flips a flag must reach the instance the AI routes use.
  */
-const g = globalThis as typeof globalThis & { __aiFake?: { flags: FakeFlags } };
-const state = (g.__aiFake ??= { flags: {} });
+const g = globalThis as typeof globalThis & { aiFakeState?: { flags: FakeFlags } };
+const state = (g.aiFakeState ??= { flags: {} });
 
 export function setFakeFlags(flags: FakeFlags): void {
   state.flags = { ...state.flags, ...flags };
