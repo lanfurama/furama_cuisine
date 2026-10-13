@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
  * tagsForLocales(…) (the languages screen, phase 8), so the
  * tags of every table a transaction wrote are expired and lib/cache-plan.test.ts
  * keeps them in step with the loaders. The booking screens' own tag
- * (TAGS.bookingRules(id)) is not a content tag. One older call is listed
+ * (TAGS.bookingRules(id)) and the AI configuration's (TAGS.aiSettings) are not content tags. One older call is listed
  * with its reason (phase 5's saveInbox went through the cache plan in plan
  * 7B task B5, L7-6).
  */
@@ -58,6 +58,8 @@ function rawTagCalls(rel: string, src: string): string[] {
     const arg = (n.arguments as Node[])[0];
     const text = src.slice(arg.start, arg.end);
     if (arg.type === 'CallExpression' && src.slice(arg.start, arg.end).startsWith('TAGS.bookingRules(')) return;
+    // The AI configuration's tag (phase 9) is not a content tag either: no guest page reads it.
+    if (text === 'TAGS.aiSettings') return;
     if (arg.type === 'Identifier') {
       const loop = [...ancestors].reverse().find((a) => a.type === 'ForOfStatement');
       const left = loop && (((loop.left as Node).declarations as Node[] | undefined)?.[0]?.id as Node | undefined);

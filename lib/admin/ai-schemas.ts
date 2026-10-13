@@ -31,3 +31,16 @@ export const AiSettingsSchema = z.object({
 });
 export type AiSettings = z.infer<typeof AiSettingsSchema>;
 export type FeatureConfig = AiSettings['features'][AiFeature];
+
+const blankToNull = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? null : v);
+
+/** The glossary form (FormData strings): a blank language means every language; a blank target is null. */
+export const GlossaryForm = z.object({
+  id: z.preprocess(blankToNull, z.string().regex(/^\d{1,18}$/).nullable().optional()),
+  term: z.string({ error: 'Nhập thuật ngữ.' }).trim().min(1, { error: 'Nhập thuật ngữ.' }).max(80, { error: 'Thuật ngữ tối đa 80 ký tự.' }),
+  mode: z.enum(['keep', 'map'], { error: 'Chọn cách xử lý.' }),
+  locale: z.preprocess(blankToNull, z.string().regex(/^[a-z]{2,3}(-[a-z0-9]{2,8})*$/, { error: 'Chọn ngôn ngữ.' }).nullable().optional()),
+  target: z.preprocess(blankToNull, z.string().trim().max(80, { error: 'Chữ thay thế tối đa 80 ký tự.' }).nullable().optional()),
+});
+
+export const GlossaryTarget = z.object({ id: z.string().regex(/^\d{1,18}$/) });

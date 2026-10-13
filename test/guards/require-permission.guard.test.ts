@@ -48,6 +48,7 @@ const ADMIN_ONLY_ACTIONS = [
   'app/admin/(shell)/users/actions.ts',
   'app/admin/(shell)/settings/booking/actions.ts',
   'app/admin/(shell)/settings/notifications/actions.ts',
+  'app/admin/(shell)/settings/ai/actions.ts',
   'app/admin/(shell)/restaurants/[id]/booking/auto-confirm-actions.ts',
 ];
 
