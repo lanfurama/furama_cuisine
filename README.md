@@ -696,6 +696,59 @@ live), as the one `DO` statement above through Neon's HTTPS SQL endpoint:
 - the post-check returned all true, and `legal_versions` holds
   `en 2026-10-03`.
 
+### Migration 011 (phase 9: AI)
+
+`011_ai_phase9.sql` adds the tables Vertex AI needs (spec §5.2, §9):
+
+- **`ai_settings`**: one row (`id = 1`) of settings as JSON. It is seeded
+  empty; the code owns the defaults, and `{}` reads as them.
+- **`ai_glossary`**: terms kept as written, or mapped to a word per language.
+- **`ai_usage`**: one row per AI call, the ledger the budget and the
+  per-person limits read.
+- **`ai_jobs`**: bulk translation, with one live job (`queued`, `running` or
+  `paused`) per language.
+
+It only adds, in one transaction, and is safe to run again.
+
+**011 goes first, then the phase-9 deploy.** Apply it to Neon before
+deploying the phase-9 code: the admin screens read `ai_settings`. Phase-8
+code ignores the new tables, so it keeps working on a database at 011.
+
+Run these three steps on production's direct URL. From a machine with
+`psql`:
+
+- **Pre-flight**, read-only:
+  `psql "<production's direct URL>" -v ON_ERROR_STOP=1 -f db/checks/preflight-011.sql`.
+  Every row must be `ok` = `t`:
+  - 010 is applied (011 is not, or this is a re-run);
+  - `locales` has `en`.
+
+  Any `f`: stop and report.
+- **Apply:** `DATABASE_URL_UNPOOLED=<production's direct URL> node scripts/migrate.mjs`
+  (it prints `✓ 011_ai_phase9.sql`).
+- **Post-check**, read-only:
+  `psql "<production's direct URL>" -v ON_ERROR_STOP=1 -f db/checks/postcheck-011.sql`.
+  Every row must be `t`.
+
+**In the Neon SQL Editor**, run each check file on its own, and apply 011 as
+**one** statement that records it too (same reason as 010: the editor splits
+at every `;`, even inside a `--` comment):
+
+```sql
+DO $furama_011$
+BEGIN
+  IF EXISTS (SELECT 1 FROM _migrations WHERE name = '011_ai_phase9.sql') THEN
+    RAISE EXCEPTION '011 is already applied';
+  END IF;
+  EXECUTE $furama_sql$ <the whole of db/migrations/011_ai_phase9.sql> $furama_sql$;
+  INSERT INTO _migrations (name) VALUES ('011_ai_phase9.sql');
+END
+$furama_011$;
+```
+
+**Rollback:** leave 011 in place (phase-8 code ignores it) and roll back the
+deployment only.
+
 ### Media in Vercel Blob (phase 7A)
 
 Uploads go to Vercel Blob (spec §11), in a store connected to the project in

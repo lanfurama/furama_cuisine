@@ -35,6 +35,7 @@ const OFFER_ACCEPTANCE: [string, string] = [
 ];
 const NEVER_DELETED = 'restaurants are never deleted, only archived (F10, R22): no path deletes the parent';
 const LOCALES = 'phase 8: languages are managed on /admin/locales; no phase-7 path deletes one (migration-008.test.ts pins the action)';
+const AI_KEEPS_ROWS = 'phase 9: removing staff or a job only clears the name on an AI row; the spend stays in the ledger (no delete path is tested before phase 9’s own tasks)';
 const BOOKINGS = 'bookings are never deleted before phase 10’s retention (spec §11): no phase-7 path deletes the parent';
 
 const FK_MATRIX: Record<string, Covered> = {
@@ -157,6 +158,14 @@ const FK_MATRIX: Record<string, Covered> = {
   // Migration 010: a policy version and a booking's consent name their language; no path deletes a language they name (R8-2).
   legal_versions_locale_fk: { action: 'a', none: LOCALES },
   reservations_consent_locale_fk: { action: 'a', none: LOCALES },
+  // Migration 011 (phase 9): the AI ledger keeps its rows when the person or the job it names goes (SET NULL); a language's glossary and jobs go with it.
+  ai_settings_updated_by_fkey: { action: 'n', none: AI_KEEPS_ROWS },
+  ai_glossary_updated_by_fkey: { action: 'n', none: AI_KEEPS_ROWS },
+  ai_jobs_created_by_fkey: { action: 'n', none: AI_KEEPS_ROWS },
+  ai_usage_actor_id_fkey: { action: 'n', none: AI_KEEPS_ROWS },
+  ai_usage_job_id_fkey: { action: 'n', none: AI_KEEPS_ROWS },
+  ai_glossary_locale_fkey: { action: 'c', none: LOCALES },
+  ai_jobs_locale_fkey: { action: 'c', none: LOCALES },
 };
 
 const ROOT = join(__dirname, '..', '..');
