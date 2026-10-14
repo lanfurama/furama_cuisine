@@ -7,9 +7,12 @@ import { footerVenueText, socialKey } from '@/lib/content/footer';
 import { homeHref } from '@/lib/i18n/href';
 import { useReveal } from '@/lib/motion';
 
+const GIANT = 'FURAMA';
+
 export function Footer() {
   const { goHomeTop, locale, site, strings } = useSite();
   const reveal = useReveal<HTMLDivElement>('fade');
+  const giant = useReveal<HTMLDivElement>('title');
   // The destinations staff mark for the footer, each as "name · address · phone" (destinations.show_in_footer; R24: edited on the destinations screen).
   const venues = site.destinations.filter((d) => d.showInFooter);
   const email = site.settings.email;
@@ -60,6 +63,17 @@ export function Footer() {
             {strings['legal.link']}
           </Link>
         </div>
+      </div>
+
+      {/* The wordmark again, very large and in outline, its letters rising as the page ends. */}
+      <div ref={giant} data-reveal="title" className="footer-giant" aria-hidden="true">
+        {GIANT.split('').map((letter, i) => (
+          <span key={i} className="sw">
+            <span className="sw-in" data-word="">
+              {letter}
+            </span>
+          </span>
+        ))}
       </div>
 
       {/* Clears the fixed mobile tab bar. */}

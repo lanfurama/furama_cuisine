@@ -34,34 +34,70 @@
 
 .hero-slides {
   position: absolute;
-  inset: 0;
+  /* Reaches above the hero: the slides' parallax (data-parallax) moves them down by up to a tenth of the
+     viewport at the very top of the page, which would otherwise open a band under the header. */
+  inset: -120px 0 0;
 }
 
 .hero-slide {
   position: absolute;
   inset: 0;
-  opacity: 0;
-  z-index: 1;
+  z-index: 0;
   pointer-events: none;
-  transition: opacity 1.4s ease;
 }
 
 .hero-slide[data-active='true'] {
-  opacity: 1;
   z-index: 2;
   pointer-events: auto;
 }
 
-/* Slow push-out on the live slide — the design's Ken Burns drift. */
+/* The slide being wiped over stays whole underneath. */
+.hero-slide[data-prev] {
+  z-index: 1;
+}
+
+/* A slide that takes over wipes in from the right (Hero sets data-wipe on a change, never on the first
+   paint). Waiting slides are drawn whole underneath, not clipped: a clipped or hidden picture would not
+   lazy-load before its turn. */
+.hero-slide[data-wipe] {
+  animation: hero-wipe 1.5s var(--ease-inout) both;
+}
+
+@keyframes hero-wipe {
+  from {
+    clip-path: inset(0 0 0 100%);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* A slow push-out on the live slide (Ken Burns); a slide waiting its turn sits pushed in and to the right. */
 .hero-slide-zoom {
   position: absolute;
   inset: 0;
-  transform: scale(1.05);
-  transition: transform 7s cubic-bezier(0.25, 0.6, 0.3, 1);
+  transform: scale(1.14) translateX(3%);
+  transition: transform 9s cubic-bezier(0.25, 0.6, 0.3, 1);
 }
 
 .hero-slide[data-active='true'] .hero-slide-zoom {
   transform: scale(1);
+}
+
+.hero-slide[data-prev] .hero-slide-zoom {
+  transform: scale(1.04) translateX(-4%);
+  transition: transform 1.6s var(--ease-inout);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-slide[data-wipe] {
+    animation: none;
+  }
+
+  .hero-slide-zoom {
+    transform: none;
+    transition: none;
+  }
 }
 
 /* A phone shows the art-directed crop alone. */
@@ -147,19 +183,29 @@
   margin: 12px 0 0;
   font-family: var(--serif);
   font-weight: 300;
-  font-size: 37px;
-  line-height: 1.06;
-  letter-spacing: -0.01em;
+  font-size: 40px;
+  line-height: 1.02;
+  letter-spacing: -0.015em;
   color: var(--on-dark);
 }
 
 @media (min-width: 760px) {
   .hero-title {
     margin-top: 22px;
-    font-size: clamp(46px, 5vw, 72px);
-    line-height: 1.04;
-    letter-spacing: -0.012em;
+    font-size: clamp(52px, 6.2vw, 100px);
+    line-height: 0.98;
+    letter-spacing: -0.022em;
   }
+}
+
+.hero-line {
+  display: block;
+}
+
+/* The last line, the brand's own name, in italic and a warmer cream. */
+.hero-line-accent {
+  font-style: italic;
+  color: #f2e2bf;
 }
 
 /* The middle line only appears where there is room for three. */
@@ -302,16 +348,111 @@
 }
 
 .hero-dot span {
+  position: relative;
   display: block;
   height: 2px;
   width: 18px;
+  overflow: hidden;
   background: rgba(247, 242, 232, 0.5);
   transition: width 0.5s ease, background-color 0.5s ease;
 }
 
 .hero-dot span[data-active='true'] {
-  width: 48px;
+  width: 64px;
+  background: rgba(247, 242, 232, 0.28);
+}
+
+/* The live slide's dot fills in gold over the slide's time, like a progress bar. */
+.hero-dot span[data-active='true']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
   background: var(--gold);
+  transform-origin: 0 50%;
+}
+
+.hero-dot span[data-run]::after {
+  animation: hero-fill var(--hero-ms, 7000ms) linear both;
+}
+
+@keyframes hero-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* "01 / 03" before the dots. */
+.hero-count {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-right: 14px;
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--on-dark);
+}
+
+.hero-count-now {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.hero-count-of {
+  font-size: 13px;
+  opacity: 0.6;
+}
+
+.hero-count-of::before {
+  content: '/';
+  margin-right: 6px;
+}
+
+/* A drop of gold running down a hairline at the hero's right: there is more below. */
+.hero-scroll {
+  display: none;
+}
+
+@media (min-width: 760px) {
+  .hero-scroll {
+    position: absolute;
+    right: clamp(24px, 5.56vw, 80px);
+    bottom: calc(var(--finder-lift) + clamp(36px, 3.8vw, 54px));
+    display: block;
+    width: 1px;
+    height: 84px;
+    overflow: hidden;
+    background: rgba(247, 242, 232, 0.22);
+  }
+
+  .hero-scroll span {
+    position: absolute;
+    left: 0;
+    top: -40%;
+    width: 1px;
+    height: 40%;
+    background: var(--gold);
+    animation: hero-drop 2.4s var(--ease-inout) infinite;
+  }
+}
+
+@keyframes hero-drop {
+  to {
+    top: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-dot span[data-run]::after,
+  .hero-scroll span {
+    animation: none;
+  }
+
+  .hero-dot span[data-active='true']::after {
+    transform: none;
+  }
 }
 
 /* ── Finder ──────────────────────────────────────────────────────────────── */
@@ -600,10 +741,7 @@ a.rcard:hover {
   cursor: default;
 }
 
-.rcard:not([aria-disabled='true']):hover .rcard-zoom,
-.rcard:not([aria-disabled='true']):focus-visible .rcard-zoom {
-  transform: scale(1.05);
-}
+/* Under the pointer the picture is matted like a framed print (styles/fx.css "Hover"). */
 
 .rcard-img {
   object-fit: cover;
@@ -955,7 +1093,6 @@ a.rcard:hover {
 }
 
 .experience-row:hover {
-  padding-left: 10px;
   color: var(--on-dark);
 }
 
@@ -1114,10 +1251,7 @@ a.rcard:hover {
   transition: transform 0.9s var(--ease-soft);
 }
 
-.story:hover .story-zoom,
-.story:focus-visible .story-zoom {
-  transform: scale(1.05);
-}
+/* Under the pointer the picture is matted like a framed print (styles/fx.css "Hover"). */
 
 .story-img {
   object-fit: cover;
@@ -1180,9 +1314,7 @@ a.rcard:hover {
 }
 
 .offer:hover {
-  box-shadow: 0 22px 48px rgba(20, 32, 28, 0.09);
   border-color: var(--gold);
-  transform: translateY(-3px);
 }
 
 .offer:hover::before {
@@ -1229,10 +1361,9 @@ a.rcard:hover {
   font-weight: 600;
   letter-spacing: 0.18em;
   color: var(--green);
-  transition: gap 0.3s ease, color 0.3s;
+  transition: color 0.3s;
 }
 
 .offer-cta:hover {
-  gap: 14px;
   color: var(--gold-deep);
 }

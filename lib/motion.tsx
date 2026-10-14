@@ -22,10 +22,11 @@ export type RevealKind =
   | 'clip'
   | 'wipe'
   | 'journey'
-  | 'right';
+  | 'right'
+  | 'pop';
 
-const EASE_OUT = 'cubic-bezier(.16,1,.3,1)';
-const EASE_INOUT = 'cubic-bezier(.76,0,.24,1)';
+export const EASE_OUT = 'cubic-bezier(.16,1,.3,1)';
+export const EASE_INOUT = 'cubic-bezier(.76,0,.24,1)';
 const EASE_POP = 'cubic-bezier(.22,1,.36,1)';
 
 type Spec = { frames: Keyframe[]; duration: number; easing: string };
@@ -39,7 +40,23 @@ const SPECS: Record<RevealKind, Spec> = {
   wipe: { frames: [{ clipPath: 'inset(0% 100% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 0%)' }], duration: 1500, easing: EASE_INOUT },
   journey: { frames: [{ opacity: 0 }, { opacity: 1 }], duration: 400, easing: 'ease' },
   right: { frames: [{ opacity: 0, transform: 'translateX(20px)' }, { opacity: 1, transform: 'none' }], duration: 1000, easing: EASE_OUT },
+  // A plate set down with a little bounce: the cuisine chips.
+  pop: {
+    frames: [
+      { opacity: 0, transform: 'scale(.6) rotate(-10deg)' },
+      { opacity: 1, transform: 'scale(1.08) rotate(2deg)', offset: 0.62 },
+      { opacity: 1, transform: 'none' },
+    ],
+    duration: 950,
+    easing: EASE_POP,
+  },
 };
+
+/** A heading's words (components/ui/SplitWords.tsx) rise out of their masks one after another. */
+const WORD_FRAMES: Keyframe[] = [
+  { transform: 'translateY(108%) rotate(3deg)', opacity: 0 },
+  { transform: 'none', opacity: 1 },
+];
 
 function prefersReducedMotion() {
   return typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -91,6 +108,13 @@ export function MotionProvider({ children }: { children: React.ReactNode }) {
     const anims: Animation[] = [
       el.animate(spec.frames, { duration, delay, easing: spec.easing, fill: 'backwards' }),
     ];
+
+    // A split heading: each word rises out of its own mask, staggered.
+    if (kind === 'title') {
+      el.querySelectorAll<HTMLElement>('[data-word]').forEach((w, i) =>
+        anims.push(w.animate(WORD_FRAMES, { duration: 1100, delay: delay + 120 + i * 65, easing: EASE_OUT, fill: 'backwards' })),
+      );
+    }
 
     // Cards wipe their image box up, then let the photo settle out of a slight push-in.
     if (kind === 'card' || kind === 'clip' || kind === 'wipe') {
@@ -213,65 +237,18 @@ export function useReveal<T extends HTMLElement = HTMLDivElement>(kind: RevealKi
   return ref;
 }
 
-export type IntroKind = 'rise' | 'line' | 'clip';
-
-const INTRO_FRAMES: Record<IntroKind, Keyframe[]> = {
-  rise: [{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'none' }],
-  line: [{ transform: 'translateY(110%)' }, { transform: 'none' }],
-  clip: [{ clipPath: 'inset(100% 0% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 0%)' }],
-};
-
 /**
- * Staggered page entrance for `[data-intro]` elements, ordered by their
- * `data-intro` index. Both keyframes are explicit so `fill: backwards` holds the
- * hidden state through the delay — a single target keyframe would resolve its
- * start against the already-visible element and animate nothing.
- */
-export function useIntro(active: boolean, baseDelay = 0, root?: RefObject<HTMLElement | null> | null) {
-  const motion = useMotion();
-
-  useEffect(() => {
-    if (!active) return;
-    const scope: ParentNode | null = root ? root.current : document;
-    if (!scope) return;
-    const all = Array.from(scope.querySelectorAll<HTMLElement>('[data-intro]'));
-    const els = all.filter((el) => !el.hasAttribute('data-intro-done'));
-    if (!els.length) return;
-
-    const timer = window.setTimeout(() => {
-      els.forEach((el) => {
-        const kind = (el.getAttribute('data-intro-kind') as IntroKind) || 'rise';
-        el.setAttribute('data-intro-done', '');
-        if (!motion || !el.animate) return;
-        const i = Number(el.getAttribute('data-intro')) || 0;
-        const a = el.animate(INTRO_FRAMES[kind], {
-          duration: kind === 'clip' ? 1500 : 1250,
-          delay: baseDelay + i * 110,
-          easing: kind === 'clip' ? EASE_INOUT : EASE_OUT,
-          fill: 'backwards',
-        });
-        a.finished.then(() => a.cancel()).catch(() => {});
-      });
-    }, 30);
-
-    return () => {
-      window.clearTimeout(timer);
-      // A page hidden by <Activity> keeps its DOM; re-arm the entrance so it
-      // plays again when the page is shown (its effects re-run then).
-      if (root) all.forEach((el) => el.removeAttribute('data-intro-done'));
-    };
-  }, [active, baseDelay, motion, root]);
-}
-
-/**
- * One rAF loop for everything scroll-driven: header auto-hide, parallax, hero fade.
- * Parallax and the hero fade only touch `page` (the visible page's <main>): a page
- * hidden by <Activity>, or one still hydrating, is left alone.
+ * One rAF loop for everything scroll-driven: header auto-hide, parallax, hero
+ * fade, a picture settling from a zoom as it scrolls in ([data-scale-in]) and
+ * the lean of whatever follows the scroll's speed ([data-velocity], the
+ * marquee). Everything but the header only touches `page` (the visible page's
+ * <main>): a page hidden by <Activity>, or one still hydrating, is left alone.
  */
 export function useScrollMotion(overlayOpen: boolean, page: HTMLElement | null) {
   const motion = useMotion();
   const hidden = useRef(false);
   const lastY = useRef<number | null>(null);
+  const velocity = useRef(0);
 
   useEffect(() => {
     if (!motion || !page) return;
@@ -307,6 +284,24 @@ export function useScrollMotion(overlayOpen: boolean, page: HTMLElement | null) 
         let off = (r.top + r.height / 2 - vh / 2) * -factor;
         if (max) off = Math.max(-r.height * max, Math.min(r.height * max, off));
         el.style.translate = `0 ${off.toFixed(1)}px`;
+      });
+
+      // The scroll's speed, smoothed, in px per frame (clamped): what the marquee leans by.
+      velocity.current = velocity.current * 0.86 + Math.max(-60, Math.min(60, delta)) * 0.14;
+      const lean = Math.abs(velocity.current) < 0.05 ? 0 : velocity.current;
+      page.querySelectorAll<HTMLElement>('[data-velocity]').forEach((el) => {
+        el.style.setProperty('--velocity', lean.toFixed(2));
+      });
+
+      page.querySelectorAll<HTMLElement>('[data-scale-in]').forEach((el) => {
+        const parent = el.parentElement;
+        if (!parent) return;
+        const r = parent.getBoundingClientRect();
+        if (r.bottom < -200 || r.top > vh + 200) return;
+        const from = Number(el.getAttribute('data-scale-in')) || 1.2;
+        // 0 as the section's top enters the viewport's foot, 1 once its middle reaches the viewport's middle.
+        const t = Math.max(0, Math.min(1, (vh - r.top) / (vh / 2 + r.height / 2)));
+        el.style.scale = (from - (from - 1) * t).toFixed(4);
       });
 
       const hero = page.querySelector<HTMLElement>('[data-hero-content]');

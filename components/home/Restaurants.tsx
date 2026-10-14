@@ -5,6 +5,7 @@ import { cuisineLabel, mealLabel } from '@/lib/content/options';
 import { formatMessage } from '@/lib/i18n/format';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
+import { SplitWords } from '@/components/ui/SplitWords';
 import { RestaurantCard } from './RestaurantCard';
 
 export function Restaurants() {
@@ -31,7 +32,7 @@ export function Restaurants() {
       <div className="shell">
         <div className="section-head">
           <h2 ref={title} data-reveal="title" className="section-title">
-            {strings['restaurants.title']}
+            <SplitWords text={strings['restaurants.title']} />
           </h2>
           <button
             ref={link}

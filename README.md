@@ -1624,10 +1624,21 @@ uses the pooled one. Both pin `sslmode=verify-full`; local throwaway databases
 
 ## Motion
 
-`lib/motion.tsx` reproduces the design's motion: the intro curtain, staggered
-`data-intro` entrances, scroll reveals batched through one `IntersectionObserver`
-so simultaneous entries stagger top-to-bottom, parallax, hero fade, header
-auto-hide, and per-overlay entrances.
+`lib/motion.tsx` holds the scroll motion: reveals batched through one
+`IntersectionObserver` so simultaneous entries stagger top-to-bottom (a split
+heading's words rise one by one, `components/ui/SplitWords.tsx`), one rAF loop
+for parallax, the hero fade, header auto-hide, pictures settling from a zoom
+(`data-scale-in`) and the marquee's lean with the scroll's speed
+(`data-velocity`), and per-overlay entrances. `lib/motion-intro.tsx` holds the
+page entrance: the opening curtain (letters, a gold rule, two halves parting)
+and the staggered `data-intro` elements that wait for it.
+`components/site/PointerFx.tsx` makes the main buttons lean a little towards
+a mouse (`data-magnetic`). `styles/fx.css` holds the scroll-progress hairline
+(CSS scroll-driven animation), the marquee, the destination cards that open
+on hover, the chapter numerals, the offers set as Furama's printed menu cards,
+the hover language (a picture matted like a framed print with gold corners,
+buttons filling from below, gold lines drawn under links and rows) and the
+footer's great wordmark.
 
 Pre-animation states live in CSS gated on `[data-motion]`, which an inline
 script in `<head>` stamps before first paint — so nothing flashes in before

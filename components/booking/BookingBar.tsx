@@ -7,6 +7,7 @@ import { formatMessage } from '@/lib/i18n/format';
 import { useSite } from '@/components/site/SiteProvider';
 import { Dropdown, type Option } from '@/components/ui/Dropdown';
 import { FriezeDivider } from '@/components/ui/Ornament';
+import { SplitWords } from '@/components/ui/SplitWords';
 import { BookingError } from '@/components/booking/WithPhone';
 import { useReveal } from '@/lib/motion';
 
@@ -66,7 +67,7 @@ export function BookingBar() {
       <span className="band-waves booking-waves" aria-hidden="true" />
       <div className="shell">
         <h2 ref={title} data-reveal="title" className="booking-title">
-          {strings['booking.title']}
+          <SplitWords text={strings['booking.title']} />
         </h2>
         <FriezeDivider ref={ornament} reveal="fade" className="booking-orn" />
 
@@ -109,7 +110,7 @@ export function BookingBar() {
             />
           </div>
 
-          <button type="button" className="btn-green booking-submit" onClick={() => openReserve()}>
+          <button type="button" className="btn-green booking-submit" data-magnetic="" onClick={() => openReserve()}>
             {strings['booking.find_table']}
             <span className="arrow">→</span>
           </button>

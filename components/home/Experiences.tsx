@@ -4,6 +4,7 @@ import type { Experience } from '@/lib/content/types';
 import type { Copy } from '@/lib/i18n/registry';
 import { useSite } from '@/components/site/SiteProvider';
 import { CmsImage } from '@/components/ui/CmsImage';
+import { SplitWords } from '@/components/ui/SplitWords';
 import { useReveal } from '@/lib/motion';
 
 /**
@@ -28,9 +29,9 @@ export function Experiences({ items, copy }: { items: Experience[]; copy: Copy<'
           {copy['experiences.eyebrow']}
         </div>
         <h2 ref={title} data-reveal="title" className="experiences-title">
-          {copy['experiences.title_1']}
+          <SplitWords text={copy['experiences.title_1']} />
           <br />
-          {copy['experiences.title_2']}
+          <SplitWords text={copy['experiences.title_2']} />
         </h2>
 
         <div className="experiences-list">

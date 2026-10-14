@@ -42,6 +42,17 @@
     transform: translateY(18px);
   }
 
+  /* A split heading's words wait below their masks (components/ui/SplitWords.tsx). */
+  [data-motion='on'] [data-intro-kind='word']:not([data-intro-done]),
+  [data-motion='on'] [data-reveal='title']:not([data-revealed]) [data-word] {
+    opacity: 0;
+    transform: translateY(108%);
+  }
+
+  [data-motion='on'] [data-reveal='pop']:not([data-revealed]) {
+    transform: scale(0.6) rotate(-10deg);
+  }
+
   /* Heading lines slide up out of an overflow mask, so they keep full opacity. */
   [data-motion='on'] [data-intro-kind='line']:not([data-intro-done]) {
     opacity: 1;
@@ -53,6 +64,19 @@
     transform: none;
     clip-path: inset(100% 0% 0% 0%);
   }
+}
+
+/* One word's mask (SplitWords): room above for Vietnamese stacked marks and below for descenders. */
+.sw {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding: 0.2em 0.04em 0.16em;
+  margin: -0.2em -0.04em -0.16em;
+}
+
+.sw-in {
+  display: inline-block;
 }
 
 /* Masks a heading line so its glyphs can rise from below the baseline. */
@@ -93,7 +117,8 @@
   color: var(--on-dark);
 }
 
-/* Opening title card, shown once on first load. */
+/* Opening title card, shown once on first load (components/site/IntroCurtain.tsx): the letters rise
+   one by one, the gold rule draws, then two halves part, up and down, off the hero. */
 .intro-curtain {
   position: fixed;
   inset: 0;
@@ -101,34 +126,59 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--green-deep);
   color: var(--on-dark);
-  animation: fc-curtain-fade 0.9s ease 1.15s both;
+  pointer-events: none;
 }
 
-.intro-curtain > div {
+.intro-curtain-half {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50.5%;
+  background: var(--green-deep);
+}
+
+.intro-curtain-top {
+  top: 0;
+  animation: fc-part-up 0.85s var(--ease-inout) 1.65s both;
+}
+
+.intro-curtain-bottom {
+  bottom: 0;
+  animation: fc-part-down 0.85s var(--ease-inout) 1.65s both;
+}
+
+.intro-curtain-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 16px;
+  animation: fc-card-out 0.5s ease 1.5s both;
 }
 
 .intro-curtain-word {
+  display: flex;
   padding-left: 0.3em;
+  overflow: hidden;
   font-family: var(--serif);
   font-weight: 300;
-  font-size: clamp(34px, 4.6vw, 60px);
-  line-height: 1;
+  font-size: clamp(38px, 5.4vw, 72px);
+  line-height: 1.05;
   letter-spacing: 0.3em;
-  animation: fc-in 1s var(--ease-out) 0.1s both;
+}
+
+.intro-curtain-word span {
+  display: inline-block;
+  animation: fc-letter 0.9s var(--ease-out) calc(0.08s + var(--i) * 0.07s) both;
 }
 
 .intro-curtain-rule {
   width: clamp(120px, 14vw, 200px);
   height: 1px;
   background: var(--gold);
-  transform-origin: 0 50%;
-  animation: fc-line 1s cubic-bezier(0.65, 0, 0.35, 1) 0.25s both;
+  transform-origin: 50% 50%;
+  animation: fc-line 1s cubic-bezier(0.65, 0, 0.35, 1) 0.45s both;
 }
 
 .intro-curtain-sub {
@@ -137,7 +187,39 @@
   font-weight: 500;
   letter-spacing: 0.6em;
   color: var(--gold);
-  animation: fc-in 1s var(--ease-out) 0.4s both;
+  animation: fc-in 1s var(--ease-out) 0.7s both;
+}
+
+@keyframes fc-letter {
+  from {
+    opacity: 0;
+    transform: translateY(105%) rotate(6deg);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@keyframes fc-part-up {
+  to {
+    transform: translateY(-101%);
+  }
+}
+
+@keyframes fc-part-down {
+  to {
+    transform: translateY(101%);
+  }
+}
+
+@keyframes fc-card-out {
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
 }
 
 @keyframes fc-in {
@@ -157,13 +239,6 @@
   }
   to {
     transform: scaleX(1);
-  }
-}
-
-@keyframes fc-curtain-fade {
-  to {
-    opacity: 0;
-    visibility: hidden;
   }
 }
 

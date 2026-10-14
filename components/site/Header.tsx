@@ -52,7 +52,7 @@ export function Header() {
 
             <HeaderLanguages />
 
-            <button type="button" className="btn-gold" onClick={() => openReserve()}>
+            <button type="button" className="btn-gold" data-magnetic="" onClick={() => openReserve()}>
               {strings['ui.reserve']}
             </button>
           </div>

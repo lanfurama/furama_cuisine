@@ -5,6 +5,7 @@ import { formatMessage } from '@/lib/i18n/format';
 import type { Copy } from '@/lib/i18n/registry';
 import { journeyStops } from '@/lib/journey';
 import { CmsImage } from '@/components/ui/CmsImage';
+import { SplitWords } from '@/components/ui/SplitWords';
 import { FriezeDivider } from '@/components/ui/Ornament';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
@@ -25,7 +26,7 @@ export function Destinations({ copy }: { copy: Copy<'destinations'> }) {
       <div className="shell">
         <div className="destinations-head">
           <h2 ref={title} data-reveal="title" className="section-title">
-            {copy['destinations.title']}
+            <SplitWords text={copy['destinations.title']} />
           </h2>
           <FriezeDivider ref={ornament} reveal="fade" className="section-orn" />
           <p ref={lede} data-reveal="up" className="section-lede">

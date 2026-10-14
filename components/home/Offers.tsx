@@ -4,6 +4,7 @@ import type { Offer } from '@/lib/content/types';
 import type { Copy } from '@/lib/i18n/registry';
 import { useSite } from '@/components/site/SiteProvider';
 import { FriezeDivider, RosetteMark } from '@/components/ui/Ornament';
+import { SplitWords } from '@/components/ui/SplitWords';
 import { useReveal } from '@/lib/motion';
 
 /**
@@ -20,7 +21,7 @@ export function Offers({ items, copy }: { items: Offer[]; copy: Copy<'offers'> }
       <div className="shell">
         <div className="offers-head">
           <h2 ref={title} data-reveal="title" className="section-title">
-            {copy['offers.title']}
+            <SplitWords text={copy['offers.title']} />
           </h2>
           <FriezeDivider ref={ornament} reveal="fade" className="section-orn" />
           <p ref={lede} data-reveal="up" className="section-lede">

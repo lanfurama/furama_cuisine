@@ -5,6 +5,7 @@ import { Header } from '@/components/site/Header';
 import { Footer } from '@/components/site/Footer';
 import { IntroCurtain } from '@/components/site/IntroCurtain';
 import { PageCurtain } from '@/components/site/PageCurtain';
+import { PointerFx } from '@/components/site/PointerFx';
 import { ReserveDrawer } from '@/components/overlays/ReserveDrawer';
 import { SearchOverlay } from '@/components/overlays/SearchOverlay';
 import { MenuOverlay } from '@/components/overlays/MenuOverlay';
@@ -28,6 +29,9 @@ export function Chrome({ children }: { children: React.ReactNode }) {
     <>
       <IntroCurtain />
       <PageCurtain />
+      {/* How far down the page is: a gold hairline, drawn by the scroll itself (styles/fx.css). */}
+      <div className="scroll-progress" aria-hidden="true" />
+      <PointerFx />
       <Header />
 
       <div className="page">

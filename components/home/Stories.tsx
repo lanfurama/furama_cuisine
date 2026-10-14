@@ -3,6 +3,7 @@
 import type { Media, Story } from '@/lib/content/types';
 import type { Copy } from '@/lib/i18n/registry';
 import { CmsImage } from '@/components/ui/CmsImage';
+import { SplitWords } from '@/components/ui/SplitWords';
 import { FriezeDivider } from '@/components/ui/Ornament';
 import { useReveal } from '@/lib/motion';
 
@@ -17,7 +18,7 @@ export function Stories({ items, copy }: { items: Story[]; copy: Copy<'stories'>
       <div className="shell">
         <div className="stories-head">
           <h2 ref={title} data-reveal="title" className="section-title balance">
-            {copy['stories.title']}
+            <SplitWords text={copy['stories.title']} />
           </h2>
           <FriezeDivider ref={ornament} reveal="fade" className="section-orn" />
           <p ref={lede} data-reveal="up" className="section-lede">

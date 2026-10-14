@@ -1,6 +1,6 @@
 'use client';
 
-import { useIntro } from '@/lib/motion';
+import { useIntro } from '@/lib/motion-intro';
 import { usePageRoot } from '@/components/site/ViewMarker';
 
 /**

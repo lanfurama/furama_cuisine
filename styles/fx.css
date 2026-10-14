@@ -1,0 +1,586 @@
+/*
+ * The guest site's livelier layer: the scroll's progress, the marquee, what
+ * reacts to the pointer, the destination cards that open on hover, the
+ * heritage year and the footer's great wordmark. Every moving part
+ * stops under prefers-reduced-motion; the pointer effects need a fine pointer
+ * that can hover (components/site/PointerFx.tsx).
+ */
+
+/* ── The scroll's progress: a gold hairline across the top ───────────────── */
+
+.scroll-progress {
+  display: none;
+}
+
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .scroll-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 120;
+      display: block;
+      height: 2px;
+      background: var(--gold);
+      transform-origin: 0 50%;
+      pointer-events: none;
+      animation: fx-progress linear both;
+      animation-timeline: scroll(root);
+    }
+  }
+}
+
+@keyframes fx-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* ── The marquee (components/home/Marquee.tsx) ───────────────────────────── */
+
+.marquee {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(28px, 4vw, 56px) 0;
+  background: var(--cream);
+  border-block: 1px solid var(--line);
+  --velocity: 0;
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  /* Leans with the scroll's speed, as if the words had weight. */
+  transform: skewX(calc(var(--velocity) * -0.35deg));
+  transition: transform 0.4s var(--ease-out);
+}
+
+.marquee-run {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  animation: fx-marquee 46s linear infinite;
+}
+
+.marquee-word {
+  padding-inline: clamp(18px, 2.4vw, 36px);
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 300;
+  font-size: clamp(44px, 7.2vw, 112px);
+  line-height: 1.1;
+  white-space: nowrap;
+  color: var(--green);
+}
+
+/* Every other name is drawn in outline. */
+.marquee-word:nth-of-type(even) {
+  color: transparent;
+  -webkit-text-stroke: 1px var(--gold-deep);
+}
+
+.marquee-mark {
+  flex: 0 0 auto;
+  width: clamp(18px, 2vw, 28px);
+  height: auto;
+  color: var(--gold);
+}
+
+@keyframes fx-marquee {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-run {
+    animation: none;
+  }
+
+  .marquee-track {
+    transform: none;
+  }
+}
+
+/* ── Buttons that lean towards the pointer ───────────────────────────────── */
+
+[data-magnetic] {
+  transition: translate 0.45s var(--ease-out), background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ── Destination cards open on hover (a desktop's row of four) ───────────── */
+
+@media (min-width: 1080px) and (hover: hover) {
+  .dest-rail {
+    display: flex;
+    overflow: visible;
+  }
+
+  .dest-card {
+    flex: 1 1 0;
+    min-width: 0;
+    aspect-ratio: auto;
+    height: clamp(440px, 36vw, 540px);
+    transition: flex-grow 0.8s var(--ease-inout);
+  }
+
+  .dest-rail:hover .dest-card,
+  .dest-rail:focus-within .dest-card {
+    flex-grow: 0.8;
+  }
+
+  .dest-rail .dest-card:hover,
+  .dest-rail .dest-card:focus-within {
+    flex-grow: 1.9;
+  }
+
+  /* The title grows a little with its card. */
+  .dest-title {
+    transition: font-size 0.8s var(--ease-inout);
+  }
+
+  .dest-rail .dest-card:hover .dest-title {
+    font-size: clamp(26px, 2.2vw, 32px);
+  }
+}
+
+/* ── Heritage: the year, very large, behind the words ────────────────────── */
+
+.heritage-year {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  font-family: var(--serif);
+  font-weight: 300;
+  font-style: italic;
+  font-size: clamp(160px, 26vw, 400px);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(198, 166, 100, 0.35);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ── The footer's great wordmark ─────────────────────────────────────────── */
+
+.footer-giant {
+  display: block;
+  overflow: hidden;
+  padding: clamp(8px, 2vw, 24px) var(--gutter) 0;
+  font-family: var(--serif);
+  font-weight: 300;
+  font-size: clamp(64px, 19vw, 300px);
+  line-height: 0.82;
+  letter-spacing: 0.06em;
+  text-align: center;
+  white-space: nowrap;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(198, 166, 100, 0.4);
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dest-card,
+  .dest-title {
+    transition: none;
+  }
+}
+
+/* ── The classic half: numbered chapters, framed pictures, a drop cap ────── */
+
+/*
+ * The home page reads like a book: each section's title carries its chapter
+ * in Roman numerals above it, between gold hairlines. A CSS counter, so the
+ * numbers follow whichever sections staff show, and `/ ""` keeps them out of
+ * the heading's accessible name.
+ */
+main[data-view='home'] {
+  counter-reset: fc-chapter;
+}
+
+main[data-view='home'] .section-title,
+main[data-view='home'] .experiences .eyebrow {
+  counter-increment: fc-chapter;
+}
+
+main[data-view='home'] .section-title::before,
+main[data-view='home'] .experiences .eyebrow::before {
+  content: counter(fc-chapter, upper-roman);
+  content: counter(fc-chapter, upper-roman) / '';
+  display: block;
+  width: fit-content;
+  margin-bottom: clamp(12px, 1.2vw, 18px);
+  padding-right: 54px;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: none;
+  color: var(--gold-deep);
+  background: linear-gradient(var(--gold), var(--gold)) right center / 40px 1px no-repeat;
+}
+
+/* A centred title's chapter sits centred, a hairline either side. */
+main[data-view='home'] :is(.destinations-head, .stories-head, .offers-head) .section-title::before {
+  margin-inline: auto;
+  padding-inline: 54px;
+  background:
+    linear-gradient(var(--gold), var(--gold)) left center / 40px 1px no-repeat,
+    linear-gradient(var(--gold), var(--gold)) right center / 40px 1px no-repeat;
+}
+
+/* Experiences counts too: its chapter goes before its eyebrow, in the gold of the dark section. */
+main[data-view='home'] .experiences .eyebrow::before {
+  letter-spacing: 0.12em;
+  color: var(--gold);
+}
+
+/* The restaurant page's story opens on a drop cap. */
+.taya-story::first-letter,
+.taya-story-m::first-letter {
+  float: left;
+  margin: 0.06em 0.12em 0 0;
+  font-family: var(--serif);
+  font-size: 3.6em;
+  font-weight: 300;
+  line-height: 0.8;
+  color: var(--gold);
+}
+
+/* ── The classic half, after Furama's own menus ──────────────────────────── */
+
+/*
+ * Furama's printed menus (furamavietnam.com/culinary/): Danaksara's card has a
+ * fine frame set in from the edge with a quarter-arc corner whose rays end in
+ * dots; the Copper Tray Meal's sets its headings in thin spaced serif capitals
+ * over a line in gold italic. The offers are set as such menu cards.
+ */
+:root {
+  --menu-corner-tl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44' fill='none' stroke='%238a6b33' stroke-width='1' stroke-linecap='round'%3E %3Cg transform='rotate(0 22 22)'%3E %3Cpath d='M2 24A22 22 0 0 1 24 2'/%3E%3Cpath d='M2 16A14 14 0 0 1 16 2'/%3E %3Cpath d='M8 8L15.5 15.5'/%3E%3Cpath d='M4.5 12.5L13 16'/%3E%3Cpath d='M12.5 4.5L16 13'/%3E %3Ccircle cx='17.3' cy='17.3' r='1.4' fill='%238a6b33' stroke='none'/%3E%3Ccircle cx='14.6' cy='17.2' r='1.1' fill='%238a6b33' stroke='none'/%3E%3Ccircle cx='17.2' cy='14.6' r='1.1' fill='%238a6b33' stroke='none'/%3E %3C/g%3E%3C/svg%3E");
+  --menu-corner-tr: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44' fill='none' stroke='%238a6b33' stroke-width='1' stroke-linecap='round'%3E %3Cg transform='rotate(90 22 22)'%3E %3Cpath d='M2 24A22 22 0 0 1 24 2'/%3E%3Cpath d='M2 16A14 14 0 0 1 16 2'/%3E %3Cpath d='M8 8L15.5 15.5'/%3E%3Cpath d='M4.5 12.5L13 16'/%3E%3Cpath d='M12.5 4.5L16 13'/%3E %3Ccircle cx='17.3' cy='17.3' r='1.4' fill='%238a6b33' stroke='none'/%3E%3Ccircle cx='14.6' cy='17.2' r='1.1' fill='%238a6b33' stroke='none'/%3E%3Ccircle cx='17.2' cy='14.6' r='1.1' fill='%238a6b33' stroke='none'/%3E %3C/g%3E%3C/svg%3E");
+  --menu-corner-br: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44' fill='none' stroke='%238a6b33' stroke-width='1' stroke-linecap='round'%3E %3Cg transform='rotate(180 22 22)'%3E %3Cpath d='M2 24A22 22 0 0 1 24 2'/%3E%3Cpath d='M2 16A14 14 0 0 1 16 2'/%3E %3Cpath d='M8 8L15.5 15.5'/%3E%3Cpath d='M4.5 12.5L13 16'/%3E%3Cpath d='M12.5 4.5L16 13'/%3E %3Ccircle cx='17.3' cy='17.3' r='1.4' fill='%238a6b33' stroke='none'/%3E%3Ccircle cx='14.6' cy='17.2' r='1.1' fill='%238a6b33' stroke='none'/%3E%3Ccircle cx='17.2' cy='14.6' r='1.1' fill='%238a6b33' stroke='none'/%3E %3C/g%3E%3C/svg%3E");
+  --menu-corner-bl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44' fill='none' stroke='%238a6b33' stroke-width='1' stroke-linecap='round'%3E %3Cg transform='rotate(270 22 22)'%3E %3Cpath d='M2 24A22 22 0 0 1 24 2'/%3E%3Cpath d='M2 16A14 14 0 0 1 16 2'/%3E %3Cpath d='M8 8L15.5 15.5'/%3E%3Cpath d='M4.5 12.5L13 16'/%3E%3Cpath d='M12.5 4.5L16 13'/%3E %3Ccircle cx='17.3' cy='17.3' r='1.4' fill='%238a6b33' stroke='none'/%3E%3Ccircle cx='14.6' cy='17.2' r='1.1' fill='%238a6b33' stroke='none'/%3E%3Ccircle cx='17.2' cy='14.6' r='1.1' fill='%238a6b33' stroke='none'/%3E %3C/g%3E%3C/svg%3E");
+  --hui-corner: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26' fill='none' stroke='%23c6a664' stroke-width='1'%3E %3Cpath d='M.5 .5H25.5V25.5H.5ZM6.5 6.5H19.5V19.5H6.5ZM10.5 10.5H15.5V15.5H10.5Z'/%3E%3C/svg%3E");
+}
+
+.offer {
+  align-items: center;
+  text-align: center;
+  padding: clamp(46px, 4.4vw, 60px) clamp(32px, 3vw, 44px) clamp(36px, 3.4vw, 46px);
+  background-color: #f8f2e4;
+}
+
+/* The inset frame and its four corners. */
+.offer::before {
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  width: auto;
+  height: auto;
+  border: 1px solid rgba(138, 107, 51, 0.45);
+  pointer-events: none;
+  background:
+    var(--menu-corner-tl) top -1px left -1px / 44px 44px no-repeat,
+    var(--menu-corner-tr) top -1px right -1px / 44px 44px no-repeat,
+    var(--menu-corner-br) bottom -1px right -1px / 44px 44px no-repeat,
+    var(--menu-corner-bl) bottom -1px left -1px / 44px 44px no-repeat;
+  transition: inset 0.6s var(--ease-out), border-color 0.4s ease;
+}
+
+.offer:hover::before {
+  top: 9px;
+  left: 9px;
+  right: 9px;
+  bottom: 9px;
+  width: auto;
+  border-color: var(--gold-deep);
+}
+
+/* The flower sits on the frame's head, centred, as on a menu's crest. */
+.offer-mark {
+  top: 22px;
+  left: 50%;
+  right: auto;
+  width: 22px;
+  translate: -50% 0;
+  opacity: 0.85;
+}
+
+.offer-venue {
+  margin-top: 12px;
+  font-family: var(--serif);
+  font-size: 15px;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--gold-deep);
+}
+
+.offer-title {
+  margin-top: 10px;
+  font-weight: 300;
+  font-size: clamp(21px, 1.8vw, 26px);
+  line-height: 1.25;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.offer-detail {
+  max-width: 34ch;
+  margin-inline: auto;
+  border-top: 0;
+  padding-top: 18px;
+  background: linear-gradient(var(--gold), var(--gold)) center top / 48px 1px no-repeat;
+  font-family: var(--serif);
+  font-size: 16px;
+  font-style: italic;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.offer-cta {
+  align-self: center;
+}
+
+/* The restaurant page's portrait, in the arched frame of an Indochine window, whole within the gutters. */
+@media (min-width: 760px) {
+  .taya-hero-inner {
+    padding-right: var(--gutter-wide);
+  }
+
+  .taya-portrait {
+    border-radius: 999px 999px 0 0;
+  }
+
+  .taya-portrait::after {
+    content: '';
+    position: absolute;
+    inset: 14px;
+    border: 1px solid rgba(198, 166, 100, 0.65);
+    border-radius: 999px 999px 0 0;
+    pointer-events: none;
+  }
+}
+
+/* The heritage frame's corners take the 回 of Furama's emblem border. */
+.heritage::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  inset: calc(clamp(14px, 1.8vw, 26px) - 12px);
+  pointer-events: none;
+  background:
+    var(--hui-corner) top left / 25px 25px no-repeat,
+    var(--hui-corner) top right / 25px 25px no-repeat,
+    var(--hui-corner) bottom right / 25px 25px no-repeat,
+    var(--hui-corner) bottom left / 25px 25px no-repeat;
+  opacity: 0.85;
+}
+
+/* ── Hover: a framed print, a rising fill, a drawn line ──────────────────── */
+
+/*
+ * A picture under the pointer draws in from its frame's edge onto an ivory
+ * mat, as a print is matted, while the photograph settles from a slow zoom;
+ * gold mitred corners close in on the mat. Buttons fill from below; links and
+ * rows draw a gold line from the left; arrows step forward.
+ */
+.rcard-frame,
+.story-frame {
+  background: #efe7d6;
+}
+
+.rcard-zoom,
+.story-zoom {
+  clip-path: inset(0);
+  transition: clip-path 0.8s var(--ease-out);
+}
+
+.rcard-img,
+.story-img {
+  transition: transform 1.6s var(--ease-out);
+}
+
+.rcard:not([aria-disabled='true']):is(:hover, :focus-visible) .rcard-zoom,
+.story:is(:hover, :focus-visible) .story-zoom {
+  clip-path: inset(10px);
+}
+
+.rcard:not([aria-disabled='true']):is(:hover, :focus-visible) .rcard-img,
+.story:is(:hover, :focus-visible) .story-img {
+  transform: scale(1.07);
+}
+
+.rcard-frame::before,
+.story-frame::before {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  z-index: 2;
+  pointer-events: none;
+  --c: var(--gold-deep);
+  background:
+    linear-gradient(var(--c), var(--c)) top left / 18px 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) top left / 1px 18px no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / 18px 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / 1px 18px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / 18px 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / 1px 18px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / 18px 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / 1px 18px no-repeat;
+  opacity: 0;
+  transition: inset 0.8s var(--ease-out), opacity 0.5s ease;
+}
+
+.rcard:not([aria-disabled='true']):is(:hover, :focus-visible) .rcard-frame::before,
+.story:is(:hover, :focus-visible) .story-frame::before {
+  inset: 3px;
+  opacity: 1;
+}
+
+/* The tag waits inside the mat. */
+.rcard-tag {
+  left: 22px;
+  bottom: 22px;
+}
+
+/* A card's name and a story's title underline themselves in gold. */
+.rcard-name,
+.story-title {
+  align-self: flex-start;
+  background: linear-gradient(var(--gold), var(--gold)) 0 100% / 0 1px no-repeat;
+  transition: background-size 0.7s var(--ease-out), color 0.25s;
+}
+
+.rcard:not([aria-disabled='true']):is(:hover, :focus-visible) .rcard-name,
+.story:is(:hover, :focus-visible) .story-title {
+  background-size: 100% 1px;
+}
+
+/* Buttons fill from below. */
+.btn-slab,
+.btn-green,
+.btn-gold {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  transition: color 0.45s var(--ease-out), translate 0.45s var(--ease-out);
+}
+
+.btn-slab::before,
+.btn-green::before,
+.btn-gold::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  transform: scaleY(0);
+  transform-origin: 50% 100%;
+  transition: transform 0.55s var(--ease-out);
+}
+
+.btn-slab::before {
+  background: var(--green);
+}
+
+.btn-green::before {
+  background: var(--gold);
+}
+
+.btn-gold::before {
+  background: var(--green-deep);
+}
+
+.btn-slab:is(:hover, :focus-visible)::before,
+.btn-green:is(:hover, :focus-visible)::before,
+.btn-gold:is(:hover, :focus-visible)::before {
+  transform: scaleY(1);
+}
+
+.btn-slab:hover {
+  background: var(--cream);
+  color: var(--on-dark);
+}
+
+.btn-green:hover {
+  background: var(--green-btn);
+  color: var(--on-gold);
+}
+
+.btn-gold:hover {
+  background: var(--gold);
+  color: var(--on-dark);
+}
+
+/* Arrows step forward. */
+:is(.btn-slab, .btn-green, .text-link, .offer-cta) :is(.arrow, .hero-arrow, span:last-child),
+.experience-arrow {
+  display: inline-block;
+  transition: transform 0.45s var(--ease-out);
+}
+
+:is(.btn-slab, .btn-green, .offer-cta):hover :is(.arrow, .hero-arrow, span:last-child),
+.experience-row:hover .experience-arrow {
+  transform: translateX(6px);
+}
+
+/* Links draw a gold line from the left under their words. */
+.text-link,
+.offer-cta,
+.footer-social {
+  background: linear-gradient(var(--gold), var(--gold)) 0 calc(100% - 11px) / 0 1px no-repeat;
+  transition: background-size 0.6s var(--ease-out), color 0.25s;
+}
+
+.text-link:hover,
+.offer-cta:hover,
+.footer-social:hover {
+  background-size: 100% 1px;
+}
+
+/* An Experiences row draws its gold line along its rule. */
+.experience-row {
+  position: relative;
+}
+
+.experience-row::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--gold);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  transition: transform 0.8s var(--ease-out);
+}
+
+.experience-row:hover::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rcard-zoom,
+  .story-zoom,
+  .rcard-img,
+  .story-img,
+  .rcard-frame::before,
+  .story-frame::before,
+  .btn-slab::before,
+  .btn-green::before,
+  .btn-gold::before,
+  .experience-row::after {
+    transition: none;
+  }
+}

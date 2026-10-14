@@ -84,8 +84,11 @@ main[data-view='home'][data-hero='none'] {
   }
 }
 
+/* The roomy header lines up with the page: the same capped width and the same gutter as the content below. */
 .hdr-full .hdr-inner {
-  padding: 0 clamp(24px, 4.44vw, 64px);
+  max-width: var(--shell);
+  margin-inline: auto;
+  padding: 0 var(--gutter);
 }
 
 @media (min-width: 1080px) {

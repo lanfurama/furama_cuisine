@@ -3,6 +3,7 @@
 import type { Media } from '@/lib/content/types';
 import type { Copy } from '@/lib/i18n/registry';
 import { CmsImage } from '@/components/ui/CmsImage';
+import { SplitWords } from '@/components/ui/SplitWords';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 
@@ -17,7 +18,7 @@ export function Cuisines({ copy }: { copy: Copy<'cuisines'> }) {
       <div className="shell">
         <div className="section-head">
           <h2 ref={title} data-reveal="title" className="section-title">
-            {copy['cuisines.title']}
+            <SplitWords text={copy['cuisines.title']} />
           </h2>
           <button
             ref={link}
@@ -60,12 +61,12 @@ function CuisineChip({
   selected: boolean;
   onPick: () => void;
 }) {
-  const ref = useReveal<HTMLButtonElement>('up');
+  const ref = useReveal<HTMLButtonElement>('pop');
 
   return (
     <button
       ref={ref}
-      data-reveal="up"
+      data-reveal="pop"
       type="button"
       className="cuisine"
       aria-pressed={selected}

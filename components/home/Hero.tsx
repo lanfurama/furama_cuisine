@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { homeSections } from '@/lib/content/home-sections';
 import type { HeroSlide } from '@/lib/content/types';
 import { formatMessage } from '@/lib/i18n/format';
 import type { Copy } from '@/lib/i18n/registry';
 import { useSite } from '@/components/site/SiteProvider';
 import { CmsImage, cmsPictureProps } from '@/components/ui/CmsImage';
+import { SplitWords } from '@/components/ui/SplitWords';
 import { readMotionLevel } from '@/lib/motion';
 
 /** The hero's headline, a line each (registry hero.title_*, spec §7.2 content/hero). */
@@ -36,6 +37,17 @@ export function Hero({ slides, copy }: { slides: HeroSlide[]; copy: Copy<'hero'>
   const { site, open, overlay, scrollToId, locale } = useSite();
   const TITLE = titleOf(copy);
   const [slide, setSlide] = useState(0);
+  // The slide being wiped over stays whole underneath until the new one covers it.
+  const [prev, setPrev] = useState<number | null>(null);
+  const current = useRef(0);
+  const go = useCallback((next: (s: number) => number) => {
+    const from = current.current;
+    const to = next(from);
+    if (to === from) return;
+    current.current = to;
+    setPrev(from);
+    setSlide(to);
+  }, []);
   const count = slides.length;
   const autoplayMs = site.settings.heroAutoplayMs;
   const shown = homeSections(site.sections);
@@ -46,19 +58,23 @@ export function Hero({ slides, copy }: { slides: HeroSlide[]; copy: Copy<'hero'>
     if (overlay || count < 2 || !readMotionLevel()) return;
     const timer = window.setInterval(() => {
       if (document.hidden || window.innerWidth < 760) return;
-      setSlide((s) => (s + 1) % count);
+      go((s) => (s + 1) % count);
     }, autoplayMs);
     return () => window.clearInterval(timer);
-  }, [autoplayMs, count, overlay]);
+  }, [autoplayMs, count, go, overlay]);
+
+  const pad = (n: number) => String(n).padStart(2, '0');
 
   return (
-    <section id="top" className="hero">
+    <section id="top" className="hero" style={{ ['--hero-ms' as string]: `${autoplayMs}ms` }}>
       <div className="hero-slides">
         {slides.map((s, i) => (
           <div
             key={s.id}
             className="hero-slide"
             data-active={i === slide}
+            data-prev={i === prev && i !== slide ? true : undefined}
+            data-wipe={i === slide && prev !== null ? true : undefined}
             data-parallax="0.3"
             aria-hidden={i !== slide}
           >
@@ -82,21 +98,16 @@ export function Hero({ slides, copy }: { slides: HeroSlide[]; copy: Copy<'hero'>
             {copy['hero.kicker']}
           </div>
 
+          {/* Each word rises on its own (SplitWords); the lines still read as one heading. */}
           <h1 className="hero-title">
-            <span className="line-mask">
-              <span data-intro="1" data-intro-kind="line">
-                {TITLE[0]}
-              </span>
-            </span>
-            <span className="line-mask hero-title-mid">
-              <span data-intro="2" data-intro-kind="line">
-                {TITLE[1]}
-              </span>
-            </span>
-            <span className="line-mask">
-              <span data-intro="3" data-intro-kind="line">
-                {TITLE[2]}
-              </span>
+            <span className="hero-line">
+              <SplitWords text={TITLE[0]} intro={1} />
+            </span>{' '}
+            <span className="hero-line hero-title-mid">
+              <SplitWords text={TITLE[1]} intro={2} />
+            </span>{' '}
+            <span className="hero-line hero-line-accent">
+              <SplitWords text={TITLE[2]} intro={3} />
             </span>
           </h1>
 
@@ -105,13 +116,13 @@ export function Hero({ slides, copy }: { slides: HeroSlide[]; copy: Copy<'hero'>
           </p>
 
           <div className="hero-actions" data-intro="5">
-            <button type="button" className="btn-slab hero-explore" onClick={() => scrollToId('restaurants')}>
+            <button type="button" className="btn-slab hero-explore" data-magnetic="" onClick={() => scrollToId('restaurants')}>
               {copy['hero.cta_explore']}
               <span className="hero-arrow">→</span>
             </button>
 
             {shown.has('film') && (
-              <button type="button" className="hero-film" onClick={() => open('film')}>
+              <button type="button" className="hero-film" data-magnetic="" onClick={() => open('film')}>
                 <span className="hero-play">
                   <span className="hero-play-tri" />
                 </span>
@@ -129,21 +140,31 @@ export function Hero({ slides, copy }: { slides: HeroSlide[]; copy: Copy<'hero'>
 
           {count > 1 && (
             <div className="hero-dots" data-intro="6">
+              <span className="hero-count" aria-hidden="true">
+                <span className="hero-count-now">{pad(slide + 1)}</span>
+                <span className="hero-count-of">{pad(count)}</span>
+              </span>
               {slides.map((s, i) => (
                 <button
                   key={s.id}
                   type="button"
                   aria-label={formatMessage(copy['hero.slide_aria'], { n: i + 1 }, locale)}
                   aria-current={i === slide}
-                  onClick={() => setSlide(i)}
+                  onClick={() => go(() => i)}
                   className="hero-dot"
                 >
-                  <span data-active={i === slide} />
+                  {/* The live dot fills over the slide's time (--hero-ms), like a progress bar. */}
+                  <span data-active={i === slide} data-run={i === slide && !overlay ? true : undefined} />
                 </button>
               ))}
             </div>
           )}
         </div>
+
+        {/* A drop of light down a hairline: there is more below. */}
+        <span className="hero-scroll" aria-hidden="true">
+          <span />
+        </span>
       </div>
     </section>
   );
