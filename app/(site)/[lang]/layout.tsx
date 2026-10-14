@@ -41,8 +41,8 @@ const MOTION_BOOTSTRAP = `try{document.documentElement.dataset.motion=matchMedia
 /**
  * The script stylesheet of a URL code, or null for Latin and Vietnamese. This
  * layout reads no database (R38), so the script comes from the catalogue, the
- * only place /admin/locales adds a language from; a code outside it gets the
- * site's fonts alone.
+ * only place lib/i18n/site-locales.ts takes a language from; a code outside it
+ * gets the site's fonts alone.
  */
 function scriptStylesheet(code: string): string | null {
   const language = catalogLanguage(code);

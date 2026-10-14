@@ -261,7 +261,7 @@ export async function coverage(db: Db): Promise<Coverage> {
 
 export type CoverageSummary = { code: string; name: string; percent: number; stale: number };
 
-/** One line per language other than the default: the share of reviewed translations, and how many are "EN đã đổi" (the dashboard, /admin/locales). */
+/** One line per language other than the default: the share of reviewed translations, and how many are "EN đã đổi" (the dashboard). */
 export async function coverageSummary(db: Db): Promise<CoverageSummary[]> {
   const { locales, kinds } = await coverage(db);
   return locales.map(({ code, name }) => {

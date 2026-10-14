@@ -28,7 +28,7 @@ import { TEST_DATABASE_URL } from '../helpers/db';
 // The site's list with Korean added, off: a test turns it on by flipping its row (lib/i18n/site-locales.ts is code).
 vi.mock('@/lib/i18n/site-locales', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/lib/i18n/site-locales')>();
-  const ko = { code: 'ko', bcp47: 'ko', nativeName: '한국어', shortLabel: 'KO', script: 'hangul' as const, isDefault: false, isEnabled: false, sortOrder: 90 };
+  const ko = { code: 'ko', english: 'Korean', bcp47: 'ko', nativeName: '한국어', shortLabel: 'KO', script: 'hangul' as const, isDefault: false, isEnabled: false, sortOrder: 90 };
   return { ...real, SITE_LOCALE_ROWS: [...real.SITE_LOCALE_ROWS.map((l) => ({ ...l })), ko] };
 });
 const korean = () => SITE_LOCALE_ROWS.find((l) => l.code === 'ko') as { isEnabled: boolean };

@@ -1,0 +1,34 @@
+import 'server-only';
+
+/* The error type of the AI guard (lib/server/ai), in the kernel so action-result.ts can read it without importing the AI module or its SDK. */
+export type AiErrorCode =
+  | 'ai_off'
+  | 'ai_budget'
+  | 'ai_rate_minute'
+  | 'ai_rate_day'
+  | 'ai_auth'
+  | 'ai_not_found'
+  | 'ai_quota'
+  | 'ai_bad_request'
+  | 'ai_failed'
+  | 'ai_placeholder'
+  | 'ai_preview';
+
+/** A refusal or failure of an AI call; `params` carries the numbers the message names (the limit, the budget). */
+export class AiError extends Error {
+  constructor(
+    readonly code: AiErrorCode,
+    readonly params?: Record<string, string | number>,
+  ) {
+    super(code);
+    this.name = 'AiError';
+  }
+}
+
+/** A request whose Origin is not this site's (spec §7.1); the route answers 403 `forbidden`. */
+export class AiOriginError extends Error {
+  constructor() {
+    super('bad_origin');
+    this.name = 'AiOriginError';
+  }
+}

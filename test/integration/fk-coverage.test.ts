@@ -34,6 +34,7 @@ const OFFER_ACCEPTANCE: [string, string] = [
   'ACCEPTANCE: edit an offer, restore the version before; delete it, restore it; the guest list follows each step',
 ];
 const NEVER_DELETED = 'restaurants are never deleted, only archived (F10, R22): no path deletes the parent';
+const AI_KEEPS_ROWS = 'phase 9: removing staff or a job only clears the name on an AI row; the spend stays in the ledger (no delete path is tested before phase 9’s own tasks)';
 const BOOKINGS = 'bookings are never deleted before phase 10’s retention (spec §11): no phase-7 path deletes the parent';
 
 const FK_MATRIX: Record<string, Covered> = {
@@ -138,6 +139,12 @@ const FK_MATRIX: Record<string, Covered> = {
   reservation_notes_reservation_id_fkey: { action: 'c', none: BOOKINGS },
   email_outbox_reservation_id_fkey: { action: 'c', none: BOOKINGS },
   email_outbox_reservation_event_id_fkey: { action: 'n', none: BOOKINGS },
+  // Migration 012 (phase 9): the AI ledger keeps its rows when the person or the job it names goes (SET NULL).
+  ai_settings_updated_by_fkey: { action: 'n', none: AI_KEEPS_ROWS },
+  ai_glossary_updated_by_fkey: { action: 'n', none: AI_KEEPS_ROWS },
+  ai_jobs_created_by_fkey: { action: 'n', none: AI_KEEPS_ROWS },
+  ai_usage_actor_id_fkey: { action: 'n', none: AI_KEEPS_ROWS },
+  ai_usage_job_id_fkey: { action: 'n', none: AI_KEEPS_ROWS },
 };
 
 const ROOT = join(__dirname, '..', '..');

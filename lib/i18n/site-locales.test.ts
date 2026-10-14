@@ -10,8 +10,8 @@ describe('SITE_LOCALES', () => {
 
   it('turns the list into rows, in its order', () => {
     expect(siteLocaleRows([{ code: 'en', enabled: true, default: true }, { code: 'ko', enabled: false }])).toEqual([
-      { code: 'en', bcp47: 'en', nativeName: 'English', shortLabel: 'EN', script: 'latin', isDefault: true, isEnabled: true, sortOrder: 10 },
-      { code: 'ko', bcp47: 'ko', nativeName: '한국어', shortLabel: 'KO', script: 'hangul', isDefault: false, isEnabled: false, sortOrder: 20 },
+      { code: 'en', english: 'English', bcp47: 'en', nativeName: 'English', shortLabel: 'EN', script: 'latin', isDefault: true, isEnabled: true, sortOrder: 10 },
+      { code: 'ko', english: 'Korean', bcp47: 'ko', nativeName: '한국어', shortLabel: 'KO', script: 'hangul', isDefault: false, isEnabled: false, sortOrder: 20 },
     ]);
   });
 

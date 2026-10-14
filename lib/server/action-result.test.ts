@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from '@/lib/admin/zod';
 import { actionError, PermissionError } from './action-result';
+import { AiError } from './ai-error';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -46,5 +47,12 @@ describe('actionError and Next’s control flow (unstable_rethrow)', () => {
       expect(() => actionError(thrown)).toThrow(thrown as Error);
     }
     expect(logged).not.toHaveBeenCalled();
+  });
+});
+
+describe('actionError and AiError', () => {
+  it('keeps the code and turns numeric params into strings', () => {
+    expect(actionError(new AiError('ai_rate_minute', { limit: 10 }))).toEqual({ ok: false, code: 'ai_rate_minute', params: { limit: '10' } });
+    expect(actionError(new AiError('ai_quota'))).toEqual({ ok: false, code: 'ai_quota' });
   });
 });

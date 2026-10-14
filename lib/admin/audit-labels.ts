@@ -58,8 +58,11 @@ const ENTITIES: Record<string, string> = {
   legal_versions: 'Phiên bản chính sách',
   // A library file: the row and its alt text (R5, C6).
   media: 'File trong thư viện',
-  // Languages (phase 8, /admin/locales): one language, or the order (entity_id NULL).
+  // Languages: the phase-8 screen's rows (migration 011 took the screen and the table away; the history stays).
   locales: 'Ngôn ngữ',
+  // AI (phase 9): the configuration, and the glossary's terms.
+  ai_settings: 'Cấu hình AI',
+  ai_glossary: 'Thuật ngữ AI',
 };
 
 export function auditActionLabel(action: string): string {

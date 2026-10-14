@@ -7,8 +7,10 @@ import { toBcp47 } from '@/lib/i18n/locales';
 import type { TranslationState } from '@/lib/i18n/source-hash';
 import type { ActionResult } from '@/lib/server/action-result';
 import type { StringsSaved, StringsWritten } from '@/lib/server/content/strings-admin';
+import { AiTranslateButton, fillLikeTyping } from '../../_kit/AiTranslateButton';
 import { SaveBar } from '../../_kit/SaveBar';
 import { STATUS_LABELS } from '../../_kit/TranslatableField';
+import { useAiFeatures } from '../../_kit/useAiFeatures';
 import { useSaveState } from '../../_kit/useSaveState';
 import { saveScreenStrings } from '../actions';
 
@@ -155,6 +157,7 @@ function StringFields({
 
 function StringField({ field: f, lang, error }: { field: StringFieldView; lang: string | null; error?: string[] }) {
   const id = useId();
+  const ai = useAiFeatures();
   const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
   const [value, setValue] = useState(f.value);
   // A translation warns past 1.3 times the English length (spec §7.3), and is refused past the maximum.
@@ -187,6 +190,16 @@ function StringField({ field: f, lang, error }: { field: StringFieldView; lang: 
       <input type="hidden" name={`o:${f.key}`} value={f.value} />
       <input type="hidden" name={`t:${f.key}`} value={f.token} />
       {multiline ? <textarea rows={4} {...common} /> : <input type="text" autoComplete="off" {...common} />}
+      {ai.translate && lang && f.english.trim() ? (
+        <AiTranslateButton
+          english={f.english}
+          locale={lang}
+          itemKey={f.key}
+          onResult={(t) => {
+            if (ref.current) fillLikeTyping(ref.current, t);
+          }}
+        />
+      ) : null}
       <p className={`a-counter${length.level === 'error' ? ' a-counter--error' : length.level === 'warn' ? ' a-counter--warn' : ''}`} id={`${id}-hint`}>
         {length.count}/{f.maxLength} ký tự
         {length.level === 'warn' ? ' · Dài hơn nhiều so với bản tiếng Anh' : ''}

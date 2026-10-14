@@ -175,3 +175,23 @@ describe('the invite form’s outcome (phase-3 ledger)', () => {
     expect(inviteOutcome(null)).toBeNull();
   });
 });
+
+describe('actionErrorMessage for the AI codes', () => {
+  it('names the configured limits, not fixed numbers', () => {
+    expect(actionErrorMessage('ai_rate_minute', { limit: '7' })).toBe('Bạn đã dùng AI 7 lần trong một phút. Thử lại sau ít giây.');
+    expect(actionErrorMessage('ai_rate_day', { limit: '42' })).toBe('Bạn đã dùng hết 42 lượt AI hôm nay.');
+    expect(actionErrorMessage('ai_rate_minute')).toMatch(/một phút/);
+  });
+
+  it.each([
+    ['ai_off', 'AI chưa được cấu hình hoặc tính năng đang tắt.'],
+    ['ai_budget', 'Đã dùng hết ngân sách AI tháng này.'],
+    ['ai_auth', 'Thiếu quyền, hoặc model chưa được bật.'],
+    ['ai_not_found', 'Model không có ở region đã chọn.'],
+    ['ai_quota', 'Hết quota Vertex.'],
+    ['ai_bad_request', 'Tham số sai, hoặc bị chính sách của tổ chức GCP chặn.'],
+    ['ai_failed', 'Vertex không trả lời được. Thử lại sau.'],
+    ['ai_placeholder', 'AI làm mất tên riêng hoặc biến; không dùng được bản dịch này.'],
+    ['ai_preview', 'Bản xem trước không gọi AI.'],
+  ] as const)('%s', (code, message) => expect(actionErrorMessage(code)).toBe(message));
+});

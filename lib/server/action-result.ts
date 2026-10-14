@@ -1,6 +1,7 @@
 import 'server-only';
 import { unstable_rethrow } from 'next/navigation';
 import { z } from '@/lib/admin/zod';
+import { AiError, type AiErrorCode } from '@/lib/server/ai-error';
 
 /** What requirePermission (dal/session.ts) throws: no session, or a role that may not. */
 export class PermissionError extends Error {
@@ -59,7 +60,9 @@ export type ActionCode =
   /** A file some content still shows cannot be deleted; `uses` lists where (label + the screen that edits it). */
   | 'in_use'
   /** Vercel Blob has no credentials in this environment (BLOB_READ_WRITE_TOKEN / BLOB_STORE_ID). */
-  | 'blob_not_configured';
+  | 'blob_not_configured'
+  // AI (spec §9, R9-15); the rate and budget codes carry params.limit / params.budget.
+  | AiErrorCode;
 
 export type ActionFailure = {
   ok: false;
@@ -75,6 +78,10 @@ export function actionError(err: unknown): ActionFailure {
   // First (node_modules/next/dist/docs/01-app/03-api-reference/04-functions/unstable_rethrow.md:62):
   // redirect(), notFound() and forbidden() are not failures.
   unstable_rethrow(err);
+  if (err instanceof AiError) {
+    const params = err.params && Object.fromEntries(Object.entries(err.params).map(([k, v]) => [k, String(v)]));
+    return { ok: false, code: err.code, ...(params ? { params } : {}) };
+  }
   if (err instanceof PermissionError) return { ok: false, code: 'forbidden' };
   if (err instanceof z.ZodError) return { ok: false, code: 'invalid', fieldErrors: z.flattenError(err).fieldErrors };
   console.error('[admin] action failed', { code: 'db_error', name: err instanceof Error ? err.name : typeof err });

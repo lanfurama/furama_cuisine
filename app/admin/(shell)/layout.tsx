@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { navFor, ROLE_LABELS } from '@/lib/admin/nav';
+import { loadAiFeatures } from '@/lib/server/ai/features';
 import { verifySession } from '@/lib/server/dal/session';
 import { signOut } from './actions';
 import { NavLinks } from './NavLinks';
+import { AiFeaturesProvider } from './_kit/useAiFeatures';
 
 /*
  * The signed-in frame. The session read here only shapes the UI (who is
@@ -12,6 +14,7 @@ import { NavLinks } from './NavLinks';
  */
 export default async function ShellLayout({ children }: { children: React.ReactNode }) {
   const staff = await verifySession();
+  const aiFeatures = await loadAiFeatures();
   const items = navFor(staff.role).map(({ href, label }) => ({ href, label }));
 
   return (
@@ -39,7 +42,9 @@ export default async function ShellLayout({ children }: { children: React.ReactN
             </button>
           </form>
         </header>
-        <main className="a-main">{children}</main>
+        <main className="a-main">
+          <AiFeaturesProvider features={aiFeatures}>{children}</AiFeaturesProvider>
+        </main>
       </div>
     </div>
   );
