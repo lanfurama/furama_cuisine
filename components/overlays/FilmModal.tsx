@@ -29,7 +29,8 @@ export function FilmModal() {
   return (
     <div className="film-root" role="dialog" aria-modal="true" aria-label={strings['film.aria']}>
       <button type="button" className="film-backdrop" aria-label={strings['film.close_aria']} onClick={close} />
-      <button type="button" className="film-close" aria-label={strings['film.close_aria']} onClick={close}>
+      {/* Where the focus goes when the film opens (data-autofocus, components/site/Chrome.tsx). */}
+      <button type="button" className="film-close" aria-label={strings['film.close_aria']} onClick={close} data-autofocus>
         ×
       </button>
 

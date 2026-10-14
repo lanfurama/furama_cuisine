@@ -1,7 +1,6 @@
 'use client';
 
 import { getImageProps } from 'next/image';
-import { useEffect, useRef } from 'react';
 import { fold } from '@/lib/booking';
 import type { Media } from '@/lib/content/types';
 import { formatMessage } from '@/lib/i18n/format';
@@ -21,7 +20,6 @@ function thumbSrc(image: Media): string {
 
 export function SearchOverlay() {
   const { site, destName, restaurants, overlay, close, query, setQuery, openRestaurant, strings, locale } = useSite();
-  const inputRef = useRef<HTMLInputElement>(null);
   const open = overlay === 'search';
 
   useOpenAnimation(open, (animate) => {
@@ -33,12 +31,6 @@ export function SearchOverlay() {
       150,
     );
   });
-
-  useEffect(() => {
-    if (!open) return;
-    const t = window.setTimeout(() => inputRef.current?.focus(), 60);
-    return () => window.clearTimeout(t);
-  }, [open]);
 
   if (!open) return null;
 
@@ -56,8 +48,9 @@ export function SearchOverlay() {
           </button>
         </div>
 
+        {/* Where the focus goes when the search opens (data-autofocus, components/site/Chrome.tsx). */}
         <input
-          ref={inputRef}
+          data-autofocus
           data-anim="search-item"
           className="search-input"
           value={query}

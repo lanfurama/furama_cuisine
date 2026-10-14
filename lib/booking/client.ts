@@ -27,6 +27,44 @@ export function dayReason(d: DayInfo, words: DayWords): string {
   return words['booking.day_closed'];
 }
 
+/** One meal of the day as the form shows it: every service of that meal, its open times in order. */
+export type MealGroup = {
+  meal: PeriodInfo['meal'];
+  /** Every service of the meal is closed today: the form says so instead of offering times. */
+  closed: boolean;
+  /** The first public reason a closed service gave. */
+  reason?: string;
+  /** The open services' times, earliest first, each with the service it belongs to. */
+  slots: { period: PeriodInfo; slot: SlotInfo }[];
+};
+
+/**
+ * The day's services grouped by meal, in the order the meals first come: a
+ * restaurant with two lunch services (a cooking class at 11:00 and another at
+ * 14:00) shows one "Lunch" with both times, not two "Lunch" headings.
+ */
+export function mealGroups(periods: readonly PeriodInfo[]): MealGroup[] {
+  const groups: MealGroup[] = [];
+  for (const period of periods) {
+    let group = groups.find((g) => g.meal === period.meal);
+    if (!group) {
+      group = { meal: period.meal, closed: true, slots: [] };
+      groups.push(group);
+    }
+    if (period.closed) {
+      group.reason ??= period.reason;
+      continue;
+    }
+    group.closed = false;
+    group.slots.push(...period.slots.map((slot) => ({ period, slot })));
+  }
+  for (const group of groups) {
+    group.slots.sort((a, b) => toMinutes(a.slot.time) - toMinutes(b.slot.time));
+    if (!group.closed) delete group.reason;
+  }
+  return groups;
+}
+
 /** Restaurants guests can book online (restaurants.booking_enabled). */
 export const bookableRestaurants = (restaurants: Restaurant[]) => restaurants.filter((r) => r.bookingEnabled);
 

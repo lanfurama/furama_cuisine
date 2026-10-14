@@ -25,12 +25,23 @@ export type MockOptions = {
   dayAnswers?: Record<string, MockDay>;
   /** Meals closed on a date: date → meal → public reason (null for none). */
   mealClosures?: Record<string, Record<string, string | null>>;
+  /**
+   * A date's services in the order the API sends them, instead of one Lunch and one Dinner: two services of
+   * one meal (a cooking class at 11:00 and another at 14:00), or a closed one with its reason. Wins over
+   * `mealClosures`; a closed or full day still answers as `days` say.
+   */
+  periods?: Record<string, MockPeriod[]>;
 };
+
+/** One service of a day: its meal and times (16 covers each), or closed with an optional public reason. */
+export type MockPeriod = { meal: string; times: string[]; closed?: boolean; reason?: string };
 
 const MEALS = {
   Lunch: ['11:30', '12:00', '12:30', '13:00', '13:30'],
   Dinner: ['18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00'],
 };
+
+const DEFAULT_PERIODS: MockPeriod[] = Object.entries(MEALS).map(([meal, times]) => ({ meal, times }));
 
 const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
@@ -65,6 +76,8 @@ export async function mockAvailability(page: Page, options: MockOptions) {
 
     const closedDay = options.dayAnswers?.[date] ?? closed[date];
     const closedMeals = options.mealClosures?.[date] ?? {};
+    const services =
+      options.periods?.[date] ?? DEFAULT_PERIODS.map((p) => (p.meal in closedMeals ? { ...p, closed: true, reason: closedMeals[p.meal] ?? undefined } : p));
     return route.fulfill({
       json: {
         ...clock,
@@ -73,9 +86,9 @@ export async function mockAvailability(page: Page, options: MockOptions) {
         periods:
           closedDay?.state === 'closed'
             ? []
-            : Object.entries(MEALS).map(([meal, times]) =>
-                meal in closedMeals
-                  ? { meal, closed: true, ...(closedMeals[meal] ? { reason: closedMeals[meal] } : {}), slots: [] }
+            : services.map(({ meal, times, closed: shut, reason }) =>
+                shut
+                  ? { meal, closed: true, ...(reason ? { reason } : {}), slots: [] }
                   : {
                       meal,
                       closed: false,

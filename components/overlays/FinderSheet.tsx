@@ -31,7 +31,8 @@ export function FinderSheet() {
         <div className="sheet-grab" aria-hidden="true" />
         <div className="sheet-head">
           <div className="sheet-title">{strings['finder.title']}</div>
-          <button type="button" className="overlay-close" aria-label={strings['common.close']} onClick={close}>
+          {/* Where the focus goes when the sheet opens (data-autofocus, components/site/Chrome.tsx). */}
+          <button type="button" className="overlay-close" aria-label={strings['common.close']} onClick={close} data-autofocus>
             ×
           </button>
         </div>

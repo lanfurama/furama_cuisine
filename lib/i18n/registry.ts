@@ -467,6 +467,20 @@ export const REGISTRY = {
     screen: 'booking',
     label: 'Nhãn phần chọn ngày (form đặt bàn)',
   },
+  'booking.dates_earlier': {
+    en: 'Earlier dates',
+    maxLength: 30,
+    context: 'Reservation form, the name of the arrow beside DATE that scrolls the strip of dates back (for a mouse; a finger swipes the strip).',
+    screen: 'booking',
+    label: 'Tên nút mũi tên lùi dải ngày (form đặt bàn)',
+  },
+  'booking.dates_later': {
+    en: 'Later dates',
+    maxLength: 30,
+    context: 'Reservation form, the name of the arrow beside DATE that scrolls the strip of dates on (for a mouse; a finger swipes the strip).',
+    screen: 'booking',
+    label: 'Tên nút mũi tên tới dải ngày (form đặt bàn)',
+  },
   'booking.section_guests': {
     en: 'GUESTS',
     maxLength: 20,

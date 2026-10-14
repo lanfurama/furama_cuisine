@@ -74,10 +74,16 @@ export default async function GuardedLayout({ children }: { children: React.Reac
       strings={strings}
       policy={{ version: policy.version, locale: policy.consentLocale }}
     >
-      <Chrome>{children}</Chrome>
-      <Suspense>
-        <PreviewBanner locale={locale} />
-      </Suspense>
+      {/* The banner rides inside the chrome, so an open overlay makes it inert with the page; its Suspense boundary is the same. */}
+      <Chrome
+        banner={
+          <Suspense>
+            <PreviewBanner locale={locale} />
+          </Suspense>
+        }
+      >
+        {children}
+      </Chrome>
     </SiteProvider>
   );
 }

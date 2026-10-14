@@ -53,8 +53,8 @@ textarea {
   outline-offset: 3px;
 }
 
-/* On the cream and white sections gold is too faint a ring (about 2.1:1, WCAG 2.4.13 asks 3:1): green there. */
-:where(.cuisines, .restaurants, .destinations, .stories, .offers, .finder, .booking-panel, .dishes, .more, .legal) :focus-visible {
+/* On the cream and white sections gold is too faint a ring (about 2.1:1, WCAG 2.4.13 asks 3:1): green there, the reserve drawer's cream included. */
+:where(.cuisines, .restaurants, .destinations, .stories, .offers, .finder, .booking-panel, .dishes, .more, .legal, .drawer) :focus-visible {
   outline-color: var(--green);
 }
 

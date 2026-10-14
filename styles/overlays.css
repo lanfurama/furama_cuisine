@@ -52,6 +52,8 @@
 }
 
 .drawer-kicker {
+  /* The drawer focuses it on opening: a keyboard's ring hugs the words, not the head's width. */
+  width: fit-content;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.2em;
@@ -87,7 +89,11 @@
 .drawer-body {
   flex: 1 1 auto;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 22px clamp(20px, 3vw, 32px) 28px;
+  /* A quiet bar in the cream, not the system's white gutter beside the form. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-chip) transparent;
 }
 
 .drawer-selects {
@@ -111,13 +117,95 @@
   color: var(--brown);
 }
 
+/* DATE and, when the window is wider than the drawer, the arrows that page the strip (pointer only). */
+.daystrip-head {
+  margin-top: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 14px;
+}
+
+.daystrip-head .drawer-label {
+  margin-top: 0;
+}
+
+.daystrip-nav {
+  /* Above the strip, whose top padding (room for a focus ring) reaches under the arrows' lower edge. */
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+  margin: -9px 0;
+}
+
+.daystrip-arrow {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line-field);
+  background: var(--white);
+  color: var(--ink);
+  transition: border-color 0.2s, opacity 0.2s;
+}
+
+/* A chevron drawn with two borders: no glyph, so nothing to translate or announce. */
+.daystrip-arrow::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border-top: 1.5px solid currentColor;
+  border-right: 1.5px solid currentColor;
+  transform: translate(-65%, -50%) rotate(45deg);
+}
+
+.daystrip-arrow[data-dir='before']::before {
+  transform: translate(-35%, -50%) rotate(-135deg);
+}
+
+.daystrip-arrow:hover:not(:disabled) {
+  border-color: var(--green);
+}
+
+.daystrip-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* A finger swipes the strip; the arrows are for a mouse, whose wheel scrolls the page instead. */
+@media (hover: none), (pointer: coarse) {
+  .daystrip-nav {
+    display: none;
+  }
+}
+
 .daystrip {
-  margin: 12px calc(-1 * clamp(20px, 3vw, 32px)) 0;
-  padding: 0 clamp(20px, 3vw, 32px) 4px;
+  --strip-pad: clamp(20px, 3vw, 32px);
+  /* 6px above and below the days: room for a focused day's ring (3px offset, 2px), which the scroller would clip;
+     the margins take it back, so the days sit where they did. */
+  margin: 6px calc(-1 * var(--strip-pad)) -2px;
+  padding: 6px var(--strip-pad);
   display: flex;
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
+  /* A day the keyboard or the browser brings into view stops short of the fades too. */
+  scroll-padding-inline: var(--strip-pad);
+  /* An edge with more days beyond it fades out across the drawer's margin: the strip reads as one that goes on. */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fade-before, 0px), #000 calc(100% - var(--fade-after, 0px)), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 var(--fade-before, 0px), #000 calc(100% - var(--fade-after, 0px)), transparent);
+}
+
+.daystrip[data-more-before] {
+  --fade-before: var(--strip-pad);
+}
+
+.daystrip[data-more-after] {
+  --fade-after: var(--strip-pad);
 }
 
 .daystrip::-webkit-scrollbar {
@@ -135,13 +223,21 @@
   border: 1px solid var(--line);
   background: var(--white);
   color: var(--ink);
-  transition: background-color 0.2s, color 0.2s;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
 }
 
 .day[data-selected='true'] {
   border-color: var(--green);
   background: var(--green);
   color: var(--cream);
+}
+
+@media (hover: hover) {
+  .day[data-state='open']:not([data-selected='true']):hover,
+  .slot:not(:disabled):not([data-selected='true']):hover,
+  .guests-steppers button:not(:disabled):not([aria-disabled='true']):hover {
+    border-color: var(--green);
+  }
 }
 
 .day-wd,
@@ -244,6 +340,7 @@
   font-size: 18px;
   line-height: 1;
   color: var(--ink);
+  transition: border-color 0.2s;
 }
 
 /* '+' at the party limit is aria-disabled (it keeps the focus), '−' at one guest is disabled. */
@@ -256,8 +353,13 @@
   margin-top: 12px;
 }
 
+.slotgroup + .slotgroup {
+  margin-top: 18px;
+}
+
 .slotgroup-meal {
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--ink-soft);
 }
 
@@ -275,7 +377,8 @@
   color: var(--ink);
   font-size: 13px;
   font-weight: 500;
-  transition: background-color 0.2s, color 0.2s;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
 }
 
 .slot[data-selected='true'] {
@@ -516,6 +619,23 @@
 .drawer-submit:disabled {
   opacity: 0.6;
   cursor: progress;
+}
+
+/* On a phone the summary gets the drawer's whole width (one line, not three beside the button), the button below it. */
+@media (max-width: 480px) {
+  .drawer-foot {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .drawer-foot-copy {
+    flex: 1 1 100%;
+  }
+
+  .drawer-submit {
+    flex: 1 1 100%;
+    height: 52px;
+  }
 }
 
 /* Confirmation state. */

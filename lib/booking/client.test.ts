@@ -6,11 +6,14 @@ import {
   bookingOpen,
   dateMove,
   dayReason,
+  mealGroups,
   movedReason,
   reconcileBooking,
   type BookingContext,
 } from './client';
 import type { CalendarResponse, DayResponse } from './api';
+import { planDay } from './resolve-day';
+import type { PeriodRule } from './rules';
 
 const restaurant = (id: string, dest: Restaurant['dest'], bookingEnabled = true): Restaurant => ({
   id,
@@ -209,5 +212,67 @@ describe('dayReason', () => {
     expect(dayReason({ date: '2026-10-03', state: 'closed', reason: 'Private event' }, words)).toBe('Private event');
     expect(dayReason({ date: '2026-10-03', state: 'closed' }, words)).toBe('Closed');
     expect(dayReason({ date: '2026-10-03', state: 'full' }, words)).toBe('Fully booked');
+  });
+});
+
+describe('mealGroups', () => {
+  const slot = (time: string) => ({ time, left: 10, bookable: true });
+  it('shows two services of one meal as one meal, its times in order', () => {
+    const groups = mealGroups([
+      { meal: 'Lunch', closed: false, slots: [slot('14:00')] },
+      { meal: 'Dinner', closed: false, slots: [slot('18:00'), slot('18:30')] },
+      { meal: 'Lunch', closed: false, slots: [slot('11:00')] },
+    ]);
+    expect(groups.map((g) => [g.meal, g.slots.map((s) => s.slot.time)])).toEqual([
+      ['Lunch', ['11:00', '14:00']],
+      ['Dinner', ['18:00', '18:30']],
+    ]);
+  });
+
+  it('is closed only when every service of the meal is, with the first reason given', () => {
+    const closed = mealGroups([
+      { meal: 'Lunch', closed: true, slots: [] },
+      { meal: 'Lunch', closed: true, reason: 'Staff training', slots: [] },
+    ]);
+    expect(closed).toEqual([{ meal: 'Lunch', closed: true, reason: 'Staff training', slots: [] }]);
+    const mixed = mealGroups([
+      { meal: 'Lunch', closed: true, reason: 'Staff training', slots: [] },
+      { meal: 'Lunch', closed: false, slots: [slot('14:00')] },
+    ]);
+    expect(mixed[0].closed).toBe(false);
+    expect(mixed[0]).not.toHaveProperty('reason');
+    expect(mixed[0].slots.map((s) => s.slot.time)).toEqual(['14:00']);
+  });
+
+  it('never meets a time twice: planDay gives a time two services share to the first by sort order', () => {
+    const lunch = (id: string, firstSeating: string, lastSeating: string, sortOrder: number): PeriodRule => ({
+      id,
+      meal: 'Lunch',
+      weekdays: [1, 2, 3, 4, 5, 6, 7],
+      firstSeating,
+      lastSeating,
+      intervalMin: 60,
+      coversPerSlot: 16,
+      sortOrder,
+    });
+    // A cooking class seating 11:00 and 12:00, another 12:00 to 14:00: 12:00 is in both (an admin save refuses it).
+    const plan = planDay(
+      {
+        restaurantId: 'taya-house',
+        destinationId: 'resort',
+        closures: [],
+        periods: [lunch('late', '12:00', '14:00', 20), lunch('early', '11:00', '12:00', 10)],
+      },
+      '2026-10-05',
+    );
+    const periods = plan.periods.map((p) => ({
+      meal: p.meal,
+      closed: p.closed,
+      slots: p.slots.map((s) => ({ time: s.time, left: s.capacity, bookable: true })),
+    }));
+    const [group] = mealGroups(periods);
+    expect(group.slots.map((s) => s.slot.time)).toEqual(['11:00', '12:00', '13:00', '14:00']);
+    // 12:00 is the early class's, which comes first by sort order.
+    expect(group.slots.filter((s) => s.period === periods[0]).map((s) => s.slot.time)).toEqual(['11:00', '12:00']);
   });
 });

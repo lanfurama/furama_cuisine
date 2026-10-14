@@ -26,7 +26,8 @@ export function MenuOverlay() {
     <div data-anim="menu" className="menu-root" role="dialog" aria-modal="true" aria-label={strings['ui.menu_aria']}>
       <div className="menu-head">
         <div className="menu-wordmark">FURAMA CUISINE</div>
-        <button type="button" className="overlay-close" aria-label={strings['ui.close_menu']} onClick={close}>
+        {/* Where the focus goes when the menu opens (data-autofocus, components/site/Chrome.tsx). */}
+        <button type="button" className="overlay-close" aria-label={strings['ui.close_menu']} onClick={close} data-autofocus>
           ×
         </button>
       </div>

@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { bookableDestinationOptions, mealLabel } from '@/lib/content/options';
 import { FIELD_MAX, findRestaurant, fmtDay } from '@/lib/booking';
-import { dayReason, movedReason, slotOpen, type DateMove } from '@/lib/booking/client';
+import { dayReason, mealGroups, movedReason, slotOpen, type DateMove } from '@/lib/booking/client';
 import type { DayInfo } from '@/lib/booking/api';
 import type { GroupPhone } from '@/lib/booking/rules';
 import { formatMessage } from '@/lib/i18n/format';
@@ -57,6 +57,19 @@ function LoadFailed({
 }
 
 /**
+ * Scrolls the strip, and only the strip (scrollIntoView could also scroll the
+ * drawer or the page), so a day sits clear of its side padding: where the
+ * strip meets the drawer's edge, and fades when more days lie beyond.
+ */
+function reveal(strip: HTMLElement, chip: HTMLElement) {
+  const box = strip.getBoundingClientRect();
+  const at = chip.getBoundingClientRect();
+  const pad = parseFloat(getComputedStyle(strip).paddingLeft) || 0;
+  if (at.left < box.left + pad) strip.scrollLeft -= box.left + pad - at.left;
+  else if (at.right > box.right - pad) strip.scrollLeft += at.right - (box.right - pad);
+}
+
+/**
  * The booking window as the server sent it. A day that takes no bookings is
  * greyed out and cannot be chosen; tapping it shows why, until another
  * calendar arrives (another restaurant's, or a fresh answer). Under the strip,
@@ -67,8 +80,16 @@ function LoadFailed({
  * and empty, so the news a Try again brings is read out (phase-4 residual: it
  * used to unmount with the strip). Mounted only while the drawer shows, so
  * the note starts empty on every open.
+ *
+ * The window is wider than the drawer: the strip fades at an edge that has
+ * more days beyond it, and beside the DATE label (`label`) two arrows page it
+ * with a mouse (a wheel scrolls it down the page, not along). The arrows stay
+ * out of the tab order, and a click on one leaves the focus where it was: with
+ * the keyboard each day is reached on its own, and the strip brings the one
+ * focused clear of the fades (a browser's own scroll can leave it under one).
  */
 function DayStrip({
+  label,
   days,
   selected,
   onPick,
@@ -77,6 +98,7 @@ function DayStrip({
   moved,
   failure,
 }: {
+  label: ReactNode;
   days: DayInfo[];
   selected: IsoDate | '';
   onPick: (date: IsoDate) => void;
@@ -105,26 +127,82 @@ function DayStrip({
         : '';
 
   /* The chosen day stays in view: on open (a restaurant closed for its first
-     days chooses a day off-screen) and when an answer moves the date. Only the
-     strip scrolls; scrollIntoView could also scroll the drawer or the page. */
-  const strip = useRef<HTMLDivElement>(null);
+     days chooses a day off-screen) and when an answer moves the date. */
+  const strip = useRef<HTMLDivElement | null>(null);
+  /* Whether days lie beyond either edge: the fade there, and whether its arrow can move. */
+  const [more, setMore] = useState({ before: false, after: false });
+  const measure = useCallback(() => {
+    const el = strip.current;
+    if (!el) return;
+    const before = el.scrollLeft > 1;
+    const after = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    setMore((m) => (m.before === before && m.after === after ? m : { before, after }));
+  }, []);
+  /* The strip comes and goes with the dates (loading, a failure): its listeners go with it. */
+  const stripRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      strip.current = el;
+      if (!el) return;
+      el.addEventListener('scroll', measure, { passive: true });
+      const resized = new ResizeObserver(measure);
+      resized.observe(el);
+      return () => {
+        el.removeEventListener('scroll', measure);
+        resized.disconnect();
+        strip.current = null;
+      };
+    },
+    [measure],
+  );
   useLayoutEffect(() => {
     const el = strip.current;
     const chip = el?.children[days.findIndex((d) => d.state === 'open' && d.date === selected)];
-    if (!el || !(chip instanceof HTMLElement)) return;
-    const box = el.getBoundingClientRect();
-    const at = chip.getBoundingClientRect();
-    // The strip's side padding is where it meets the drawer's edge: keep the chip clear of it.
-    const pad = parseFloat(getComputedStyle(el).paddingLeft) || 0;
-    if (at.left < box.left + pad) el.scrollLeft -= box.left + pad - at.left;
-    else if (at.right > box.right - pad) el.scrollLeft += at.right - (box.right - pad);
-  }, [selected, days]);
+    if (el && chip instanceof HTMLElement) reveal(el, chip);
+    measure();
+  }, [selected, days, measure]);
+  const shown = !loading && !failure;
+  /* One arrow press moves most of a strip's width, so the last day seen stays in sight as the first. */
+  const page = (direction: 1 | -1) => {
+    const el = strip.current;
+    if (!el) return;
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.scrollBy({ left: direction * Math.max(el.clientWidth * 0.75, 120), behavior: still ? 'auto' : 'smooth' });
+  };
 
   return (
     <>
+      <div className="daystrip-head">
+        {label}
+        {shown && (more.before || more.after) && (
+          // Out of the tab order: the keyboard reaches every day on its own (onFocus below). A click takes
+          // no focus either: an arrow that held it would drop it to <body> when it turns disabled at the end.
+          <div className="daystrip-nav">
+            <button
+              type="button"
+              tabIndex={-1}
+              className="daystrip-arrow"
+              data-dir="before"
+              aria-label={strings['booking.dates_earlier']}
+              disabled={!more.before}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => page(-1)}
+            />
+            <button
+              type="button"
+              tabIndex={-1}
+              className="daystrip-arrow"
+              data-dir="after"
+              aria-label={strings['booking.dates_later']}
+              disabled={!more.after}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => page(1)}
+            />
+          </div>
+        )}
+      </div>
       {failure}
-      {!loading && !failure && (
-        <div ref={strip} className="daystrip">
+      {shown && (
+        <div ref={stripRef} className="daystrip" data-more-before={more.before || undefined} data-more-after={more.after || undefined}>
           {days.map((d, i) => {
             const day = formatDay(d.date);
             const open = d.state === 'open';
@@ -144,6 +222,11 @@ function DayStrip({
                     ? undefined
                     : formatMessage(strings['booking.day_note'], { date: day.label, reason: dayReason(d, strings) })
                 }
+                // The keyboard's day comes clear of the fades. A click's focus leaves the strip still, so the
+                // press ends on the day it began on (the chosen day comes into view once picked, above).
+                onFocus={(e) => {
+                  if (strip.current && e.currentTarget.matches(':focus-visible')) reveal(strip.current, e.currentTarget);
+                }}
                 onClick={() => {
                   setTapped(open ? null : { days, day: d });
                   if (open) onPick(d.date);
@@ -330,8 +413,9 @@ export function ReserveDrawer() {
       <aside ref={drawerRef} data-anim="drawer" className="drawer">
         <div className="drawer-head">
           <div className="drawer-head-copy">
-            {/* tabIndex -1, like the DATE and TIME labels: where the focus goes when nothing else is left to hold it. */}
-            <div ref={headingRef} className="drawer-kicker" tabIndex={-1}>
+            {/* tabIndex -1, like the DATE and TIME labels: where the focus goes when the drawer opens (data-autofocus,
+                components/site/Chrome.tsx) and when nothing else is left to hold it. */}
+            <div ref={headingRef} className="drawer-kicker" tabIndex={-1} data-autofocus>
               {strings['ui.reserve_table']}
             </div>
             {/* With every restaurant booking offline (R20) none is chosen: no empty name and meta band above the message. */}
@@ -412,10 +496,12 @@ export function ReserveDrawer() {
                 />
               </div>
 
-              <div ref={datesLabelRef} className="drawer-label" tabIndex={-1}>
-                {strings['booking.section_date']}
-              </div>
               <DayStrip
+                label={
+                  <div ref={datesLabelRef} className="drawer-label" tabIndex={-1}>
+                    {strings['booking.section_date']}
+                  </div>
+                }
                 days={days}
                 selected={booking.date}
                 onPick={(date) => setBooking({ date })}
@@ -505,37 +591,40 @@ export function ReserveDrawer() {
                   !anyAvailable && <div className="drawer-error">{strings['booking.no_tables']}</div>
                 )}
               </div>
-              {board?.periods.map((p) => (
-                <div key={p.meal} className="slotgroup" data-closed={p.closed || undefined}>
-                  <div className="slotgroup-meal">{mealLabel(strings, p.meal)}</div>
-                  {p.closed ? (
-                    <div className="slotgroup-note">
-                      <span>{strings['booking.meal_closed']}</span>
-                      {p.reason && <span className="slotgroup-reason">{p.reason}</span>}
-                    </div>
-                  ) : (
-                    <div className="slotgrid">
-                      {p.slots.map((s) => {
-                        const taken = !slotOpen(board, p, s, booking.guests, at);
-                        return (
-                          <button
-                            type="button"
-                            key={s.time}
-                            className="slot"
-                            data-selected={!taken && s.time === booking.time}
-                            data-taken={taken}
-                            disabled={taken}
-                            aria-label={formatMessage(strings[taken ? 'booking.slot_full_aria' : 'booking.slot_left_aria'], { time: s.time, count: s.left }, locale)}
-                            onClick={() => setBooking({ time: s.time })}
-                          >
-                            {s.time}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ))}
+              {/* By meal, not by service: two lunch services (a cooking class at 11:00 and at 14:00) are one "Lunch". */}
+              {board &&
+                mealGroups(board.periods).map((g) => (
+                  <div key={g.meal} className="slotgroup" data-closed={g.closed || undefined}>
+                    <div className="slotgroup-meal">{mealLabel(strings, g.meal)}</div>
+                    {g.closed ? (
+                      <div className="slotgroup-note">
+                        <span>{strings['booking.meal_closed']}</span>
+                        {g.reason && <span className="slotgroup-reason">{g.reason}</span>}
+                      </div>
+                    ) : (
+                      <div className="slotgrid">
+                        {g.slots.map(({ period, slot: s }) => {
+                          const taken = !slotOpen(board, period, s, booking.guests, at);
+                          return (
+                            <button
+                              type="button"
+                              // A time is one slot of the day: planDay gives a time two services share to the first.
+                              key={s.time}
+                              className="slot"
+                              data-selected={!taken && s.time === booking.time}
+                              data-taken={taken}
+                              disabled={taken}
+                              aria-label={formatMessage(strings[taken ? 'booking.slot_full_aria' : 'booking.slot_left_aria'], { time: s.time, count: s.left }, locale)}
+                              onClick={() => setBooking({ time: s.time })}
+                            >
+                              {s.time}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
 
               <div className="drawer-details">
                 <div className="drawer-label">{strings['booking.your_details']}</div>

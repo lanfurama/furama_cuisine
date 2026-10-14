@@ -94,6 +94,84 @@ test('a closure of one meal keeps the rest of the day bookable', async ({ page }
   await expect(drawer.locator('.slotgroup', { hasText: 'Dinner' }).locator('.slot:not([disabled])')).toHaveCount(7);
 });
 
+test('two services of one meal show as one meal, their times in order', async ({ page }) => {
+  // Tàya House's cooking classes: one lunch service at 14:00 and another at 11:00, sent in that order.
+  const drawer = await openDrawer(page, {
+    periods: {
+      '2026-10-02': [
+        { meal: 'Lunch', times: ['14:00'] },
+        { meal: 'Dinner', times: ['18:00', '18:30'] },
+        { meal: 'Lunch', times: ['11:00'] },
+      ],
+    },
+  });
+
+  await expect(drawer.locator('.slotgroup-meal')).toHaveText(['Lunch', 'Dinner']);
+  await expect(drawer.locator('.slotgroup', { hasText: 'Lunch' }).locator('.slot')).toHaveText(['11:00', '14:00']);
+  await expect(drawer.locator('.slotgroup', { hasText: 'Dinner' }).locator('.slot')).toHaveText(['18:00', '18:30']);
+  const twoPm = drawer.getByRole('button', { name: '14:00 — 16 covers left' });
+  await twoPm.click();
+  await expect(twoPm).toHaveAttribute('data-selected', 'true');
+});
+
+test('a meal shows as closed only when every service of it is, with the first reason given', async ({ page }) => {
+  const drawer = await openDrawer(page, {
+    periods: {
+      '2026-10-02': [
+        { meal: 'Lunch', times: [], closed: true },
+        { meal: 'Lunch', times: [], closed: true, reason: 'Staff training' },
+        { meal: 'Dinner', times: [], closed: true, reason: 'Private event' },
+        { meal: 'Dinner', times: ['19:00'] },
+      ],
+    },
+  });
+
+  await expect(drawer.locator('.slotgroup-meal')).toHaveText(['Lunch', 'Dinner']);
+  const lunch = drawer.locator('.slotgroup', { hasText: 'Lunch' });
+  await expect(lunch).toHaveAttribute('data-closed', 'true');
+  await expect(lunch.locator('.slotgroup-note')).toHaveText('Not available on this date.Staff training');
+  const dinner = drawer.locator('.slotgroup', { hasText: 'Dinner' });
+  await expect(dinner).not.toHaveAttribute('data-closed');
+  await expect(dinner.locator('.slotgroup-note')).toHaveCount(0);
+  await expect(dinner.locator('.slot')).toHaveText(['19:00']);
+});
+
+test('the arrows beside DATE page the strip, each off at its end, and a click on one leaves the focus where it was', async ({ page }) => {
+  const drawer = await openDrawer(page);
+  const strip = drawer.locator('.daystrip');
+  const scrollLeft = () => strip.evaluate((el) => el.scrollLeft);
+  const earlier = drawer.getByRole('button', { name: 'Earlier dates' });
+  const later = drawer.getByRole('button', { name: 'Later dates' });
+  // The drawer opens with the focus on its heading (data-autofocus); the arrows never take it.
+  const heading = drawer.locator('.drawer-kicker');
+  await expect(heading).toBeFocused();
+  // For a mouse: the keyboard reaches each day on its own.
+  await expect(earlier).toHaveAttribute('tabindex', '-1');
+  await expect(later).toHaveAttribute('tabindex', '-1');
+  await expect(earlier).toBeDisabled();
+  await expect(later).toBeEnabled();
+
+  await later.click();
+  await expect.poll(scrollLeft).toBeGreaterThan(0);
+  await expect(earlier).toBeEnabled();
+  await expect(strip).toHaveAttribute('data-more-before', 'true');
+  await expect(heading).toBeFocused();
+
+  // At the far end "Later dates" turns off; one page back turns it on again.
+  await strip.evaluate((el) => el.scrollTo({ left: el.scrollWidth, behavior: 'instant' }));
+  await expect(later).toBeDisabled();
+  await expect(strip).not.toHaveAttribute('data-more-after');
+  const end = await scrollLeft();
+  await earlier.click();
+  await expect.poll(scrollLeft).toBeLessThan(end);
+  await expect(later).toBeEnabled();
+  // The press that reaches the end disables the arrow under the pointer: the focus must not fall to <body>.
+  await later.click();
+  await expect(later).toBeDisabled();
+  await expect(heading).toBeFocused();
+  expect(await focusInDialog(page)).toBe(true);
+});
+
 test('the party limit comes from the server: max_party 8 blocks a ninth guest and says whom to call', async ({ page }) => {
   const drawer = await openDrawer(page, { maxParty: 8 });
 
@@ -427,6 +505,33 @@ test('while the dates are on their way the drawer says so, and REQUEST BOOKING w
   // The click asked for nothing: the answer already on its way is the one that counts.
   expect(calendars.count).toBe(asked);
   expect(posts.count).toBe(0);
+});
+
+test('the date arrows show only beside a strip: none while the dates load, none when they fail', async ({ page }) => {
+  let failing = false;
+  await page.clock.setFixedTime(NOW);
+  await mockAvailability(page, clock);
+  const unavailable = (route: Route) => route.fulfill({ status: 503, json: { error: 'unavailable' } });
+  await failAvailability(page, (url) => failing && isCalendar(url), unavailable);
+  const release = await holdAvailability(page, isCalendar);
+  await page.goto(HOME_PATH);
+  await reserveButton(page).click();
+  const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
+  const arrows = drawer.getByRole('button', { name: /^(Earlier|Later) dates$/ });
+
+  await expect(said(drawer)).toHaveText('Checking tables…');
+  await expect(arrows).toHaveCount(0);
+  release();
+  await expect(drawer.locator('.daystrip .day')).toHaveCount(14);
+  await expect(arrows).toHaveCount(2);
+
+  // Another restaurant whose dates fail: the message and Try again take the strip's place, and its arrows go with it.
+  failing = true;
+  await drawer.getByRole('button', { name: /^restaurant/i }).click();
+  await page.getByRole('listbox', { name: 'Restaurant' }).getByRole('option', { name: 'Don Cipriani’s' }).click();
+  await expect(drawer.getByRole('alert')).toHaveText(NETWORK);
+  await expect(drawer.locator('.daystrip')).toHaveCount(0);
+  await expect(arrows).toHaveCount(0);
 });
 
 test('when the chosen day’s times did not load, REQUEST BOOKING points at Try again and sends nothing', async ({ page }) => {
