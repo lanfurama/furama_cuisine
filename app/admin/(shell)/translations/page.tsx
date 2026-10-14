@@ -3,6 +3,8 @@ import { getPool } from '@/db/client';
 import { roleCan } from '@/lib/server/auth/permissions';
 import { CONTENT_KINDS, QUEUE_PAGE, coverage, reviewQueue } from '@/lib/server/content-admin/translations';
 import { requirePagePermission } from '@/lib/server/dal/session';
+import { Icon } from '../../_ui/Icon';
+import { PageHeader } from '../../_ui/PageHeader';
 import { ReviewQueue } from './ReviewQueue';
 
 // Request-time like the whole admin (app/admin/layout.tsx); also opts navigations between admin pages out of dev instant validation (instant-navigation.md:568).
@@ -39,24 +41,26 @@ export default async function TranslationsPage({ searchParams }: { searchParams:
 
   return (
     <>
-      <h1>Bản dịch</h1>
-      <p className="a-lede">
-        Mỗi ngôn ngữ đã dịch được bao nhiêu, và các bản dịch cần người xem lại: bản máy dịch, và bản mà chữ tiếng Anh đã đổi sau khi dịch (EN đã
-        đổi). Dịch và sửa ở tab ngôn ngữ của từng màn.
-      </p>
-      <p>
-        <button type="button" className="a-btn" disabled aria-describedby="ai-later">
-          Dịch tất cả phần còn thiếu bằng AI
-        </button>{' '}
-        <span className="a-muted" id="ai-later">
-          Có từ đợt 9 (AI).
-        </span>
-      </p>
+      <PageHeader
+        title="Bản dịch"
+        lede="Mỗi ngôn ngữ đã dịch được bao nhiêu, và các bản dịch cần người xem lại: bản máy dịch, và bản mà chữ tiếng Anh đã đổi sau khi dịch (EN đã đổi). Dịch và sửa ở tab ngôn ngữ của từng màn."
+        actions={
+          <>
+            <button type="button" className="a-btn a-btn--ghost" disabled aria-describedby="ai-later">
+              <Icon name="sparkles" size={16} />
+              Dịch tất cả phần còn thiếu bằng AI
+            </button>
+            <span className="a-tag" id="ai-later">
+              Sắp có
+            </span>
+          </>
+        }
+      />
 
-      <section aria-labelledby="coverage-title">
+      <section aria-labelledby="coverage-title" className="a-card-row">
         <h2 id="coverage-title">Độ phủ</h2>
         {cover.locales.length === 0 ? (
-          <p className="a-muted">Chỉ có ngôn ngữ mặc định. Thêm ngôn ngữ ở màn Ngôn ngữ.</p>
+          <p className="a-muted">Web khách chỉ có ngôn ngữ mặc định. Thêm một ngôn ngữ là một lần cập nhật web: hãy báo bộ phận kỹ thuật.</p>
         ) : (
           <table className="a-table">
             <thead>
@@ -96,7 +100,7 @@ export default async function TranslationsPage({ searchParams }: { searchParams:
         )}
       </section>
 
-      <section aria-labelledby="queue-title" id="queue">
+      <section aria-labelledby="queue-title" id="queue" className="a-card-row">
         <h2 id="queue-title">Hàng chờ duyệt ({queue.total})</h2>
         <form method="get" action="/admin/translations#queue" className="a-filters">
           <label>

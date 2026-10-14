@@ -45,7 +45,7 @@ export function HistoryPanel({
   const rows: HistoryRow[] = entries.map((e) => ({ id: e.id, action: e.action, before: version(e.before), after: version(e.after) }));
   const choices = restoreChoices(rows, currentToken, (s) => tokenOf(s as never));
   return (
-    <section className="a-history" aria-labelledby={headingId}>
+    <section className={entries.length === 0 ? 'a-history a-history--empty' : 'a-history'} aria-labelledby={headingId}>
       <h2 id={headingId}>{title}</h2>
       {entries.length === 0 ? (
         <p className="a-muted">Chưa có thay đổi nào được ghi lại.</p>

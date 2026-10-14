@@ -5,6 +5,8 @@ import { ROLE_LABELS } from '@/lib/admin/nav';
 import { listOpenInvitations, listStaff } from '@/lib/server/auth/staff-queries';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { emailErrorCode } from '@/lib/server/email/types';
+import { Icon } from '../../_ui/Icon';
+import { PageHeader } from '../../_ui/PageHeader';
 import { InvitationList, type InvitationItem } from './InvitationList';
 import { InviteForm } from './InviteForm';
 import { StaffTable, type StaffItem } from './StaffTable';
@@ -41,12 +43,26 @@ export default async function UsersPage() {
 
   return (
     <>
-      <h1>Nhân viên</h1>
-      <p className="a-lede">Mời người mới, đổi vai trò, khóa hoặc xóa tài khoản. Mọi thay đổi được ghi vào nhật ký.</p>
+      <PageHeader
+        title="Nhân viên"
+        lede="Mời người mới, đổi vai trò, khóa hoặc xóa tài khoản. Mọi thay đổi được ghi vào nhật ký."
+        actions={
+          <a className="a-btn" href="#invite">
+            <Icon name="plus" size={16} />
+            Mời nhân viên
+          </a>
+        }
+      />
       <StaffTable staff={staff} />
-      <h2>Lời mời đang chờ</h2>
-      <InvitationList invitations={invitations} />
-      <InviteForm />
+      <div className="a-columns">
+        <section aria-labelledby="users-invitations">
+          <h2 id="users-invitations">Lời mời đang chờ</h2>
+          <InvitationList invitations={invitations} />
+        </section>
+        <div className="a-card-row" id="invite">
+          <InviteForm />
+        </div>
+      </div>
     </>
   );
 }

@@ -41,6 +41,13 @@ export function formatIsoDayVi(date: string): string {
   return isoDay.format(new Date(`${date}T00:00:00Z`));
 }
 
+const shortDay = new Intl.DateTimeFormat('vi-VN', { timeZone: 'UTC', weekday: 'short', day: '2-digit', month: '2-digit' });
+
+/** "Th 2, 05/10": a booking's day where the year goes without saying (the overview's short lists). */
+export function formatShortDayVi(date: string): string {
+  return shortDay.format(new Date(`${date}T00:00:00Z`));
+}
+
 const KB = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
 const MB = new Intl.NumberFormat('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 

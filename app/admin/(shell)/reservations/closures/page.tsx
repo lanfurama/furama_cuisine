@@ -46,8 +46,10 @@ export default async function ClosuresPage() {
       <SectionNav current="/admin/reservations/closures" />
       <h1>Ngày đóng cửa</h1>
       <p className="a-lede">Khách không đặt được bàn vào những ngày, bữa đã đóng. Đặt bàn đã có không bị hủy tự động.</p>
-      <ClosureEditor options={options} values={null} />
-      {closures.length === 0 ? <p className="a-lede">Chưa có ngày đóng cửa nào sắp tới.</p> : null}
+      <div className="a-card-row">
+        <ClosureEditor options={options} values={null} />
+      </div>
+      {closures.length === 0 ? <p className="a-empty">Chưa có ngày đóng cửa nào sắp tới.</p> : null}
       {closures.map((c, i) => {
         const where =
           c.scope === 'all'

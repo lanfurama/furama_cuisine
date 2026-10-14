@@ -100,6 +100,7 @@ export default async function RestaurantContentPage({ params }: { params: Promis
           ))}
         </ul>
       ) : null}
+      <div className="a-card-row">
       <LocaleTabs locales={tabs} states={itemStates(RESTAURANT, editor.snapshot, tabs)}>
       <RestaurantForm
         id={id}
@@ -114,6 +115,7 @@ export default async function RestaurantContentPage({ params }: { params: Promis
         viewHref={editor.archived ? null : v.hasDetailPage && v.isPublished ? `/en/restaurants/${v.slug}` : '/en#restaurants'}
       />
       </LocaleTabs>
+      </div>
       <HistoryPanel headingId={`restaurant-${id}-history`} entries={history} currentToken={editor.token} recordId={id} labels={LABELS} restore={restoreRestaurantAction} />
     </>
   );

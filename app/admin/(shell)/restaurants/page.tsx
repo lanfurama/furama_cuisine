@@ -8,6 +8,8 @@ import { listHistory } from '@/lib/server/history/history';
 import { listRestaurantsAdmin } from '@/lib/server/content-admin/restaurants';
 import { orderToken, type OrderSnapshot } from '@/lib/server/history/snapshot';
 import { requirePagePermission } from '@/lib/server/dal/session';
+import { Icon } from '../../_ui/Icon';
+import { PageHeader } from '../../_ui/PageHeader';
 import { HistoryPanel } from '../_kit/HistoryPanel';
 import { Thumb } from '../_kit/Thumb';
 import { StringsPanel, type ScreenSearchParams } from '../content/_ui/StringsPanel';
@@ -42,10 +44,18 @@ export default async function RestaurantsPage({ searchParams }: { searchParams: 
   const booking = new Map(bookings.map((b) => [b.id, b]));
   return (
     <>
-      <h1>Nhà hàng</h1>
-      <p className="a-lede">Nội dung, giờ phục vụ, sức chứa và quy tắc đặt bàn của từng nhà hàng. Nhà hàng không bao giờ bị xóa: lưu trữ để rời web.</p>
+      <PageHeader
+        title="Nhà hàng"
+        lede="Nội dung, giờ phục vụ, sức chứa và quy tắc đặt bàn của từng nhà hàng. Nhà hàng không bao giờ bị xóa: lưu trữ để rời web."
+        actions={
+          <a className="a-btn" href="#restaurants-new">
+            <Icon name="plus" size={16} />
+            Thêm nhà hàng
+          </a>
+        }
+      />
       <div className="a-table-scroll">
-        <table className="a-table">
+        <table className="a-table a-table--stack">
           <thead>
             <tr>
               <th scope="col">Nhà hàng</th>
@@ -61,20 +71,26 @@ export default async function RestaurantsPage({ searchParams }: { searchParams: 
               const b = booking.get(r.id);
               return (
                 <tr key={r.id}>
-                  <td>
-                    {r.card ? <Thumb file={r.card} width={48} className="a-picker-thumb" /> : null} {r.name}
+                  <td data-label="Nhà hàng">
+                    <span className="a-cell-media">
+                      {r.card ? <Thumb file={r.card} width={56} /> : null}
+                      {r.name}
+                    </span>
                   </td>
-                  <td>{r.destinationName}</td>
-                  <td>
+                  <td data-label="Điểm đến">{r.destinationName}</td>
+                  <td data-label="Trên web">
                     <span className={r.isPublished && !r.archived ? 'a-tag' : 'a-tag a-tag--warn'}>
                       {r.archived ? 'Đã lưu trữ' : r.isPublished ? 'Đang hiện' : 'Đang ẩn'}
                     </span>
                   </td>
                   {/* The switch alone is not booking: a hidden or archived restaurant, or one at a hidden destination, takes none (7A review A11, L7-2). */}
-                  <td>{onlineBookingLabel({ ...r, bookingEnabled: b?.bookingEnabled ?? false })}</td>
-                  <td>{b?.maxParty ?? `${settings.maxParty} (mặc định)`}</td>
-                  <td>
-                    <Link href={`/admin/restaurants/${r.id}`}>Nội dung</Link> · <Link href={`/admin/restaurants/${r.id}/booking`}>Giờ và sức chứa</Link>
+                  <td data-label="Đặt bàn online">{onlineBookingLabel({ ...r, bookingEnabled: b?.bookingEnabled ?? false })}</td>
+                  <td data-label="Khách tối đa">{b?.maxParty ?? `${settings.maxParty} (mặc định)`}</td>
+                  <td data-label="Thao tác">
+                    <span className="a-cell-links">
+                      <Link href={`/admin/restaurants/${r.id}`}>Nội dung</Link>
+                      <Link href={`/admin/restaurants/${r.id}/booking`}>Giờ và sức chứa</Link>
+                    </span>
                     <RestaurantSwitches id={r.id} name={r.name} token={r.token} shown={r.isPublished} archived={r.archived} />
                   </td>
                 </tr>
@@ -107,10 +123,11 @@ export default async function RestaurantsPage({ searchParams }: { searchParams: 
         <NewRestaurantForm destinations={destinations} />
       </section>
 
-      <section aria-labelledby="restaurants-copy">
+      <section aria-labelledby="restaurants-copy" className="a-card-row">
         <h2 id="restaurants-copy">Chữ của mục nhà hàng và trang nhà hàng</h2>
         <p className="a-muted">Tiêu đề, nút và nhãn mọi thẻ và trang nhà hàng dùng chung. Chữ riêng của một nhà hàng sửa ở màn Nội dung của nhà hàng đó.</p>
-        <StringsPanel searchParams={searchParams}
+        <StringsPanel
+          searchParams={searchParams}
           screen="restaurants"
           title="Chữ trang nhà hàng"
           groups={[

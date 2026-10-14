@@ -18,7 +18,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   return (
     <section className="a-card" aria-labelledby="sign-in-title">
       <h1 id="sign-in-title">Đăng nhập</h1>
-      <p className="a-lede">Trang quản trị Furama Cuisine</p>
+      <p className="a-lede">Dùng email công việc và mật khẩu của bạn.</p>
       <SignInForm next={target} />
       <p className="a-card-foot">
         <Link href="/admin/reset-password">Quên mật khẩu?</Link>

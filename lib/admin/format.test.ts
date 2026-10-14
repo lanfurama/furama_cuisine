@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDateTimeVi, formatFileSize, formatIsoDayVi, formatLongDateVi, todayVi } from './format';
+import { formatDateTimeVi, formatFileSize, formatIsoDayVi, formatLongDateVi, formatShortDayVi, todayVi } from './format';
 
 /** The short Vietnamese weekday as this process's ICU spells it: "Th 2" (Node 22), "Thứ 2" (Node 24's newer CLDR). */
 const viWeekday = (iso: string) => new Intl.DateTimeFormat('vi', { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
@@ -17,6 +17,11 @@ describe('admin dates', () => {
     expect(formatIsoDayVi('2026-10-05')).toBe(`${viWeekday('2026-10-05')}, 05/10/2026`);
     expect(viWeekday('2026-10-05')).toMatch(/^Th(ứ)? 2$/);
     expect(formatIsoDayVi('2026-10-04')).toBe('CN, 04/10/2026');
+  });
+
+  it('formats a calendar date without its year for the short lists', () => {
+    expect(formatShortDayVi('2026-10-05')).toBe(`${viWeekday('2026-10-05')}, 05/10`);
+    expect(formatShortDayVi('2026-10-04')).toBe('CN, 04/10');
   });
 });
 

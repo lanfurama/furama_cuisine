@@ -51,7 +51,7 @@ export default async function NotificationsPage() {
         {deliveryModeNotice()}
       </p>
 
-      <section aria-labelledby="notify-recipients-title">
+      <section aria-labelledby="notify-recipients-title" className="a-card-row">
         <h2 id="notify-recipients-title">Người nhận “đặt bàn mới”</h2>
         <p className="a-muted">
           Mỗi đặt bàn online gửi tới mọi người nhận khớp với nhà hàng đó (tất cả nhà hàng, điểm đến của nhà hàng, hoặc chính nhà hàng),
@@ -95,7 +95,7 @@ export default async function NotificationsPage() {
         <RecipientEditor options={options} values={null} />
       </section>
 
-      <section aria-labelledby="notify-inbox-title">
+      <section aria-labelledby="notify-inbox-title" className="a-card-row">
         <h2 id="notify-inbox-title">Hộp thư chung</h2>
         <p className="a-muted">
           Nhận email “đặt bàn mới” của những nhà hàng chưa có người nhận, và là địa chỉ khách trả lời khi họ bấm Reply. Đây cũng là email
@@ -104,7 +104,7 @@ export default async function NotificationsPage() {
         <SharedInboxForm email={inbox.email} token={inbox.token} />
       </section>
 
-      <section aria-labelledby="notify-uncovered-title">
+      <section aria-labelledby="notify-uncovered-title" className="a-card-row">
         <h2 id="notify-uncovered-title">Nhà hàng chưa có người nhận</h2>
         {uncovered.length === 0 ? (
           <p className="a-muted">Nhà hàng nào nhận đặt bàn online cũng có người nhận thông báo.</p>
@@ -122,7 +122,7 @@ export default async function NotificationsPage() {
         )}
       </section>
 
-      <section aria-labelledby="notify-test-title">
+      <section aria-labelledby="notify-test-title" className="a-card-row">
         <h2 id="notify-test-title">Gửi email thử</h2>
         <p className="a-muted">Gửi một mẫu email với đặt bàn giả (không dùng dữ liệu khách), qua đúng đường gửi của email thật.</p>
         <TestEmailForm defaultTo={staff.email} locales={options.locales} />

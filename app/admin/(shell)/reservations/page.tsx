@@ -73,7 +73,7 @@ export default async function ReservationsPage({ searchParams }: { searchParams:
       {rows.length === 0 ? (
         <p className="a-lede">Không có đặt bàn nào.</p>
       ) : (
-        <table className="a-table">
+        <table className="a-table a-table--stack">
           <thead>
             <tr>
               <th scope="col">Mã</th>
@@ -89,31 +89,31 @@ export default async function ReservationsPage({ searchParams }: { searchParams:
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
-                <td className="a-ref">
+                <td className="a-ref" data-label="Mã">
                   <Link href={`/admin/reservations/${r.id}`}>{r.reference}</Link>
                   {r.isTest ? <span className="a-tag">Test</span> : null}
                 </td>
-                <td>
+                <td data-label="Khách">
                   {r.name}
                   <small className="a-sub">{r.phone}</small>
                 </td>
-                <td>
+                <td data-label="Nhà hàng">
                   {r.restaurantName}
                   {r.offerTitle ? <small className="a-sub">{`Ưu đãi: ${r.offerTitle}`}</small> : null}
                 </td>
-                <td>{`${formatIsoDayVi(r.date)} ${r.time}`}</td>
-                <td>
+                <td data-label="Ngày giờ">{`${formatIsoDayVi(r.date)} ${r.time}`}</td>
+                <td data-label="Số khách">
                   {r.guests}
                   {r.overCapacity ? <span className="a-tag a-tag--warn">Vượt sức chứa</span> : null}
                 </td>
-                <td>
+                <td data-label="Trạng thái">
                   <StatusBadge status={r.status} />
                 </td>
-                <td>
+                <td data-label="Nguồn">
                   {SOURCE_LABELS[r.source] ?? r.source}
                   <small className="a-sub">{formatDateTimeVi(r.createdAt)}</small>
                 </td>
-                <td>{r.status === 'requested' ? <QuickConfirm id={r.id} version={r.version} reference={r.reference} /> : null}</td>
+                <td data-label="Thao tác">{r.status === 'requested' ? <QuickConfirm id={r.id} version={r.version} reference={r.reference} /> : null}</td>
               </tr>
             ))}
           </tbody>

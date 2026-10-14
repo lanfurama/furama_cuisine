@@ -70,7 +70,7 @@ export default async function BookingContentPage({ searchParams }: { searchParam
         />
       </section>
 
-      <section aria-labelledby="booking-copy">
+      <section aria-labelledby="booking-copy" className="a-card-row">
         <h2 id="booking-copy">Chữ của đặt bàn</h2>
         <StringsPanel searchParams={searchParams}
           screen="booking"

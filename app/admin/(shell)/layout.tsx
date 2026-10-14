@@ -1,51 +1,89 @@
 import Link from 'next/link';
-import { navFor, ROLE_LABELS } from '@/lib/admin/nav';
+import { NAV_GROUPS, navFor, ROLE_LABELS } from '@/lib/admin/nav';
+import { roleCan } from '@/lib/server/auth/permissions';
 import { loadAiFeatures } from '@/lib/server/ai/features';
 import { verifySession } from '@/lib/server/dal/session';
+import { Icon } from '../_ui/Icon';
 import { signOut } from './actions';
+import { AdminFrame } from './AdminFrame';
 import { NavLinks } from './NavLinks';
 import { AiFeaturesProvider } from './_kit/useAiFeatures';
 
+/** Up to two initials for the account badge: "Lan Admin" → "LA", "an" → "A". */
+function initials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const picked = words.length > 1 ? [words[0], words[words.length - 1]] : words;
+  return picked.map((w) => [...w][0]?.toUpperCase() ?? '').join('') || '?';
+}
+
 /*
  * The signed-in frame. The session read here only shapes the UI (who is
- * signed in, which links to show); it is not the access check: layouts do not
- * re-run on client navigation (authentication.md:1350-1360), so every page
- * calls verifySession() or requirePagePermission() itself.
+ * signed in, which links and shortcuts to show); it is not the access check:
+ * layouts do not re-run on client navigation (authentication.md:1350-1360),
+ * so every page calls verifySession() or requirePagePermission() itself.
  */
 export default async function ShellLayout({ children }: { children: React.ReactNode }) {
   const staff = await verifySession();
   const aiFeatures = await loadAiFeatures();
-  const items = navFor(staff.role).map(({ href, label }) => ({ href, label }));
+  const items = navFor(staff.role);
+  const groups = NAV_GROUPS.map((g) => ({
+    label: g.label,
+    items: items.filter((i) => i.group === g.id).map(({ href, label }) => ({ href, label })),
+  })).filter((g) => g.items.length > 0);
+  const canBook = roleCan(staff.role, { reservations: ['create'] });
 
   return (
-    <div className="a-shell">
-      <aside className="a-sidebar">
-        <Link className="a-brand" href="/admin">
-          Furama Cuisine
-          <small>Quản trị</small>
-        </Link>
-        <nav className="a-nav" aria-label="Điều hướng quản trị">
-          <NavLinks items={items} />
-        </nav>
-      </aside>
-      <div className="a-main-col">
-        <header className="a-header">
+    <AdminFrame
+      sidebar={
+        <>
+          <Link className="a-brand" href="/admin">
+            <span className="a-brand-mark" aria-hidden="true">
+              F
+            </span>
+            <span className="a-brand-text">
+              Furama Cuisine
+              <small>Quản trị</small>
+            </span>
+          </Link>
+          <nav className="a-nav" aria-label="Điều hướng quản trị">
+            <NavLinks groups={groups} />
+          </nav>
+          <a className="a-sidebar-foot" href="/" target="_blank" rel="noopener">
+            <Icon name="globe" />
+            <span>Mở web khách</span>
+            <Icon name="external" size={14} className="a-icon--end" />
+          </a>
+        </>
+      }
+      header={
+        <div className="a-header-bar">
+          {canBook ? (
+            <Link className="a-btn a-btn--small a-header-cta" href="/admin/reservations/new">
+              <Icon name="plus" size={16} />
+              <span>Đặt bàn mới</span>
+            </Link>
+          ) : null}
           <div className="a-user">
-            <span data-testid="staff-name">{staff.name}</span>
-            <small>
-              {staff.email} · {ROLE_LABELS[staff.role]}
-            </small>
+            <span className="a-avatar" aria-hidden="true">
+              {initials(staff.name)}
+            </span>
+            <span className="a-user-text">
+              <span data-testid="staff-name">{staff.name}</span>
+              <small>
+                {staff.email} · {ROLE_LABELS[staff.role]}
+              </small>
+            </span>
           </div>
           <form action={signOut}>
-            <button className="a-btn a-btn--ghost" type="submit">
-              Đăng xuất
+            <button className="a-btn a-btn--ghost a-btn--small" type="submit">
+              <Icon name="logout" size={16} />
+              <span className="a-hide-sm">Đăng xuất</span>
             </button>
           </form>
-        </header>
-        <main className="a-main">
-          <AiFeaturesProvider features={aiFeatures}>{children}</AiFeaturesProvider>
-        </main>
-      </div>
-    </div>
+        </div>
+      }
+    >
+      <AiFeaturesProvider features={aiFeatures}>{children}</AiFeaturesProvider>
+    </AdminFrame>
   );
 }

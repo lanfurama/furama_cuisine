@@ -121,7 +121,7 @@ export default async function CuisinesPage({ searchParams }: { searchParams: Scr
         describe={(e) => `Thứ tự: ${((e.after as OrderSnapshot | null)?.order ?? []).map((o) => o.id).join(', ')}`}
       />
 
-      <section aria-labelledby="cuisines-copy">
+      <section aria-labelledby="cuisines-copy" className="a-card-row">
         <h2 id="cuisines-copy">Chữ của mục Explore by Cuisine</h2>
         <StringsPanel searchParams={searchParams} screen="cuisines" title="Chữ mục ẩm thực" />
       </section>

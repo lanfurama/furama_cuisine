@@ -105,7 +105,7 @@ export default async function MediaFilePage({ params }: { params: Promise<{ id: 
         />
       ) : null}
 
-      <section aria-labelledby="media-uses-title">
+      <section aria-labelledby="media-uses-title" className="a-card-row">
         <h2 id="media-uses-title">Đang được dùng ở</h2>
         {uses.length === 0 ? (
           <p className="a-muted">Chưa dùng ở đâu.</p>

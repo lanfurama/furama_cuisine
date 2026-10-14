@@ -47,7 +47,7 @@ export default async function SeoPage({ searchParams }: { searchParams: ScreenSe
         phục được từ Lịch sử.
       </p>
 
-      <section aria-labelledby="seo-copy">
+      <section aria-labelledby="seo-copy" className="a-card-row">
         <h2 id="seo-copy">Tiêu đề và mô tả</h2>
         <StringsPanel searchParams={searchParams} screen="seo" title="Chữ SEO" />
       </section>

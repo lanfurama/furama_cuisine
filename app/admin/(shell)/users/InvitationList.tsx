@@ -12,7 +12,7 @@ import { resendInvite, revokeInvite } from './actions';
 export type InvitationItem = { id: string; email: string; roleLabel: string; expiresLabel: string; expired: boolean; emailError: string | null };
 
 export function InvitationList({ invitations }: { invitations: InvitationItem[] }) {
-  if (invitations.length === 0) return <p className="a-lede">Không có lời mời nào đang chờ.</p>;
+  if (invitations.length === 0) return <p className="a-empty">Không có lời mời nào đang chờ.</p>;
   return (
     <ul className="a-list" aria-label="Lời mời đang chờ">
       {invitations.map((invitation) => (

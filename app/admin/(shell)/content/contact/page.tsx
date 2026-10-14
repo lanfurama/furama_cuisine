@@ -121,7 +121,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Scre
         describe={(e) => `Thứ tự: ${((e.after as OrderSnapshot | null)?.order ?? []).map((o) => o.id).join(', ')}`}
       />
 
-      <section aria-labelledby="footer-copy">
+      <section aria-labelledby="footer-copy" className="a-card-row">
         <h2 id="footer-copy">Chữ của chân trang</h2>
         <StringsPanel searchParams={searchParams}
           screen="contact"

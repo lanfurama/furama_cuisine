@@ -56,7 +56,7 @@ export default async function RestaurantBookingPage({
       <RestaurantNav id={restaurant.id} current="booking" />
       <p className="a-lede">Lưu xong, khách thấy giờ và chỗ mới ở lần mở form tiếp theo.</p>
 
-      <section aria-labelledby="booking-rules-title">
+      <section aria-labelledby="booking-rules-title" className="a-card-row">
         <h2 id="booking-rules-title">Đặt bàn online</h2>
         <RulesForm
           restaurant={{
@@ -75,7 +75,7 @@ export default async function RestaurantBookingPage({
         ) : null}
       </section>
 
-      <section aria-labelledby="booking-periods-title">
+      <section aria-labelledby="booking-periods-title" className="a-card-row">
         <h2 id="booking-periods-title">Ca phục vụ</h2>
         <PeriodsEditor
           restaurantId={restaurant.id}
@@ -85,7 +85,7 @@ export default async function RestaurantBookingPage({
         />
       </section>
 
-      <section aria-labelledby="booking-affected-title">
+      <section aria-labelledby="booking-affected-title" className="a-card-row">
         <h2 id="booking-affected-title">Đặt bàn sắp tới không còn khớp</h2>
         <AffectedList
           title="Đặt bàn sắp tới không còn khớp giờ hoặc sức chứa"
@@ -106,7 +106,7 @@ export default async function RestaurantBookingPage({
         />
       </section>
 
-      <section aria-labelledby="booking-preview-title">
+      <section aria-labelledby="booking-preview-title" className="a-card-row">
         <h2 id="booking-preview-title">Xem trước giờ đặt</h2>
         <form className="a-filter" action={`/admin/restaurants/${id}/booking`}>
           <div className="a-field">

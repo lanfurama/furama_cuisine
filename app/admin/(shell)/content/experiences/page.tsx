@@ -115,7 +115,7 @@ export default async function ExperiencesPage({ searchParams }: { searchParams: 
         describe={(e) => `Thứ tự: ${((e.after as OrderSnapshot | null)?.order ?? []).map((o) => o.id).join(', ')}`}
       />
 
-      <section aria-labelledby="experiences-copy">
+      <section aria-labelledby="experiences-copy" className="a-card-row">
         <h2 id="experiences-copy">Chữ của mục Experiences</h2>
         <StringsPanel searchParams={searchParams} screen="experiences" title="Chữ mục Experiences" />
       </section>

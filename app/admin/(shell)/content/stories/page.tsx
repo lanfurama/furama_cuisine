@@ -132,7 +132,7 @@ export default async function StoriesPage({ searchParams }: { searchParams: Scre
         describe={(e) => `Thứ tự: ${((e.after as OrderSnapshot | null)?.order ?? []).map((o) => o.id).join(', ')}`}
       />
 
-      <section aria-labelledby="stories-copy">
+      <section aria-labelledby="stories-copy" className="a-card-row">
         <h2 id="stories-copy">Chữ của mục Stories</h2>
         <StringsPanel searchParams={searchParams} screen="stories" title="Stories" />
       </section>

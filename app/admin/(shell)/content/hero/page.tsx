@@ -158,7 +158,7 @@ export default async function HeroPage({ searchParams }: { searchParams: ScreenS
         />
       </section>
 
-      <section aria-labelledby="hero-copy-title">
+      <section aria-labelledby="hero-copy-title" className="a-card-row">
         <h2 id="hero-copy-title">Chữ trên hero và trong hộp phim</h2>
         <StringsPanel searchParams={searchParams}
           screen="hero"

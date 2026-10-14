@@ -63,7 +63,7 @@ export default async function AiSettingsPage() {
       <h1>Cấu hình AI</h1>
       <p className="a-lede">Kết nối Vertex AI, chi phí, tính năng và thuật ngữ. Chỉ Admin sửa được.</p>
 
-      <section aria-labelledby="ai-connect-title">
+      <section aria-labelledby="ai-connect-title" className="a-card-row">
         <h2 id="ai-connect-title">Kết nối</h2>
         <p data-testid="ai-mode">
           Chế độ: <strong>{modeLabel(mode)}</strong>
@@ -90,7 +90,7 @@ export default async function AiSettingsPage() {
         <ConnectionCheck />
       </section>
 
-      <section aria-labelledby="ai-spend-title">
+      <section aria-labelledby="ai-spend-title" className="a-card-row">
         <h2 id="ai-spend-title">Chi phí tháng này</h2>
         <p data-testid="ai-spend">{`Đã dùng ${usd(spend.spent)} / ${usd(settings.budgetUsd)} (${percent}%)`}</p>
         <progress value={percent} max={100} aria-label="Ngân sách AI đã dùng" />
@@ -154,11 +154,11 @@ export default async function AiSettingsPage() {
         </div>
       </section>
 
-      <section aria-label="Tính năng và giới hạn">
+      <section aria-label="Tính năng và giới hạn" className="a-card-row">
         <AiSettingsForm token={token} settings={settings} />
       </section>
 
-      <section aria-labelledby="ai-glossary-title">
+      <section aria-labelledby="ai-glossary-title" className="a-card-row">
         <h2 id="ai-glossary-title">Thuật ngữ</h2>
         <p className="a-muted">Tên riêng và cụm từ AI phải giữ nguyên hoặc dịch theo cách riêng. Tên nhà hàng được thêm tự động.</p>
         <GlossaryTable entries={glossary} locales={locales.map((l) => ({ code: l.code, name: l.name }))} />

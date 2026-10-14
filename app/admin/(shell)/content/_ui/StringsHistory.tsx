@@ -32,7 +32,7 @@ export function StringsHistory({
   const byKey = new Map(fields.map((f) => [f.key as string, f]));
   const headingId = `strings-${screen}-history`;
   return (
-    <section className="a-history" aria-labelledby={headingId}>
+    <section className={entries.length === 0 ? 'a-history a-history--empty' : 'a-history'} aria-labelledby={headingId}>
       <h2 id={headingId}>Lịch sử</h2>
       {entries.length === 0 ? (
         <p className="a-muted">Chưa có thay đổi nào được ghi lại.</p>

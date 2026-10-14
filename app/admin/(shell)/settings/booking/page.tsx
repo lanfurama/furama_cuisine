@@ -17,7 +17,9 @@ export default async function BookingSettingsPage() {
     <>
       <h1>Cài đặt đặt bàn</h1>
       <p className="a-lede">Mặc định cho mọi nhà hàng; từng nhà hàng có thể ghi đè trong “Giờ và sức chứa”.</p>
-      <SettingsForm settings={settings} />
+      <div className="a-card-row">
+        <SettingsForm settings={settings} />
+      </div>
     </>
   );
 }

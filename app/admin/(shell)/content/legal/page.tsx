@@ -39,7 +39,7 @@ export default async function LegalPage({ searchParams }: { searchParams: Screen
         Phiên bản đang dùng: {versions[0]?.version ?? '—'}
       </p>
       <StringsPanel searchParams={searchParams} screen="legal" title="Chính sách bảo mật" />
-      <section aria-labelledby="legal-versions-title">
+      <section aria-labelledby="legal-versions-title" className="a-card-row">
         <h2 id="legal-versions-title">Các phiên bản</h2>
         <ul>
           {versions.map((v) => (

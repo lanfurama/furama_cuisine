@@ -57,7 +57,7 @@ export default async function NewReservationPage({ searchParams }: { searchParam
       <p className="a-lede">Đặt qua điện thoại (đã xác nhận) hoặc khách vãng lai (đã đến, chỉ trong hôm nay).</p>
       <TargetPicker restaurants={restaurants} loaded={{ restaurant: restaurantId ?? '', date }} today={today}>
         {loaded ? (
-          <>
+          <section className="a-card-row">
             <h2>{`${loaded.rules.restaurantName} · ${formatIsoDayVi(date)}`}</h2>
             {closedMeals.length ? <p className="a-warn">{`Đóng cửa ngày này: ${closedMeals.join(', ')}.`}</p> : null}
             {slots.length === 0 ? (
@@ -75,7 +75,7 @@ export default async function NewReservationPage({ searchParams }: { searchParam
                 defaultLocale={defaultLocale}
               />
             )}
-          </>
+          </section>
         ) : null}
       </TargetPicker>
     </>

@@ -84,7 +84,7 @@ export default async function MediaPage({ searchParams }: { searchParams: Promis
       </ul>
 
       {trash.length > 0 ? (
-        <section aria-labelledby="media-trash-title">
+        <section aria-labelledby="media-trash-title" className="a-card-row">
           <h2 id="media-trash-title">Thùng rác</h2>
           <p className="a-muted">File đã xóa trong 30 ngày qua; sau đó file bị dọn hẳn khỏi kho.</p>
           <ul className="a-list">

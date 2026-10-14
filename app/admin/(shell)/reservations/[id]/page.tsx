@@ -17,6 +17,7 @@ import { sittingAhead } from '@/lib/server/email/drain';
 import { outboxEnv } from '@/lib/server/email/env';
 import { listReservationEmails, resendable } from '@/lib/server/email/outbox-log';
 import { redactEmails } from '@/lib/server/email/types';
+import { PageHeader } from '../../../_ui/PageHeader';
 import { EmailStatusBadge } from '../_ui/EmailStatusBadge';
 import { ResendEmail } from '../_ui/ResendEmail';
 import { SectionNav } from '../_ui/SectionNav';
@@ -101,61 +102,65 @@ export default async function ReservationPage({ params }: { params: Promise<{ id
   return (
     <>
       <SectionNav current="/admin/reservations" />
-      <p className="a-crumbs">
-        <Link href="/admin/reservations">← Hộp thư</Link>
-      </p>
-      <h1>
-        {`Đặt bàn ${reservation.reference} `}
-        <StatusBadge status={reservation.status} />
-      </h1>
-      <dl className="a-facts">
-        <dt>Nhà hàng</dt>
-        <dd>{reservation.restaurantName}</dd>
-        <dt>Ngày giờ</dt>
-        <dd data-testid="sitting">{`${formatIsoDayVi(reservation.date)} ${reservation.time} · ${reservation.meal}`}</dd>
-        <dt>Số khách</dt>
-        <dd>
-          {reservation.guests}
-          {reservation.overCapacity ? <span className="a-tag a-tag--warn">Vượt sức chứa</span> : null}
-        </dd>
-        <dt>Khách</dt>
-        <dd>
-          {reservation.name} · <a href={`tel:${reservation.phone.replace(/[^\d+]/g, '')}`}>{reservation.phone}</a>
-          {reservation.email ? ` · ${reservation.email}` : null}
-        </dd>
-        {reservation.offerTitle ? (
+      <PageHeader
+        back={<Link href="/admin/reservations">← Hộp thư</Link>}
+        title={
           <>
-            <dt>Ưu đãi</dt>
-            <dd>{reservation.offerTitle}</dd>
+            {`Đặt bàn ${reservation.reference} `}
+            <StatusBadge status={reservation.status} />
           </>
-        ) : null}
-        <dt>Yêu cầu của khách</dt>
-        <dd>{reservation.note ?? '—'}</dd>
-        <dt>Nguồn · ngôn ngữ</dt>
-        <dd>{`${SOURCE_LABELS[reservation.source] ?? reservation.source} · ${reservation.locale}`}</dd>
-        <dt>Tạo lúc</dt>
-        <dd>{formatDateTimeVi(reservation.createdAt)}</dd>
-        {reservation.statusReason ? (
-          <>
-            <dt>Lý do</dt>
-            <dd>{reservation.statusReason}</dd>
-          </>
-        ) : null}
-      </dl>
+        }
+      />
+      <div className="a-split">
+        <dl className="a-facts">
+          <dt>Nhà hàng</dt>
+          <dd>{reservation.restaurantName}</dd>
+          <dt>Ngày giờ</dt>
+          <dd data-testid="sitting">{`${formatIsoDayVi(reservation.date)} ${reservation.time} · ${reservation.meal}`}</dd>
+          <dt>Số khách</dt>
+          <dd>
+            {reservation.guests}
+            {reservation.overCapacity ? <span className="a-tag a-tag--warn">Vượt sức chứa</span> : null}
+          </dd>
+          <dt>Khách</dt>
+          <dd>
+            {reservation.name} · <a href={`tel:${reservation.phone.replace(/[^\d+]/g, '')}`}>{reservation.phone}</a>
+            {reservation.email ? ` · ${reservation.email}` : null}
+          </dd>
+          {reservation.offerTitle ? (
+            <>
+              <dt>Ưu đãi</dt>
+              <dd>{reservation.offerTitle}</dd>
+            </>
+          ) : null}
+          <dt>Yêu cầu của khách</dt>
+          <dd>{reservation.note ?? '—'}</dd>
+          <dt>Nguồn · ngôn ngữ</dt>
+          <dd>{`${SOURCE_LABELS[reservation.source] ?? reservation.source} · ${reservation.locale}`}</dd>
+          <dt>Tạo lúc</dt>
+          <dd>{formatDateTimeVi(reservation.createdAt)}</dd>
+          {reservation.statusReason ? (
+            <>
+              <dt>Lý do</dt>
+              <dd>{reservation.statusReason}</dd>
+            </>
+          ) : null}
+        </dl>
 
-      <section aria-labelledby="res-status-title">
-        <h2 id="res-status-title">Trạng thái</h2>
-        <TransitionPanel
-          id={reservation.id}
-          version={reservation.version}
-          options={options}
-          hasEmail={Boolean(reservation.email)}
-          sittingPassed={sittingPassed}
-        />
-      </section>
+        <section aria-labelledby="res-status-title" className="a-card-row">
+          <h2 id="res-status-title">Trạng thái</h2>
+          <TransitionPanel
+            id={reservation.id}
+            version={reservation.version}
+            options={options}
+            hasEmail={Boolean(reservation.email)}
+            sittingPassed={sittingPassed}
+          />
+        </section>
+      </div>
 
       {editable ? (
-        <section aria-labelledby="res-edit-title">
+        <section aria-labelledby="res-edit-title" className="a-card-row">
           <h2 id="res-edit-title">Sửa đặt bàn</h2>
           <EditReservationForm
             reservation={{
@@ -174,24 +179,47 @@ export default async function ReservationPage({ params }: { params: Promise<{ id
         </section>
       ) : null}
 
-      <section aria-labelledby="res-notes-title">
-        <h2 id="res-notes-title">Ghi chú nội bộ</h2>
-        <p className="a-muted">Chỉ nhân viên thấy; không bao giờ gửi cho khách.</p>
-        {ownNotes.length ? (
-          <ul className="a-list" aria-label="Ghi chú nội bộ">
-            {ownNotes.map((n) => (
-              <li className="a-list-item a-list-item--stack" key={n.id}>
-                <span>{n.body}</span>
-                <small className="a-sub">{`${n.authorLabel} · ${formatDateTimeVi(n.createdAt)}`}</small>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        <NoteForm id={reservation.id} />
-      </section>
+      <div className="a-columns">
+        <section aria-labelledby="res-notes-title" className="a-card-row">
+          <h2 id="res-notes-title">Ghi chú nội bộ</h2>
+          <p className="a-muted">Chỉ nhân viên thấy; không bao giờ gửi cho khách.</p>
+          {ownNotes.length ? (
+            <ul className="a-list" aria-label="Ghi chú nội bộ">
+              {ownNotes.map((n) => (
+                <li className="a-list-item a-list-item--stack" key={n.id}>
+                  <span>{n.body}</span>
+                  <small className="a-sub">{`${n.authorLabel} · ${formatDateTimeVi(n.createdAt)}`}</small>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <NoteForm id={reservation.id} />
+        </section>
+
+        <section aria-labelledby="res-timeline-title" className="a-card-row">
+          <h2 id="res-timeline-title">Dòng thời gian</h2>
+          <ol className="a-timeline" aria-label="Dòng thời gian">
+            {events.map((e) => {
+              const changes = e.type === 'edited' ? describeChanges(e.changes) : null;
+              return (
+                <li key={e.id}>
+                  <time>{formatDateTimeVi(e.at)}</time>
+                  <strong>{EVENT_LABELS[e.type] ?? e.type}</strong>
+                  {e.type === 'status_changed' || e.type === 'created'
+                    ? ` ${e.fromStatus ? `${STATUS_LABELS[e.fromStatus]} → ` : ''}${e.toStatus ? STATUS_LABELS[e.toStatus] : ''}`
+                    : null}
+                  {changes ? <span className="a-sub">{changes}</span> : null}
+                  {e.reason ? <span className="a-sub">{`Lý do: ${e.reason}`}</span> : null}
+                  <span className="a-sub">{e.actorLabel ?? (e.actorKind === 'guest' ? 'Khách' : 'Hệ thống')}</span>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      </div>
 
       {/* The booking's emails (R2): history lives in email_outbox, beside the timeline; the full address shows here (R12). */}
-      <section aria-labelledby="res-emails-title">
+      <section aria-labelledby="res-emails-title" className="a-card-row">
         <h2 id="res-emails-title">Email</h2>
         {/* The sitting is in "Ngày giờ" above; once it has started no email of this booking goes out (F5). */}
         {emails[0]?.sittingPassed ? <p className="a-muted">Đã qua giờ hẹn: email của đặt bàn này không được gửi nữa.</p> : null}
@@ -238,34 +266,17 @@ export default async function ReservationPage({ params }: { params: Promise<{ id
                     </td>
                     {/* Past its sitting the drain would only skip it (F5): nothing to send again. Each button names its
                         email and recipient: two staff.new rows of one booking differ only by address (T7.4). */}
-                    <td>{canResend && resendable(m.status) && !m.sittingPassed ? <ResendEmail id={m.id} label={`${EMAIL_EVENT_LABELS[m.event]} tới ${m.toEmail}`} /> : null}</td>
+                    <td>
+                      {canResend && resendable(m.status) && !m.sittingPassed ? (
+                        <ResendEmail id={m.id} label={`${EMAIL_EVENT_LABELS[m.event]} tới ${m.toEmail}`} />
+                      ) : null}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-      </section>
-
-      <section aria-labelledby="res-timeline-title">
-        <h2 id="res-timeline-title">Dòng thời gian</h2>
-        <ol className="a-timeline" aria-label="Dòng thời gian">
-          {events.map((e) => {
-            const changes = e.type === 'edited' ? describeChanges(e.changes) : null;
-            return (
-              <li key={e.id}>
-                <time>{formatDateTimeVi(e.at)}</time>
-                <strong>{EVENT_LABELS[e.type] ?? e.type}</strong>
-                {e.type === 'status_changed' || e.type === 'created'
-                  ? ` ${e.fromStatus ? `${STATUS_LABELS[e.fromStatus]} → ` : ''}${e.toStatus ? STATUS_LABELS[e.toStatus] : ''}`
-                  : null}
-                {changes ? <span className="a-sub">{changes}</span> : null}
-                {e.reason ? <span className="a-sub">{`Lý do: ${e.reason}`}</span> : null}
-                <span className="a-sub">{e.actorLabel ?? (e.actorKind === 'guest' ? 'Khách' : 'Hệ thống')}</span>
-              </li>
-            );
-          })}
-        </ol>
       </section>
     </>
   );
