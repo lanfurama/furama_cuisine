@@ -14,8 +14,8 @@ import { toBcp47 } from '@/lib/i18n/locales';
  */
 
 /**
- * The code itself, or 'en' when Intl has no data for it. Every code the
- * locales table holds passes; a path such as /favicon.ico or /wp-login.php
+ * The code itself, or 'en' when Intl has no data for it. Every code in
+ * LANGUAGE_CATALOG passes; a path such as /favicon.ico or /wp-login.php
  * reaches a loader with its first segment as the language, and a loader must
  * answer for it, not throw a RangeError; and a well-formed code Intl has no
  * data for ('zz') must not fall to the process's default locale, which

@@ -2,17 +2,16 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getPool } from '@/db/client';
 import { formatShortDayVi, todayVi } from '@/lib/admin/format';
-import { HOLDING_STATUSES } from '@/lib/booking/rules';
 import { roleCan } from '@/lib/server/auth/permissions';
 import { listOpenInvitations } from '@/lib/server/auth/staff-queries';
 import { coverageSummary } from '@/lib/server/content-admin/translations';
-import { listInbox, overviewCounts, type InboxRow } from '@/lib/server/booking/queries';
+import { overviewSnapshot, type OverviewRow } from '@/lib/server/booking/queries';
 import { verifySession } from '@/lib/server/dal/session';
 import { outboxEnv } from '@/lib/server/email/env';
 import { emailOverview } from '@/lib/server/email/outbox-log';
 import { venueNow } from '@/lib/venue-time';
-import { Icon, type IconName } from '../_ui/Icon';
-import { PageHeader } from '../_ui/PageHeader';
+import { Icon, type IconName } from './_ui/Icon';
+import { PageHeader } from './_ui/PageHeader';
 import { QuickConfirm } from './reservations/QuickConfirm';
 import { StatusBadge } from './reservations/_ui/StatusBadge';
 
@@ -42,8 +41,12 @@ function Kpi({ href, testId, icon, value, label, tone }: { href: string; testId:
   );
 }
 
-/* A booking in one line: its sitting, guest and restaurant, then its status or "Xác nhận". */
-function BookingLine({ row, showDay, canConfirm }: { row: InboxRow; showDay: boolean; canConfirm: boolean }) {
+/*
+ * A booking in one line: its sitting, guest (with the inbox's "Test" and "Vượt sức chứa" tags) and
+ * restaurant, then its status, or "Xác nhận" in the list of requests only: a request of today is in
+ * both lists, and one button per booking is enough.
+ */
+function BookingLine({ row, showDay, canConfirm }: { row: OverviewRow; showDay: boolean; canConfirm: boolean }) {
   return (
     <li>
       <span className="a-mini-when">
@@ -52,7 +55,12 @@ function BookingLine({ row, showDay, canConfirm }: { row: InboxRow; showDay: boo
       </span>
       <span className="a-mini-who">
         <Link href={`/admin/reservations/${row.id}`}>{row.name}</Link>
-        <small>{`${row.guests} khách · ${row.restaurantName} · ${row.reference}`}</small>
+        {row.isTest ? <span className="a-tag">Test</span> : null}
+        {row.overCapacity ? <span className="a-tag a-tag--warn">Vượt sức chứa</span> : null}
+        <small>
+          {`${row.guests} khách · ${row.restaurantName} · `}
+          <span className="a-ref">{row.reference}</span>
+        </small>
       </span>
       {canConfirm && row.status === 'requested' ? (
         <QuickConfirm id={row.id} version={row.version} reference={row.reference} />
@@ -69,7 +77,8 @@ function BookingLine({ row, showDay, canConfirm }: { row: InboxRow; showDay: boo
  * up their attempts ("email lỗi", §10.4, §12) and those retrying after a
  * failure (an SMTP outage shows within minutes), both only for sittings still
  * ahead, for roles that read bookings; the next requests to confirm (soonest
- * sitting first, "Xác nhận" beside each) and today's sittings;
+ * sitting first, "Xác nhận" beside each) and today's bookings that hold seats,
+ * each the first few of the set its KPI counts, "và N … khác" for the rest;
  * to Admins, invitations whose email failed, and the restaurants whose "đặt
  * bàn mới" goes to the shared inbox ("nhà hàng chưa có người nhận thông báo",
  * R21); to roles that read content, each language's share of reviewed
@@ -83,19 +92,17 @@ export default async function OverviewPage() {
   // Today is Da Nang's date, whatever the server's timezone.
   const today = venueNow().date;
   const readsBookings = roleCan(staff.role, { reservations: ['read'] });
-  const [bookings, emails, pending, todays] = readsBookings
-    ? await Promise.all([
-        overviewCounts(pool, today),
-        emailOverview(pool, outboxEnv()),
-        listInbox(pool, { tab: 'pending', today }),
-        listInbox(pool, { tab: 'today', today }),
-      ])
-    : [null, null, null, null];
+  // The counts and both short lists come from one snapshot (overviewSnapshot), so "và N khác" is exact.
+  const [snapshot, emails] = readsBookings ? await Promise.all([overviewSnapshot(pool, today, SHORT_LIST), emailOverview(pool, outboxEnv())]) : [null, null];
+  const bookings = snapshot?.counts ?? null;
   const unrouted = emails && roleCan(staff.role, { settings: ['read'] }) ? emails.unrouted : [];
   const translations = roleCan(staff.role, { content: ['read'] }) ? await coverageSummary(pool) : [];
   const canConfirm = roleCan(staff.role, { reservations: ['update'] });
-  const nextPending = pending?.rows.slice(0, SHORT_LIST) ?? [];
-  const todayHeld = (todays?.rows ?? []).filter((r) => (HOLDING_STATUSES as readonly string[]).includes(r.status));
+  const nextPending = snapshot?.pending ?? [];
+  const todayHeld = snapshot?.today ?? [];
+  // Each list is the first SHORT_LIST of the set its KPI counts.
+  const morePending = bookings ? bookings.pending - nextPending.length : 0;
+  const moreToday = bookings ? bookings.today - todayHeld.length : 0;
 
   return (
     <>
@@ -180,7 +187,7 @@ export default async function OverviewPage() {
         <div className="a-dash-grid">
           <section aria-labelledby="overview-pending" className="a-card-row">
             <div className="a-panel-head">
-              <h2 id="overview-pending">Cần xác nhận</h2>
+              <h2 id="overview-pending">Chờ xác nhận</h2>
               <Link href="/admin/reservations">
                 Hộp thư
                 <Icon name="chevron-right" size={16} />
@@ -198,12 +205,17 @@ export default async function OverviewPage() {
                 ))}
               </ul>
             )}
+            {morePending > 0 ? (
+              <p className="a-muted">
+                <Link href="/admin/reservations">{`Và ${morePending} đặt bàn khác chờ xác nhận`}</Link>
+              </p>
+            ) : null}
           </section>
           <section aria-labelledby="overview-today" className="a-card-row">
             <div className="a-panel-head">
               <h2 id="overview-today">Hôm nay</h2>
               <Link href="/admin/reservations/day">
-                Bảng theo ngày
+                Theo ngày
                 <Icon name="chevron-right" size={16} />
               </Link>
             </div>
@@ -214,14 +226,14 @@ export default async function OverviewPage() {
               </p>
             ) : (
               <ul className="a-mini-list" aria-label="Đặt bàn hôm nay">
-                {todayHeld.slice(0, SHORT_LIST).map((r) => (
-                  <BookingLine key={r.id} row={r} showDay={false} canConfirm={canConfirm} />
+                {todayHeld.map((r) => (
+                  <BookingLine key={r.id} row={r} showDay={false} canConfirm={false} />
                 ))}
               </ul>
             )}
-            {todayHeld.length > SHORT_LIST ? (
+            {moreToday > 0 ? (
               <p className="a-muted">
-                <Link href="/admin/reservations?tab=today">{`Và ${todayHeld.length - SHORT_LIST} đặt bàn khác`}</Link>
+                <Link href="/admin/reservations?tab=today">{`Và ${moreToday} đặt bàn khác hôm nay`}</Link>
               </p>
             ) : null}
           </section>

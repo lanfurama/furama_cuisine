@@ -1478,6 +1478,7 @@ bootstrapping production is what you mean to do.
 | `/admin/settings/booking` | Request time, nonce CSP | Booking defaults. Admin (`settings:read`) |
 | `/admin/translations` | Request time, nonce CSP | Coverage per kind of content and language, and the review queue: machine translations ("Duyệt") and translations whose English changed since ("Vẫn đúng"), one at a time or up to 50 ticked, each with its History row; "Sửa" opens the item's form in that language. Machine translation of what is missing comes with phase 9. `content:read`; reviews `content:update` |
 | `/admin/settings/notifications` | Request time, nonce CSP | Who hears about new bookings, the shared inbox, the restaurants that fall back to it, "Gửi email thử". Admin (`settings:read`; every save `settings:update`) |
+| `/admin/settings/ai` | Request time, nonce CSP | Vertex AI (phase 9): the connection and its check, this month's spend, the features and limits, the glossary. Admin (`settings:read`; every save `settings:update`) |
 | `/api/auth/*` | Dynamic | Better Auth; `/api/auth/admin/*` is refused with 403 |
 
 Every admin page renders at request time (`app/admin/layout.tsx`: `instant =
@@ -1497,7 +1498,7 @@ brand curtain still plays over the swap via client-side navigation.
 
 Guest pages live in `app/(site)/[lang]`. The root layout there reads no
 database and never throws; `(guarded)/layout.tsx` checks the language
-against the `locales` table and reads the catalogue and UI strings, so a
+against `lib/i18n/site-locales.ts` and reads the catalogue and UI strings, so a
 disabled language gets the site's 404 and a database error gets
 `[lang]/error.tsx`, but only for request-time renders with JavaScript on.
 An expired static route that fails to re-render, or a disabled-locale 404, gets

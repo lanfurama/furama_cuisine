@@ -24,48 +24,54 @@ export function ReviewQueue({ items, canReview }: { items: readonly QueueItem[];
   return (
     <form action={dispatch} aria-label="Hàng chờ duyệt">
       <FormMessage state={state} success="Đã duyệt." />
-      <table className="a-table a-review-queue">
-        <thead>
-          <tr>
-            {canReview ? <th scope="col">Chọn</th> : null}
-            <th scope="col">Mục</th>
-            <th scope="col">Ngôn ngữ</th>
-            <th scope="col">Bản tiếng Anh</th>
-            <th scope="col">Bản dịch</th>
-            <th scope="col">Thao tác</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((i) => {
-            const name = `${i.kindLabel} ${i.id} (${i.locale.toUpperCase()})`;
-            return (
-              <tr key={value(i)}>
-                {canReview ? (
-                  <td>{i.reviewable ? <input type="checkbox" name="item" value={value(i)} aria-label={`Chọn ${name}`} /> : null}</td>
-                ) : null}
-                <th scope="row">
-                  {i.kindLabel}
-                  <span className="a-muted"> · {i.id}</span>{' '}
-                  <span className="a-tag a-tag--warn">{i.reason === 'machine' ? 'Máy dịch' : 'EN đã đổi'}</span>
-                </th>
-                <td>{i.locale.toUpperCase()}</td>
-                <td lang="en">{i.english}</td>
-                <td lang={toBcp47(i.locale)}>{i.translation}</td>
-                <td className="a-actions">
-                  {canReview && i.reviewable ? (
-                    <button type="submit" name="one" value={value(i)} className="a-btn a-btn--small" disabled={pending} aria-label={`${i.reason === 'machine' ? 'Duyệt' : 'Vẫn đúng'}: ${name}`}>
-                      {i.reason === 'machine' ? 'Duyệt' : 'Vẫn đúng'}
-                    </button>
-                  ) : null}
-                  <Link href={i.href} className="a-btn a-btn--ghost a-btn--small" aria-label={`Sửa: ${name}`}>
-                    Sửa
-                  </Link>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="a-table-scroll">
+        <table className="a-table a-review-queue">
+          <thead>
+            <tr>
+              {canReview ? <th scope="col">Chọn</th> : null}
+              <th scope="col">Mục</th>
+              <th scope="col">Ngôn ngữ</th>
+              <th scope="col">Bản tiếng Anh</th>
+              <th scope="col">Bản dịch</th>
+              <th scope="col">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((i) => {
+              const name = `${i.kindLabel} ${i.id} (${i.locale.toUpperCase()})`;
+              return (
+                <tr key={value(i)}>
+                  {canReview ? <td>{i.reviewable ? <input type="checkbox" name="item" value={value(i)} aria-label={`Chọn ${name}`} /> : null}</td> : null}
+                  <th scope="row">
+                    {i.kindLabel}
+                    <span className="a-muted"> · {i.id}</span> <span className="a-tag a-tag--warn">{i.reason === 'machine' ? 'Máy dịch' : 'EN đã đổi'}</span>
+                  </th>
+                  <td>{i.locale.toUpperCase()}</td>
+                  <td lang="en">{i.english}</td>
+                  <td lang={toBcp47(i.locale)}>{i.translation}</td>
+                  <td className="a-actions">
+                    {canReview && i.reviewable ? (
+                      <button
+                        type="submit"
+                        name="one"
+                        value={value(i)}
+                        className="a-btn a-btn--small"
+                        disabled={pending}
+                        aria-label={`${i.reason === 'machine' ? 'Duyệt' : 'Vẫn đúng'}: ${name}`}
+                      >
+                        {i.reason === 'machine' ? 'Duyệt' : 'Vẫn đúng'}
+                      </button>
+                    ) : null}
+                    <Link href={i.href} className="a-btn a-btn--ghost a-btn--small" aria-label={`Sửa: ${name}`}>
+                      Sửa
+                    </Link>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       {canReview ? (
         <button type="submit" className="a-btn" disabled={pending}>
           Duyệt các mục đã chọn

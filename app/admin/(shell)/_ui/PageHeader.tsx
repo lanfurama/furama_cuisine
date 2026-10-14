@@ -1,8 +1,10 @@
 /*
- * The top of every admin page: the way back (a "← …" link), the page's <h1>
- * and its one-line purpose, and the page's main actions on the right (they
- * wrap under the title on a phone). Children go under the title row: a
- * screen's own tabs or language picker.
+ * The top of an admin page with main actions or a way back (the overview,
+ * the lists, a booking): the way back (a "← …" link), the page's <h1> and its
+ * one-line purpose, and the page's main actions on the right (they wrap under
+ * the title on a phone). Children go under the title row: a screen's own tabs
+ * or language picker. The content editors write the same crumbs, <h1> and
+ * lede themselves, with the same classes, so both look alike.
  */
 export function PageHeader({
   title,

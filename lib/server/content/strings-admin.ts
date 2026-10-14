@@ -90,7 +90,7 @@ export async function loadScreenStrings(db: Db, screen: AdminScreen, locale: str
  */
 export type StringsInput = {
   screen: AdminScreen;
-  /** The language the screen edits (a code of the locales table). */
+  /** The language the screen edits (one of LISTED_LOCALE_CODES). */
   locale?: string;
   values: Partial<Record<string, string>>;
   originals: Partial<Record<string, string>>;

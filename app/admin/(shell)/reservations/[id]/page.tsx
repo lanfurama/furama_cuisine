@@ -17,7 +17,7 @@ import { sittingAhead } from '@/lib/server/email/drain';
 import { outboxEnv } from '@/lib/server/email/env';
 import { listReservationEmails, resendable } from '@/lib/server/email/outbox-log';
 import { redactEmails } from '@/lib/server/email/types';
-import { PageHeader } from '../../../_ui/PageHeader';
+import { PageHeader } from '../../_ui/PageHeader';
 import { EmailStatusBadge } from '../_ui/EmailStatusBadge';
 import { ResendEmail } from '../_ui/ResendEmail';
 import { SectionNav } from '../_ui/SectionNav';

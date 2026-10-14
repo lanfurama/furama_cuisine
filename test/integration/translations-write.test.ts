@@ -116,12 +116,24 @@ describe.skipIf(!TEST_DATABASE_URL)('closure reasons and alt text per language (
     const { getMedia, saveMediaDetails } = await import('@/lib/server/media/library');
     const { rows } = await pool.query(`SELECT m.id::text FROM media m JOIN media_i18n a ON a.media_id = m.id AND a.locale = 'en' WHERE m.deleted_at IS NULL LIMIT 1`);
     const id = rows[0].id as string;
-    const item = (await getMedia(pool, id))!;
-    expect(await saveMediaDetails(pool, ACTOR, { id, token: item.token, alt: item.alt, decorative: item.isDecorative, translations: { vi: 'Ảnh bãi biển' } })).toMatchObject({ ok: true });
-    const viAlt = async () => (await pool.query(`SELECT alt, status, source_hash FROM media_i18n WHERE media_id = $1 AND locale = 'vi'`, [id])).rows[0];
-    expect(await viAlt()).toMatchObject({ alt: 'Ảnh bãi biển', status: 'reviewed', source_hash: expect.stringMatching(/^[0-9a-f]{64}$/) });
-    const again = (await getMedia(pool, id))!;
-    expect(await saveMediaDetails(pool, ACTOR, { id, token: again.token, alt: again.alt, decorative: again.isDecorative, translations: { vi: '' } })).toMatchObject({ ok: true });
-    expect(await viAlt()).toBeUndefined();
+    // A save rewrites the English row too (origin 'human'): it is put back as the seed had it, so later files
+    // (media-library's History test) still read the seed's row.
+    const seedAlt = (await pool.query(`SELECT * FROM media_i18n WHERE media_id = $1 AND locale = 'en'`, [id])).rows[0];
+    try {
+      const item = (await getMedia(pool, id))!;
+      expect(await saveMediaDetails(pool, ACTOR, { id, token: item.token, alt: item.alt, decorative: item.isDecorative, translations: { vi: 'Ảnh bãi biển' } })).toMatchObject({ ok: true });
+      const viAlt = async () => (await pool.query(`SELECT alt, status, source_hash FROM media_i18n WHERE media_id = $1 AND locale = 'vi'`, [id])).rows[0];
+      expect(await viAlt()).toMatchObject({ alt: 'Ảnh bãi biển', status: 'reviewed', source_hash: expect.stringMatching(/^[0-9a-f]{64}$/) });
+      const again = (await getMedia(pool, id))!;
+      expect(await saveMediaDetails(pool, ACTOR, { id, token: again.token, alt: again.alt, decorative: again.isDecorative, translations: { vi: '' } })).toMatchObject({ ok: true });
+      expect(await viAlt()).toBeUndefined();
+    } finally {
+      const e = seedAlt;
+      await pool.query(
+        `UPDATE media_i18n SET alt = $2, status = $3, origin = $4, ai_model = $5, source_hash = $6, reviewed_by = $7, reviewed_at = $8, updated_at = $9, updated_by = $10
+          WHERE media_id = $1 AND locale = 'en'`,
+        [id, e.alt, e.status, e.origin, e.ai_model, e.source_hash, e.reviewed_by, e.reviewed_at, e.updated_at, e.updated_by],
+      );
+    }
   });
 });

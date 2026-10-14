@@ -63,7 +63,7 @@ export default async function MediaPage({ searchParams }: { searchParams: Promis
         </button>
       </form>
 
-      {items.length === 0 ? <p className="a-lede">Không có file nào.</p> : null}
+      {items.length === 0 ? <p className="a-empty">Không có file nào.</p> : null}
       <ul className="a-media-grid" aria-label="Các file">
         {items.map((m) => (
           <li key={m.id} className="a-media-card">

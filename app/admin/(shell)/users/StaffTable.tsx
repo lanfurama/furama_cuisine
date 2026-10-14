@@ -10,23 +10,25 @@ export type StaffItem = { id: string; name: string; email: string; role: StaffRo
 
 export function StaffTable({ staff }: { staff: StaffItem[] }) {
   return (
-    <table className="a-table">
-      <thead>
-        <tr>
-          <th scope="col">Họ tên</th>
-          <th scope="col">Email</th>
-          <th scope="col">Vai trò</th>
-          <th scope="col">Trạng thái</th>
-          <th scope="col">Ngày tạo</th>
-          <th scope="col">Thao tác</th>
-        </tr>
-      </thead>
-      <tbody>
-        {staff.map((member) => (
-          <StaffRow key={member.id} member={member} />
-        ))}
-      </tbody>
-    </table>
+    <div className="a-table-scroll">
+      <table className="a-table">
+        <thead>
+          <tr>
+            <th scope="col">Họ tên</th>
+            <th scope="col">Email</th>
+            <th scope="col">Vai trò</th>
+            <th scope="col">Trạng thái</th>
+            <th scope="col">Ngày tạo</th>
+            <th scope="col">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          {staff.map((member) => (
+            <StaffRow key={member.id} member={member} />
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

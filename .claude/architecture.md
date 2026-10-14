@@ -22,13 +22,16 @@
 app/                     # Next.js routes: trang, Server Actions, route handlers — tầng ghép
   (site)/[lang]/         #   site khách
   admin/                 #   CMS cho staff
+    (shell)/_ui/         #     UI dùng chung của các trang admin: PageHeader, Icon, FormMessage, AffectedList
+    (shell)/_kit/        #     bộ form sửa nội dung (ô nhiều ngôn ngữ, chọn ảnh, danh sách sắp xếp, History, thanh lưu…)
   api/                   #   auth, cron (outbox, daily, media-sweep), preview, admin upload
   actions.ts             #   submitReservation
 components/              # React UI của site khách
+styles/                  # CSS: base/overlays… (site khách); admin.css = design system của admin (token --a-*; CSP không cho style="")
 lib/                     # Code thuần, dùng được cả client lẫn server (không DB, không I/O)
   booking/ i18n/ content/ admin/ media/ reservations/ email/ …
 lib/server/              # Code chỉ chạy server ('server-only')
-  *.ts                   #   kernel: audit, conflict, action-result, reference, client-ip, cron, draft-mode, audit-feed
+  *.ts                   #   kernel: audit, conflict, action-result, ai-error, reference, client-ip, cron, draft-mode, audit-feed
   <module>/              #   một module (mục 2)
 db/
   client.ts              # pool Postgres duy nhất (getPool) + kiểu Db
@@ -55,6 +58,7 @@ Test unit nằm cạnh code (`foo.ts` + `foo.test.ts`). Test cần DB nằm ở 
 | `email` | outbox, render, gửi SMTP (`send.ts`), người nhận | booking, content, kernel |
 | `auth` | Better Auth, staff, quyền, email mời / đặt lại mật khẩu | email, kernel |
 | `dal` | phiên đăng nhập, `requirePermission`, `auditActor` | auth, kernel |
+| `ai` | Vertex AI (phase 9): dịch máy, glossary, cấu hình + ngân sách, chặn route AI | dal, kernel |
 | `content-admin` | các màn sửa nội dung của CMS | content, email, history, media, kernel |
 | `guard` | BotID | — |
 
@@ -106,8 +110,9 @@ Chỉ `email/outbox.ts` ghi `email_outbox`, và luôn trên client của transac
 | SMTP (nodemailer) | `lib/server/email/send.ts` / `smtp.ts` *(CI)* |
 | Vercel Blob | `lib/server/media/blob.ts` + presigned flow *(CI)* |
 | BotID | `lib/server/guard/bot.ts` |
+| Vertex AI (AI SDK) | `lib/server/ai/` *(CI)* |
 
-Mỗi cổng có chế độ fake/log cho dev và test (`EMAIL_DELIVERY=log`, fake Blob).
+Mỗi cổng có chế độ fake/log cho dev và test (`EMAIL_DELIVERY=log`, fake Blob, `AI_PROVIDER=fake`).
 
 ### Luật 7 — Migration
 Một DB, schema `public`. Migration mới = `db/migrations/NNN_*.sql` kế tiếp, kèm mục "### Migration NNN" trong README và file `db/checks` nếu cần *(CI)*. Cột cũ chờ xoá thì không đọc nữa *(CI: legacy-columns)*.
@@ -122,6 +127,7 @@ Nội dung khách đọc thuộc CMS: migration chỉ *thêm* (file ảnh mới 
 - Trang khách gọi `await requireEnabledLocale(...)` trước khi đọc gì *(CI)*.
 - Chữ khách nhìn thấy nằm trong registry (`lib/i18n/registry.ts`) hoặc DB, không literal trong component *(CI)*.
 - Truy vấn DOM trong phạm vi trang đang hiện (`usePageRoot()`), không cả document *(CI)*.
+- Lớp phủ khách (`components/overlays/*`, `role="dialog" aria-modal`) đánh dấu chỗ nhận focus bằng `data-autofocus`; `useModalOverlays` trong `components/site/Chrome.tsx` chuyển focus vào khi mở, `inert` phần trang phía sau và trả focus về nút đã mở khi đóng. Lớp phủ mới đặt trong khối overlays của `Chrome`, không tự làm việc này.
 
 ---
 
@@ -147,7 +153,10 @@ Nội dung khách đọc thuộc CMS: migration chỉ *thêm* (file ảnh mới 
 | Mọi key/cột có màn sửa | `test/guards/editing-screens.guard.test.ts` |
 | Migration có runbook | `test/guards/runbook.guard.test.ts` |
 | Không đọc cột cũ | `test/guards/legacy-columns.guard.test.ts` |
-| Admin: `instant = false`, không inline style (CSP) | `lib/admin/admin-pages.guard.test.ts` |
+| Admin: `instant = false`, không inline style (CSP), id không trùng giữa các trang (`<Activity>`), mỗi trang đúng một tiêu đề (`<h1>`/`PageHeader`) | `lib/admin/admin-pages.guard.test.ts` |
+| Admin CSS: màu cảnh báo chỉ là token `--a-warn*`, một class cho form inline | `test/guards/admin-css.guard.test.ts` |
+| AI SDK chỉ trong `lib/server/ai` | `test/guards/ai-imports.guard.test.ts` |
+| Mục nav khách trỏ tới section có anchor | `test/guards/nav-anchors.guard.test.ts` |
 | Truy vấn DOM theo trang | `lib/page-scope.guard.test.ts` |
 | Cron khớp `vercel.json` | `test/guards/vercel-crons.guard.test.ts` |
 

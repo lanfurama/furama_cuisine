@@ -9,6 +9,7 @@ import {
   listLocales,
   listNotes,
   overviewCounts,
+  overviewSnapshot,
 } from '@/lib/server/booking/queries';
 import { listDestinationOptions } from '@/lib/server/content-admin/destinations';
 import { TEST_DATABASE_URL } from '../helpers/db';
@@ -181,6 +182,44 @@ describe.skipIf(!TEST_DATABASE_URL)('reservation inbox (database)', () => {
     await seed({ date: TODAY, guests: 9, status: 'cancelled' });
     await seed({ date: TODAY, guests: 5, status: 'no_show' });
     expect(await overviewCounts(pool, TODAY)).toEqual({ pending: 2, today: 3, todayCovers: 9 });
+  });
+
+  it('overview snapshot: the counts, the next requests of any day, soonest first, and today’s bookings that hold seats, each cut at the limit', async () => {
+    // A request whose sitting has passed still waits for staff, first in line (the inbox's "Cần xử lý").
+    const past = await seed({ date: '2026-10-01', time: '19:00', status: 'requested' });
+    const todayDinner = await seed({ date: TODAY, time: '19:00', status: 'requested' });
+    const todayLunch = await seed({ date: TODAY, time: '12:00', status: 'confirmed' });
+    const todaySeated = await seed({ date: TODAY, time: '18:30', status: 'seated' });
+    await seed({ date: TODAY, time: '11:00', status: 'cancelled' });
+    await seed({ date: TODAY, time: '11:30', status: 'no_show' });
+    // Two on one sitting: the older id first, as in the inbox.
+    const soonA = await seed({ date: '2026-10-03', time: '18:00', status: 'requested' });
+    const soonB = await seed({ date: '2026-10-03', time: '18:00', status: 'requested' });
+    const later = await seed({ date: '2026-10-06', time: '20:00', status: 'requested' });
+    // Another day's confirmed booking: in neither list.
+    await seed({ date: '2026-10-04', status: 'confirmed' });
+    await pool.query('UPDATE reservations SET is_test = true, over_capacity = true WHERE id = $1', [todayLunch]);
+
+    const all = await overviewSnapshot(pool, TODAY, 10);
+    expect(all.pending.map((r) => r.id)).toEqual([past, todayDinner, soonA, soonB, later]);
+    expect(all.today.map((r) => r.id)).toEqual([todayLunch, todaySeated, todayDinner]);
+    expect(all.today[0]).toMatchObject({ date: TODAY, time: '12:00', restaurantName: 'Tàya House', status: 'confirmed', isTest: true, overCapacity: true });
+    expect(all.pending[0]).not.toHaveProperty('cursor');
+    // The page prints "và N khác" as count − shown: the lists are the very sets the counts count.
+    expect(all.counts).toEqual({ ...(await overviewCounts(pool, TODAY)), pending: all.pending.length, today: all.today.length });
+
+    const cut = await overviewSnapshot(pool, TODAY, 2);
+    expect(cut.pending.map((r) => r.id)).toEqual([past, todayDinner]);
+    expect(cut.today.map((r) => r.id)).toEqual([todayLunch, todaySeated]);
+    expect(cut.counts).toMatchObject({ pending: 5, today: 3 });
+
+    await pool.query('TRUNCATE reservations CASCADE');
+    expect(await overviewSnapshot(pool, TODAY, 6)).toEqual({ counts: { pending: 0, today: 0, todayCovers: 0 }, pending: [], today: [] });
+
+    // A failed read rolls back and gives its client back: the pool has no client left in a transaction.
+    await expect(overviewSnapshot(pool, 'not-a-date' as typeof TODAY, 6)).rejects.toThrow();
+    expect(pool.idleCount).toBe(pool.totalCount);
+    expect((await pool.query<{ ok: number }>('SELECT 1 AS ok')).rows).toEqual([{ ok: 1 }]);
   });
 
   it('the day sheet: each service’s slots with the covers held, the bookings that still count, and those outside the hours', async () => {

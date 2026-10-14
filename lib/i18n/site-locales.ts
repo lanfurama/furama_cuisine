@@ -7,16 +7,15 @@ import { DEFAULT_LOCALE } from './locales';
  * LANGUAGE_CATALOG (lib/i18n/catalog.ts), which holds its name, script and
  * BCP 47 spelling.
  *
- * The guest site and the proxy read this list itself. The locales table is
- * its copy, for the content tables' foreign keys and the SQL that picks a
- * language. So, to add, turn on or off or reorder a language: edit the list,
- * run `npm run db:migrate` (scripts/sync-locales.mjs copies it in), then
- * deploy. A language taken off the list is turned off, never deleted: its
+ * The guest site, the proxy and the SQL that picks a language read this list
+ * itself; there is no locales table since migration 011. So, to add, turn on
+ * or off or reorder a language: edit the list and deploy (README, "Before
+ * launch B"). A language taken off the list is turned off, never deleted: its
  * translations stay. A new language starts `enabled: false`: translate its
- * guest emails in the admin (it is listed there and staff can preview it),
- * then turn it on; the copy refuses it before. Guests see reviewed
- * translations only; a missing one falls back to the default language, which
- * is DEFAULT_LOCALE (lib/i18n/locales.ts) too.
+ * content and guest emails in the admin (it is listed there and staff can
+ * preview it), then turn it on. Guests see reviewed translations only; a
+ * missing one falls back to the default language, which is DEFAULT_LOCALE
+ * (lib/i18n/locales.ts) too.
  */
 export type SiteLocaleConfig = { code: string; enabled: boolean; default?: true };
 
@@ -27,7 +26,7 @@ export const SITE_LOCALES: readonly SiteLocaleConfig[] = [
 
 export type SiteLocaleRow = CatalogLanguage & { isDefault: boolean; isEnabled: boolean; sortOrder: number };
 
-/** The locales table as the list says it should be; throws on a list that cannot work. */
+/** The listed languages as rows (catalogue entry, default, on or off, order); throws on a list that cannot work. */
 export function siteLocaleRows(list: readonly SiteLocaleConfig[] = SITE_LOCALES): SiteLocaleRow[] {
   const defaults = list.filter((l) => l.default);
   if (defaults.length !== 1) throw new Error(`SITE_LOCALES: exactly one default language, found ${defaults.length}`);

@@ -94,41 +94,43 @@ export function AffectedList({ items, title }: { items: AffectedItem[]; title: s
       aria-label={title}
     >
       <p className="a-warn">{`${items.length} đặt bàn bị ảnh hưởng. Hệ thống không tự hủy: chọn những đặt bàn cần hủy, ghi lý do rồi bấm Hủy.`}</p>
-      <table className="a-table a-table--compact">
-        <thead>
-          <tr>
-            <th scope="col">Chọn</th>
-            <th scope="col">Mã</th>
-            <th scope="col">Nhà hàng</th>
-            <th scope="col">Ngày giờ</th>
-            <th scope="col">Khách</th>
-            <th scope="col">Liên hệ</th>
-            <th scope="col">Trạng thái</th>
-            <th scope="col">Lý do</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.id}>
-              <td>
-                <input type="checkbox" name="item" value={`${item.id}:${item.version}`} aria-label={`Chọn ${item.reference}`} />
-              </td>
-              <td className="a-ref">
-                <Link href={`/admin/reservations/${item.id}`}>{item.reference}</Link>
-              </td>
-              <td>{item.restaurantName}</td>
-              <td>{`${item.dayLabel} ${item.time}`}</td>
-              <td>{`${item.name} · ${item.guests}`}</td>
-              <td>
-                <a href={telHref(item.phone)}>{item.phone}</a>
-                {item.hasEmail ? null : <span className="a-tag">không có email</span>}
-              </td>
-              <td>{item.statusLabel}</td>
-              <td>{item.why}</td>
+      <div className="a-table-scroll">
+        <table className="a-table a-table--compact">
+          <thead>
+            <tr>
+              <th scope="col">Chọn</th>
+              <th scope="col">Mã</th>
+              <th scope="col">Nhà hàng</th>
+              <th scope="col">Ngày giờ</th>
+              <th scope="col">Khách</th>
+              <th scope="col">Liên hệ</th>
+              <th scope="col">Trạng thái</th>
+              <th scope="col">Lý do</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id}>
+                <td>
+                  <input type="checkbox" name="item" value={`${item.id}:${item.version}`} aria-label={`Chọn ${item.reference}`} />
+                </td>
+                <td className="a-ref">
+                  <Link href={`/admin/reservations/${item.id}`}>{item.reference}</Link>
+                </td>
+                <td>{item.restaurantName}</td>
+                <td>{`${item.dayLabel} ${item.time}`}</td>
+                <td>{`${item.name} · ${item.guests}`}</td>
+                <td>
+                  <a href={telHref(item.phone)}>{item.phone}</a>
+                  {item.hasEmail ? null : <span className="a-tag">không có email</span>}
+                </td>
+                <td>{item.statusLabel}</td>
+                <td>{item.why}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <div className="a-field">
         <label htmlFor={`${uid}-reason`}>Lý do hủy</label>
         <input

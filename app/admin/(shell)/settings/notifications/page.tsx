@@ -57,7 +57,7 @@ export default async function NotificationsPage() {
           Mỗi đặt bàn online gửi tới mọi người nhận khớp với nhà hàng đó (tất cả nhà hàng, điểm đến của nhà hàng, hoặc chính nhà hàng),
           mỗi địa chỉ một email.
         </p>
-        {recipients.length === 0 ? <p className="a-lede">Chưa có người nhận nào.</p> : null}
+        {recipients.length === 0 ? <p className="a-empty">Chưa có người nhận nào.</p> : null}
         {recipients.map((r) => {
           const where =
             r.scope === 'all'

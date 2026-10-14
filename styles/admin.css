@@ -20,7 +20,7 @@
   --a-surface-3: #f0ece4;
   --a-ink: #1b2420;
   --a-ink-soft: #59635e;
-  --a-ink-faint: #8a928d;
+  --a-ink-faint: #68716c;
   --a-line: #e4dfd4;
   --a-line-strong: #cec7b8;
   /* Brand. */
@@ -114,6 +114,32 @@ body.admin {
 .admin :focus-visible {
   outline: 2px solid var(--a-focus);
   outline-offset: 2px;
+}
+
+/* "Bỏ qua đến nội dung chính" (AdminFrame): the first Tab stop, out of sight until it has focus, then over the header and the sidebar. */
+.a-skip {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 50;
+  padding: 10px 16px;
+  border-radius: var(--a-radius-sm);
+  background: var(--a-brand);
+  box-shadow: var(--a-shadow-md);
+  color: var(--a-brand-ink);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(calc(-100% - 16px));
+}
+
+.a-skip:focus {
+  transform: none;
+}
+
+/* The skip link's target: focused by script, so no ring around the whole page. */
+.a-main:focus,
+.a-main:focus-visible {
+  outline: none;
 }
 
 .admin ::selection {
@@ -273,7 +299,7 @@ body.admin {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  opacity: 0.5;
+  opacity: 0.6;
 }
 
 .a-nav ul {
@@ -1183,14 +1209,13 @@ fieldset.a-field legend {
   vertical-align: middle;
 }
 
+/* Column names in the sentence's own case, free to wrap: a long Vietnamese name ("Nguồn · tạo lúc") takes two lines instead of widening the table. */
 .a-table thead th {
   background: var(--a-surface-2);
   color: var(--a-ink-soft);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
+  line-height: 1.3;
 }
 
 .a-table thead th:first-child {
@@ -1201,7 +1226,7 @@ fieldset.a-field legend {
   border-top-right-radius: var(--a-radius);
 }
 
-/* A row header (the language table's kinds): a cell in bold, not the column headers' small capitals. */
+/* A row header (the language table's kinds): a cell in bold, not the column headers' small grey type. */
 .a-table tbody th {
   font-size: 14.5px;
   font-weight: 600;
@@ -1236,8 +1261,10 @@ fieldset.a-field legend {
   vertical-align: top;
 }
 
-/* A wide table scrolls inside its own box on a phone instead of widening the page. */
+/* A wide table scrolls inside its own box on a phone or tablet instead of widening the page. Positioned, so a
+   visually hidden header inside it (position: absolute) is clipped with the table instead of widening the page. */
 .a-table-scroll {
+  position: relative;
   max-width: 100%;
   overflow-x: auto;
   border-radius: var(--a-radius);
@@ -1245,6 +1272,16 @@ fieldset.a-field legend {
 
 .a-table-scroll > .a-table {
   min-width: 640px;
+}
+
+/* In the bookings inbox a tag ("Vượt sức chứa") may take two lines rather than make the table scroll on a laptop. */
+.a-table--stack .a-tag {
+  white-space: normal;
+}
+
+/* A table's own buttons (a periods table's "Thêm ca", "Lưu") sit under it, not on its edge. */
+:is(.a-table, .a-table-scroll) + .a-actions {
+  margin-top: 12px;
 }
 
 /* A cell that holds a thumbnail and a name (the restaurants table). */
@@ -1633,6 +1670,12 @@ fieldset.a-field legend {
   box-shadow: var(--a-shadow-sm);
 }
 
+/* A card keeps its distance from whatever comes before it on the page (a table, a grid of cards, a history line, a
+   row of buttons), not only from another card: two cards in a row still collapse to one 24px gap. */
+.a-main > * + :is(.a-card-row, .a-section-card) {
+  margin-top: 24px;
+}
+
 .a-card-row > :is(h2, h3):first-child,
 .a-section-card > :is(h2, h3):first-child {
   margin-top: 0;
@@ -1718,7 +1761,8 @@ fieldset.a-field legend {
   font-size: 16px;
 }
 
-.a-editor > h2:first-child {
+/* The form's first heading, after its hidden token and id at most: no rule above it. */
+.a-editor > h2:first-of-type {
   margin-top: 0;
   padding-top: 0;
   border-top: 0;
@@ -2082,6 +2126,11 @@ fieldset.a-field legend {
   background: var(--a-surface-3);
 }
 
+/* The card clips what overflows it (overflow: hidden), so the picture's focus ring goes inside its edge. */
+.a-media-card > a:focus-visible {
+  outline-offset: -3px;
+}
+
 .a-media-thumb {
   display: block;
   width: 100%;
@@ -2300,7 +2349,7 @@ fieldset.a-field legend {
   box-shadow: var(--a-shadow-xs);
 }
 
-.a-sheet > h2 {
+.a-main .a-sheet > h2 {
   margin: 0 0 4px;
 }
 
@@ -2322,10 +2371,14 @@ fieldset.a-field legend {
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
   gap: 24px;
   align-items: start;
+  margin: 0 0 24px;
 }
 
+/* The grid's gap spaces its two sides; a card's own margins would only lengthen one of them. */
 .a-split > * {
   min-width: 0;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .a-split > section > h2:first-child,
@@ -2333,7 +2386,7 @@ fieldset.a-field legend {
   margin-top: 0;
 }
 
-.a-affected .a-table {
+.a-affected .a-table-scroll {
   margin-bottom: 12px;
 }
 
@@ -2343,9 +2396,10 @@ fieldset.a-field legend {
 
 /* ---------- Overview (app/admin/(shell)/page.tsx) ---------- */
 
+/* Four figures: one row on a wide screen, two by two below 1180px (never three and a stray one). */
 .a-kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   margin: 0 0 8px;
   padding: 0;
@@ -2452,7 +2506,7 @@ fieldset.a-field legend {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
   align-items: start;
-  margin-top: 24px;
+  margin: 24px 0;
 }
 
 .a-dash-grid > *,
@@ -2561,6 +2615,11 @@ fieldset.a-field legend {
   white-space: nowrap;
 }
 
+/* The booking's code in that line: never broken at its hyphen when the line wraps on a phone, in the line's own size. */
+.a-mini-who .a-ref {
+  font-size: inherit;
+}
+
 .a-mini-list form .a-alert {
   margin: 6px 0 0;
   font-size: 13px;
@@ -2656,6 +2715,7 @@ fieldset.a-field legend {
   position: relative;
   display: grid;
   grid-template-columns: auto 1fr;
+  align-content: start;
   gap: 4px 14px;
   height: 100%;
   padding: 16px 18px;
@@ -2675,8 +2735,10 @@ fieldset.a-field legend {
   transform: translateY(-2px);
 }
 
-.a-tile:focus-within {
-  border-color: var(--a-focus);
+/* The keyboard's focus rings the whole card, like the overview's figures (the link's own ring is turned off below). */
+.a-tile:has(a:focus-visible) {
+  outline: 2px solid var(--a-focus);
+  outline-offset: 2px;
 }
 
 .a-tile-icon {
@@ -2835,8 +2897,14 @@ fieldset.a-field legend {
     --a-gutter: 28px;
   }
 
-  .a-split {
+  /* Beside the sidebar, two columns of the overview's short lists would wrap every name: one under the other. */
+  .a-split,
+  .a-dash-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .a-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -2924,7 +2992,6 @@ fieldset.a-field legend {
     gap: 10px;
   }
 
-  .a-dash-grid,
   .a-columns {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -2947,18 +3014,11 @@ fieldset.a-field legend {
     font-size: 27px;
   }
 
-  /* A section's pages and a list's filters stay on one line and scroll sideways, like an app's tab bar. */
-  .a-subnav,
-  .a-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
+  /* A section's pages and a list's filters wrap onto a second line rather than scroll sideways: the current one
+     stays in sight, and nothing clips its focus ring. Each name stays whole. */
   .a-subnav a,
   .a-tabs a,
   .a-tabs [role='tab'] {
-    flex: none;
     white-space: nowrap;
   }
 
@@ -2997,6 +3057,12 @@ fieldset.a-field legend {
     padding: 0;
   }
 
+  /* A page's main actions may take two lines ("Dịch tất cả phần còn thiếu bằng AI") rather than widen a narrow phone. */
+  .a-pagehead-actions .a-btn {
+    padding-block: 7px;
+    white-space: normal;
+  }
+
   .a-card-row,
   .a-section-card,
   .a-sheet {
@@ -3033,6 +3099,11 @@ fieldset.a-field legend {
 
   .a-kpi-value {
     font-size: 28px;
+  }
+
+  /* The overview's short lists: on a phone the restaurant and the code wrap under the name instead of being cut off. */
+  .a-mini-who small {
+    white-space: normal;
   }
 
   .a-savebar {
@@ -3088,6 +3159,11 @@ fieldset.a-field legend {
     box-shadow: none;
   }
 
+  /* Stacked, the rows fit the screen: their scroll box (wide screens) would only clip the cards' shadows. */
+  .a-table-scroll:has(> .a-table--stack) {
+    overflow: visible;
+  }
+
   .a-table--stack .a-tag {
     margin-left: 0;
   }
@@ -3122,9 +3198,11 @@ fieldset.a-field legend {
     position: relative;
     min-height: 34px;
     padding: 7px 0 7px 104px;
-    border-bottom: 1px solid var(--a-line);
+    border-bottom: 0;
   }
 
+  /* The label is the column's name for the eye; a screen reader already has it from the table (alt text ''). A
+     browser without alt text for generated content keeps the first declaration. */
   .a-table--stack td::before {
     position: absolute;
     top: 9px;
@@ -3133,15 +3211,33 @@ fieldset.a-field legend {
     color: var(--a-ink-faint);
     font-size: 12.5px;
     font-weight: 600;
+    line-height: 1.3;
     content: attr(data-label);
+    content: attr(data-label) / '';
   }
 
-  .a-table--stack tbody tr > td:last-child {
-    border-bottom: 0;
-  }
-
+  /* An empty cell (no action for this booking) is not shown, and leaves no rule behind: a rule only goes between two
+     shown cells, on every card, the last one included. */
   .a-table--stack td:empty {
     display: none;
+  }
+
+  .a-table--stack td:not(:empty) ~ td:not(:empty) {
+    border-top: 1px solid var(--a-line);
+  }
+}
+
+/* A narrow phone: the overview's short lists give the name and the code the full width; the action ("Xác nhận")
+   or the status goes under them, in the same column. */
+@media (max-width: 400px) {
+  .a-mini-list li {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .a-mini-list li > :nth-child(3) {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: 4px;
   }
 }
 
@@ -3159,10 +3255,16 @@ fieldset.a-field legend {
   .a-sidebar,
   .a-header,
   .a-scrim,
+  .a-skip,
   .a-noprint,
   .a-subnav,
   .a-pagehead-actions {
     display: none;
+  }
+
+  /* On paper a wide table is printed whole, not clipped to its on-screen scroll box. */
+  .a-table-scroll {
+    overflow: visible;
   }
 
   .a-main {

@@ -4,8 +4,8 @@ import type { StringKey } from '@/lib/i18n/registry';
 /*
  * Which registry keys each booking email reads (spec §10.4). No server-only
  * import: lib/server/email/booking/render.ts builds the emails from these, and
- * scripts/sync-locales.mjs checks a language's guest emails are translated
- * before it turns the language on.
+ * sends a guest email in a language only when every key it reads has a text
+ * there, the registry's own or a reviewed row (README, "Before launch B").
  */
 
 export type EmailKey = Extract<StringKey, `email.${string}`>;

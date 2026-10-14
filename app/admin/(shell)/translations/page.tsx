@@ -3,8 +3,8 @@ import { getPool } from '@/db/client';
 import { roleCan } from '@/lib/server/auth/permissions';
 import { CONTENT_KINDS, QUEUE_PAGE, coverage, reviewQueue } from '@/lib/server/content-admin/translations';
 import { requirePagePermission } from '@/lib/server/dal/session';
-import { Icon } from '../../_ui/Icon';
-import { PageHeader } from '../../_ui/PageHeader';
+import { Icon } from '../_ui/Icon';
+import { PageHeader } from '../_ui/PageHeader';
 import { ReviewQueue } from './ReviewQueue';
 
 // Request-time like the whole admin (app/admin/layout.tsx); also opts navigations between admin pages out of dev instant validation (instant-navigation.md:568).

@@ -34,4 +34,17 @@ export function navFor(role: StaffRole): NavItem[] {
   return ADMIN_NAV.filter((item) => !item.permission || roleCan(role, item.permission));
 }
 
+/** One heading of the sidebar and its links, as the client's NavLinks draws them (`id` names the heading for its list). */
+export type NavLinkGroup = { id: NavGroup; label: string; items: { href: string; label: string }[] };
+
+/* The sidebar of a role: navFor's items under their headings, in NAV_GROUPS order; a heading with nothing left for the role is dropped. */
+export function navGroupsFor(role: StaffRole): NavLinkGroup[] {
+  const items = navFor(role);
+  return NAV_GROUPS.map((g) => ({
+    id: g.id,
+    label: g.label,
+    items: items.filter((i) => i.group === g.id).map(({ href, label }) => ({ href, label })),
+  })).filter((g) => g.items.length > 0);
+}
+
 export const ROLE_LABELS: Record<StaffRole, string> = { admin: 'Admin', editor: 'Editor' };

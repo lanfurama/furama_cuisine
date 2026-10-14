@@ -66,7 +66,7 @@ export default async function EmailLogPage({ searchParams }: { searchParams: Pro
         ))}
       </nav>
       {rows.length === 0 ? (
-        <p className="a-lede">Không có email nào.</p>
+        <p className="a-empty">Không có email nào.</p>
       ) : (
         <div className="a-table-scroll">
           <table className="a-table">

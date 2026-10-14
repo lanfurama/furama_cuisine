@@ -251,7 +251,7 @@ function Fields({ id, token, values: v, destinations, cuisines, images, pdfs, up
                 <button
                   type="button"
                   className="a-btn a-btn--danger a-btn--small"
-                  aria-label={`Xóa “${h.title.en || 'điểm nổi bật mới'}”`}
+                  aria-label={`Xóa điểm nổi bật “${h.title.en || 'mới'}”`}
                   onClick={() => updateH((prev) => prev.filter((x) => x.key !== h.key))}
                 >
                   Xóa điểm nổi bật

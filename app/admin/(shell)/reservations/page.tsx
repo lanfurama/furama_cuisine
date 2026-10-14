@@ -71,53 +71,59 @@ export default async function ReservationsPage({ searchParams }: { searchParams:
         </nav>
       )}
       {rows.length === 0 ? (
-        <p className="a-lede">Không có đặt bàn nào.</p>
+        <p className="a-empty">Không có đặt bàn nào.</p>
       ) : (
-        <table className="a-table a-table--stack">
-          <thead>
-            <tr>
-              <th scope="col">Mã</th>
-              <th scope="col">Khách</th>
-              <th scope="col">Nhà hàng</th>
-              <th scope="col">Ngày giờ</th>
-              <th scope="col">Số khách</th>
-              <th scope="col">Trạng thái</th>
-              <th scope="col">Nguồn · tạo lúc</th>
-              <th scope="col">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td className="a-ref" data-label="Mã">
-                  <Link href={`/admin/reservations/${r.id}`}>{r.reference}</Link>
-                  {r.isTest ? <span className="a-tag">Test</span> : null}
-                </td>
-                <td data-label="Khách">
-                  {r.name}
-                  <small className="a-sub">{r.phone}</small>
-                </td>
-                <td data-label="Nhà hàng">
-                  {r.restaurantName}
-                  {r.offerTitle ? <small className="a-sub">{`Ưu đãi: ${r.offerTitle}`}</small> : null}
-                </td>
-                <td data-label="Ngày giờ">{`${formatIsoDayVi(r.date)} ${r.time}`}</td>
-                <td data-label="Số khách">
-                  {r.guests}
-                  {r.overCapacity ? <span className="a-tag a-tag--warn">Vượt sức chứa</span> : null}
-                </td>
-                <td data-label="Trạng thái">
-                  <StatusBadge status={r.status} />
-                </td>
-                <td data-label="Nguồn">
-                  {SOURCE_LABELS[r.source] ?? r.source}
-                  <small className="a-sub">{formatDateTimeVi(r.createdAt)}</small>
-                </td>
-                <td data-label="Thao tác">{r.status === 'requested' ? <QuickConfirm id={r.id} version={r.version} reference={r.reference} /> : null}</td>
+        // Below 640px the rows stack as cards; between that and a wide screen the table scrolls in its own box.
+        <div className="a-table-scroll">
+          <table className="a-table a-table--stack">
+            <thead>
+              <tr>
+                <th scope="col">Mã</th>
+                <th scope="col">Khách</th>
+                <th scope="col">Nhà hàng</th>
+                <th scope="col">Ngày giờ</th>
+                <th scope="col">Số khách</th>
+                <th scope="col">Trạng thái</th>
+                <th scope="col">Nguồn · tạo lúc</th>
+                <th scope="col">Thao tác</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td data-label="Mã">
+                    {/* The code never breaks; a "Test" tag may go under it rather than widen the column. */}
+                    <span className="a-ref">
+                      <Link href={`/admin/reservations/${r.id}`}>{r.reference}</Link>
+                    </span>
+                    {r.isTest ? <span className="a-tag">Test</span> : null}
+                  </td>
+                  <td data-label="Khách">
+                    {r.name}
+                    <small className="a-sub">{r.phone}</small>
+                  </td>
+                  <td data-label="Nhà hàng">
+                    {r.restaurantName}
+                    {r.offerTitle ? <small className="a-sub">{`Ưu đãi: ${r.offerTitle}`}</small> : null}
+                  </td>
+                  <td data-label="Ngày giờ">{`${formatIsoDayVi(r.date)} ${r.time}`}</td>
+                  <td data-label="Số khách">
+                    {r.guests}
+                    {r.overCapacity ? <span className="a-tag a-tag--warn">Vượt sức chứa</span> : null}
+                  </td>
+                  <td data-label="Trạng thái">
+                    <StatusBadge status={r.status} />
+                  </td>
+                  <td data-label="Nguồn · tạo lúc">
+                    {SOURCE_LABELS[r.source] ?? r.source}
+                    <small className="a-sub">{formatDateTimeVi(r.createdAt)}</small>
+                  </td>
+                  <td data-label="Thao tác">{r.status === 'requested' ? <QuickConfirm id={r.id} version={r.version} reference={r.reference} /> : null}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       {next || after ? (
         <nav className="a-pager" aria-label="Phân trang">

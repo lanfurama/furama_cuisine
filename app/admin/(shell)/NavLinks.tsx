@@ -2,9 +2,8 @@
 
 import Link, { useLinkStatus } from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Icon, type IconName } from '../_ui/Icon';
-
-export type NavLinkGroup = { label: string; items: { href: string; label: string }[] };
+import type { NavLinkGroup } from '@/lib/admin/nav';
+import { Icon, type IconName } from './_ui/Icon';
 
 const ICONS: Record<string, IconName> = {
   '/admin': 'dashboard',
@@ -31,15 +30,20 @@ function Pending() {
   return <span className={pending ? 'a-nav-pending is-pending' : 'a-nav-pending'} aria-hidden="true" />;
 }
 
-/* Marks the current page; the groups come from the server, already filtered by role (empty ones dropped). */
+/*
+ * Marks the current page; the groups come from the server (navGroupsFor), already filtered by role. Each heading
+ * names its list, so a screen reader's list of lists reads "Vận hành", "Web khách", "Hệ thống".
+ */
 export function NavLinks({ groups }: { groups: NavLinkGroup[] }) {
   const pathname = usePathname();
   return (
     <>
       {groups.map((group) => (
-        <div className="a-nav-group" key={group.label}>
-          <p className="a-nav-heading">{group.label}</p>
-          <ul>
+        <div className="a-nav-group" key={group.id}>
+          <p className="a-nav-heading" id={`nav-group-${group.id}`}>
+            {group.label}
+          </p>
+          <ul aria-labelledby={`nav-group-${group.id}`}>
             {group.items.map((item) => {
               const current = item.href === '/admin' ? pathname === '/admin' : pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (

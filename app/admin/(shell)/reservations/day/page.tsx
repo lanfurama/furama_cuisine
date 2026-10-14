@@ -68,7 +68,7 @@ export default async function DaySheetPage({ searchParams }: { searchParams: Pro
         </Link>
         <PrintButton />
       </form>
-      {sheet.length === 0 ? <p className="a-lede">Không có đặt bàn nào trong ngày.</p> : null}
+      {sheet.length === 0 ? <p className="a-empty">Không có đặt bàn nào trong ngày.</p> : null}
       {sheet.map((r) => (
         <section className="a-sheet" key={r.id} aria-label={r.name}>
           {/* Every booking that holds covers counts, its time still a slot or not: the host seats them all. */}
@@ -106,41 +106,43 @@ const holds = (x: SheetRow) => (HOLDING_STATUSES as readonly string[]).includes(
 /** A service's bookings, or those outside the current hours, with the columns the host reads. */
 function SheetTable({ rows, notes }: { rows: { booking: SheetRow; load: string }[]; notes: Awaited<ReturnType<typeof listNotes>> }) {
   return (
-    <table className="a-table a-table--compact">
-      <thead>
-        <tr>
-          <th scope="col">Giờ</th>
-          <th scope="col">Chỗ</th>
-          <th scope="col">Mã</th>
-          <th scope="col">Khách</th>
-          <th scope="col">Số khách</th>
-          <th scope="col">Trạng thái</th>
-          <th scope="col">Ghi chú</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map(({ booking: x, load }) => (
-          <tr key={x.id}>
-            {/* The time on every row: a printed sheet is read line by line. */}
-            <td>{x.time}</td>
-            <td>{load}</td>
-            <td>
-              <Link href={`/admin/reservations/${x.id}`}>{x.reference}</Link>
-            </td>
-            <td>{`${x.name} · ${x.phone}`}</td>
-            <td>{x.guests}</td>
-            <td>
-              <StatusBadge status={x.status} />
-            </td>
-            <td>
-              {x.note ? <span>{`Khách: ${x.note}`}</span> : null}
-              {(notes.get(x.id) ?? []).map((n) => (
-                <span className="a-sub" key={n.id}>{`Nội bộ: ${n.body}`}</span>
-              ))}
-            </td>
+    <div className="a-table-scroll">
+      <table className="a-table a-table--compact">
+        <thead>
+          <tr>
+            <th scope="col">Giờ</th>
+            <th scope="col">Chỗ</th>
+            <th scope="col">Mã</th>
+            <th scope="col">Khách</th>
+            <th scope="col">Số khách</th>
+            <th scope="col">Trạng thái</th>
+            <th scope="col">Ghi chú</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map(({ booking: x, load }) => (
+            <tr key={x.id}>
+              {/* The time on every row: a printed sheet is read line by line. */}
+              <td>{x.time}</td>
+              <td>{load}</td>
+              <td className="a-ref">
+                <Link href={`/admin/reservations/${x.id}`}>{x.reference}</Link>
+              </td>
+              <td>{`${x.name} · ${x.phone}`}</td>
+              <td>{x.guests}</td>
+              <td>
+                <StatusBadge status={x.status} />
+              </td>
+              <td>
+                {x.note ? <span>{`Khách: ${x.note}`}</span> : null}
+                {(notes.get(x.id) ?? []).map((n) => (
+                  <span className="a-sub" key={n.id}>{`Nội bộ: ${n.body}`}</span>
+                ))}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

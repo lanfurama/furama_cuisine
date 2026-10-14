@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requirePagePermission } from '@/lib/server/dal/session';
-import { Icon, type IconName } from '../../_ui/Icon';
-import { PageHeader } from '../../_ui/PageHeader';
+import { Icon, type IconName } from '../_ui/Icon';
+import { PageHeader } from '../_ui/PageHeader';
 
 // Request-time like the whole admin (app/admin/layout.tsx); also opts navigations between admin pages out of dev instant validation (instant-navigation.md:568).
 export const instant = false;

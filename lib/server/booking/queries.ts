@@ -1,5 +1,6 @@
 import 'server-only';
 import type { Pool } from 'pg';
+import type { Db } from '@/db/client';
 import { findPlannedSlot, planDay, type PlannedPeriod } from '@/lib/booking/resolve-day';
 import { HOLDING_STATUSES, type ReservationStatus } from '@/lib/booking/rules';
 import type { Meal } from '@/lib/data';
@@ -160,9 +161,11 @@ export async function listNotes(pool: Pool, reservationIds: readonly string[]): 
   return out;
 }
 
+export type OverviewCounts = { pending: number; today: number; todayCovers: number };
+
 /** /admin: requests waiting for staff (any date), and today's bookings and covers that hold seats. */
-export async function overviewCounts(pool: Pool, today: IsoDate): Promise<{ pending: number; today: number; todayCovers: number }> {
-  const { rows } = await pool.query<{ pending: number; today: number; todayCovers: number }>(
+export async function overviewCounts(db: Db, today: IsoDate): Promise<OverviewCounts> {
+  const { rows } = await db.query<OverviewCounts>(
     `SELECT (SELECT count(*)::int FROM reservations WHERE status = 'requested') AS pending,
             count(*)::int AS today,
             coalesce(sum(guests), 0)::int AS "todayCovers"
@@ -171,6 +174,49 @@ export async function overviewCounts(pool: Pool, today: IsoDate): Promise<{ pend
     [today, HOLDING_STATUSES],
   );
   return rows[0];
+}
+
+export type OverviewRow = Omit<InboxRow, 'cursor'>;
+
+/**
+ * /admin in one read: overviewCounts, and the first `limit` of each set it counts: the requests of any
+ * date, soonest sitting first (the inbox's "Cần xử lý"), and today's bookings that hold seats, in sitting
+ * order. One client, one REPEATABLE READ snapshot: a booking made meanwhile is in all three or in none, so
+ * the page's "và N khác" (count − shown) never misses or doubles one.
+ */
+export async function overviewSnapshot(
+  pool: Pool,
+  today: IsoDate,
+  limit: number,
+): Promise<{ counts: OverviewCounts; pending: OverviewRow[]; today: OverviewRow[] }> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    const counts = await overviewCounts(client, today);
+    const pending = await client.query<OverviewRow>(
+      `SELECT ${COLUMNS}
+         FROM reservations r JOIN restaurants t ON t.id = r.restaurant_id
+        WHERE r.status = 'requested'
+        ORDER BY r.reserved_on, r.reserved_at, r.id
+        LIMIT $1`,
+      [limit],
+    );
+    const todays = await client.query<OverviewRow>(
+      `SELECT ${COLUMNS}
+         FROM reservations r JOIN restaurants t ON t.id = r.restaurant_id
+        WHERE r.reserved_on = $2::date AND r.status = ANY ($3::text[])
+        ORDER BY r.reserved_at, r.id
+        LIMIT $1`,
+      [limit, today, HOLDING_STATUSES],
+    );
+    await client.query('COMMIT');
+    return { counts, pending: pending.rows, today: todays.rows };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /** Every restaurant, for the pickers of the new-booking and day-sheet screens. */

@@ -72,10 +72,46 @@ describe('admin pages', () => {
     // and aria-describedby, to the hidden input.
     const owners = new Map<string, Set<string>>();
     for (const f of all) {
-      for (const [, id] of readFileSync(f, 'utf8').matchAll(/\bid="([^"]+)"/g)) owners.set(id, (owners.get(id) ?? new Set()).add(f));
+      for (const id of elementIds(readFileSync(f, 'utf8'))) owners.set(id, (owners.get(id) ?? new Set()).add(f));
     }
     const shared = [...owners].filter(([, where]) => where.size > 1);
     expect(shared.map(([id, where]) => `${id}: ${[...where].join(', ')}`)).toEqual([]);
+  });
+
+  it('the id rule: id= and headingId= (HistoryPanel’s <h2 id>), quoted or a fixed {…} string; an interpolated id is per instance', () => {
+    const fixture = [
+      '<h2 id="a">',
+      "<h2 id={'b'}>",
+      '<h2 id={"c"}>',
+      '<h2 id={`d`}>',
+      '<HistoryPanel headingId="e" />',
+      '<HistoryPanel headingId={`f`} />',
+      '<input id={`${uid}-g`} />',
+      '<HistoryPanel headingId={`restaurant-${id}-history`} />',
+      '<label htmlFor="h" />',
+      '<HistoryPanel recordId="i" />',
+      '<Kpi testId="j" />',
+      '<li data-id="k" />',
+    ].join('\n');
+    expect(elementIds(fixture)).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
+  });
+
+  it('every signed-in page has one title: a single <h1> or <PageHeader>, and no other component of the shell writes an <h1>', () => {
+    // The page's own file holds its title, so a component it renders cannot add a second one. The views that
+    // replace a page (error, forbidden, not-found) and PageHeader itself are the only other files with an <h1>.
+    const shell = all.filter((f) => f.startsWith('app/admin/(shell)/') && /\.[jt]sx$/.test(f));
+    const pages = shell.filter((f) => f.endsWith('/page.tsx'));
+    expect(pages.length).toBeGreaterThan(30);
+    const titles = pages.flatMap((f) => {
+      const n = jsxElements(f, readFileSync(f, 'utf8'), ['h1', 'PageHeader']).length;
+      return n === 1 ? [] : [`${relative('.', f)}: ${n} titles`];
+    });
+    expect(titles).toEqual([]);
+    const TITLE_VIEWS = /\/(?:error|forbidden|not-found|PageHeader)\.tsx$/;
+    const strays = shell
+      .filter((f) => !f.endsWith('/page.tsx') && !TITLE_VIEWS.test(f))
+      .flatMap((f) => jsxElements(f, readFileSync(f, 'utf8'), ['h1']).map((line) => `${relative('.', f)}:${line}`));
+    expect(strays).toEqual([]);
   });
 
   it('no inline style attributes', () => {
@@ -195,6 +231,15 @@ describe('admin pages', () => {
 type JsxNode = { type: string; [key: string]: unknown };
 
 /**
+ * The element ids a file writes as fixed strings: id="…", id={'…'}, id={"…"}, id={`…`} without ${…}, and the
+ * same for headingId (HistoryPanel renders it as its <h2 id>). An id built from useId() or a record's id
+ * differs per instance and is left out.
+ */
+function elementIds(src: string): string[] {
+  return [...src.matchAll(/(?<![\w-])(?:id|headingId)=(?:"([^"]+)"|\{\s*(['"`])([^'"`$]+)\2\s*\})/g)].map((m) => m[1] ?? m[3]);
+}
+
+/**
  * Every <form> of a file, by line, and whether it lacks the method="post" it needs.
  * submitKeepingValues (lib/admin/form.ts) submits from onSubmit. Before hydration the browser submits
  * instead, to the form's action, and a form with no method is a GET that puts every field (guest names,
@@ -218,6 +263,16 @@ function checkForms(file: string, src: string): { line: number; lacksPost: boole
     forms.push({ line: lineOf(src, n), lacksPost: needsPost && !posts });
   });
   return forms;
+}
+
+/** The lines of a file's JSX elements with one of these names (<h1>, <PageHeader …>). */
+function jsxElements(file: string, src: string, names: string[]): number[] {
+  const lines: number[] = [];
+  walk(parseSync(file, src).program, (n) => {
+    const name = n.name as JsxNode | undefined;
+    if (n.type === 'JSXOpeningElement' && name?.type === 'JSXIdentifier' && names.includes(name.name as string)) lines.push(lineOf(src, n));
+  });
+  return lines;
 }
 
 /**

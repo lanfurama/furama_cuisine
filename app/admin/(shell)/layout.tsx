@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { NAV_GROUPS, navFor, ROLE_LABELS } from '@/lib/admin/nav';
+import { navGroupsFor, ROLE_LABELS } from '@/lib/admin/nav';
 import { roleCan } from '@/lib/server/auth/permissions';
 import { loadAiFeatures } from '@/lib/server/ai/features';
 import { verifySession } from '@/lib/server/dal/session';
-import { Icon } from '../_ui/Icon';
+import { Icon } from './_ui/Icon';
 import { signOut } from './actions';
 import { AdminFrame } from './AdminFrame';
 import { NavLinks } from './NavLinks';
@@ -25,11 +25,7 @@ function initials(name: string): string {
 export default async function ShellLayout({ children }: { children: React.ReactNode }) {
   const staff = await verifySession();
   const aiFeatures = await loadAiFeatures();
-  const items = navFor(staff.role);
-  const groups = NAV_GROUPS.map((g) => ({
-    label: g.label,
-    items: items.filter((i) => i.group === g.id).map(({ href, label }) => ({ href, label })),
-  })).filter((g) => g.items.length > 0);
+  const groups = navGroupsFor(staff.role);
   const canBook = roleCan(staff.role, { reservations: ['create'] });
 
   return (
@@ -60,7 +56,7 @@ export default async function ShellLayout({ children }: { children: React.ReactN
           {canBook ? (
             <Link className="a-btn a-btn--small a-header-cta" href="/admin/reservations/new">
               <Icon name="plus" size={16} />
-              <span>Đặt bàn mới</span>
+              <span>Tạo đặt bàn</span>
             </Link>
           ) : null}
           <div className="a-user">

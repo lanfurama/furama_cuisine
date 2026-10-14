@@ -81,132 +81,142 @@ export function PeriodsEditor({ restaurantId, token, meals, periods }: { restaur
       <input type="hidden" name="periods" value={JSON.stringify(rows)} />
       <FormMessage state={state} success="Đã lưu ca phục vụ." />
       <FieldError state={state} name="periods" id={`${uid}-periods-error`} />
-      <table className="a-table a-table--compact a-periods">
-        <thead>
-          <tr>
-            <th scope="col">Bữa</th>
-            <th scope="col">Ngày trong tuần</th>
-            <th scope="col">Giờ đầu</th>
-            <th scope="col">Giờ cuối</th>
-            <th scope="col">Cách nhau</th>
-            <th scope="col">Khách mỗi khung giờ</th>
-            <th scope="col">Bật</th>
-            <th scope="col">Thao tác</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => {
-            const meal = field(i, 'meal');
-            const days = field(i, 'weekdays');
-            const first = field(i, 'firstSeating');
-            const last = field(i, 'lastSeating');
-            const interval = field(i, 'intervalMin');
-            const covers = field(i, 'coversPerSlot');
-            return (
-              <tr key={row.id ?? `new-${i}`}>
-                <td>
-                  <select
-                    aria-label={`Bữa của ca ${i + 1}`}
-                    value={row.meal}
-                    onChange={(e) => update(i, { meal: e.currentTarget.value })}
-                    aria-describedby={meal.describedBy}
-                    aria-invalid={meal.invalid}
-                  >
-                    {meals.map((m) => (
-                      <option key={m} value={m}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-                  {meal.error}
-                </td>
-                <td>
-                  <div role="group" aria-label={`Ngày trong tuần của ca ${names[i]}`} aria-describedby={days.describedBy}>
-                    {WEEKDAYS.map(([d, label]) => (
-                      <label className="a-check a-check--day" key={d}>
-                        <input
-                          type="checkbox"
-                          checked={row.weekdays.includes(d)}
-                          onChange={(e) =>
-                            update(i, { weekdays: e.currentTarget.checked ? [...row.weekdays, d].sort((a, b) => a - b) : row.weekdays.filter((x) => x !== d) })
-                          }
-                        />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                  {days.error}
-                </td>
-                <td>
-                  <input
-                    aria-label={`Giờ đầu của ca ${names[i]}`}
-                    type="time"
-                    step={300}
-                    value={row.firstSeating}
-                    onChange={(e) => update(i, { firstSeating: e.currentTarget.value })}
-                    aria-describedby={first.describedBy}
-                    aria-invalid={first.invalid}
-                  />
-                  {first.error}
-                </td>
-                <td>
-                  <input
-                    aria-label={`Giờ cuối của ca ${names[i]}`}
-                    type="time"
-                    step={300}
-                    value={row.lastSeating}
-                    onChange={(e) => update(i, { lastSeating: e.currentTarget.value })}
-                    aria-describedby={last.describedBy}
-                    aria-invalid={last.invalid}
-                  />
-                  {last.error}
-                </td>
-                <td>
-                  <select
-                    aria-label={`Khoảng cách của ca ${names[i]}`}
-                    value={row.intervalMin}
-                    onChange={(e) => update(i, { intervalMin: Number(e.currentTarget.value) })}
-                    aria-describedby={interval.describedBy}
-                    aria-invalid={interval.invalid}
-                  >
-                    {SLOT_INTERVALS.map((n) => (
-                      <option key={n} value={n}>{`${n} phút`}</option>
-                    ))}
-                  </select>
-                  {interval.error}
-                </td>
-                <td>
-                  <input
-                    aria-label={`Sức chứa của ca ${names[i]}`}
-                    type="number"
-                    min={0}
-                    max={1000}
-                    value={row.coversPerSlot}
-                    // Cleared stays cleared: '' until a number is typed (valueAsNumber is NaN for an empty field).
-                    onChange={(e) => update(i, { coversPerSlot: e.currentTarget.value === '' ? '' : e.currentTarget.valueAsNumber })}
-                    aria-describedby={covers.describedBy}
-                    aria-invalid={covers.invalid}
-                  />
-                  {covers.error}
-                </td>
-                <td>
-                  <input aria-label={`Bật ca ${names[i]}`} type="checkbox" checked={row.active} onChange={(e) => update(i, { active: e.currentTarget.checked })} />
-                </td>
-                <td>
-                  <button
-                    className="a-btn a-btn--ghost a-btn--small"
-                    type="button"
-                    aria-label={`Xóa ca ${names[i]}`}
-                    onClick={() => setRows((list) => list.filter((_, j) => j !== i))}
-                  >
-                    Xóa
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      {/* Eight columns of controls: on a phone or tablet the table scrolls in its own box. */}
+      <div className="a-table-scroll">
+        <table className="a-table a-table--compact a-periods">
+          <thead>
+            <tr>
+              <th scope="col">Bữa</th>
+              <th scope="col">Ngày trong tuần</th>
+              <th scope="col">Giờ đầu</th>
+              <th scope="col">Giờ cuối</th>
+              <th scope="col">Cách nhau</th>
+              <th scope="col">Khách mỗi khung giờ</th>
+              <th scope="col">Bật</th>
+              <th scope="col">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => {
+              const meal = field(i, 'meal');
+              const days = field(i, 'weekdays');
+              const first = field(i, 'firstSeating');
+              const last = field(i, 'lastSeating');
+              const interval = field(i, 'intervalMin');
+              const covers = field(i, 'coversPerSlot');
+              return (
+                <tr key={row.id ?? `new-${i}`}>
+                  <td>
+                    <select
+                      aria-label={`Bữa của ca ${i + 1}`}
+                      value={row.meal}
+                      onChange={(e) => update(i, { meal: e.currentTarget.value })}
+                      aria-describedby={meal.describedBy}
+                      aria-invalid={meal.invalid}
+                    >
+                      {meals.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                    {meal.error}
+                  </td>
+                  <td>
+                    <div role="group" aria-label={`Ngày trong tuần của ca ${names[i]}`} aria-describedby={days.describedBy}>
+                      {WEEKDAYS.map(([d, label]) => (
+                        <label className="a-check a-check--day" key={d}>
+                          <input
+                            type="checkbox"
+                            checked={row.weekdays.includes(d)}
+                            onChange={(e) =>
+                              update(i, {
+                                weekdays: e.currentTarget.checked ? [...row.weekdays, d].sort((a, b) => a - b) : row.weekdays.filter((x) => x !== d),
+                              })
+                            }
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                    {days.error}
+                  </td>
+                  <td>
+                    <input
+                      aria-label={`Giờ đầu của ca ${names[i]}`}
+                      type="time"
+                      step={300}
+                      value={row.firstSeating}
+                      onChange={(e) => update(i, { firstSeating: e.currentTarget.value })}
+                      aria-describedby={first.describedBy}
+                      aria-invalid={first.invalid}
+                    />
+                    {first.error}
+                  </td>
+                  <td>
+                    <input
+                      aria-label={`Giờ cuối của ca ${names[i]}`}
+                      type="time"
+                      step={300}
+                      value={row.lastSeating}
+                      onChange={(e) => update(i, { lastSeating: e.currentTarget.value })}
+                      aria-describedby={last.describedBy}
+                      aria-invalid={last.invalid}
+                    />
+                    {last.error}
+                  </td>
+                  <td>
+                    <select
+                      aria-label={`Khoảng cách của ca ${names[i]}`}
+                      value={row.intervalMin}
+                      onChange={(e) => update(i, { intervalMin: Number(e.currentTarget.value) })}
+                      aria-describedby={interval.describedBy}
+                      aria-invalid={interval.invalid}
+                    >
+                      {SLOT_INTERVALS.map((n) => (
+                        <option key={n} value={n}>{`${n} phút`}</option>
+                      ))}
+                    </select>
+                    {interval.error}
+                  </td>
+                  <td>
+                    <input
+                      aria-label={`Sức chứa của ca ${names[i]}`}
+                      type="number"
+                      min={0}
+                      max={1000}
+                      value={row.coversPerSlot}
+                      // Cleared stays cleared: '' until a number is typed (valueAsNumber is NaN for an empty field).
+                      onChange={(e) => update(i, { coversPerSlot: e.currentTarget.value === '' ? '' : e.currentTarget.valueAsNumber })}
+                      aria-describedby={covers.describedBy}
+                      aria-invalid={covers.invalid}
+                    />
+                    {covers.error}
+                  </td>
+                  <td>
+                    <input
+                      aria-label={`Bật ca ${names[i]}`}
+                      type="checkbox"
+                      checked={row.active}
+                      onChange={(e) => update(i, { active: e.currentTarget.checked })}
+                    />
+                  </td>
+                  <td>
+                    <button
+                      className="a-btn a-btn--ghost a-btn--small"
+                      type="button"
+                      aria-label={`Xóa ca ${names[i]}`}
+                      onClick={() => setRows((list) => list.filter((_, j) => j !== i))}
+                    >
+                      Xóa
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       <div className="a-actions">
         <button className="a-btn a-btn--ghost" type="button" onClick={() => setRows((list) => [...list, newPeriod(list, meals)])}>
           Thêm ca
