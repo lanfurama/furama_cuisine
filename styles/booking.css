@@ -63,6 +63,11 @@
   box-shadow: 0 24px 60px rgba(20, 32, 28, 0.22);
 }
 
+/* While one of its lists is open the bar rises above the phone's tab bar (z-index 60), which would cut the list. */
+.booking:has(.dd-panel) {
+  z-index: 70;
+}
+
 .booking-submit {
   min-height: 60px;
   padding: 0 28px;
@@ -92,9 +97,24 @@
   }
 }
 
+@media (max-width: 359px) {
+  .booking-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Tablets: the destination and the restaurant (the long names) share a row, date, time and party the next. */
 @media (min-width: 760px) {
   .booking-fields {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .booking-fields > * {
+    grid-column: span 2;
+  }
+
+  .booking-fields > :nth-child(-n + 2) {
+    grid-column: span 3;
   }
 }
 
@@ -107,6 +127,11 @@
     grid-template-columns:
       minmax(0, 1.35fr) minmax(0, 1.1fr) minmax(0, 1fr)
       minmax(0, 0.75fr) minmax(0, 0.85fr);
+  }
+
+  .booking-fields > *,
+  .booking-fields > :nth-child(-n + 2) {
+    grid-column: auto;
   }
 
   .booking-submit {

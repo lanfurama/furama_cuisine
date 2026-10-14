@@ -116,7 +116,8 @@ export function RestaurantHero({ detail }: { detail: RestaurantDetail }) {
               {detail.kicker}
             </div>
           )}
-          <div className="taya-title-m">
+          {/* The phone's visible title; the page's <h1> is the copy's, visually hidden there (styles/detail.css). */}
+          <div className="taya-title-m" aria-hidden="true">
             <span className="line-mask">
               <span data-intro="1" data-intro-kind="line">
                 {detail.name}

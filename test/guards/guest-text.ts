@@ -89,11 +89,20 @@ export const NON_TEXT_ATTRIBUTES = new Set([
   'allow',
   'sandbox',
   'referrerPolicy',
+  // An inline SVG's geometry and paint (components/ui/Ornament.tsx): path data and keywords, never shown.
+  'd',
+  'viewBox',
+  'fill',
+  'stroke',
+  'strokeLinecap',
+  'strokeLinejoin',
+  'transform',
   // Component props that take an enum value, never words.
   'view',
   'variant',
   'kind',
   'tone',
+  'reveal',
 ]);
 
 const SOURCE = /\.(?:[cm]?[jt]s|[jt]sx)$/;

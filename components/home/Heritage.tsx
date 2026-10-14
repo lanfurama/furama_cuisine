@@ -3,6 +3,7 @@
 import type { Copy } from '@/lib/i18n/registry';
 import { useSite } from '@/components/site/SiteProvider';
 import { CmsImage } from '@/components/ui/CmsImage';
+import { FriezeDivider } from '@/components/ui/Ornament';
 import { useReveal } from '@/lib/motion';
 
 /**
@@ -12,6 +13,7 @@ import { useReveal } from '@/lib/motion';
 export function Heritage({ copy }: { copy: Copy<'heritage'> }) {
   const { site } = useSite();
   const { image, link } = site.sections.heritage;
+  const ornament = useReveal<HTMLSpanElement>('fade');
   const kicker = useReveal<HTMLDivElement>('fade');
   const title = useReveal<HTMLHeadingElement>('title');
   const cta = useReveal<HTMLAnchorElement>('up');
@@ -34,6 +36,7 @@ export function Heritage({ copy }: { copy: Copy<'heritage'> }) {
       <div className="heritage-scrim" aria-hidden="true" />
 
       <div className="heritage-body">
+        <FriezeDivider ref={ornament} reveal="fade" className="heritage-orn" />
         <div ref={kicker} data-reveal="fade" className="heritage-kicker">
           {copy['heritage.kicker']}
         </div>

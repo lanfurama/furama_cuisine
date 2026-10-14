@@ -728,7 +728,8 @@ export const REGISTRY = {
   // ── Hero (spec §7.2 content/hero): the home page reads them on the server and hands them to the hero (page props);
   // the same three title lines name the page from a hidden <h1> when the hero is left out (phase-6 F-A, L7-16) ──
   'hero.kicker': {
-    en: 'People · Culture · Great Food',
+    // The name Furama gives its dining (furamavietnam.com/culinary/: "Furama Culinary World").
+    en: 'Furama Culinary World',
     maxLength: 48,
     context: 'Home page, small line above the hero title, over the photo. One line on a phone.',
     screen: 'hero',
@@ -1250,18 +1251,19 @@ export const REGISTRY = {
   },
   // ── Footer and the phone menu's foot: client components of the chrome (CLIENT_KEYS); the contact screen ──
   'footer.tagline': {
-    en: 'PEOPLE | CULTURE | GREAT FOOD',
+    // furamavietnam.com: "Culinary Heritage Resort in Danang", established in 1997.
+    en: 'CULINARY HERITAGE | DA NANG | SINCE 1997',
     maxLength: 60,
     context: 'The line under the FURAMA CUISINE wordmark in the footer, and at the foot of the phone menu. Capitals, three short parts.',
     screen: 'contact',
     label: 'Khẩu hiệu (chân trang, cuối menu điện thoại)',
   },
   'footer.member': {
-    en: 'A MEMBER OF FURAMA',
+    en: 'BY FURAMA RESORT DANANG',
     maxLength: 40,
-    context: 'The small line at the right of the footer’s top band, under the social links. Capitals.',
+    context: 'The small line at the right of the footer’s top band, under the social links: who runs the restaurants. Capitals.',
     screen: 'contact',
-    label: 'Dòng “thành viên của Furama” (chân trang)',
+    label: 'Dòng “thuộc Furama” (chân trang)',
   },
   'social.facebook': {
     en: 'FACEBOOK',
@@ -1357,7 +1359,7 @@ export const REGISTRY = {
     label: 'Tiêu đề khi chia sẻ link trang chủ',
   },
   'seo.og_description': {
-    en: 'People · Culture · Great Food — dining across Furama’s Da Nang destinations.',
+    en: 'Furama Culinary World — the restaurants of Furama Resort Danang, Furama Dining House and the Furama Culinary Hub in Da Nang.',
     maxLength: 200,
     context: 'The description a shared link to the home page shows under its title (og:description).',
     screen: 'seo',

@@ -19,6 +19,8 @@
 .hero {
   position: relative;
   height: 600px;
+  /* A short phone keeps FIND A RESTAURANT above the fixed tab bar (76px). */
+  height: clamp(460px, calc(100svh - 76px), 600px);
   overflow: hidden;
   background: var(--green-deep);
   color: var(--on-dark);
@@ -89,9 +91,9 @@
     background:
       linear-gradient(
         90deg,
-        rgba(12, 18, 15, 0.62) 0%,
-        rgba(12, 18, 15, 0.34) 38%,
-        rgba(12, 18, 15, 0) 66%
+        rgba(12, 18, 15, 0.7) 0%,
+        rgba(12, 18, 15, 0.46) 40%,
+        rgba(12, 18, 15, 0) 70%
       ),
       linear-gradient(
         180deg,
@@ -314,25 +316,49 @@
 
 /* ── Finder ──────────────────────────────────────────────────────────────── */
 
+/* A white card on the cream; under the hero it rides over the hero's foot, which leaves room for it (below). */
 .finder {
   position: relative;
   z-index: 6;
-  background: var(--white);
   display: none;
+  padding-top: 24px;
+  background: var(--cream);
+}
+
+.hero ~ .finder {
+  margin-top: calc(-1 * var(--finder-lift));
+  padding-top: 0;
+  background: linear-gradient(180deg, transparent var(--finder-lift), var(--cream) var(--finder-lift));
 }
 
 @media (min-width: 760px) {
   .finder {
     display: block;
   }
+
+  .hero:has(~ .finder) .hero-content {
+    padding-bottom: calc(clamp(36px, 3.8vw, 54px) + var(--finder-lift));
+  }
 }
 
 .finder-inner {
-  padding-block: 24px;
+  position: relative;
+  padding: 14px 14px 14px clamp(20px, 2.2vw, 32px);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 16px 32px;
   align-items: center;
+  background: var(--white);
+  border-top: 2px solid var(--gold);
+  box-shadow: 0 24px 60px rgba(20, 32, 28, 0.14);
+}
+
+/* A hairline between the fields, where they sit in one row. */
+@media (min-width: 1080px) {
+  .finder-fields > .dd + .dd {
+    padding-left: 24px;
+    border-left: 1px solid var(--line);
+  }
 }
 
 .finder-fields {
@@ -343,7 +369,7 @@
 }
 
 .finder-submit {
-  height: clamp(64px, 6.9vw, 100px);
+  height: clamp(64px, 6.2vw, 88px);
   padding: 0 32px;
 }
 
@@ -366,10 +392,10 @@
 
 .cuisine-rail {
   margin: clamp(28px, 4vw, 56px) calc(-1 * var(--gutter)) 0;
-  padding: 6px var(--gutter) 8px;
+  padding: 10px var(--gutter) 8px;
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(104px, 1fr);
+  grid-auto-columns: minmax(112px, 1fr);
   gap: 24px;
   overflow-x: auto;
   scrollbar-width: none;
@@ -385,20 +411,49 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 22px;
   scroll-snap-align: start;
 }
 
 .cuisine-ring {
-  width: 80px;
-  height: 80px;
+  position: relative;
+  width: var(--cuisine-size);
+  height: var(--cuisine-size);
   border-radius: 50%;
-  box-shadow: 0 0 0 3px rgba(247, 242, 232, 0), 0 0 0 4px rgba(31, 61, 52, 0);
+  background: var(--sand);
+  box-shadow: 0 0 0 4px var(--cream), 0 0 0 5px rgba(31, 61, 52, 0);
   transition: box-shadow 0.3s ease, transform 0.45s var(--ease-soft);
+  --cuisine-size: 84px;
+}
+
+@media (min-width: 760px) {
+  .cuisine-ring {
+    --cuisine-size: 104px;
+  }
+}
+
+/* The plate's rim: a gold hairline just outside the picture, closing in on hover. */
+.cuisine-ring::after {
+  content: '';
+  position: absolute;
+  inset: -9px;
+  border-radius: 50%;
+  border: 1px solid rgba(198, 166, 100, 0.55);
+  transition: inset 0.45s var(--ease-soft), border-color 0.3s ease;
+  pointer-events: none;
+}
+
+.cuisine:hover .cuisine-ring::after {
+  inset: -6px;
+  border-color: var(--gold);
 }
 
 .cuisine-ring[data-selected='true'] {
-  box-shadow: 0 0 0 3px var(--cream), 0 0 0 4px var(--green);
+  box-shadow: 0 0 0 4px var(--cream), 0 0 0 5px var(--green);
+}
+
+.cuisine-ring[data-selected='true']::after {
+  border-color: transparent;
 }
 
 .cuisine:hover .cuisine-ring {
@@ -406,14 +461,16 @@
 }
 
 .cuisine-img {
-  width: 80px;
-  height: 80px;
+  display: block;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   object-fit: cover;
 }
 
 .cuisine-label {
-  font-size: 13px;
+  font-family: var(--serif);
+  font-size: 17px;
   line-height: 1.2;
   white-space: nowrap;
   color: var(--ink);
@@ -423,6 +480,10 @@
 .cuisine-label[data-selected='true'] {
   color: var(--green);
   font-weight: 600;
+}
+
+.cuisine:hover .cuisine-label {
+  color: var(--gold-deep);
 }
 
 /* ── Restaurant grid ─────────────────────────────────────────────────────── */
@@ -484,9 +545,21 @@
 .restaurant-grid {
   margin-top: clamp(28px, 3.4vw, 48px);
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(max(150px, calc((100% - 80px) / 6)), 1fr));
-  column-gap: 16px;
-  row-gap: clamp(32px, 3.6vw, 52px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(14px, 1.7vw, 24px);
+  row-gap: clamp(32px, 3.6vw, 56px);
+}
+
+@media (min-width: 760px) {
+  .restaurant-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1080px) {
+  .restaurant-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .rcard {
@@ -494,6 +567,12 @@
   flex-direction: column;
   min-width: 0;
   text-align: left;
+  /* A card with a page is a link (RestaurantCard): keep the button's colours, not the links'. */
+  color: var(--ink);
+}
+
+a.rcard:hover {
+  color: var(--ink);
 }
 
 .rcard[hidden] {
@@ -532,11 +611,11 @@
 
 .rcard-tag {
   position: absolute;
-  left: 10px;
-  bottom: 10px;
-  padding: 7px 10px;
+  left: 12px;
+  bottom: 12px;
+  padding: 8px 12px;
   background: rgba(247, 242, 232, 0.95);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -544,7 +623,7 @@
   /* One line in English; a longer translation wraps inside the card instead
      of being clipped by the frame (phase 8: the 1.3x check of
      e2e/i18n-overflow.serial.spec.ts), and a word longer than the card breaks. */
-  max-width: calc(100% - 20px);
+  max-width: calc(100% - 24px);
   overflow-wrap: anywhere;
   pointer-events: none;
   opacity: 0;
@@ -568,17 +647,22 @@
 }
 
 .rcard-name {
-  margin-top: 14px;
+  margin-top: 16px;
   font-family: var(--serif);
-  font-size: clamp(18px, 1.4vw, 20px);
+  font-size: clamp(19px, 1.6vw, 23px);
   font-weight: 500;
   line-height: 1.25;
   color: var(--ink);
+  transition: color 0.25s;
+}
+
+.rcard:not([aria-disabled='true']):hover .rcard-name {
+  color: var(--green);
 }
 
 .rcard-type {
-  margin-top: 7px;
-  font-size: 10px;
+  margin-top: 8px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -728,10 +812,41 @@
   pointer-events: none;
   background: linear-gradient(
     180deg,
+    rgba(20, 32, 28, 0.62) 0%,
+    rgba(20, 32, 28, 0.25) 12%,
+    rgba(30, 58, 49, 0) 24%,
     rgba(30, 58, 49, 0) 40%,
     rgba(30, 58, 49, 0.7) 68%,
     var(--green-card) 100%
   );
+}
+
+/* A gold hairline inset from the card's edge: faint at rest, drawn in on hover. */
+.dest-frame {
+  position: absolute;
+  inset: 12px;
+  border: 1px solid rgba(198, 166, 100, 0.28);
+  pointer-events: none;
+  transition: inset 0.6s var(--ease-soft), border-color 0.4s ease;
+}
+
+.dest-hit:hover .dest-frame,
+.dest-hit:focus-visible .dest-frame {
+  inset: 16px;
+  border-color: rgba(198, 166, 100, 0.8);
+}
+
+.dest-index {
+  position: absolute;
+  top: clamp(26px, 2.4vw, 34px);
+  left: clamp(20px, 1.95vw, 28px);
+  font-family: var(--serif);
+  font-size: 16px;
+  font-style: italic;
+  letter-spacing: 0.08em;
+  color: var(--on-dark);
+  pointer-events: none;
+  text-shadow: 0 1px 12px rgba(12, 18, 15, 0.5);
 }
 
 .dest-copy {
@@ -764,7 +879,7 @@
 .dest-count {
   display: block;
   margin-top: 18px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -900,6 +1015,17 @@
   );
 }
 
+/* A double gold hairline inset from the edges, the border of a lacquer panel. */
+.heritage::after {
+  content: '';
+  position: absolute;
+  inset: clamp(14px, 1.8vw, 26px);
+  border: 1px solid rgba(198, 166, 100, 0.42);
+  outline: 1px solid rgba(198, 166, 100, 0.2);
+  outline-offset: -7px;
+  pointer-events: none;
+}
+
 .heritage-body {
   position: absolute;
   inset: 0;
@@ -998,8 +1124,8 @@
 }
 
 .story-kicker {
-  margin-top: 16px;
-  font-size: 10px;
+  margin-top: 18px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -1031,22 +1157,40 @@
 }
 
 .offer {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: clamp(28px, 2.8vw, 40px) clamp(24px, 2.2vw, 32px) clamp(24px, 2.4vw, 34px);
+  padding: clamp(32px, 3vw, 44px) clamp(24px, 2.4vw, 36px) clamp(24px, 2.4vw, 34px);
   background: var(--cream);
   border: 1px solid var(--line-warm);
-  transition: box-shadow 0.6s ease, border-color 0.4s ease;
+  transition: box-shadow 0.6s ease, border-color 0.4s ease, transform 0.6s var(--ease-soft);
+}
+
+/* The card's gold head rule, which runs the full width on hover. */
+.offer::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 56px;
+  height: 2px;
+  background: var(--gold);
+  transition: width 0.6s var(--ease-soft);
 }
 
 .offer:hover {
-  box-shadow: 0 18px 40px rgba(20, 32, 28, 0.07);
+  box-shadow: 0 22px 48px rgba(20, 32, 28, 0.09);
   border-color: var(--gold);
+  transform: translateY(-3px);
+}
+
+.offer:hover::before {
+  width: calc(100% + 2px);
 }
 
 .offer-venue {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -1063,15 +1207,19 @@
 }
 
 .offer-detail {
-  margin-top: 12px;
-  font-size: 12px;
-  line-height: 1.5;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-warm);
+  align-self: stretch;
+  font-size: 13px;
+  line-height: 1.6;
   color: var(--ink-offer);
+  margin-bottom: 8px;
 }
 
 .offer-cta {
   /* A 44px touch area; the margins keep the layout of the old 6px padding. */
-  margin-top: 5px;
+  margin-top: auto;
   margin-bottom: -9px;
   padding: 15px 0;
   display: flex;

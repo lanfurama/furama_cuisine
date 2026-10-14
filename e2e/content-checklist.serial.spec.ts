@@ -202,7 +202,7 @@ test('2.2–2.4 header, phone menu and tab bar', async () => {
     { row: 6, item: 'aria Main / Language / Open menu', key: 'ui.nav_aria' },
     navRow(7, 'menu labels (same rows as nav)', 'stories', 'Stories'),
     { row: 8, item: 'Search, RESERVE A TABLE (menu)', key: 'ui.search_link' },
-    { row: 9, item: 'tagline PEOPLE | CULTURE | GREAT FOOD', key: 'footer.tagline' },
+    { row: 9, item: 'tagline CULINARY HERITAGE | DA NANG | SINCE 1997', key: 'footer.tagline' },
     { row: 10, item: 'aria Menu / Close menu / Sections', key: 'ui.close_menu' },
     { row: 11, item: 'EXPLORE / RESTAURANTS / RESERVE', key: 'ui.tab_explore' },
     { row: 12, item: 'CALL / MAP / MENU, aria Restaurant actions', key: 'detail.call', path: TAYA },
@@ -525,7 +525,7 @@ test('2.13–2.16 offers, booking bar, drawer, search', async () => {
 
 test('2.17 footer', async ({ browser }) => {
   await walk([
-    { row: 63, item: 'tagline, A MEMBER OF FURAMA', key: 'footer.member' },
+    { row: 63, item: 'tagline, BY FURAMA RESORT DANANG', key: 'footer.member' },
     {
       row: 64,
       item: 'socials (href, order, publish, locales); platform labels',

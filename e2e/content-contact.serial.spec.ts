@@ -1,4 +1,5 @@
 import type { Browser, Page } from '@playwright/test';
+import { REGISTRY } from '../lib/i18n/registry';
 import { expectHydrated, watchCsp } from './csp';
 import { HOME_PATH } from './paths';
 import { STAFF, expect, one, openOnPhone, seedStaff, signInAs, test } from './staff-fixtures';
@@ -114,7 +115,7 @@ test('the footer’s tagline is a footer.* key: an edit reaches the footer and t
   const phone = await guest(browser, 390);
   try {
     await visitor.goto(HOME_PATH);
-    await expect(visitor.locator('.footer-tagline')).toHaveText('PEOPLE | CULTURE | GREAT FOOD');
+    await expect(visitor.locator('.footer-tagline')).toHaveText(REGISTRY['footer.tagline'].en);
     await signInAs(page, STAFF.editor);
     await page.goto('/admin/content/contact');
     await expectHydrated(page);
@@ -150,7 +151,7 @@ test('the footer’s tagline is a footer.* key: an edit reaches the footer and t
         },
         { timeout: 10_000 },
       )
-      .toBe('PEOPLE | CULTURE | GREAT FOOD');
+      .toBe(REGISTRY['footer.tagline'].en);
     expect(await one(`SELECT 1 FROM content_strings WHERE key = 'footer.tagline'`)).toBeUndefined();
   } finally {
     await visitor.context().close();

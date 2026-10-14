@@ -6,6 +6,7 @@ import { dayReason, slotOpen } from '@/lib/booking/client';
 import { formatMessage } from '@/lib/i18n/format';
 import { useSite } from '@/components/site/SiteProvider';
 import { Dropdown, type Option } from '@/components/ui/Dropdown';
+import { FriezeDivider } from '@/components/ui/Ornament';
 import { BookingError } from '@/components/booking/WithPhone';
 import { useReveal } from '@/lib/motion';
 
@@ -13,6 +14,7 @@ import { useReveal } from '@/lib/motion';
 export function BookingBar() {
   const { site, bookable, booking, setBooking, board, openReserve, days, maxParty, groupPhone, now, strings, loadFailed, locale } = useSite();
   const title = useReveal<HTMLHeadingElement>('title');
+  const ornament = useReveal<HTMLSpanElement>('fade');
   const panel = useReveal<HTMLDivElement>('up');
 
   // No board during the server render, so no clock read either.
@@ -60,11 +62,13 @@ export function BookingBar() {
       : [{ value: booking.guests, label: guestLabel(booking.guests) }];
 
   return (
-    <section id="reserve" className="booking">
+    <section id="reserve" className="booking motif-lattice">
+      <span className="band-waves booking-waves" aria-hidden="true" />
       <div className="shell">
         <h2 ref={title} data-reveal="title" className="booking-title">
           {strings['booking.title']}
         </h2>
+        <FriezeDivider ref={ornament} reveal="fade" className="booking-orn" />
 
         <div ref={panel} data-reveal="up" className="booking-panel">
           <div className="booking-fields">

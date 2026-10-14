@@ -23,7 +23,7 @@ export function Experiences({ items, copy }: { items: Experience[]; copy: Copy<'
         {image && <CmsImage media={image} width={image.width} height={image.height} sizes="(max-width: 759px) 100vw, 50vw" className="fill" />}
       </div>
 
-      <div className="experiences-body">
+      <div className="experiences-body motif-lattice">
         <div ref={kicker} data-reveal="fade" className="eyebrow">
           {copy['experiences.eyebrow']}
         </div>

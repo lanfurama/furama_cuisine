@@ -1,0 +1,130 @@
+/*
+ * Ornaments (components/ui/Ornament.tsx) and the background motifs, each
+ * from a source tied to Furama or to Da Nang (scratchpad research, 2026-10-14):
+ *
+ * - Hồi văn, the key fret: the border of Furama's own emblem
+ *   (furamavietnam.com/wp-content/uploads/2024/07/Furama-Resort-Danang-Logo.svg).
+ *   A band of it tops the footer.
+ * - The lozenges and four-petalled flowers of the Mỹ Sơn E1 pedestal, a
+ *   National Treasure in the Museum of Cham Sculpture, Da Nang ("alternated
+ *   patterns of lozenges and four-petaled flowers"): the divider under a
+ *   centred title, an offer card's flower, and the lattice behind the dark
+ *   green sections. Furama Resort "draws inspiration from the local Champa
+ *   culture" (danangfantasticity.com, Da Nang's tourism portal).
+ * - Sóng nước, water waves: the same portal names "motifs inspired by ocean
+ *   waves" in the resort's interiors. A band of them runs along the top of
+ *   the booking bar. The wave's exact drawing is ours.
+ */
+
+:root {
+  --motif-lattice: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='24' viewBox='0 0 32 24' fill='none' stroke='%23c6a664' stroke-width='1' stroke-linejoin='round'%3E%3Cpath d='M0 12L16 0L32 12L16 24Z'/%3E%3Cpath transform='translate(16 12)' d='M-1.86 -1.86A2 2 0 1 1 1.86 -1.86A2 2 0 1 1 1.86 1.86A2 2 0 1 1 -1.86 1.86A2 2 0 1 1 -1.86 -1.86Z'/%3E%3Cpath transform='translate(0 0)' d='M-1.86 -1.86A2 2 0 1 1 1.86 -1.86A2 2 0 1 1 1.86 1.86A2 2 0 1 1 -1.86 1.86A2 2 0 1 1 -1.86 -1.86Z'/%3E%3Cpath transform='translate(32 0)' d='M-1.86 -1.86A2 2 0 1 1 1.86 -1.86A2 2 0 1 1 1.86 1.86A2 2 0 1 1 -1.86 1.86A2 2 0 1 1 -1.86 -1.86Z'/%3E%3Cpath transform='translate(0 24)' d='M-1.86 -1.86A2 2 0 1 1 1.86 -1.86A2 2 0 1 1 1.86 1.86A2 2 0 1 1 -1.86 1.86A2 2 0 1 1 -1.86 -1.86Z'/%3E%3Cpath transform='translate(32 24)' d='M-1.86 -1.86A2 2 0 1 1 1.86 -1.86A2 2 0 1 1 1.86 1.86A2 2 0 1 1 -1.86 1.86A2 2 0 1 1 -1.86 -1.86Z'/%3E%3C/svg%3E");
+  --motif-fret: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='25' viewBox='0 0 16 25' fill='none' stroke='%23c6a664' stroke-width='1'%3E%3Cpath d='M0 .5H16M0 3.5H16M0 21.5H16M0 24.5H16'/%3E%3Cpath stroke-linecap='square' d='M.5 18.5V6.5H12.5V14.5H8.5V10.5H4.5V18.5H16.5'/%3E%3C/svg%3E");
+  --motif-waves: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='24' viewBox='0 0 48 24' fill='none' stroke='%23c6a664' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='translate(0 -10)'%3E%3Cpath d='M0 28C8 28 12 18 21 18C28 18 32 22 30.5 26C29.5 28.5 25.5 28.5 25 25.5C24.6 23.3 27.4 22.4 28.3 24.4M30.5 26C33 28 38 28 48 28'/%3E%3Cpath d='M13 23.8C15.5 22 17.8 21 20.6 21C24 21 26.6 22.2 27.3 23.3'/%3E%3Cpath d='M34 23.6C36 18 39.5 14 44.5 14C49.5 14 52 17 50.8 20C50 22 47 22 46.6 19.8C46.3 18.1 48.4 17.4 49.1 18.9'/%3E%3Cpath transform='translate(-48 0)' d='M34 23.6C36 18 39.5 14 44.5 14C49.5 14 52 17 50.8 20C50 22 47 22 46.6 19.8C46.3 18.1 48.4 17.4 49.1 18.9'/%3E%3C/g%3E%3Cpath d='M0 21.5H48'/%3E%3C/svg%3E");
+}
+
+/* ── The frieze divider ──────────────────────────────────────────────────── */
+
+.orn-divider {
+  display: flex;
+  justify-content: center;
+  color: var(--gold);
+}
+
+.orn-divider svg {
+  display: block;
+  width: clamp(220px, 21vw, 300px);
+  height: auto;
+}
+
+/* ── The Mỹ Sơn lattice behind a dark section ───────────────────────────── */
+
+/* The section gets `motif-lattice`; the lattice sits under its content and fades out towards its middle. */
+.motif-lattice {
+  position: relative;
+  isolation: isolate;
+}
+
+.motif-lattice::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--motif-lattice);
+  background-size: 32px 24px;
+  background-position: center top;
+  opacity: 0.11;
+  mask-image: radial-gradient(ellipse 75% 85% at 50% 50%, transparent 30%, #000 100%);
+}
+
+/* ── Bands: the key fret, the waves ──────────────────────────────────────── */
+
+.band-fret,
+.band-waves {
+  display: block;
+  height: 25px;
+  background-repeat: repeat-x;
+  background-position: center;
+  pointer-events: none;
+}
+
+.band-fret {
+  background-image: var(--motif-fret);
+  opacity: 0.55;
+}
+
+.band-waves {
+  height: 24px;
+  background-image: var(--motif-waves);
+  opacity: 0.4;
+}
+
+/* ── Where the dividers sit ──────────────────────────────────────────────── */
+
+.section-orn {
+  margin-top: clamp(18px, 1.8vw, 24px);
+}
+
+/* Over a photograph: the heritage banner's, above its kicker. */
+.heritage-orn {
+  margin-bottom: 22px;
+}
+
+.booking-orn {
+  margin-top: clamp(18px, 1.8vw, 24px);
+}
+
+/* An offer card's flower, faint in its top corner. */
+.offer-mark {
+  position: absolute;
+  top: clamp(24px, 2.4vw, 32px);
+  right: clamp(22px, 2.2vw, 30px);
+  width: 22px;
+  height: auto;
+  color: var(--gold);
+  opacity: 0.6;
+  transition: opacity 0.4s ease;
+}
+
+.offer:hover .offer-mark {
+  opacity: 1;
+}
+
+/* The waves run along the top edge of the booking bar, above its title. */
+.booking-waves {
+  position: absolute;
+  top: clamp(18px, 2vw, 28px);
+  left: 0;
+  right: 0;
+}
+
+/* A destination card with no photograph (the "Future Locations" teaser): the lattice instead. */
+.dest-card:not(:has(.dest-img))::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--motif-lattice);
+  background-size: 32px 24px;
+  opacity: 0.16;
+  mask-image: linear-gradient(180deg, #000 0%, transparent 75%);
+}

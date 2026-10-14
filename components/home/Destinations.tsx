@@ -5,6 +5,7 @@ import { formatMessage } from '@/lib/i18n/format';
 import type { Copy } from '@/lib/i18n/registry';
 import { journeyStops } from '@/lib/journey';
 import { CmsImage } from '@/components/ui/CmsImage';
+import { FriezeDivider } from '@/components/ui/Ornament';
 import { useSite } from '@/components/site/SiteProvider';
 import { useReveal } from '@/lib/motion';
 
@@ -14,6 +15,7 @@ export function Destinations({ copy }: { copy: Copy<'destinations'> }) {
   // destinations and destination_i18n: the venues, then the teaser ("Future Locations"), which is not a link.
   const cards = site.destinations;
   const title = useReveal<HTMLHeadingElement>('title');
+  const ornament = useReveal<HTMLSpanElement>('fade');
   const lede = useReveal<HTMLParagraphElement>('up');
   const journey = useReveal<HTMLDivElement>('journey');
   const { inset, stops } = journeyStops(cards.length);
@@ -25,6 +27,7 @@ export function Destinations({ copy }: { copy: Copy<'destinations'> }) {
           <h2 ref={title} data-reveal="title" className="section-title">
             {copy['destinations.title']}
           </h2>
+          <FriezeDivider ref={ornament} reveal="fade" className="section-orn" />
           <p ref={lede} data-reveal="up" className="section-lede">
             {copy['destinations.lede']}
           </p>
@@ -39,10 +42,11 @@ export function Destinations({ copy }: { copy: Copy<'destinations'> }) {
         </div>
 
         <div className="dest-rail">
-          {cards.map((card) => (
+          {cards.map((card, i) => (
             <DestCard
               key={card.id}
               card={card}
+              index={i + 1}
               count={
                 card.kind === 'teaser'
                   ? strings['common.coming_soon']
@@ -59,10 +63,13 @@ export function Destinations({ copy }: { copy: Copy<'destinations'> }) {
 
 function DestCard({
   card,
+  index,
   count,
   onPick,
 }: {
   card: Destination;
+  /** The card's place in the row, drawn as "01", "02"…: the order staff gave the destinations. */
+  index: number;
   count: string;
   onPick?: () => void;
 }) {
@@ -75,6 +82,10 @@ function DestCard({
         {card.image && <CmsImage media={card.image} decorative fill sizes="(max-width: 759px) 76vw, 308px" className="dest-img" />}
       </span>
       <span className="dest-scrim" aria-hidden="true" />
+      <span className="dest-frame" aria-hidden="true" />
+      <span className="dest-index" aria-hidden="true">
+        {String(index).padStart(2, '0')}
+      </span>
       <span className="dest-copy">
         <span className="dest-title">
           {card.cardTitle[0]}

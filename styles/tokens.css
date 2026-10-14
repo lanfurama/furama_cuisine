@@ -64,6 +64,8 @@
   --header-h: 96px;
   --header-h-solid: 76px;
   --header-h-compact: 64px;
+  /* How far the home finder's card rides up over the hero (styles/home.css). */
+  --finder-lift: clamp(44px, 4.4vw, 64px);
 
   /* Easing */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);

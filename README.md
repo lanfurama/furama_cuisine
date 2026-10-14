@@ -44,7 +44,7 @@ printed to the terminal). Create your Admin with `scripts/create-admin.mjs`
 | `npm test` | Unit tests (Vitest, process timezone pinned to UTC) |
 | `TEST_DATABASE_URL=postgres://localhost:5432/furama_cuisine_test npm test` | Unit and integration tests. The database is dropped and recreated on every run, and its name must end in `_test`. |
 | `npm run test:e2e` | Playwright against `next start` on port 3100 (or `E2E_PORT`). Set `CI`, a local `_test` `DATABASE_URL`, `EMAIL_DELIVERY=log`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL=http://localhost:<port>`, `EMAIL_LOG_FILE`, `CRON_SECRET` and `FAKE_BLOB_SECRET` (variables below), and blank the keys `.env.local` may carry, as the commands below do, or set `E2E_BASE_URL` for a server you started; otherwise it refuses to run, because `next dev` and `next start` read `.env.local`. Playwright starts a fake Vercel Blob server first (`test/helpers/fake-blob-cli.mjs`, port 3102 or `FAKE_BLOB_PORT`) and gives only the app its token. Run `npx playwright install chromium` once first. |
-| `npm run test:visual` | Pixel-exact screenshots of the home and Tàya House pages, with and without JavaScript, against `e2e/__visual__/` (macOS baselines from before phase 2; CI skips them). Needs a running `next start`, see below. |
+| `npm run test:visual` | Pixel-exact screenshots of the home and Tàya House pages, with and without JavaScript, against `e2e/__visual__/` (macOS baselines of the 2026-10-14 redesign, on the seeded database; CI skips them). Needs a running `next start`, see below. |
 | `npm run lint` | oxlint (typescript-eslint does not support TypeScript 7) |
 
 CI (`.github/workflows/ci.yml`) runs typecheck, lint, unit, integration,
@@ -177,9 +177,10 @@ and the BotID run below.
 `restaurant-pages.serial.spec.ts` checks phase 6's (§14.1 row 6): switching
 `has_detail_page` on for Steakhouse The Fan opens a working page, read from
 the database, after one admin save, and switching it off closes it again.
-The other half, "the site is identical", is the visual baselines: they have
-not changed since before phase 2, and every page they shoot now reads the
-database (a changed row turns them red).
+The other half, "the site is identical", was the visual baselines: they did
+not change from before phase 2 until the 2026-10-14 redesign (taken again
+then, on the database the migrations seed), and every page they shoot reads
+the database (a changed row turns them red).
 
 `e2e/botid.spec.ts` walks BotID's blocked path. Off Vercel nobody can judge a
 request, so it is skipped unless the server runs with `BOTID_DEV_BYPASS=BAD-BOT`
@@ -770,6 +771,158 @@ $furama_012$;
 
 **Rollback:** leave 012 in place (earlier code ignores it) and roll back the
 deployment only.
+
+### Migration 013 (official photographs)
+
+`013_official_photos.sql` adds 37 photographs to `public/assets` as static
+`media` rows: Furama's own pictures from furamavietnam.com and
+furamadining.com, each named with its source page in
+`db/content-packs/2026-10-official-photos.json`. They replace the design
+canvas's renditions, many of which were tiny (45 to 194 px wide) or were not
+photographs of Furama. Each row is measured from its file, and every file
+that is not decorative gets English alt text. It only adds, in one
+transaction, and is safe to run again.
+
+Nothing points at the new rows after 013. The guest site keeps its pictures
+until the content pack (see "Content packs") repoints them. Two of them are
+cards for restaurants staff have still to add in the admin ("Thêm nhà
+hàng"): `r-steak-house-the-fan-resort.jpg` for Steak House The Fan, the
+resort's beachfront steakhouse, and `r-the-fan-mm.jpg` for Steakhouse The
+Fan at MM Supercenter Đà Nẵng.
+
+**Deploy first, then 013, then the pack.** The files ship with the deploy.
+013 only adds rows, so both the old code and the new code run on a database
+with or without it.
+
+- **Apply:** `DATABASE_URL_UNPOOLED=<production's direct URL> node scripts/migrate.mjs`
+  (it prints `✓ 013_official_photos.sql`).
+- **Post-check**, read-only:
+  `psql "<production's direct URL>" -v ON_ERROR_STOP=1 -f db/checks/postcheck-013.sql`.
+  Every row must be `t`.
+- **Optional, Blob:** if production's phase-6 files were already moved to
+  Blob, the 37 new rows are `static`. `scripts/move-assets-to-blob.mjs` moves
+  them the same way; its dry run now counts them.
+
+**Rollback:** leave 013 in place; rows that nothing points at change nothing
+a guest sees. To undo the pictures, use the content pack's History (each
+item's "Khôi phục bản trước lần này").
+
+### Content packs
+
+A content pack is a reviewed JSON file of edits to the content the migrations
+seeded: pictures pointed at other files of the library, a column of an item's
+row, an English text. `scripts/apply-content-pack.mjs` applies it through
+`applyContentPack` (`lib/server/content-admin/content-pack.ts`) as if an
+editor had saved each item: one transaction, the editors' own locks, and one
+`audit_log` row per item it changed, holding the item before and after as its
+History reads it (a highlight is part of its restaurant, as on the
+restaurant's screen). The actor is `script:apply-content-pack`, which History
+shows as the author.
+
+**It never overwrites a staff edit.** Every change names the value it
+expects (`from`), and applies only while the item still holds it:
+
+- a picture still pointing at the seeded file: `/assets/<file>`, or the same
+  file after `scripts/move-assets-to-blob.mjs` moved it (`production/assets/<file>`).
+  A file staff uploaded is never the seed's, even under the same name;
+- a column still holding `from`;
+- an English text still the seed's: origin `seed` (nobody saved it in the
+  admin) and value `from`. It stays a seed row; the other languages then show
+  "EN đã đổi" in /admin/translations until someone reviews them.
+
+Anything else is skipped and printed with the reason. So a second run skips
+what the first applied, and the script is safe to run again.
+
+The format (ids are text, digits for the lists with numeric ids):
+
+```json
+{
+  "id": "2026-10-official-photos",
+  "changes": [
+    { "kind": "image", "entity": "restaurants", "id": "danaksara", "column": "card_image_id",
+      "from": "/assets/r-danaksara.jpg", "to": "/assets/r-danaksara-terrace.jpg" },
+    { "kind": "row", "entity": "stories", "id": "4", "column": "published_on", "from": null, "to": "2026-08-30" },
+    { "kind": "text", "entity": "restaurants", "id": "chaoshan-hotpot", "column": "type_label",
+      "from": "Chinese Hotpot", "to": "Chinese Hotpot · MM" }
+  ]
+}
+```
+
+- `image`: `to` is the pathname of a live picture of the library (not in the
+  trash, not a PDF), or its moved copy in Blob. A new file is registered by a
+  migration first (migration 013 for Furama's photographs); the change is
+  skipped until it is.
+  `to: null` takes an optional picture away (a destination's card, which then
+  shows the lattice, or a restaurant's share picture); every other picture
+  can only be replaced.
+- `row`: `from` and `to` as Postgres prints the column as text (a date
+  `2026-08-30`, a price `888000.00`, a switch `true`); `null` is empty.
+- `text`: the English row's column; `to` is never empty.
+- `null` for `from` means "still empty".
+
+What a pack may change is what the item's screen saves and History restores,
+less what those screens check rules for (`packErrors` refuses anything else):
+
+| `entity` | `image` | `row` | `text` (English) |
+| --- | --- | --- | --- |
+| `restaurants` | `card_image_id`, `detail_image_id`, `og_image_id` | `name` (the card's alt follows while it was the old name, R19), `phone_e164`, `phone_display`, `map_url` | `type_label`, `detail_kicker`, `story_label`, `story`, `highlights_title`, `menu_pdf_url`, `seo_title`, `seo_description` |
+| `restaurant_highlights` | `image_id` | — | `title`, `detail` |
+| `destinations` | `card_image_id` | `phone_e164`, `phone_display`, `email`, `map_url`, `show_in_footer` | `name`, `card_title_1`, `card_title_2`, `card_blurb_1`, `card_blurb_2`, `address` |
+| `cuisines` | `image_id` | — | `label` |
+| `experiences` | — | `link_url` | `title`, `blurb` |
+| `stories` | `image_id` | `href`, `published_on` | `category`, `title`, `href` |
+| `offers` | — | `price_amount`, `currency`, `price_basis`, `valid_from`, `valid_until` | `title`, `schedule`, `venue_override` |
+| `hero_slides` | `image_id`, `image_mobile_id` | — | — |
+| `sections` (id: the key) | `image_id` | `link_url` | — |
+
+Never by a pack: show/hide, archive, order, a destination's kind, where an
+item belongs (a restaurant's destination, an offer's restaurant), a
+restaurant's slug and page switch: their screens apply the rules (limits,
+the first slide's crop, a page's portrait and story).
+
+Run it like the Blob move: the database explicitly (never from a `.env`
+file), production's direct URL as `DATABASE_URL_UNPOOLED`, and check the host
+on the first line (`DRY RUN: database <host>/<database>`) before going on.
+
+```bash
+# 1. Dry run: the whole pack in a transaction that is rolled back. Each change prints
+#    "applied" or "skipped (<why>)"; the last line is "Dry run: nothing changed."
+DATABASE_URL_UNPOOLED=<production's direct URL> node scripts/apply-content-pack.mjs db/content-packs/<pack>.json
+# 2. Apply: the same, committed, with one audit row per item.
+DATABASE_URL_UNPOOLED=<…> node scripts/apply-content-pack.mjs db/content-packs/<pack>.json --apply
+# 3. Redeploy, so cached guest pages pick up the changes (the script cannot expire the cache).
+```
+
+A pack may also carry `periods`: a restaurant's whole list of booking
+periods, `{ "restaurant", "from": [...], "to": [...] }`, each period as the
+"Giờ và sức chứa" editor saves it (`meal`, `weekdays` 1 = Monday … 7 =
+Sunday, `firstSeating`, `lastSeating`, `intervalMin`, `coversPerSlot`,
+`active`). The booking module applies it (`applyPackPeriods`,
+`lib/server/booking/config.ts`) only while the list is still exactly `from`,
+under the editor's overlap rule, with one `service_periods` History row; it
+runs after the changes, in a transaction of its own.
+
+An invalid pack (an unknown list, a column a pack may not change, a picture
+into a column that holds no file, an id of the wrong type) is refused whole
+before anything is read, and a value the database refuses (a CHECK) rolls the
+whole run back: either way the script exits 1 and nothing changed.
+
+To undo one item, open its History in the admin and use "Khôi phục bản trước
+lần này" on the row by `script:apply-content-pack`; to undo the pack, do that
+for each of its rows (`SELECT entity_type, entity_id FROM audit_log WHERE
+actor_email = 'script:apply-content-pack'`). A restore is a normal save, so it
+also expires the guest pages' cache.
+
+The first pack, `db/content-packs/2026-10-official-photos.json`, puts
+migration 013's photographs in place of the design canvas's (hero, sections,
+cuisines, restaurant cards, the Tàya House page, destinations, stories),
+corrects the words checked against furamavietnam.com and furamadining.com on
+2026-10-14 (type labels, the MM destination, Experiences, stories, offers'
+schedules and their 31/12/2026 end, ChaoShan Hotpot's name), gives WATCH THE
+FILM Furama's own video, and aligns three restaurants' online booking with
+their published hours (Tàya House: the 11:00 and 14:00 classes; V-Senses
+Cafe: no weekends, last seating 20:00; Phố Cuốn: from 09:00). Its `facts`
+and `sources` name the page behind each change. Apply it after 013.
 
 ### Media in Vercel Blob (phase 7A)
 
@@ -1483,7 +1636,9 @@ turns the whole system off.
 
 ## Assets
 
-`public/assets/` holds the design's 39 photographs. `scripts/extract-assets.py`
+`public/assets/` holds the design's 39 photographs (migration 008) and 37 of
+Furama's own (migration 013, sources in
+`db/content-packs/2026-10-official-photos.json`). `scripts/extract-assets.py`
 re-derives them from the DesignSync reads in a session transcript and is
 idempotent. Each has a `media` row (migration 008) with its type, pixel size
 and byte count, which `node scripts/measure-assets.mjs` prints as the
@@ -1515,4 +1670,5 @@ reference so future design revisions can be diffed against what was built.
 | `npm run db:psql`    | psql shell against Neon        |
 | `node scripts/fetch-script-fonts.mjs [--force]` | Noto Sans KR, SC and JP from Google Fonts into `public/fonts/` (not committed), for Korean, Chinese and Japanese pages only (spec §8 `SCRIPT_FONTS`, `lib/fonts/scripts.ts`). It runs before every `npm run build`. Files already there are kept unless `--force`. If the fetch fails, the build still runs: those pages use the systems' own CJK fonts, and the script prints a warning |
 | `node scripts/measure-assets.mjs` | The `media` rows of `public/assets` (migration 008's `VALUES`) |
+| `node scripts/apply-content-pack.mjs <pack.json> [--apply]` | Applies a reviewed content pack to the seeded content, never over a staff edit ("Content packs") |
 | `node scripts/move-assets-to-blob.mjs --prefix production [--apply]` | Copies the static `media` files into the Blob store and repoints their rows, once, for production only ("Media in Vercel Blob") |

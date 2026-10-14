@@ -15,7 +15,7 @@ describe('the guest site’s metadata (spec §7.2 content/seo, L7-13)', () => {
       description: 'From beachfront dining to vibrant city destinations – discover the restaurants, cuisines and people of Furama Cuisine in Da Nang.',
       openGraph: {
         title: 'Furama Cuisine',
-        description: 'People · Culture · Great Food — dining across Furama’s Da Nang destinations.',
+        description: 'Furama Culinary World — the restaurants of Furama Resort Danang, Furama Dining House and the Furama Culinary Hub in Da Nang.',
         type: 'website',
       },
     });

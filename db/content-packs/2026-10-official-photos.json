@@ -1,0 +1,997 @@
+{
+  "id": "2026-10-official-photos",
+  "note": "Furama's own photographs (migration 013) in place of the design canvas's, and the words checked against furamavietnam.com and furamadining.com on 2026-10-14. Each picture's source is under sources.",
+  "facts": {
+    "Café Indochine type": "https://furamavietnam.com/culinary/ (cuisine: Fusion; \"a mixture of European, Indian and Asian cuisine\")",
+    "Danaksara, V-Senses Cafe at Furama Villas": "https://furamavietnam.com/culinary/ ; https://furamavietnam.com/v-senses-cafe-a-vietnamese-home-style-spot-in-the-green-garden-of-furama-villas-da-nang/",
+    "Yum Food Village, Chao Shan Beef Hotpot (3F), Furama Culinary Hub at MM Supercenter Đà Nẵng, 167 Nguyễn Sinh Sắc": "furamavietnam.com posts on the MM Supercenter outlets (research 2026-10-14)",
+    "Furama Dining House address": "https://www.furamadining.com/ (JSON-LD: 73 Trần Bạch Đằng, An Thượng, Ngũ Hành Sơn, Đà Nẵng)",
+    "Tàya House classes and hours": "https://furamavietnam.com/culinary/ ; https://furamavietnam.com/exclusive-offers/cooking-class-at-taya-house/ (\"Only from VND 799,000++ /guest (2-7 guests)\")",
+    "Vietnamese Culture": "https://furamavietnam.com/recreations/vietnamese-culture/",
+    "Afternoon tea hours": "https://furamavietnam.com/exclusive-offers/afternoon-tea-dessert-buffet/ (daily 14:30–17:00)",
+    "Offers valid until 31/12/2026": "https://furamavietnam.com/culinary/ (every offer card: \"From now until 31/12/2026\")",
+    "Story titles and dates": "the articles at each story's link (furamadining.com 3, 5, 9 Sep 2026; furamavietnam.com 26 Dec 2025)",
+    "The film": "https://www.youtube.com/watch?v=Z-KXpE8hahg (\"Welcome to Furama Resort Danang\", 7 Aug 2025, on the official channel youtube.com/@furamaresortvietnam, linked from furamavietnam.com)",
+    "Chao Shan Beef Hotpot": "Furama's posts on the MM Supercenter outlets: \"Chao Shan Beef Hotpot\" (Google Maps: \"Lẩu bò Chao Shan\"), a Teochew-style fresh-beef hotpot on the 3rd floor",
+    "Tàya House online booking: the cooking classes only": "https://furamavietnam.com/culinary/ (Vietnamese Cooking class 11:00 or 14:00 daily; dinner \"open upon request for cooking classes and private events\")",
+    "V-Senses Cafe: no reservations at weekends, open 06:30–21:00": "https://furamavietnam.com/v-senses-cafe-a-vietnamese-home-style-spot-in-the-green-garden-of-furama-villas-da-nang/ ; https://furamavietnam.com/culinary/",
+    "Phố Cuốn opens at 09:00": "https://www.furamadining.com/gioi-thieu (FAQ: 09:00–23:00); furamadining.com/nha-hang/bep-cuon"
+  },
+  "sources": {
+    "/assets/chef-cafe-indochine-teppanyaki.jpg": {
+      "page": "https://furamavietnam.com/exclusive-offers/seafood-steak-buffet-dinner/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2025/07/6-scaled.jpg"
+    },
+    "/assets/cuisine-cafe-lounge-tea.jpg": {
+      "page": "https://furamavietnam.com/exclusive-offers/afternoon-tea-dessert-buffet/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2025/02/Afternoon-Tea-copy-2.jpg"
+    },
+    "/assets/cuisine-hotpot-chao-shan.jpg": {
+      "page": "https://furamavietnam.com/finding-a-great-beef-hotpot-spot-in-hoa-khanh-an-ideal-weekend-gathering-place/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/07/1.2.jpg"
+    },
+    "/assets/cuisine-international-buffet.jpg": {
+      "page": "https://furamavietnam.com/culinary/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2025/05/CAFE-INDOCHINE-Furama-Resort-Danang-04.jpg"
+    },
+    "/assets/cuisine-italian-pizza.jpg": {
+      "page": "https://furamavietnam.com/culinary/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2025/10/RETOUCH-426-scaled.jpg"
+    },
+    "/assets/cuisine-japanese-dish.jpg": {
+      "page": "https://furamavietnam.com/furama-dining-house-officially-opens-a-new-highlight-on-an-thuongs-culinary-map/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/09/801641715_122117351925370257_132435575673934294_n.jpg"
+    },
+    "/assets/cuisine-steak-grill-dinner.jpg": {
+      "page": "https://furamavietnam.com/tu-nui-rung-den-dong-bang-hanh-trinh-gin-giu-net-truyen-thong-viet-nam-qua-ba-can-nha-tai-furama-resort-da-nang/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/09/RETOUCH-448-scaled.jpg"
+    },
+    "/assets/cuisine-thai-dish.jpg": {
+      "page": "https://www.furamadining.com/diem-den/tin/thai-siam-kitchen-nha-hang-thai-an-thuong-da-nang",
+      "image": "https://res.cloudinary.com/bdvyo3g2/image/upload/v1789713778/furama_dining_house/blog/thai-siam/pad-thai.webp"
+    },
+    "/assets/cuisine-vietnamese-bun.jpg": {
+      "page": "https://furamavietnam.com/v-senses-cafe-a-vietnamese-home-style-spot-in-the-green-garden-of-furama-villas-da-nang/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/08/Retouch-5-2-scaled.jpg"
+    },
+    "/assets/dest-dining-house-facade.jpg": {
+      "page": "https://www.furamadining.com/diem-den/tin/ban-giao-huong-dem-song-han-khi-kinh-te-dem-va-khu-phuc-hop-am-thuc-dinh-hinh-lai-du-lich-da-nang",
+      "image": "https://res.cloudinary.com/bdvyo3g2/image/upload/v1789714150/furama_dining_house/cms/site-media/news/img-wu6im3uu.jpg"
+    },
+    "/assets/dest-mm-food-court.jpg": {
+      "page": "https://furamavietnam.com/what-to-eat-in-hoa-khanh-discover-the-korean-food-stalls-at-yum-food-village-da-nang/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/06/retouch-091.jpg"
+    },
+    "/assets/dest-resort-lobby-blue-hour.jpg": {
+      "page": "https://furamavietnam.com/the-resort/gallery/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2024/07/Furama-Resort-Da-Nang-Vietnam-Exterior-03.jpg"
+    },
+    "/assets/film-resort-beach.jpg": {
+      "page": "https://furamavietnam.com/the-resort/gallery/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2024/07/Furama-Resort-Da-Nang-Vietnam-Exterior-12.jpg"
+    },
+    "/assets/heritage-resort-lobby-dusk.jpg": {
+      "page": "https://furamavietnam.com/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/05/The-Furama-Heritage-Journey-Package-Hoi-An-01.jpg"
+    },
+    "/assets/hero-cafe-indochine-show-kitchen.jpg": {
+      "page": "https://furamavietnam.com/exclusive-offers/seafood-steak-buffet-dinner/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2025/07/7.1-scaled.jpg"
+    },
+    "/assets/hero-resort-courtyard-sunset-m.jpg": {
+      "page": "https://furamavietnam.com/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/05/Furama-Resort-Danang.jpg"
+    },
+    "/assets/hero-resort-courtyard-sunset.jpg": {
+      "page": "https://furamavietnam.com/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/05/Furama-Resort-Danang.jpg"
+    },
+    "/assets/hero-taya-house-dusk.jpg": {
+      "page": "https://furamavietnam.com/tu-nui-rung-den-dong-bang-hanh-trinh-gin-giu-net-truyen-thong-viet-nam-qua-ba-can-nha-tai-furama-resort-da-nang/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/09/DSC09966-scaled.jpg"
+    },
+    "/assets/r-cafe-indochine-seafood-buffet.jpg": {
+      "page": "https://furamavietnam.com/culinary/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2025/05/CAFE-INDOCHINE-Furama-Resort-Danang-04.jpg"
+    },
+    "/assets/r-chaoshan-beef-hotpot-mm.jpg": {
+      "page": "https://furamavietnam.com/chao-shan-beef-hot-pot-a-5-star-fresh-beef-hot-pot-for-the-whole-family-at-mm-lien-chieu/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/06/647542749_122115334491197744_1908764447861091041_n.jpg"
+    },
+    "/assets/r-danaksara-dining-room.jpg": {
+      "page": "https://furamavietnam.com/culinary/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2025/05/Danaksara-Furama-Resort-Danang-01.jpg"
+    },
+    "/assets/r-hai-van-lounge-bar.jpg": {
+      "page": "https://furamavietnam.com/culinary/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2025/07/hai-van-lounge-scaled.jpg"
+    },
+    "/assets/r-hura-izakaya-dining-house.jpg": {
+      "page": "https://furamavietnam.com/furama-dining-house-officially-opens-a-new-highlight-on-an-thuongs-culinary-map/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/09/797795647_122120799855308274_6765522882455484216_n.jpg"
+    },
+    "/assets/r-pho-cuon-dining-house.jpg": {
+      "page": "https://furamavietnam.com/furama-dining-house-a-four-story-culinary-journey-in-the-heart-of-da-nang/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/08/PC.png"
+    },
+    "/assets/r-steak-house-the-fan-resort.jpg": {
+      "page": "https://furamavietnam.com/accommodation-demand-for-vietnams-national-day-holiday-on-september-2nd-begins-to-rise-where-to-stay-in-da-nang/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/07/DSC0624-scaled.jpg"
+    },
+    "/assets/r-taya-house-dusk.jpg": {
+      "page": "https://furamavietnam.com/tu-nui-rung-den-dong-bang-hanh-trinh-gin-giu-net-truyen-thong-viet-nam-qua-ba-can-nha-tai-furama-resort-da-nang/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/09/DSC09966-scaled.jpg"
+    },
+    "/assets/r-thai-siam-kitchen-dining-house.jpg": {
+      "page": "https://furamavietnam.com/furama-dining-house-a-four-story-culinary-journey-in-the-heart-of-da-nang/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/08/TS.jpg"
+    },
+    "/assets/r-the-fan-dining-house.jpg": {
+      "page": "https://www.furamadining.com/diem-den/tin/steakhouse-the-fan-khai-truong-an-thuong-da-nang",
+      "image": "https://res.cloudinary.com/bdvyo3g2/image/upload/v1789714237/furama_dining_house/cms/site-media/news/the-fan-image2.jpg"
+    },
+    "/assets/r-the-fan-mm.jpg": {
+      "page": "https://furamavietnam.com/an-ideal-venue-for-company-parties-in-hoa-khanh-da-nang/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/07/DSC6785.jpg"
+    },
+    "/assets/r-v-senses-cafe-heritage-house.jpg": {
+      "page": "https://furamavietnam.com/v-senses-cafe-a-vietnamese-home-style-spot-in-the-green-garden-of-furama-villas-da-nang/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/08/P-11-scaled.jpg"
+    },
+    "/assets/r-yum-food-village-mm.jpg": {
+      "page": "https://furamavietnam.com/a-nutritious-lunch-with-the-claypot-rice-menu-at-yum-food-village-mm-supercenter-da-nang/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/07/MM-Market-18.jpg"
+    },
+    "/assets/story-dining-house-grand-opening.jpg": {
+      "page": "https://www.furamadining.com/diem-den/tin/furama-dining-house-grand-opening-mot-ngoi-nha-bon-huong-vi-giua-long-an-thuong",
+      "image": "https://res.cloudinary.com/bdvyo3g2/image/upload/v1789714299/furama_dining_house/cms/site-media/content/img-4xuibfbp.png"
+    },
+    "/assets/story-seafood-steak-buffet-gala.jpg": {
+      "page": "https://furamavietnam.com/a-premium-central-vietnam-seafood-steak-buffet-gala-a-culinary-masterpiece-at-furama-resort-danang/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2025/12/anh-bia.jpg"
+    },
+    "/assets/story-thai-siam-journey.jpg": {
+      "page": "https://www.furamadining.com/diem-den/tin/thai-siam-kitchen-tu-mot-can-bep-thai-den-nhip-cau-am-thuc-va-van-hoa-viet-nam-thai-lan",
+      "image": "https://res.cloudinary.com/bdvyo3g2/image/upload/v1789713985/furama_dining_house/cms/site-media/content/img-cawa5xmj.jpg"
+    },
+    "/assets/story-the-fan-journey.jpg": {
+      "page": "https://furamavietnam.com/furama-dining-house-a-four-story-culinary-journey-in-the-heart-of-da-nang/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/08/SH.jpg"
+    },
+    "/assets/taya-house-garden-day.jpg": {
+      "page": "https://furamavietnam.com/24-hours-at-furama-resort-villas-danang-when-a-day-off-offers-more-than-one-way-to-enjoy-yourself/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/08/Taya-House-1-scaled.jpg"
+    },
+    "/assets/taya-house-portrait.jpg": {
+      "page": "https://furamavietnam.com/tu-nui-rung-den-dong-bang-hanh-trinh-gin-giu-net-truyen-thong-viet-nam-qua-ba-can-nha-tai-furama-resort-da-nang/",
+      "image": "https://furamavietnam.com/wp-content/uploads/2026/09/DSC09966-scaled.jpg"
+    }
+  },
+  "changes": [
+    {
+      "kind": "image",
+      "entity": "hero_slides",
+      "id": "1",
+      "column": "image_id",
+      "from": "/assets/hero-beach.jpg",
+      "to": "/assets/hero-resort-courtyard-sunset.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "hero_slides",
+      "id": "1",
+      "column": "image_mobile_id",
+      "from": "/assets/hero-hall-m.jpg",
+      "to": "/assets/hero-resort-courtyard-sunset-m.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "hero_slides",
+      "id": "2",
+      "column": "image_id",
+      "from": "/assets/hero-taya.jpg",
+      "to": "/assets/hero-taya-house-dusk.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "hero_slides",
+      "id": "3",
+      "column": "image_id",
+      "from": "/assets/hero-indochine.jpg",
+      "to": "/assets/hero-cafe-indochine-show-kitchen.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "sections",
+      "id": "film",
+      "column": "image_id",
+      "from": "/assets/hero-beach.jpg",
+      "to": "/assets/film-resort-beach.jpg"
+    },
+    {
+      "kind": "row",
+      "entity": "sections",
+      "id": "film",
+      "column": "link_url",
+      "from": null,
+      "to": "https://www.youtube.com/watch?v=Z-KXpE8hahg"
+    },
+    {
+      "kind": "image",
+      "entity": "sections",
+      "id": "experiences",
+      "column": "image_id",
+      "from": "/assets/chef.jpg",
+      "to": "/assets/chef-cafe-indochine-teppanyaki.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "sections",
+      "id": "heritage",
+      "column": "image_id",
+      "from": "/assets/heritage.jpg",
+      "to": "/assets/heritage-resort-lobby-dusk.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "cuisines",
+      "id": "vietnamese",
+      "column": "image_id",
+      "from": "/assets/cuisine-vietnamese.jpg",
+      "to": "/assets/cuisine-vietnamese-bun.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "cuisines",
+      "id": "italian",
+      "column": "image_id",
+      "from": "/assets/cuisine-italian.jpg",
+      "to": "/assets/cuisine-italian-pizza.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "cuisines",
+      "id": "thai",
+      "column": "image_id",
+      "from": "/assets/cuisine-thai.jpg",
+      "to": "/assets/cuisine-thai-dish.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "cuisines",
+      "id": "japanese",
+      "column": "image_id",
+      "from": "/assets/cuisine-japanese.jpg",
+      "to": "/assets/cuisine-japanese-dish.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "cuisines",
+      "id": "steak-grill",
+      "column": "image_id",
+      "from": "/assets/cuisine-steak-grill.jpg",
+      "to": "/assets/cuisine-steak-grill-dinner.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "cuisines",
+      "id": "hotpot",
+      "column": "image_id",
+      "from": "/assets/cuisine-hotpot.jpg",
+      "to": "/assets/cuisine-hotpot-chao-shan.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "cuisines",
+      "id": "international",
+      "column": "image_id",
+      "from": "/assets/cuisine-international.jpg",
+      "to": "/assets/cuisine-international-buffet.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "cuisines",
+      "id": "cafe-lounge",
+      "column": "image_id",
+      "from": "/assets/cuisine-cafe-lounge.jpg",
+      "to": "/assets/cuisine-cafe-lounge-tea.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "restaurants",
+      "id": "cafe-indochine",
+      "column": "card_image_id",
+      "from": "/assets/r-cafe-indochine.jpg",
+      "to": "/assets/r-cafe-indochine-seafood-buffet.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "restaurants",
+      "id": "taya-house",
+      "column": "card_image_id",
+      "from": "/assets/r-taya-house.jpg",
+      "to": "/assets/r-taya-house-dusk.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "restaurants",
+      "id": "danaksara",
+      "column": "card_image_id",
+      "from": "/assets/r-danaksara.jpg",
+      "to": "/assets/r-danaksara-dining-room.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "restaurants",
+      "id": "the-fan",
+      "column": "card_image_id",
+      "from": "/assets/r-the-fan.jpg",
+      "to": "/assets/r-the-fan-dining-house.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "restaurants",
+      "id": "pho-cuon",
+      "column": "card_image_id",
+      "from": "/assets/r-pho-cuon.jpg",
+      "to": "/assets/r-pho-cuon-dining-house.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "restaurants",
+      "id": "thai-siam-kitchen",
+      "column": "card_image_id",
+      "from": "/assets/r-thai-siam-kitchen.jpg",
+      "to": "/assets/r-thai-siam-kitchen-dining-house.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "restaurants",
+      "id": "hura-izakaya",
+      "column": "card_image_id",
+      "from": "/assets/r-hura-izakaya.jpg",
+      "to": "/assets/r-hura-izakaya-dining-house.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "restaurants",
+      "id": "yum-food-village",
+      "column": "card_image_id",
+      "from": "/assets/r-yum-food-village.jpg",
+      "to": "/assets/r-yum-food-village-mm.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "restaurants",
+      "id": "chaoshan-hotpot",
+      "column": "card_image_id",
+      "from": "/assets/r-chaoshan-hotpot.jpg",
+      "to": "/assets/r-chaoshan-beef-hotpot-mm.jpg"
+    },
+    {
+      "kind": "row",
+      "entity": "restaurants",
+      "id": "chaoshan-hotpot",
+      "column": "name",
+      "from": "ChaoShan Hotpot",
+      "to": "Chao Shan Beef Hotpot"
+    },
+    {
+      "kind": "image",
+      "entity": "restaurants",
+      "id": "v-senses-cafe",
+      "column": "card_image_id",
+      "from": "/assets/r-v-senses-cafe.jpg",
+      "to": "/assets/r-v-senses-cafe-heritage-house.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "restaurants",
+      "id": "hai-van-lounge",
+      "column": "card_image_id",
+      "from": "/assets/r-hai-van-lounge.jpg",
+      "to": "/assets/r-hai-van-lounge-bar.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "restaurants",
+      "id": "taya-house",
+      "column": "detail_image_id",
+      "from": "/assets/taya-hero.jpg",
+      "to": "/assets/taya-house-portrait.jpg"
+    },
+    {
+      "kind": "text",
+      "entity": "restaurants",
+      "id": "cafe-indochine",
+      "column": "type_label",
+      "from": "Asian & International",
+      "to": "Fusion · European, Indian & Asian"
+    },
+    {
+      "kind": "text",
+      "entity": "restaurants",
+      "id": "danaksara",
+      "column": "type_label",
+      "from": "Central Vietnamese",
+      "to": "Central Vietnamese · Furama Villas"
+    },
+    {
+      "kind": "text",
+      "entity": "restaurants",
+      "id": "v-senses-cafe",
+      "column": "type_label",
+      "from": "Northern Vietnamese",
+      "to": "Northern Vietnamese · Furama Villas"
+    },
+    {
+      "kind": "text",
+      "entity": "restaurants",
+      "id": "yum-food-village",
+      "column": "type_label",
+      "from": "Asian Food Hall",
+      "to": "Multi-cuisine Food Court · 3F"
+    },
+    {
+      "kind": "text",
+      "entity": "restaurants",
+      "id": "chaoshan-hotpot",
+      "column": "type_label",
+      "from": "Chinese Hotpot",
+      "to": "Teochew Fresh Beef Hotpot · 3F"
+    },
+    {
+      "kind": "image",
+      "entity": "restaurant_highlights",
+      "id": "2",
+      "column": "image_id",
+      "from": "/assets/taya-lounge.jpg",
+      "to": "/assets/taya-house-garden-day.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "restaurant_highlights",
+      "id": "3",
+      "column": "image_id",
+      "from": "/assets/taya-garden.jpg",
+      "to": "/assets/r-taya-house-dusk.jpg"
+    },
+    {
+      "kind": "text",
+      "entity": "restaurant_highlights",
+      "id": "1",
+      "column": "detail",
+      "from": "Daily at 11:00 or 14:00 · VND 799,000++ per guest",
+      "to": "Daily at 11:00 or 14:00 · from VND 799,000++ per guest (2–7 guests)"
+    },
+    {
+      "kind": "text",
+      "entity": "restaurant_highlights",
+      "id": "2",
+      "column": "detail",
+      "from": "Served in the garden house, daily 10:00–22:00",
+      "to": "In the Lagoon Garden, daily 10:00–22:00"
+    },
+    {
+      "kind": "text",
+      "entity": "restaurant_highlights",
+      "id": "3",
+      "column": "detail",
+      "from": "Outdoor celebrations and intimate events among the palms",
+      "to": "Outdoor celebrations and intimate events"
+    },
+    {
+      "kind": "image",
+      "entity": "destinations",
+      "id": "resort",
+      "column": "card_image_id",
+      "from": "/assets/dest-resort.jpg",
+      "to": "/assets/dest-resort-lobby-blue-hour.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "destinations",
+      "id": "dining-house",
+      "column": "card_image_id",
+      "from": "/assets/dest-dining-house.jpg",
+      "to": "/assets/dest-dining-house-facade.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "destinations",
+      "id": "mm",
+      "column": "card_image_id",
+      "from": "/assets/dest-mm.jpg",
+      "to": "/assets/dest-mm-food-court.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "destinations",
+      "id": "future",
+      "column": "card_image_id",
+      "from": "/assets/dest-future.jpg",
+      "to": null
+    },
+    {
+      "kind": "text",
+      "entity": "destinations",
+      "id": "dining-house",
+      "column": "address",
+      "from": "73 Trần Bạch Đằng, An Thượng",
+      "to": "73 Trần Bạch Đằng, An Thượng, Ngũ Hành Sơn, Đà Nẵng"
+    },
+    {
+      "kind": "text",
+      "entity": "destinations",
+      "id": "mm",
+      "column": "name",
+      "from": "Furama MM Supercenter",
+      "to": "Furama Culinary Hub, MM Supercenter"
+    },
+    {
+      "kind": "text",
+      "entity": "destinations",
+      "id": "mm",
+      "column": "card_title_1",
+      "from": "Furama MM",
+      "to": "Furama"
+    },
+    {
+      "kind": "text",
+      "entity": "destinations",
+      "id": "mm",
+      "column": "card_title_2",
+      "from": "Supercenter",
+      "to": "Culinary Hub"
+    },
+    {
+      "kind": "text",
+      "entity": "destinations",
+      "id": "mm",
+      "column": "card_blurb_1",
+      "from": "Everyday dining",
+      "to": "MM Supercenter Đà Nẵng"
+    },
+    {
+      "kind": "text",
+      "entity": "destinations",
+      "id": "mm",
+      "column": "card_blurb_2",
+      "from": "for everyone",
+      "to": "167 Nguyễn Sinh Sắc, Hòa Khánh"
+    },
+    {
+      "kind": "text",
+      "entity": "destinations",
+      "id": "mm",
+      "column": "address",
+      "from": null,
+      "to": "167 Nguyễn Sinh Sắc, Hòa Khánh, Đà Nẵng"
+    },
+    {
+      "kind": "text",
+      "entity": "experiences",
+      "id": "3",
+      "column": "title",
+      "from": "Furama Fabulous",
+      "to": "Vietnamese Culture"
+    },
+    {
+      "kind": "text",
+      "entity": "experiences",
+      "id": "3",
+      "column": "blurb",
+      "from": "Membership · Rewards · Dining privileges",
+      "to": "Lantern making · Vietnamese coffee · Cocktail class"
+    },
+    {
+      "kind": "row",
+      "entity": "experiences",
+      "id": "1",
+      "column": "link_url",
+      "from": null,
+      "to": "https://furamavietnam.com/culinary/"
+    },
+    {
+      "kind": "row",
+      "entity": "experiences",
+      "id": "2",
+      "column": "link_url",
+      "from": null,
+      "to": "https://furamavietnam.com/meetings-events/"
+    },
+    {
+      "kind": "row",
+      "entity": "experiences",
+      "id": "3",
+      "column": "link_url",
+      "from": null,
+      "to": "https://furamavietnam.com/recreations/vietnamese-culture/"
+    },
+    {
+      "kind": "image",
+      "entity": "stories",
+      "id": "1",
+      "column": "image_id",
+      "from": "/assets/story-dh-opening.jpg",
+      "to": "/assets/story-dining-house-grand-opening.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "stories",
+      "id": "2",
+      "column": "image_id",
+      "from": "/assets/story-the-fan.jpg",
+      "to": "/assets/story-the-fan-journey.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "stories",
+      "id": "3",
+      "column": "image_id",
+      "from": "/assets/story-thai-siam.jpg",
+      "to": "/assets/story-thai-siam-journey.jpg"
+    },
+    {
+      "kind": "image",
+      "entity": "stories",
+      "id": "4",
+      "column": "image_id",
+      "from": "/assets/story-buffet-gala.jpg",
+      "to": "/assets/story-seafood-steak-buffet-gala.jpg"
+    },
+    {
+      "kind": "text",
+      "entity": "stories",
+      "id": "2",
+      "column": "title",
+      "from": "Steakhouse The Fan, where fine food meets art",
+      "to": "Steakhouse The Fan: a journey of four restaurants where food and art meet"
+    },
+    {
+      "kind": "text",
+      "entity": "stories",
+      "id": "4",
+      "column": "title",
+      "from": "Inside the Central Vietnam Seafood & Steak Buffet Gala",
+      "to": "A Premium Central Vietnam Seafood & Steak Buffet Gala"
+    },
+    {
+      "kind": "row",
+      "entity": "stories",
+      "id": "4",
+      "column": "published_on",
+      "from": null,
+      "to": "2025-12-26"
+    },
+    {
+      "kind": "row",
+      "entity": "offers",
+      "id": "1",
+      "column": "valid_until",
+      "from": null,
+      "to": "2026-12-31"
+    },
+    {
+      "kind": "row",
+      "entity": "offers",
+      "id": "2",
+      "column": "valid_until",
+      "from": null,
+      "to": "2026-12-31"
+    },
+    {
+      "kind": "row",
+      "entity": "offers",
+      "id": "3",
+      "column": "valid_until",
+      "from": null,
+      "to": "2026-12-31"
+    },
+    {
+      "kind": "text",
+      "entity": "offers",
+      "id": "2",
+      "column": "schedule",
+      "from": "Daily 11:00 or 14:00",
+      "to": "Daily 11:00 or 14:00 · for 2–7 guests"
+    },
+    {
+      "kind": "text",
+      "entity": "offers",
+      "id": "3",
+      "column": "schedule",
+      "from": "~30 pastries, 12+ teas",
+      "to": "Daily 14:30–17:00"
+    }
+  ],
+  "periods": [
+    {
+      "restaurant": "taya-house",
+      "from": [
+        {
+          "meal": "Lunch",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "firstSeating": "11:30",
+          "lastSeating": "13:30",
+          "intervalMin": 30,
+          "coversPerSlot": 16,
+          "active": true
+        },
+        {
+          "meal": "Dinner",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "firstSeating": "18:00",
+          "lastSeating": "21:00",
+          "intervalMin": 30,
+          "coversPerSlot": 16,
+          "active": true
+        }
+      ],
+      "to": [
+        {
+          "meal": "Lunch",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "firstSeating": "11:00",
+          "lastSeating": "11:00",
+          "intervalMin": 30,
+          "coversPerSlot": 16,
+          "active": true
+        },
+        {
+          "meal": "Lunch",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "firstSeating": "14:00",
+          "lastSeating": "14:00",
+          "intervalMin": 30,
+          "coversPerSlot": 16,
+          "active": true
+        }
+      ]
+    },
+    {
+      "restaurant": "v-senses-cafe",
+      "from": [
+        {
+          "meal": "Breakfast",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "firstSeating": "06:30",
+          "lastSeating": "09:30",
+          "intervalMin": 30,
+          "coversPerSlot": 26,
+          "active": true
+        },
+        {
+          "meal": "Lunch",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "firstSeating": "11:30",
+          "lastSeating": "13:30",
+          "intervalMin": 30,
+          "coversPerSlot": 26,
+          "active": true
+        },
+        {
+          "meal": "Dinner",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "firstSeating": "18:00",
+          "lastSeating": "21:00",
+          "intervalMin": 30,
+          "coversPerSlot": 26,
+          "active": true
+        }
+      ],
+      "to": [
+        {
+          "meal": "Breakfast",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "firstSeating": "06:30",
+          "lastSeating": "09:30",
+          "intervalMin": 30,
+          "coversPerSlot": 26,
+          "active": true
+        },
+        {
+          "meal": "Lunch",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "firstSeating": "11:30",
+          "lastSeating": "13:30",
+          "intervalMin": 30,
+          "coversPerSlot": 26,
+          "active": true
+        },
+        {
+          "meal": "Dinner",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "firstSeating": "18:00",
+          "lastSeating": "20:00",
+          "intervalMin": 30,
+          "coversPerSlot": 26,
+          "active": true
+        }
+      ]
+    },
+    {
+      "restaurant": "pho-cuon",
+      "from": [
+        {
+          "meal": "Breakfast",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "firstSeating": "06:30",
+          "lastSeating": "09:30",
+          "intervalMin": 30,
+          "coversPerSlot": 30,
+          "active": true
+        },
+        {
+          "meal": "Lunch",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "firstSeating": "11:30",
+          "lastSeating": "13:30",
+          "intervalMin": 30,
+          "coversPerSlot": 30,
+          "active": true
+        },
+        {
+          "meal": "Dinner",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "firstSeating": "18:00",
+          "lastSeating": "21:00",
+          "intervalMin": 30,
+          "coversPerSlot": 30,
+          "active": true
+        }
+      ],
+      "to": [
+        {
+          "meal": "Breakfast",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "firstSeating": "09:00",
+          "lastSeating": "09:30",
+          "intervalMin": 30,
+          "coversPerSlot": 30,
+          "active": true
+        },
+        {
+          "meal": "Lunch",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "firstSeating": "11:30",
+          "lastSeating": "13:30",
+          "intervalMin": 30,
+          "coversPerSlot": 30,
+          "active": true
+        },
+        {
+          "meal": "Dinner",
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "firstSeating": "18:00",
+          "lastSeating": "21:00",
+          "intervalMin": 30,
+          "coversPerSlot": 30,
+          "active": true
+        }
+      ]
+    }
+  ]
+}

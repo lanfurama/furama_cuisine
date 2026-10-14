@@ -176,6 +176,64 @@ export async function saveServicePeriods(
   });
 }
 
+// ── a content pack's periods (scripts/apply-content-pack.mjs) ───────────────
+
+/** One restaurant's whole list as a pack names it: the seeded list it expects, and the list it writes. */
+export type PackPeriods = { restaurant: string; from: Omit<PeriodInput, 'id'>[]; to: Omit<PeriodInput, 'id'>[] };
+
+export type PackPeriodsOutcome = { restaurant: string; applied: boolean; reason?: string };
+
+const periodKey = (p: Omit<PeriodInput, 'id'>) =>
+  JSON.stringify([p.meal, [...p.weekdays].sort(), p.firstSeating, p.lastSeating, p.intervalMin, p.coversPerSlot, p.active]);
+
+/**
+ * Replaces a restaurant's service periods as saveServicePeriods does (the
+ * same overlap rule, the restaurant's token moved, one service_periods audit
+ * row), but only while its list is still exactly `from`: a schedule staff
+ * changed is skipped, never overwritten. The reason it was skipped, or null.
+ */
+async function replaceSeededPeriods(client: PoolClient, actor: AuditActor, entry: PackPeriods): Promise<string | null> {
+  const overlap = overlappingPeriods(entry.to.map((p) => ({ ...p, id: null })));
+  if (overlap) return `the new periods overlap: ${overlap}`;
+  const { rowCount } = await client.query('SELECT 1 FROM restaurants WHERE id = $1 FOR UPDATE', [entry.restaurant]);
+  if (rowCount !== 1) return 'not found';
+  const before = await loadPeriods(client, entry.restaurant);
+  if (before.map(periodKey).join('|') !== entry.from.map(periodKey).join('|')) return 'its periods are no longer the seed’s';
+
+  await client.query('DELETE FROM service_periods WHERE restaurant_id = $1', [entry.restaurant]);
+  for (const [index, p] of entry.to.entries()) {
+    await client.query(
+      `INSERT INTO service_periods (meal, weekdays, first_seating, last_seating, interval_min, covers_per_slot, active, sort_order, updated_by, restaurant_id)
+       VALUES ($1, $2::smallint[], $3::time, $4::time, $5, $6, $7, $8, $9, $10)`,
+      [p.meal, p.weekdays, p.firstSeating, p.lastSeating, p.intervalMin, p.coversPerSlot, p.active, (index + 1) * 10, actor.id, entry.restaurant],
+    );
+  }
+  await client.query('UPDATE restaurants SET updated_at = now(), updated_by = $2 WHERE id = $1', [entry.restaurant, actor.id]);
+  await insertAudit(client, actor, { action: 'update', entityType: 'service_periods', entityId: entry.restaurant, before, after: await loadPeriods(client, entry.restaurant) });
+  return null;
+}
+
+/** A pack's periods in one transaction, or (dryRun) run and rolled back, so a dry run says exactly what an apply would do. */
+export async function applyPackPeriods(pool: Pool, actor: AuditActor, entries: readonly PackPeriods[], options: { dryRun: boolean }): Promise<PackPeriodsOutcome[]> {
+  const run = async (client: PoolClient) => {
+    const outcomes: PackPeriodsOutcome[] = [];
+    for (const entry of entries) {
+      const reason = await replaceSeededPeriods(client, actor, entry);
+      outcomes.push(reason ? { restaurant: entry.restaurant, applied: false, reason } : { restaurant: entry.restaurant, applied: true });
+    }
+    return outcomes;
+  };
+  if (!options.dryRun) return withTransaction(pool, run);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    return await run(client);
+  } finally {
+    await client.query('ROLLBACK').catch(() => {});
+    client.release();
+  }
+}
+
 // ── the booking switch and the overrides (reservations:configure) ───────────
 
 export type RulesInput = {

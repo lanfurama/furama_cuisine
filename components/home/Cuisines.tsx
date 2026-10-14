@@ -73,7 +73,7 @@ function CuisineChip({
     >
       <span className="cuisine-ring" data-selected={selected}>
         {/* Decorative by role: the label beside it names the cuisine. */}
-        {image && <CmsImage media={image} decorative width={80} height={80} className="cuisine-img" />}
+        {image && <CmsImage media={image} decorative width={104} height={104} className="cuisine-img" />}
       </span>
       <span className="cuisine-label" data-selected={selected}>
         {label}

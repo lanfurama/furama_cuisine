@@ -3,6 +3,7 @@
 import type { Offer } from '@/lib/content/types';
 import type { Copy } from '@/lib/i18n/registry';
 import { useSite } from '@/components/site/SiteProvider';
+import { FriezeDivider, RosetteMark } from '@/components/ui/Ornament';
 import { useReveal } from '@/lib/motion';
 
 /**
@@ -11,6 +12,7 @@ import { useReveal } from '@/lib/motion';
  */
 export function Offers({ items, copy }: { items: Offer[]; copy: Copy<'offers'> }) {
   const title = useReveal<HTMLHeadingElement>('title');
+  const ornament = useReveal<HTMLSpanElement>('fade');
   const lede = useReveal<HTMLParagraphElement>('up');
 
   return (
@@ -20,6 +22,7 @@ export function Offers({ items, copy }: { items: Offer[]; copy: Copy<'offers'> }
           <h2 ref={title} data-reveal="title" className="section-title">
             {copy['offers.title']}
           </h2>
+          <FriezeDivider ref={ornament} reveal="fade" className="section-orn" />
           <p ref={lede} data-reveal="up" className="section-lede">
             {copy['offers.lede']}
           </p>
@@ -43,6 +46,7 @@ function OfferCard({ offer, cta }: { offer: Offer; cta: string }) {
 
   return (
     <div ref={ref} data-reveal="up" className="offer">
+      <RosetteMark className="offer-mark" />
       <div className="offer-venue">{offer.venue}</div>
       <div className="offer-title">{offer.title}</div>
       <div className="offer-detail">{offer.detail}</div>

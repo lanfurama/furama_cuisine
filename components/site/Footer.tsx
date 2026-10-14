@@ -15,7 +15,9 @@ export function Footer() {
   const email = site.settings.email;
 
   return (
-    <footer className="footer">
+    <footer className="footer motif-lattice">
+      {/* The key fret of Furama's emblem, as the footer's top edge (styles/ornament.css). */}
+      <span className="band-fret" aria-hidden="true" />
       <div ref={reveal} data-reveal="fade" className="footer-top shell">
         <a
           href={homeHref(locale)}

@@ -25,8 +25,10 @@
 }
 
 @media (min-width: 760px) {
+  /* The copy keeps the header's gutter (the phone rule above zeroes .shell-wide's padding); the portrait still bleeds right. */
   .taya-hero-inner {
     position: static;
+    padding-left: var(--gutter-wide);
     display: grid;
     grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
     gap: clamp(32px, 5.5vw, 80px);
@@ -34,13 +36,21 @@
   }
 }
 
-.taya-hero-copy {
-  display: none;
-}
+/* A phone shows only the copy's <h1>, visually hidden (the page's one heading); the title it sees is
+   .taya-title-m below, its aria-hidden twin. */
+@media (max-width: 759px) {
+  .taya-hero-copy > :not(.taya-title) {
+    display: none;
+  }
 
-@media (min-width: 760px) {
-  .taya-hero-copy {
-    display: block;
+  .taya-hero-copy .taya-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
   }
 }
 

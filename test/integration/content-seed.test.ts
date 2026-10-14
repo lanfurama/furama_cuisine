@@ -28,7 +28,9 @@ import { TEST_DATABASE_URL, databaseUrl, resetDatabase } from '../helpers/db';
  *   2. every media row is a real file in public/assets, measured.
  * Restaurants were already rows (002): their new columns are compared with
  * their phase-1 columns in the same database, which also holds on Neon.
- * A database of its own, freshly migrated: other files edit the shared one.
+ * A database of its own, migrated up to 012: 013 adds the official
+ * photographs (migration-013.test.ts measures those), and other files edit
+ * the shared one.
  */
 
 const ASSETS = join(process.cwd(), 'public', 'assets');
@@ -54,7 +56,7 @@ function price(amount: string, currency: string, basis: string): string {
 
 describe.skipIf(!TEST_DATABASE_URL)('migration 008 seeds exactly the content of 8fe98f5 (database)', () => {
   beforeAll(() => {
-    resetDatabase(url);
+    resetDatabase(url, '012_ai_phase9.sql');
     pool = new Pool({ connectionString: url, max: 2 });
   });
   afterAll(() => pool.end());
@@ -335,13 +337,14 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 008 seeds exactly the content of 
     expect(await rows(`SELECT pathname FROM media m WHERE is_decorative AND EXISTS (SELECT 1 FROM media_i18n mi WHERE mi.media_id = m.id)`)).toEqual([]);
   });
 
-  it('has a row for every file in public/assets, measured from the file, and nothing else', async () => {
+  it('has a row for each of the 39 files it seeded in public/assets, measured from the file', async () => {
     const media = await rows<{
       storage: string; url: string; pathname: string; content_type: string; width: number; height: number; bytes: number;
       blur_data_url: string | null; deleted_at: Date | null;
     }>(`SELECT storage, url, pathname, content_type, width, height, bytes, blur_data_url, deleted_at FROM media ORDER BY pathname`);
-    const files = readdirSync(ASSETS).filter((f) => !f.startsWith('.')).sort();
-    expect(media.map((m) => m.pathname)).toEqual(files.map((f) => `/assets/${f}`));
+    const files = new Set(readdirSync(ASSETS).filter((f) => !f.startsWith('.')).map((f) => `/assets/${f}`));
+    expect(media).toHaveLength(39);
+    expect(media.filter((m) => !files.has(m.pathname)).map((m) => m.pathname)).toEqual([]);
     for (const m of media) {
       const bytes = new Uint8Array(readFileSync(join(process.cwd(), 'public', m.pathname)));
       const size = imageSize(bytes);

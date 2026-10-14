@@ -305,7 +305,7 @@ main[data-view='home'][data-hero='none'] {
 }
 
 .footer-top {
-  padding-block: clamp(36px, 3.1vw, 44px);
+  padding-block: clamp(40px, 3.6vw, 52px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -317,7 +317,7 @@ main[data-view='home'][data-hero='none'] {
   padding: 12px 0;
   margin: -12px 0;
   font-family: var(--serif);
-  font-size: 21px;
+  font-size: 23px;
   font-weight: 400;
   line-height: 1;
   letter-spacing: 0.16em;
@@ -371,13 +371,13 @@ main[data-view='home'][data-hero='none'] {
 }
 
 .footer-bottom {
-  padding-top: 20px;
+  padding-top: 24px;
   border-top: 1px solid var(--footer-rule);
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 40px;
-  font-size: 12px;
-  line-height: 1.6;
+  gap: 12px 48px;
+  font-size: 13px;
+  line-height: 1.7;
   color: var(--footer-dim);
 }
 
@@ -400,6 +400,11 @@ main[data-view='home'][data-hero='none'] {
 @media (max-width: 759px) {
   .footer-bottom-space {
     height: 76px;
+  }
+
+  /* A control scrolled into view by the keyboard stops above the fixed tab bar (WCAG 2.4.11). */
+  html {
+    scroll-padding-bottom: calc(76px + env(safe-area-inset-bottom));
   }
 }
 

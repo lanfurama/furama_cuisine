@@ -34,6 +34,7 @@ db/
   client.ts              # pool Postgres duy nhất (getPool) + kiểu Db
   migrations/NNN_*.sql   # migration đánh số, chạy theo thứ tự
   checks/                # preflight/postcheck SQL cho từng migration trên Neon
+  content-packs/*.json   # gói nội dung đã duyệt (ảnh, chữ) — scripts/apply-content-pack.mjs áp dụng, chỉ thay chỗ còn là seed
 test/                    # integration, guards (luật kiến trúc), helpers, fixtures
 e2e/                     # Playwright
 ```
@@ -110,6 +111,7 @@ Mỗi cổng có chế độ fake/log cho dev và test (`EMAIL_DELIVERY=log`, fa
 
 ### Luật 7 — Migration
 Một DB, schema `public`. Migration mới = `db/migrations/NNN_*.sql` kế tiếp, kèm mục "### Migration NNN" trong README và file `db/checks` nếu cần *(CI)*. Cột cũ chờ xoá thì không đọc nữa *(CI: legacy-columns)*.
+Nội dung khách đọc thuộc CMS: migration chỉ *thêm* (file ảnh mới vào `media`), còn thay nội dung đã seed trên DB thật thì qua content pack (`db/content-packs/`, `lib/server/content-admin/content-pack.ts`) — một transaction, audit từng mục, bỏ qua chỗ staff đã sửa.
 
 ---
 
