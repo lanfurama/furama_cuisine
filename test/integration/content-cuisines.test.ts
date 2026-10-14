@@ -14,9 +14,9 @@ import {
   updateCuisine,
   type CuisineInput,
 } from '@/lib/server/content-admin/cuisines';
-import { listDeleted } from '@/lib/server/content-admin/history';
+import { listDeleted } from '@/lib/server/history/history';
 import { ID_TAKEN, makeListEditor, MEDIA_GONE, STILL_IN_USE } from '@/lib/server/content-admin/list-editor';
-import { readItems, writeItem, type ItemSnapshot } from '@/lib/server/content-admin/snapshot';
+import { readItems, writeItem, type ItemSnapshot } from '@/lib/server/history/snapshot';
 import { loadRestaurants } from '@/lib/server/content/restaurants.queries';
 import { loadCuisines } from '@/lib/server/content/site.queries';
 

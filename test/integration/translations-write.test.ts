@@ -3,7 +3,7 @@ import { getPool } from '@/db/client';
 import type { AuditActor } from '@/lib/server/audit';
 import { formLocales, itemStates } from '@/lib/server/content-admin/form-locales';
 import { getOfferEditor, OFFER, restoreOffer, updateOffer } from '@/lib/server/content-admin/offers';
-import { readItem } from '@/lib/server/content-admin/snapshot';
+import { readItem } from '@/lib/server/history/snapshot';
 import { TEST_DATABASE_URL } from '../helpers/db';
 
 /*

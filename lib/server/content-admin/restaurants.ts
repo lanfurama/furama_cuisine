@@ -3,11 +3,11 @@ import type { Pool, PoolClient } from 'pg';
 import { detailPageErrors, followRename, limitError } from '@/lib/admin/content-rules';
 import type { Saved } from '@/lib/admin/save-state';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
-import { conflictFromHistory, type Conflict } from '@/lib/server/booking/config';
-import type { Db } from '@/lib/server/booking/rules';
+import { conflictFromHistory, type Conflict } from '@/lib/server/conflict';
+import type { Db } from '@/db/client';
 import { assertLiveMedia, MEDIA, reviveMedia } from '@/lib/server/media/library';
 import { localeTexts } from './form-locales';
-import { getAuditRow } from './history';
+import { getAuditRow } from '@/lib/server/history/history';
 import { makeListEditor, MEDIA_GONE } from './list-editor';
 import {
   isForeignKeyViolation,
@@ -23,7 +23,7 @@ import {
   type ItemDef,
   type ItemSnapshot,
   type Row,
-} from './snapshot';
+} from '@/lib/server/history/snapshot';
 
 /*
  * The restaurant's content editor (spec §7.2 /admin/restaurants/[id]): the

@@ -4,11 +4,11 @@ import { catalogLanguage, LANGUAGE_CATALOG, type CatalogLanguage } from '@/lib/i
 import { registryLocaleDefault, type StringKey } from '@/lib/i18n/registry';
 import { GUEST_EMAIL_EVENTS } from '@/lib/email/events';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
-import { US, conflictBy, type Conflict } from '@/lib/server/booking/config';
-import type { Db } from '@/lib/server/booking/rules';
+import { US, conflictBy, type Conflict } from '@/lib/server/conflict';
+import type { Db } from '@/db/client';
 import { emailKeys } from '@/lib/server/email/booking/render';
 import { makeListEditor, type ListFailure } from './list-editor';
-import { readItems, snapshotToken } from './snapshot';
+import { readItems, snapshotToken } from '@/lib/server/history/snapshot';
 import { SOCIAL_LINK, SOCIAL_NAMES } from './socials';
 
 /*

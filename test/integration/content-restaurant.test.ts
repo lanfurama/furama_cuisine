@@ -13,7 +13,7 @@ import {
   type RestaurantInput,
   type RestaurantSnapshot,
 } from '@/lib/server/content-admin/restaurants';
-import { readItem, writeItem, type ItemSnapshot } from '@/lib/server/content-admin/snapshot';
+import { readItem, writeItem, type ItemSnapshot } from '@/lib/server/history/snapshot';
 import { loadRestaurantDetail, loadRestaurants } from '@/lib/server/content/restaurants.queries';
 import { loadBookingEmailData } from '@/lib/server/email/booking/load';
 import { getMedia, MEDIA, saveMediaDetails } from '@/lib/server/media/library';

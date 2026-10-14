@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { getPool } from '@/db/client';
 import { formatDateTimeVi } from '@/lib/admin/format';
 import { bookableSql } from '@/lib/server/booking/rules';
-import { listHistory } from '@/lib/server/content-admin/history';
+import { listHistory } from '@/lib/server/history/history';
 import { BOOKING_DEFAULTS, getSettingsEditor, OCCASIONS } from '@/lib/server/content-admin/settings';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { HistoryPanel } from '../../_kit/HistoryPanel';

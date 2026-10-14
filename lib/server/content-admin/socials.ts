@@ -1,8 +1,8 @@
 import 'server-only';
 import { SOCIAL_PLATFORMS, type SocialPlatform } from '@/lib/content/footer';
-import type { Db } from '@/lib/server/booking/rules';
+import type { Db } from '@/db/client';
 import { makeListEditor, type ListFailure } from './list-editor';
-import { orderToken, readItems, snapshotToken, type ItemDef, type ItemSnapshot } from './snapshot';
+import { orderToken, readItems, snapshotToken, type ItemDef, type ItemSnapshot } from '@/lib/server/history/snapshot';
 
 /*
  * The footer's social links (spec §7.2 content/contact, §6.5 "Social links

@@ -112,5 +112,10 @@ export function outboxEffects(env: OutboxEnv = outboxEnv()): Required<Reservatio
       if (!notifyGuest || status !== 'confirmed') return;
       queued.push(...(await queueGuestEmail(client, { reservationId, eventId, env, event: 'guest.confirmed' })));
     },
+    async afterWebCreate(client, created) {
+      const ids = await queueWebBookingEmails(client, { ...created, env });
+      queued.push(...ids);
+      return ids;
+    },
   };
 }

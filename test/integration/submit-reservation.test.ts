@@ -15,6 +15,7 @@ import { submitReservation } from '@/app/actions';
 import { getPool } from '@/db/client';
 import { PRIVACY_POLICY_VERSION } from '@/lib/legal';
 import { createWebReservation } from '@/lib/server/booking/create';
+import { outboxEffects } from '@/lib/server/email/outbox';
 import { parseReservationInput, type ReservationRequest } from '@/lib/server/booking/input';
 
 const request = {
@@ -288,12 +289,12 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('submitReservation v2 (database)
   });
 
   it('draws a new reference when the first one is already taken, three times at most', async () => {
-    await createWebReservation(parsed(), { makeReference: () => 'FC-AAAAAAAA' });
+    await createWebReservation(parsed(), { effects: outboxEffects(), makeReference: () => 'FC-AAAAAAAA' });
     const queue = ['FC-AAAAAAAA', 'FC-BBBBBBBB'];
-    expect(await createWebReservation(parsed({ phone: phone(1) }), { makeReference: () => queue.shift() ?? 'FC-CCCCCCCC' })).toMatchObject({
+    expect(await createWebReservation(parsed({ phone: phone(1) }), { effects: outboxEffects(), makeReference: () => queue.shift() ?? 'FC-CCCCCCCC' })).toMatchObject({
       ok: true, reference: 'FC-BBBBBBBB',
     });
-    await expect(createWebReservation(parsed({ phone: phone(2) }), { makeReference: () => 'FC-AAAAAAAA' })).rejects.toThrow(
+    await expect(createWebReservation(parsed({ phone: phone(2) }), { effects: outboxEffects(), makeReference: () => 'FC-AAAAAAAA' })).rejects.toThrow(
       /reservations_reference_key/,
     );
     expect((await sql('SELECT count(*)::int AS n FROM reservation_events')).rows[0].n).toBe(2);
@@ -522,7 +523,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('submitReservation v2 (database)
         await editor.query('BEGIN');
         await editor.query('SELECT id FROM offers WHERE id = 2 FOR UPDATE');
         await editor.query('DELETE FROM offers WHERE id = 2');
-        const booking = createWebReservation({ ...parsed(), offerId: 2 });
+        const booking = createWebReservation({ ...parsed(), offerId: 2 }, { effects: outboxEffects() });
         await new Promise((resolve) => setTimeout(resolve, 150));
         await editor.query('COMMIT');
         expect(await booking).toMatchObject({ ok: true });

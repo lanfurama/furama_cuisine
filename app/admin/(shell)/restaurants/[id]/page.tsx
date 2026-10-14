@@ -5,7 +5,7 @@ import { getPool } from '@/db/client';
 import { detailPageWarnings } from '@/lib/admin/content-rules';
 import { formatDateTimeVi } from '@/lib/admin/format';
 import { listDestinationOptions } from '@/lib/server/content-admin/destinations';
-import { listHistory } from '@/lib/server/content-admin/history';
+import { listHistory } from '@/lib/server/history/history';
 import { listMediaOptions } from '@/lib/server/content-admin/media-options';
 import { formLocales, itemStates } from '@/lib/server/content-admin/form-locales';
 import { getRestaurantEditor, listCuisineOptions, RESTAURANT } from '@/lib/server/content-admin/restaurants';

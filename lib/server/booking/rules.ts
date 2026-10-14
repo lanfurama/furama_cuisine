@@ -1,5 +1,5 @@
 import 'server-only';
-import type { Pool, PoolClient } from 'pg';
+import type { Db } from '@/db/client';
 import { HOLDING_STATUSES, type BookedCovers, type BookingRules, type GroupPhone } from '@/lib/booking/rules';
 import type { IsoDate } from '@/lib/venue-time';
 
@@ -13,8 +13,6 @@ import type { IsoDate } from '@/lib/venue-time';
  * Dates leave SQL through to_char: node-pg turns a `date` into a JS Date at
  * local midnight, which shifts the day on a UTC server.
  */
-
-export type Db = Pool | PoolClient;
 
 export type LoadedRules = { rules: BookingRules; groupPhone: GroupPhone | null };
 

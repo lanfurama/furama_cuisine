@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getPool } from '@/db/client';
 import { formatDateTimeVi } from '@/lib/admin/format';
-import { listHistory } from '@/lib/server/content-admin/history';
+import { listHistory } from '@/lib/server/history/history';
 import { listMediaOptions } from '@/lib/server/content-admin/media-options';
 import { getSettingsEditor, SHARE_IMAGE } from '@/lib/server/content-admin/settings';
 import { requirePagePermission } from '@/lib/server/dal/session';

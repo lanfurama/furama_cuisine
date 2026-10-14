@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { getPool } from '@/db/client';
 import { formatDateTimeVi, formatFileSize } from '@/lib/admin/format';
 import { formLocales, itemStates } from '@/lib/server/content-admin/form-locales';
-import { listHistory } from '@/lib/server/content-admin/history';
+import { listHistory } from '@/lib/server/history/history';
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { getMedia, MEDIA, mediaUsage } from '@/lib/server/media/library';
 import { HistoryPanel } from '../../_kit/HistoryPanel';

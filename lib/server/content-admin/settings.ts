@@ -2,12 +2,12 @@ import 'server-only';
 import type { Pool, PoolClient } from 'pg';
 import type { Saved } from '@/lib/admin/save-state';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
-import { conflictBy } from '@/lib/server/booking/config';
-import type { Db } from '@/lib/server/booking/rules';
+import { conflictBy } from '@/lib/server/conflict';
+import type { Db } from '@/db/client';
 import { assertLiveMedia, reviveMedia } from '@/lib/server/media/library';
-import { getAuditRow } from './history';
+import { getAuditRow } from '@/lib/server/history/history';
 import { MEDIA_GONE, VERSION_INVALID, WHOLE_ITEM, type ListFailure, type ListResult, type RestoreInput } from './list-editor';
-import { isForeignKeyViolation, isRuleViolation, snapshotToken, type ItemSnapshot, type MediaColumn, type Row } from './snapshot';
+import { isForeignKeyViolation, isRuleViolation, snapshotToken, type ItemSnapshot, type MediaColumn, type Row } from '@/lib/server/history/snapshot';
 
 /*
  * A group of site_settings columns that one content screen edits together

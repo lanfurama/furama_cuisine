@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { snapshotToken } from '@/lib/server/content-admin/snapshot';
+import { snapshotToken } from '@/lib/server/history/snapshot';
 import { changedFields, restoreChoices, stringHistoryRow, type HistoryRow, type Snap } from './history';
 
 const snap = (row: Record<string, unknown>, i18n: Record<string, unknown>[] = [], extra: Record<string, unknown> = {}) => ({ v: 1, row, i18n, ...extra });

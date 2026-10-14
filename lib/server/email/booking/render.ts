@@ -9,7 +9,7 @@ import { registryLocaleDefault, type StringKey } from '@/lib/i18n/registry';
 import { resolveStrings } from '@/lib/i18n/resolve';
 import { loadSiteSettings } from '@/lib/server/content/settings.queries';
 import { loadStringRows } from '@/lib/server/content/strings.queries';
-import { appOrigin } from '../auth-emails';
+import { appOrigin } from '../origin';
 import { renderEmail } from '../send';
 import { BookingEmail, type BookingEmailProps } from '../templates/booking';
 import { formatEmailDate, formatEmailShortDate, formatEmailTime } from './format';

@@ -18,7 +18,7 @@ export const BOTID_PROTECT = [{ path: '/*', method: 'POST' }];
 /**
  * VERCEL_ENV of a Vercel deployment, and NEXT_PUBLIC_VERCEL_ENV, its copy that `next build` inlines.
  * `vercel dev` and `vercel env pull` say 'development': not one. The one definition: the server half
- * (lib/server/guard/bot.ts) and the email gate (lib/server/email/send.ts, auth-emails.ts) decide by it.
+ * (lib/server/guard/bot.ts) and the email gate (lib/server/email/send.ts, origin.ts) decide by it.
  */
 export const DEPLOYED: ReadonlySet<string> = new Set(['production', 'preview']);
 

@@ -1,8 +1,8 @@
 import 'server-only';
-import type { Db } from '@/lib/server/booking/rules';
-import { staffName } from './history';
+import type { Db } from '@/db/client';
+import { staffName } from '@/lib/server/history/history';
 import { makeListEditor, type ListFailure } from './list-editor';
-import { orderToken, readItem, readItems, snapshotToken, type ItemDef, type ItemSnapshot } from './snapshot';
+import { orderToken, readItem, readItems, snapshotToken, type ItemDef, type ItemSnapshot } from '@/lib/server/history/snapshot';
 import { localeTexts } from './form-locales';
 
 /*

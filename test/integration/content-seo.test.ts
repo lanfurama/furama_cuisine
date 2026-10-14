@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { getPool } from '@/db/client';
 import type { AuditActor } from '@/lib/server/audit';
-import { listHistory } from '@/lib/server/content-admin/history';
+import { listHistory } from '@/lib/server/history/history';
 import { MEDIA_GONE } from '@/lib/server/content-admin/list-editor';
 import { getSettingsEditor, restoreSettings, saveSettings, SHARE_IMAGE } from '@/lib/server/content-admin/settings';
 import { loadRestaurantDetail } from '@/lib/server/content/restaurants.queries';

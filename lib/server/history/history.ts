@@ -1,6 +1,6 @@
 import 'server-only';
 import type { PoolClient } from 'pg';
-import type { Db } from '@/lib/server/booking/rules';
+import type { Db } from '@/db/client';
 import type { ItemDef } from './snapshot';
 
 /*

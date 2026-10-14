@@ -18,10 +18,10 @@ import {
   VENUE_NEEDS_NAME,
   type DestinationInput,
 } from '@/lib/server/content-admin/destinations';
-import { listDeleted } from '@/lib/server/content-admin/history';
+import { listDeleted } from '@/lib/server/history/history';
 import { ID_TAKEN, MEDIA_GONE } from '@/lib/server/content-admin/list-editor';
 import { listRestaurantsAdmin } from '@/lib/server/content-admin/restaurants';
-import { readItems, writeItem, type ItemSnapshot } from '@/lib/server/content-admin/snapshot';
+import { readItems, writeItem, type ItemSnapshot } from '@/lib/server/history/snapshot';
 import { loadOffers } from '@/lib/server/content/home.queries';
 import { loadDetailSlugs, loadRestaurantDetail, loadRestaurants } from '@/lib/server/content/restaurants.queries';
 import { loadDestinations } from '@/lib/server/content/site.queries';

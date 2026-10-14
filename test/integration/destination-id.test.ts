@@ -2,6 +2,7 @@ import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { listRestaurantBookings, restaurantsInScope } from '@/lib/server/booking/config';
 import { createWebReservation } from '@/lib/server/booking/create';
+import { outboxEffects } from '@/lib/server/email/outbox';
 import { parseReservationInput } from '@/lib/server/booking/input';
 import { loadRestaurantRules } from '@/lib/server/booking/rules';
 import { drainOutbox } from '@/lib/server/email/drain';
@@ -67,7 +68,7 @@ describe.skipIf(!TEST_DATABASE_URL)('a restaurant’s destination is restaurants
       phone: '0905 300 001', email: '', note: '', locale: 'en', consent: true,
     });
     if (!parsed.ok) throw new Error(parsed.code);
-    expect((await createWebReservation(parsed.value, { now: NOW, pool })).ok).toBe(true);
+    expect((await createWebReservation(parsed.value, { effects: outboxEffects(), now: NOW, pool })).ok).toBe(true);
     expect((await sql(`SELECT event, to_email, fallback FROM email_outbox`)).rows).toEqual([
       { event: 'staff.new', to_email: 'dh@furama.test', fallback: false },
     ]);

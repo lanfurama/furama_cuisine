@@ -1,7 +1,7 @@
 import 'server-only';
 import type { Pool } from 'pg';
 import type { EmailEvent } from '@/lib/email/events';
-import { appOrigin } from './auth-emails';
+import { appOrigin } from './origin';
 import { renderSampleEmail } from './booking/sample';
 import { sendEmail as defaultSend } from './send';
 import { describeEmailError, emailErrorCode, type EmailDeliveryMode, type SendEmailInput, type SendEmailResult } from './types';

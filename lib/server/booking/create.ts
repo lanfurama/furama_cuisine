@@ -6,12 +6,11 @@ import { PHONE_DAY_LIMIT } from '@/lib/booking/rules';
 import { slotVerdict } from '@/lib/booking/slot-code';
 import type { BookingErrorCode } from '@/lib/booking-errors';
 import { UPCOMING_STATUSES } from '@/lib/reservations/lifecycle';
-import { outboxEnv } from '@/lib/server/email/env';
-import { queueWebBookingEmails } from '@/lib/server/email/outbox';
 import { newReference } from '@/lib/server/reference';
 import { venueNow, type IsoDate } from '@/lib/venue-time';
 import { currentPolicyVersion } from '@/lib/server/content/policy-version';
 import type { ReservationRequest } from './input';
+import type { ReservationEffects } from './reservations';
 import { lockBookingDay, lockGuestPhoneDay } from './lock';
 import { loadBookedCovers, loadRestaurantRules } from './rules';
 
@@ -21,7 +20,8 @@ import { loadBookedCovers, loadRestaurantRules } from './rules';
  * lock, then takes the booking-day lock, re-reads the rules and the covers,
  * re-runs resolveDay, and inserts the booking (with the policy version the
  * guest agreed to), its 'created' event and its email_outbox rows (staff.new,
- * then guest.ack or guest.confirmed). Nothing is sent here; the action drains
+ * then guest.ack or guest.confirmed, queued by the caller's afterWebCreate:
+ * outboxEffects() in app/actions.ts). Nothing is sent here; the action drains
  * `outboxIds` once this has committed (step 7).
  */
 
@@ -34,6 +34,8 @@ export type CreateOptions = {
   makeReference?: () => string;
   /** Tests pass a second pool to play a second server instance. */
   pool?: Pool;
+  /** Queues the booking's emails in its transaction: outboxEffects() (lib/server/email/outbox.ts). */
+  effects: Pick<Required<ReservationEffects>, 'afterWebCreate'>;
 };
 
 const REFERENCE_ATTEMPTS = 3;
@@ -53,12 +55,12 @@ function violatedConstraint(err: unknown): string | null {
  */
 export async function createWebReservation(
   input: ReservationRequest,
-  { now = new Date(), makeReference = newReference, pool = getPool() }: CreateOptions = {},
+  { now = new Date(), makeReference = newReference, pool = getPool(), effects }: CreateOptions,
 ): Promise<CreateOutcome> {
   let request = input;
   for (let collisions = 0; ; ) {
     try {
-      return await insertOnce(pool, request, now, makeReference());
+      return await insertOnce(pool, request, now, makeReference(), effects);
     } catch (err) {
       const constraint = violatedConstraint(err);
       // The partial unique index rejects a second active request for the same table and number.
@@ -73,11 +75,11 @@ export async function createWebReservation(
   }
 }
 
-async function insertOnce(pool: Pool, input: ReservationRequest, now: Date, reference: string): Promise<CreateOutcome> {
+async function insertOnce(pool: Pool, input: ReservationRequest, now: Date, reference: string, effects: CreateOptions['effects']): Promise<CreateOutcome> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const outcome = await insertInTransaction(client, input, now, reference);
+    const outcome = await insertInTransaction(client, input, now, reference, effects);
     await client.query(outcome.ok ? 'COMMIT' : 'ROLLBACK');
     return outcome;
   } catch (err) {
@@ -122,7 +124,13 @@ async function consentFor(client: PoolClient, input: ReservationRequest): Promis
   return { version: current.version, locale: current.locale };
 }
 
-async function insertInTransaction(client: PoolClient, input: ReservationRequest, now: Date, reference: string): Promise<CreateOutcome> {
+async function insertInTransaction(
+  client: PoolClient,
+  input: ReservationRequest,
+  now: Date,
+  reference: string,
+  effects: CreateOptions['effects'],
+): Promise<CreateOutcome> {
   if (await phoneDayFull(client, input)) return { ok: false, code: 'too_many_requests' };
   // Then the booking-day lock: the rules and the covers read below must be the ones the insert is decided on.
   await lockBookingDay(client, input.restaurantId, input.date);
@@ -183,6 +191,6 @@ async function insertInTransaction(client: PoolClient, input: ReservationRequest
     `INSERT INTO reservation_events (reservation_id, actor_kind, type, to_status) VALUES ($1, 'guest', 'created', $2) RETURNING id::text`,
     [id, status],
   );
-  const outboxIds = await queueWebBookingEmails(client, { reservationId: id, eventId: event.rows[0].id, env: outboxEnv(), status });
+  const outboxIds = await effects.afterWebCreate(client, { reservationId: id, eventId: event.rows[0].id, status });
   return { ok: true, id, reference, date: input.date, status, outboxIds };
 }

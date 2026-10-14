@@ -1,6 +1,7 @@
 import { Pool, type PoolClient } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWebReservation } from '@/lib/server/booking/create';
+import { outboxEffects } from '@/lib/server/email/outbox';
 import { parseReservationInput, type ReservationRequest } from '@/lib/server/booking/input';
 import {
   addReservationNote,
@@ -375,7 +376,7 @@ describe.skipIf(!TEST_DATABASE_URL)('reservation lifecycle (database)', () => {
     it('a staff booking waits while a guest’s submit holds the restaurant-day, then counts the guest’s covers', async () => {
       await seed({ status: 'confirmed', guests: 14 }); // 19:00 on 5 Oct: 2 of 16 covers left
       const guest = pausingPool(pool);
-      const submitted = createWebReservation(guestRequest(2), { now: NOW, pool: guest.pool });
+      const submitted = createWebReservation(guestRequest(2), { effects: outboxEffects(), now: NOW, pool: guest.pool });
       await guest.paused; // the guest holds the lock; its 2 covers are inserted, not committed
       let settled = false;
       const staff = createStaffReservation(pool, LAN, booking({ guests: 1 }), { now: NOW }).finally(() => {
@@ -409,7 +410,7 @@ describe.skipIf(!TEST_DATABASE_URL)('reservation lifecycle (database)', () => {
       });
       await inside; // the staff booking holds the lock, its 2 covers inserted
       let settled = false;
-      const guest = createWebReservation(guestRequest(2), { now: NOW, pool }).finally(() => {
+      const guest = createWebReservation(guestRequest(2), { effects: outboxEffects(), now: NOW, pool }).finally(() => {
         settled = true;
       });
       try {

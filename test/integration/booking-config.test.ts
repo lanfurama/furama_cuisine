@@ -21,6 +21,7 @@ import {
   type PeriodInput,
 } from '@/lib/server/booking/config';
 import { createWebReservation } from '@/lib/server/booking/create';
+import { outboxEffects } from '@/lib/server/email/outbox';
 import { parseReservationInput } from '@/lib/server/booking/input';
 import { loadRestaurantRules } from '@/lib/server/booking/rules';
 import { TEST_DATABASE_URL } from '../helpers/db';
@@ -236,11 +237,11 @@ describe.skipIf(!TEST_DATABASE_URL)('booking configuration (database)', () => {
       expect(await getRestaurantBooking(pool, 'danaksara')).toMatchObject({ autoConfirm: true });
       const parsed = parseReservationInput({ restaurant: 'danaksara', date: '2026-10-05', time: '19:00', guests: 2, name: 'Khách Web', phone: '0905 444 555', email: '', note: '', locale: 'en', consent: true });
       if (!parsed.ok) throw new Error(parsed.code);
-      expect(await createWebReservation(parsed.value, { now: NOW, pool })).toMatchObject({ ok: true, status: 'confirmed' });
+      expect(await createWebReservation(parsed.value, { effects: outboxEffects(), now: NOW, pool })).toMatchObject({ ok: true, status: 'confirmed' });
       // Elsewhere the default (off) still holds.
       const other = parseReservationInput({ restaurant: 'don-ciprianis', date: '2026-10-05', time: '19:00', guests: 2, name: 'Khách Web', phone: '0905 444 555', email: '', note: '', locale: 'en', consent: true });
       if (!other.ok) throw new Error(other.code);
-      expect(await createWebReservation(other.value, { now: NOW, pool })).toMatchObject({ ok: true, status: 'requested' });
+      expect(await createWebReservation(other.value, { effects: outboxEffects(), now: NOW, pool })).toMatchObject({ ok: true, status: 'requested' });
       expect((await audit()).map((a) => [a.entity_type, a.entity_id, a.before, a.after])).toEqual([
         ['restaurant_booking', 'danaksara', { auto_confirm: null }, { auto_confirm: true }],
       ]);

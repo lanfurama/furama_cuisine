@@ -1,7 +1,7 @@
 import 'server-only';
 import { after } from 'next/server';
 import { getPool } from '@/db/client';
-import { sendPasswordReset, sendStaffInvitation } from '@/lib/server/email/auth-emails';
+import { sendPasswordReset, sendStaffInvitation } from './emails';
 import { createAuth, type Auth } from './config';
 import type { StaffDeps } from './staff';
 

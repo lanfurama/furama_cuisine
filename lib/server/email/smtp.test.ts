@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { startSilentServer, startSmtpSink, type SmtpSink } from '@/test/helpers/smtp-sink';
-import { sendStaffInvitation } from './auth-emails';
+import { sendStaffInvitation } from '@/lib/server/auth/emails';
 import { createEmailSender, openMailer, type EmailDeps } from './send';
 import { describeEmailError } from './types';
 

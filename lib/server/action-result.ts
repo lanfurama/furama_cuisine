@@ -1,7 +1,14 @@
 import 'server-only';
 import { unstable_rethrow } from 'next/navigation';
 import { z } from '@/lib/admin/zod';
-import { PermissionError } from '@/lib/server/dal/session';
+
+/** What requirePermission (dal/session.ts) throws: no session, or a role that may not. */
+export class PermissionError extends Error {
+  constructor(readonly code: 'unauthenticated' | 'forbidden') {
+    super(code);
+    this.name = 'PermissionError';
+  }
+}
 
 /*
  * What every admin Server Action returns (spec §7.4, §6.3.5), and how a thrown

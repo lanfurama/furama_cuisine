@@ -3,9 +3,9 @@ import type { Pool, PoolClient } from 'pg';
 import { LIMITS, type LimitKey } from '@/lib/admin/content-rules';
 import type { Saved } from '@/lib/admin/save-state';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
-import { conflictBy, conflictFromHistory, type Conflict } from '@/lib/server/booking/config';
+import { conflictBy, conflictFromHistory, type Conflict } from '@/lib/server/conflict';
 import { assertLiveMedia, reviveMedia } from '@/lib/server/media/library';
-import { getAuditRow } from './history';
+import { getAuditRow } from '@/lib/server/history/history';
 import {
   isForeignKeyViolation,
   isRestrictViolation,
@@ -23,7 +23,7 @@ import {
   type ItemSnapshot,
   type OrderSnapshot,
   type Row,
-} from './snapshot';
+} from '@/lib/server/history/snapshot';
 
 /*
  * The save flow of a list editor (spec §7.4, §7.5, §6.5), written once for

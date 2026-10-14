@@ -5,7 +5,7 @@ import sharp from 'sharp';
 import { getGlobalDispatcher } from 'undici';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { makeListEditor } from '@/lib/server/content-admin/list-editor';
-import { readItem, snapshotToken, type ItemDef } from '@/lib/server/content-admin/snapshot';
+import { readItem, snapshotToken, type ItemDef } from '@/lib/server/history/snapshot';
 import {
   MEDIA,
   MEDIA_REFERENCES,

@@ -4,12 +4,12 @@ import { HERO_AUTOPLAY_MS, SECTION_PARTS, sectionErrors } from '@/lib/admin/cont
 import type { Saved } from '@/lib/admin/save-state';
 import { SECTION_KEYS, type SectionKey } from '@/lib/content/types';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
-import { conflictBy, type Conflict } from '@/lib/server/booking/config';
-import type { Db } from '@/lib/server/booking/rules';
+import { conflictBy, type Conflict } from '@/lib/server/conflict';
+import type { Db } from '@/db/client';
 import { assertLiveMedia, reviveMedia } from '@/lib/server/media/library';
-import { getAuditRow } from './history';
+import { getAuditRow } from '@/lib/server/history/history';
 import { MEDIA_GONE } from './list-editor';
-import { snapshotToken, type ItemSnapshot, type Row } from './snapshot';
+import { snapshotToken, type ItemSnapshot, type Row } from '@/lib/server/history/snapshot';
 
 /*
  * The home sections (spec §7.2 content/sections; §5.2 sections): each one's

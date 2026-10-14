@@ -1,8 +1,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { getPool } from '@/db/client';
 import type { AuditActor } from '@/lib/server/audit';
-import { listDeleted } from '@/lib/server/content-admin/history';
-import { readItems, writeItem, type ItemSnapshot } from '@/lib/server/content-admin/snapshot';
+import { listDeleted } from '@/lib/server/history/history';
+import { readItems, writeItem, type ItemSnapshot } from '@/lib/server/history/snapshot';
 import {
   createSocialLink,
   deleteSocialLink,

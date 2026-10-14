@@ -2,7 +2,7 @@
  * How the History tab (spec §7.5) reads audit_log rows: which fields a save
  * changed, and which versions a row offers to restore. Pure, so it is shared
  * by the server page and its tests; snapshots are the ItemSnapshot shape of
- * lib/server/content-admin/snapshot.ts (row, i18n[], plus an aggregate's own
+ * lib/server/history/snapshot.ts (row, i18n[], plus an aggregate's own
  * lists such as a restaurant's cuisines and highlights).
  */
 

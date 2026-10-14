@@ -14,10 +14,10 @@ import {
   setSlidePublished,
   updateSlide,
 } from '@/lib/server/content-admin/hero';
-import { listDeleted } from '@/lib/server/content-admin/history';
+import { listDeleted } from '@/lib/server/history/history';
 import { MEDIA_GONE } from '@/lib/server/content-admin/list-editor';
 import { getAutoplayEditor, listSectionsAdmin, restoreAutoplay, restoreSection, saveAutoplay, saveSection } from '@/lib/server/content-admin/sections';
-import { readItems, writeItem, type ItemSnapshot } from '@/lib/server/content-admin/snapshot';
+import { readItems, writeItem, type ItemSnapshot } from '@/lib/server/history/snapshot';
 import { loadHeroSlides } from '@/lib/server/content/home.queries';
 import { loadSiteSettings } from '@/lib/server/content/settings.queries';
 import { loadSections } from '@/lib/server/content/site.queries';

@@ -1,7 +1,7 @@
 import 'server-only';
 import type { Pool, PoolClient } from 'pg';
 import { getPool } from '@/db/client';
-import { US } from '@/lib/server/booking/config';
+import { US } from '@/lib/server/conflict';
 
 /** The one row of site_settings (migrations 007, 008). */
 export type SiteSettingsRow = {

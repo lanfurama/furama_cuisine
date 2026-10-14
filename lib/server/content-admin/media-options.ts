@@ -1,6 +1,6 @@
 import 'server-only';
 import type { MediaOption } from '@/lib/admin/media-option';
-import type { Db } from '@/lib/server/booking/rules';
+import type { Db } from '@/db/client';
 
 export type { MediaOption };
 

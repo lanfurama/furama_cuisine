@@ -1,8 +1,8 @@
 import 'server-only';
 import { sourceHash, translationState, type TranslationState } from '@/lib/i18n/source-hash';
-import type { Db } from '@/lib/server/booking/rules';
+import type { Db } from '@/db/client';
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
-import { readItems, type I18nRow, type ItemDef, type ItemSnapshot } from './snapshot';
+import { readItems, type I18nRow, type ItemDef, type ItemSnapshot } from '@/lib/server/history/snapshot';
 
 /*
  * The language tabs of the content forms (phase 8, spec §7.3, R8-5): every

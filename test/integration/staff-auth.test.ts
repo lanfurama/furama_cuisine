@@ -15,7 +15,7 @@ import {
   type SendInvite,
   type StaffDeps,
 } from '@/lib/server/auth/staff';
-import { sendStaffInvitation } from '@/lib/server/email/auth-emails';
+import { sendStaffInvitation } from '@/lib/server/auth/emails';
 import { createEmailSender } from '@/lib/server/email/send';
 import { EmailSendError } from '@/lib/server/email/types';
 import { TEST_DATABASE_URL } from '../helpers/db';

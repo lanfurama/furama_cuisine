@@ -16,7 +16,7 @@ import {
   setRestaurantShown,
   type RestaurantSnapshot,
 } from '@/lib/server/content-admin/restaurants';
-import { writeItem } from '@/lib/server/content-admin/snapshot';
+import { writeItem } from '@/lib/server/history/snapshot';
 import { loadOffers } from '@/lib/server/content/home.queries';
 import { loadDetailSlugs, loadRestaurantDetail, loadRestaurants } from '@/lib/server/content/restaurants.queries';
 import { restaurantsWithoutRecipient } from '@/lib/server/email/recipients';

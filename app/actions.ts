@@ -4,6 +4,7 @@ import type { BookingErrorCode } from '@/lib/booking-errors';
 import { createWebReservation } from '@/lib/server/booking/create';
 import { honeypotFilled, parseReservationInput } from '@/lib/server/booking/input';
 import { drainAfterCommit } from '@/lib/server/email/after-commit';
+import { outboxEffects } from '@/lib/server/email/outbox';
 import { isBotRequest } from '@/lib/server/guard/bot';
 import type { IsoDate } from '@/lib/venue-time';
 
@@ -29,7 +30,7 @@ export async function submitReservation(input: unknown): Promise<ReservationResu
   }
   const parsed = parseReservationInput(input);
   if (!parsed.ok) return parsed;
-  const result = await createWebReservation(parsed.value);
+  const result = await createWebReservation(parsed.value, { effects: outboxEffects() });
   if (!result.ok) return result;
   // Step 7: the booking has committed; its emails go out after the response (a failed send never fails the booking, spec §12).
   drainAfterCommit(result.outboxIds);

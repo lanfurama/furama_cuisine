@@ -6,7 +6,7 @@ import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
 import { ADMIN_SCREENS, REGISTRY, keysForScreen, registryLocaleDefault, type AdminScreen, type StringKey } from '@/lib/i18n/registry';
 import { sourceHash, translationState, type TranslationState } from '@/lib/i18n/source-hash';
 import { insertAudit, withTransaction, type AuditActor } from '../audit';
-import { US, conflictBy, type Conflict } from '../booking/config';
+import { US, conflictBy, type Conflict } from '@/lib/server/conflict';
 import { MEDIA } from '../media/library';
 import { stringSource } from '../content/strings-admin';
 import { CUISINE } from './cuisines';
@@ -15,7 +15,7 @@ import { EXPERIENCE } from './experiences';
 import { NAV_ITEM } from './nav';
 import { OFFER } from './offers';
 import { HIGHLIGHT, RESTAURANT, readRestaurant } from './restaurants';
-import { readItem, type ItemDef } from './snapshot';
+import { readItem, type ItemDef } from '@/lib/server/history/snapshot';
 import { STORY } from './stories';
 
 /*

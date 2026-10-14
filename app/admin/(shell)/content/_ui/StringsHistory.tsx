@@ -3,7 +3,7 @@ import { formatDateTimeVi } from '@/lib/admin/format';
 import { restoreChoices, stringHistoryRow, type Snap } from '@/lib/admin/history';
 import { toBcp47 } from '@/lib/i18n/locales';
 import type { AdminScreen } from '@/lib/i18n/registry';
-import type { HistoryEntry } from '@/lib/server/content-admin/history';
+import type { HistoryEntry } from '@/lib/server/history/history';
 import type { StringField } from '@/lib/server/content/strings-admin';
 import { RestoreButton } from '../../_kit/RestoreButton';
 import { RestoreOutcome } from '../../_kit/RestoreOutcome';

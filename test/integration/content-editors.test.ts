@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { getPool } from '@/db/client';
 import { restoreChoices } from '@/lib/admin/history';
 import type { AuditActor } from '@/lib/server/audit';
-import { listDeleted, listHistory } from '@/lib/server/content-admin/history';
+import { listDeleted, listHistory } from '@/lib/server/history/history';
 import {
   createOffer,
   deleteOffer,
@@ -16,7 +16,7 @@ import {
   updateOffer,
   type OfferInput,
 } from '@/lib/server/content-admin/offers';
-import { readItem, snapshotToken, writeItem, type ItemDef, type ItemSnapshot } from '@/lib/server/content-admin/snapshot';
+import { readItem, snapshotToken, writeItem, type ItemDef, type ItemSnapshot } from '@/lib/server/history/snapshot';
 import { loadOffers } from '@/lib/server/content/home.queries';
 
 /*

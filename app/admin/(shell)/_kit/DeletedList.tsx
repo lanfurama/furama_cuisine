@@ -1,6 +1,6 @@
 import { formatDateTimeVi } from '@/lib/admin/format';
 import type { ActionResult } from '@/lib/server/action-result';
-import type { DeletedItem } from '@/lib/server/content-admin/history';
+import type { DeletedItem } from '@/lib/server/history/history';
 import { RestoreButton } from './RestoreButton';
 import { RestoreOutcome } from './RestoreOutcome';
 

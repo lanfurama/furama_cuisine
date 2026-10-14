@@ -2,8 +2,8 @@ import { auditActionLabel } from '@/lib/admin/audit-labels';
 import { formatDateTimeVi } from '@/lib/admin/format';
 import { changedFields, restoreChoices, type HistoryRow, type Snap } from '@/lib/admin/history';
 import type { ActionResult } from '@/lib/server/action-result';
-import type { HistoryEntry } from '@/lib/server/content-admin/history';
-import { snapshotToken } from '@/lib/server/content-admin/snapshot';
+import type { HistoryEntry } from '@/lib/server/history/history';
+import { snapshotToken } from '@/lib/server/history/snapshot';
 import { RestoreButton } from './RestoreButton';
 import { RestoreOutcome } from './RestoreOutcome';
 

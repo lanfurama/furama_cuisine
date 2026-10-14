@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { getPool } from '@/db/client';
 import type { AuditActor } from '@/lib/server/audit';
-import { listDeleted } from '@/lib/server/content-admin/history';
+import { listDeleted } from '@/lib/server/history/history';
 import {
   createNavItem,
   deleteNavItem,
@@ -16,7 +16,7 @@ import {
   setNavItemPublished,
   updateNavItem,
 } from '@/lib/server/content-admin/nav';
-import { readItems, writeItem, type ItemSnapshot } from '@/lib/server/content-admin/snapshot';
+import { readItems, writeItem, type ItemSnapshot } from '@/lib/server/history/snapshot';
 import { loadNav } from '@/lib/server/content/site.queries';
 
 /*

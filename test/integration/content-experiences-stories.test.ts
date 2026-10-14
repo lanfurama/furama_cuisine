@@ -12,9 +12,9 @@ import {
   updateExperience,
   type ExperienceInput,
 } from '@/lib/server/content-admin/experiences';
-import { listDeleted } from '@/lib/server/content-admin/history';
+import { listDeleted } from '@/lib/server/history/history';
 import { MEDIA_GONE, NEEDS_EN_TITLE } from '@/lib/server/content-admin/list-editor';
-import { readItems, writeItem, type ItemSnapshot } from '@/lib/server/content-admin/snapshot';
+import { readItems, writeItem, type ItemSnapshot } from '@/lib/server/history/snapshot';
 import {
   createStory,
   deleteStory,

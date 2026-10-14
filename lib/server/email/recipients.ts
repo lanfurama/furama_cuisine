@@ -2,7 +2,7 @@ import 'server-only';
 import type { Pool, PoolClient } from 'pg';
 import type { StaffEmailEventName } from '@/lib/email/events';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
-import { US, conflictBy, type Conflict } from '@/lib/server/booking/config';
+import { US, conflictBy, type Conflict } from '@/lib/server/conflict';
 import { bookableSql } from '@/lib/server/booking/rules';
 import { loadSiteSettings } from '@/lib/server/content/settings.queries';
 

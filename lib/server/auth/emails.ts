@@ -1,12 +1,12 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { createElement } from 'react';
-import { DEPLOYED } from '@/lib/botid';
-import { INVITE_TTL_DAYS, RESET_TOKEN_SECONDS } from '@/lib/server/auth/lifetimes';
-import { sendEmail as defaultSend } from './send';
-import { PasswordResetEmail, passwordResetSubject } from './templates/password-reset';
-import { StaffInvitationEmail, staffInvitationSubject, type StaffInvitationProps } from './templates/staff-invitation';
-import { EmailSendError, type SendEmailInput, type SendEmailResult } from './types';
+import { INVITE_TTL_DAYS, RESET_TOKEN_SECONDS } from './lifetimes';
+import { appOrigin } from '@/lib/server/email/origin';
+import { sendEmail as defaultSend } from '@/lib/server/email/send';
+import { PasswordResetEmail, passwordResetSubject } from '@/lib/server/email/templates/password-reset';
+import { StaffInvitationEmail, staffInvitationSubject, type StaffInvitationProps } from '@/lib/server/email/templates/staff-invitation';
+import type { SendEmailInput, SendEmailResult } from '@/lib/server/email/types';
 
 /*
  * The two staff emails of phase 3 (spec §7.1, §10.4): they go straight to
@@ -17,23 +17,6 @@ import { EmailSendError, type SendEmailInput, type SendEmailResult } from './typ
  */
 
 type Send = (input: SendEmailInput) => Promise<SendEmailResult>;
-
-/**
- * The origin of every emailed link (invite, reset, and the booking link in
- * staff.new). It fails closed (R23): without BETTER_AUTH_URL a live or
- * redirected email, or any email on a Vercel deployment, would carry a
- * localhost link that works for nobody. Only log mode off Vercel (dev, tests)
- * keeps the localhost default.
- */
-export function appOrigin(env: Record<string, string | undefined> = process.env): string {
-  const url = env.BETTER_AUTH_URL?.trim();
-  if (url) return url.replace(/\/$/, '');
-  const mode = env.EMAIL_DELIVERY?.trim() || 'log';
-  if (mode !== 'log' || DEPLOYED.has(env.VERCEL_ENV ?? '')) {
-    throw new EmailSendError('missing_app_url', 'BETTER_AUTH_URL is required for emailed links outside log mode and on Vercel deployments');
-  }
-  return 'http://localhost:3000';
-}
 
 export function invitationUrl(token: string, origin = appOrigin()): string {
   return `${origin}/admin/accept-invite?token=${encodeURIComponent(token)}`;

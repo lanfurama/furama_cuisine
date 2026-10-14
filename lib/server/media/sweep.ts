@@ -1,7 +1,7 @@
 import 'server-only';
 import type { Pool } from 'pg';
 import { insertAudit, withTransaction } from '@/lib/server/audit';
-import { readItem } from '@/lib/server/content-admin/snapshot';
+import { readItem } from '@/lib/server/history/snapshot';
 import { deleteBlobs, listBlobs } from './blob';
 import { MEDIA } from './library';
 

@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import { attachDatabasePool } from '@vercel/functions';
 
 /*
@@ -7,6 +7,9 @@ import { attachDatabasePool } from '@vercel/functions';
  * is created lazily, on the first query.
  */
 let pool: Pool | null = null;
+
+/** What a read takes: the pool, or a transaction's client. */
+export type Db = Pool | PoolClient;
 
 /** Throwaway databases for tests and CI run on this machine without TLS. */
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);

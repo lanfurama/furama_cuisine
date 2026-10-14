@@ -5,7 +5,7 @@ import { getPool } from '@/db/client';
 import { offerPageTitle } from '@/lib/admin/content-rules';
 import { formatDateTimeVi } from '@/lib/admin/format';
 import { listRestaurantOptions } from '@/lib/server/booking/queries';
-import { listHistory } from '@/lib/server/content-admin/history';
+import { listHistory } from '@/lib/server/history/history';
 import { formLocales, itemStates } from '@/lib/server/content-admin/form-locales';
 import { getOfferEditor, OFFER } from '@/lib/server/content-admin/offers';
 import { requirePagePermission } from '@/lib/server/dal/session';

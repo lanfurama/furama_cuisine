@@ -3,10 +3,10 @@ import type { Pool, PoolClient } from 'pg';
 import type { Saved } from '@/lib/admin/save-state';
 import type { MediaContentType } from '@/lib/media/rules';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
-import { conflictFromHistory, type Conflict } from '@/lib/server/booking/config';
-import type { Db } from '@/lib/server/booking/rules';
-import { getAuditRow } from '@/lib/server/content-admin/history';
-import { readItem, snapshotToken, upsertTranslation, writeChangedTranslations, writeItem, type ItemDef, type ItemSnapshot } from '@/lib/server/content-admin/snapshot';
+import { conflictFromHistory, type Conflict } from '@/lib/server/conflict';
+import type { Db } from '@/db/client';
+import { getAuditRow } from '@/lib/server/history/history';
+import { readItem, snapshotToken, upsertTranslation, writeChangedTranslations, writeItem, type ItemDef, type ItemSnapshot } from '@/lib/server/history/snapshot';
 import type { Measured } from './measure';
 
 /*

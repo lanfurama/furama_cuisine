@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from '@/lib/admin/zod';
-import { actionError } from './action-result';
-import { PermissionError } from './dal/session';
+import { actionError, PermissionError } from './action-result';
 
 afterEach(() => {
   vi.restoreAllMocks();

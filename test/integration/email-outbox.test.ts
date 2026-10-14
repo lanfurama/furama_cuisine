@@ -36,7 +36,7 @@ async function guestBooking(over: Record<string, unknown> = {}, stored: Partial<
   });
   if (!parsed.ok) throw new Error(parsed.code);
   // `stored` stands for a value the form no longer lets through but an older row may hold.
-  const result = await createWebReservation({ ...parsed.value, ...stored }, { now: NOW, pool });
+  const result = await createWebReservation({ ...parsed.value, ...stored }, { effects: outboxEffects(), now: NOW, pool });
   if (!result.ok) throw new Error(result.code);
   return result;
 }
@@ -162,7 +162,7 @@ describe.skipIf(!TEST_DATABASE_URL)('email outbox (database + local SMTP sink)',
       await guestBooking({ phone: '0905 777 777' });
       const parsed = parseReservationInput({ restaurant: 'taya-house', date: '2026-10-05', time: '19:00', guests: 2, name: 'Khách Web', phone: '0905 777 777', email: 'x@example.com', note: '', locale: 'en', consent: true });
       if (!parsed.ok) throw new Error(parsed.code);
-      expect(await createWebReservation(parsed.value, { now: NOW, pool })).toEqual({ ok: false, code: 'duplicate' });
+      expect(await createWebReservation(parsed.value, { effects: outboxEffects(), now: NOW, pool })).toEqual({ ok: false, code: 'duplicate' });
       expect((await outbox()).map((r) => r.to_email)).toEqual(['fb@furamavietnam.com', 'guest@example.com']);
     });
 

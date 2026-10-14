@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { forbidden, redirect } from 'next/navigation';
 import { cache } from 'react';
 import { ADMIN_SIGN_IN } from '@/lib/admin/paths';
+import { PermissionError } from '@/lib/server/action-result';
 import type { AuditActor } from '@/lib/server/audit';
 import { getAuth } from '@/lib/server/auth/auth';
 import { clientIp } from '@/lib/server/client-ip';
@@ -25,12 +26,7 @@ export type StaffSession = {
   ip: string | null;
 };
 
-export class PermissionError extends Error {
-  constructor(readonly code: 'unauthenticated' | 'forbidden') {
-    super(code);
-    this.name = 'PermissionError';
-  }
-}
+export { PermissionError };
 
 /** The signed-in staff member, or null. One lookup per request (React cache). */
 export const getStaffSession = cache(async (): Promise<StaffSession | null> => {

@@ -7,8 +7,8 @@ import { REGISTRY, isStringKey, keysForScreen, registryLocaleDefault, type Admin
 import { sourceHash, translationState, type TranslationState } from '@/lib/i18n/source-hash';
 import { AGREED_KEYS, PRIVACY_KEYS } from '@/lib/legal';
 import { insertAudit, withTransaction, type AuditActor } from '../audit';
-import { getAuditRow, HISTORY_LIMIT, type HistoryEntry } from '../content-admin/history';
-import { US, conflictFromHistory, type Conflict } from '../booking/config';
+import { getAuditRow, HISTORY_LIMIT, type HistoryEntry } from '@/lib/server/history/history';
+import { US, conflictFromHistory, type Conflict } from '@/lib/server/conflict';
 import { policyWritesRefused, recordPolicyVersions } from './policy-version';
 
 /*

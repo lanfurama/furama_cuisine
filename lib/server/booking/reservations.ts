@@ -55,6 +55,8 @@ export type ReservationEffects = {
     client: PoolClient,
     created: { reservationId: string; status: ReservationStatus; eventId: string; notifyGuest: boolean },
   ) => Promise<void>;
+  /** After a web booking and its `created` event; same transaction (create.ts). Answers the outbox ids to drain once committed. */
+  afterWebCreate?: (client: PoolClient, created: { reservationId: string; status: 'requested' | 'confirmed'; eventId: string }) => Promise<string[]>;
 };
 
 export type Failure<C extends string> = { ok: false; code: C; params?: Record<string, string>; fieldErrors?: Record<string, string[]> };

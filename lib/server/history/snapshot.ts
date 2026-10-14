@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { ContentTable } from '@/lib/cache-plan';
 import { sourceHash } from '@/lib/i18n/source-hash';
-import type { Db } from '@/lib/server/booking/rules';
+import type { Db } from '@/db/client';
 
 /*
  * The history half of the content save flow (spec §7.4, §7.5). A list item is

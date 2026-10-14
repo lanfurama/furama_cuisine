@@ -1,9 +1,9 @@
 import 'server-only';
 import type { PoolClient } from 'pg';
 import { FIRST_SLIDE_NEEDS_CROP } from '@/lib/admin/content-rules';
-import type { Db } from '@/lib/server/booking/rules';
+import type { Db } from '@/db/client';
 import { makeListEditor, type ListFailure } from './list-editor';
-import { orderToken, readItems, snapshotToken, type ItemDef } from './snapshot';
+import { orderToken, readItems, snapshotToken, type ItemDef } from '@/lib/server/history/snapshot';
 
 /*
  * The hero's slides (spec §7.2 content/hero, §6.5 "Hero slides 1–5. Slide 1
