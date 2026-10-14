@@ -237,7 +237,7 @@ export function SiteProvider({
   children,
 }: {
   locale: string;
-  /** The enabled languages, in the table's order (getEnabledLocales). */
+  /** The enabled languages, in SITE_LOCALES' order (getEnabledLocales). */
   languages: SwitcherLanguage[];
   restaurants: Restaurant[];
   /** The chrome's content (lib/server/content/site.ts), resolved on the server for this language. */

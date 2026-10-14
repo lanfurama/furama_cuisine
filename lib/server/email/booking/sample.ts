@@ -4,7 +4,8 @@ import { audienceOf, type EmailEvent } from '@/lib/email/events';
 import { addDays, venueNow } from '@/lib/venue-time';
 import { renderEmail } from '../send';
 import type { BookingEmailData } from './load';
-import { buildBookingEmail, loadEmailStrings, resolveEmailLocale, sharedInbox, type EmailKey } from './render';
+import type { EmailKey } from '@/lib/email/keys';
+import { buildBookingEmail, loadEmailStrings, resolveEmailLocale, sharedInbox } from './render';
 
 /*
  * "Gửi email thử" (spec §10.4, R9) and, from phase 7, /admin/content/emails

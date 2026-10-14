@@ -1,6 +1,7 @@
 import 'server-only';
 import type { Pool, PoolClient } from 'pg';
 import type { Saved } from '@/lib/admin/save-state';
+import { DEFAULT_LOCALE, DEFAULT_LOCALE_SQL } from '@/lib/i18n/locales';
 import type { MediaContentType } from '@/lib/media/rules';
 import { insertAudit, withTransaction, type AuditActor } from '@/lib/server/audit';
 import { conflictFromHistory, type Conflict } from '@/lib/server/conflict';
@@ -74,7 +75,7 @@ const USAGE_SQL = `
               FROM restaurant_highlights h JOIN restaurants r ON r.id = h.restaurant_id WHERE h.image_id = $1
   UNION ALL SELECT 'Thẻ điểm đến ' || coalesce(di.name, d.id), '/admin/content/destinations'
               FROM destinations d LEFT JOIN destination_i18n di ON di.destination_id = d.id
-                AND di.locale = (SELECT code FROM locales WHERE is_default) WHERE d.card_image_id = $1
+                AND di.locale = ${DEFAULT_LOCALE_SQL} WHERE d.card_image_id = $1
   UNION ALL SELECT 'Ẩm thực ' || c.id, '/admin/content/cuisines' FROM cuisines c WHERE c.image_id = $1
   UNION ALL SELECT 'Section ' || s.key, '/admin/content/sections' FROM sections s WHERE s.image_id = $1
   UNION ALL SELECT 'Hero slide #' || hs.id, '/admin/content/hero' FROM hero_slides hs WHERE hs.image_id = $1
@@ -110,7 +111,7 @@ export type LibraryItem = {
 const ITEM_COLUMNS = `m.id::text, m.storage, m.url, m.pathname, m.content_type AS "contentType", m.width, m.height, m.bytes,
   m.blur_data_url AS "blurDataUrl", m.is_decorative AS "isDecorative", coalesce(mi.alt, '') AS alt,
   m.deleted_at AS "deletedAt", m.updated_at AS "updatedAt"`;
-const ALT_JOIN = `LEFT JOIN media_i18n mi ON mi.media_id = m.id AND mi.locale = (SELECT code FROM locales WHERE is_default)`;
+const ALT_JOIN = `LEFT JOIN media_i18n mi ON mi.media_id = m.id AND mi.locale = ${DEFAULT_LOCALE_SQL}`;
 const USES = MEDIA_REFERENCES.map(({ table, column }) => `(SELECT count(*) FROM ${table} WHERE ${column} = m.id)`).join(' + ');
 
 /** The library grid: live files, newest first, filtered by name, alt or type. */
@@ -175,15 +176,10 @@ export async function registerMediaRow(pool: Pool, actor: AuditActor, input: Reg
     );
     const id = rows[0].id;
     const alt = input.alt?.trim();
-    if (!prior[0] && alt && m.contentType !== 'application/pdf') await upsertTranslation(client, MEDIA, id, await defaultLocale(client), { alt }, actor.id);
+    if (!prior[0] && alt && m.contentType !== 'application/pdf') await upsertTranslation(client, MEDIA, id, DEFAULT_LOCALE, { alt }, actor.id);
     await insertAudit(client, actor, { action: prior[0] ? 'update' : 'create', entityType: 'media', entityId: id, before, after: await readItem(client, MEDIA, id) });
     return { ok: true as const, data: { id, created: !prior[0] } };
   });
-}
-
-async function defaultLocale(client: PoolClient): Promise<string> {
-  const { rows } = await client.query<{ code: string }>('SELECT code FROM locales WHERE is_default');
-  return rows[0].code;
 }
 
 /** Locks a file's row and checks the page's token; a file in the trash is not found (only History brings it back). */
@@ -215,7 +211,7 @@ export async function saveMediaDetails(
     const locked = await lockLive(client, input.id, input.token);
     if (!('snapshot' in locked)) return locked;
     await client.query('UPDATE media SET is_decorative = $2, updated_at = now(), updated_by = $3 WHERE id = $1::uuid', [input.id, input.decorative, actor.id]);
-    const locale = await defaultLocale(client);
+    const locale = DEFAULT_LOCALE;
     const alt = input.alt.trim();
     // media_i18n holds a row only when there is alt text (008): an empty field removes the language's row.
     if (alt) await upsertTranslation(client, MEDIA, input.id, locale, { alt }, actor.id);

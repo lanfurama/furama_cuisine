@@ -33,7 +33,7 @@ export default async function NavigationPage() {
   await requirePagePermission({ content: ['read'] });
   const pool = getPool();
   const [{ items, token }, deleted, orderHistory] = await Promise.all([listNavAdmin(pool), listDeleted(pool, NAV_ITEM), listHistory(pool, 'nav_items', null, 10)]);
-  const tabs = await formLocales(pool);
+  const tabs = await formLocales();
   const states = await listStates(pool, NAV_ITEM, tabs);
   const histories = await Promise.all(items.map((n) => listHistory(pool, 'nav_items', n.id, 10)));
   const shown = items.filter((i) => i.isPublished).length;

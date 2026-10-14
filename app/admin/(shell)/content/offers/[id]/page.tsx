@@ -49,7 +49,7 @@ export default async function OfferPage({ params }: { params: Promise<{ id: stri
     getOfferEditor(pool, id),
     listHistory(pool, 'offers', id),
     listRestaurantOptions(pool),
-    formLocales(pool),
+    formLocales(),
   ]);
   if (!editor && history.length === 0) notFound();
   const title = offerPageTitle(id, editor);

@@ -696,6 +696,27 @@ live), as the one `DO` statement above through Neon's HTTPS SQL endpoint:
 - the post-check returned all true, and `legal_versions` holds
   `en 2026-10-03`.
 
+### Migration 011 (languages in code)
+
+`011_drop_locales.sql` removes the languages from the database: the
+`locales` table, the sixteen foreign keys that pointed at it (each locale
+column keeps its values; the app checks a code against
+`lib/i18n/site-locales.ts`), the trigger that guarded its deletes, and
+`social_links.visible_locales` (every link shows in every language). It runs
+in one transaction and is safe to run again.
+
+**Deploy first, then 011.** Phase-8 code reads `locales` and breaks without
+it; this code reads neither the table nor the column, so it runs on a
+database before 011 and after it.
+
+- **Apply:** `DATABASE_URL_UNPOOLED=<production's direct URL> node scripts/migrate.mjs`
+  (it prints `✓ 011_drop_locales.sql`).
+- **Check:** `SELECT to_regclass('locales')` returns NULL.
+
+**Rollback:** none. Roll the deployment back only to code that reads no
+`locales` table; restoring phase-8 code needs the table back (migrations
+004 and 010 recreate it, with `en` on and `vi` off).
+
 ### Media in Vercel Blob (phase 7A)
 
 Uploads go to Vercel Blob (spec §11), in a store connected to the project in
@@ -1164,37 +1185,38 @@ says how).
 
 ### Before launch B: languages
 
-Phase 8 lets the owner open the site in another language without a deploy
-(spec §8). Vietnamese (`vi`) is in the table from migration 004, off. To open
-it:
+The languages are code (owner, 2026-10-14): `lib/i18n/site-locales.ts`
+lists them, in the switcher's order, each `enabled` or not, one of them the
+default (`DEFAULT_LOCALE`). A language must be in `LANGUAGE_CATALOG`
+(`lib/i18n/catalog.ts`), which holds its name and script. There is no
+language screen in the admin and no `locales` table (migration 011). A
+change is an edit of that file and a deploy.
 
-1. **Migration 010 on production** (above). It was applied on 2026-10-06; a
-   new database gets it with the others.
-2. **Guest emails in the language.** `/admin/locales` refuses to turn a
-   language on while any guest email key has no text in it (R8-6). Vietnamese
-   has the registry's own text for every `email.*` key, so it is not blocked;
-   change those words on `/admin/content/emails?lang=vi` if they should differ.
-   Another language (`ko`, `ja`, …) needs every guest email key translated
-   there first.
-3. **The privacy policy in the language.** A language without its own
-   policy text shows the English one, and its bookings record the English
-   version (`reservations.consent_locale = 'en'`). The Vietnamese wording of
-   the policy and of the consent sentence needs the lawyer's review (Law
-   91/2025/QH15, "Before launch A") before it is saved on
-   `/admin/content/legal?lang=vi`: each save of agreed text is a new policy
-   version of that language.
-4. **Translate the content** in each form's VI tab and on the strings screens
-   (`?lang=vi`), or wait for phase 9's AI and review its work on
-   `/admin/translations`. Whatever is not translated shows in English.
-5. **Preview**: "Xem trước" on `/admin/locales` opens `/vi` for staff only
-   (Draft Mode, `noindex`), with a bar to leave it.
-6. **Turn it on** ("Bật cho khách"): `/vi`, the language switcher, the
-   sitemap and hreflang follow at once; the proxy's language redirect within
-   a minute.
-7. **Search engines**: check `https://<domain>/sitemap.xml` lists the `/vi`
+To add a language (`ko`, `ja`, …):
+
+1. **List it off**: `{ code: 'ko', enabled: false }`, and deploy. The admin
+   forms get its tab ("đang tắt"), the strings screens and
+   `/admin/translations` offer it, and staff can preview `/ko` through
+   `/api/admin/preview?path=/ko` (Draft Mode, `noindex`). Guests still get a
+   404.
+2. **Translate** the content in each form's tab and on the strings screens
+   (`?lang=ko`), the guest emails on `/admin/content/emails?lang=ko`, and the
+   privacy policy on `/admin/content/legal?lang=ko` (each save of agreed text
+   is a new policy version; the Vietnamese wording needs the lawyer's review,
+   Law 91/2025/QH15, "Before launch A"). Guests see reviewed translations
+   only; anything else shows in the default language. A guest email goes out
+   in the language only when every key it reads has a reviewed text there or
+   the registry's own (Vietnamese has the registry's for every `email.*` key);
+   otherwise the whole email is in the default language.
+3. **Turn it on**: `enabled: true`, and deploy. `/ko`, the switcher, the
+   sitemap, hreflang and the proxy's redirect follow with the deploy.
+4. **Search engines**: check `https://<domain>/sitemap.xml` lists the new
    pages with their alternates, then submit it in Google Search Console. Set
    `SITE_URL` first once there is a custom domain. Previews need nothing:
    Vercel sends `X-Robots-Tag: noindex` on every preview deployment.
+
+Taking a language off the list (or `enabled: false`) closes it to guests;
+its translations stay in the database.
 
 ### First Admin
 
@@ -1223,7 +1245,7 @@ bootstrapping production is what you mean to do.
 
 | Route | Rendering | Notes |
 | --- | --- | --- |
-| `/` and other unprefixed paths | Proxy (`proxy.ts`) | 307 to `/<locale>…` by the `NEXT_LOCALE` cookie, then `Accept-Language` (a tag, then the tag without its last subtag: `zh-Hans-CN` finds `zh-hans`), then `en`, among the enabled languages it reads from the database at most once a minute per instance, within 500 ms (`lib/i18n/enabled-locales.ts`; `en` alone when it cannot); the query is kept. An upper-case language prefix (`/EN/…`) gets a 308 to the lower-case one |
+| `/` and other unprefixed paths | Proxy (`proxy.ts`) | 307 to `/<locale>…` by the `NEXT_LOCALE` cookie, then `Accept-Language` (a tag, then the tag without its last subtag: `zh-Hans-CN` finds `zh-hans`), then `en`, among the enabled languages of `lib/i18n/site-locales.ts` (no database read); the query is kept. An upper-case language prefix (`/EN/…`) gets a 308 to the lower-case one |
 | `/sitemap.xml`, `/robots.txt` | Static, tagged (`locales`, `restaurants`, …) | Every guest page in every enabled language with its hreflang alternates; robots.txt keeps `/admin` and `/api` out and names the sitemap. Both use `SITE_URL` (`lib/site-origin.ts`) |
 | `/en` | Static, revalidated hourly (`cacheLife('hours')`, for today's offers) | Home: hero, finder, cuisines, restaurants, destinations, experiences, heritage, stories, offers, read from the database; a section switched off or with nothing to show is left out |
 | `/en/restaurants/[slug]` | Static for each restaurant with `has_detail_page` at build time (`_none` when there is none), revalidated hourly (the layout reads today's offers for the nav); a page switched on later renders on its first visit. Any other slug is a 404, and one no restaurant can have (outside the pattern and length of 008's `restaurants.slug` CHECK, `lib/content/slug.ts`) is refused before any database read: the first visit is a soft 404 (status 200 with `noindex`), later visits get the cached 404, and without JavaScript the body is empty | Restaurant detail, read from the database (`taya-house` today). The cached 404 carries `restaurants`, so a save that expires the catalogue opens a page that was just switched on |
@@ -1247,7 +1269,6 @@ bootstrapping production is what you mean to do.
 | `/admin/reservations/new` | Request time, nonce CSP | Phone bookings and walk-ins. `reservations:create` |
 | `/admin/reservations/closures`, `/admin/restaurants`, `/admin/restaurants/[id]/booking` | Request time, nonce CSP | Closures with the bookings each covers; the restaurants (add one, show or hide it, archive it: never deleted; their order with its History; the words every restaurant card and page shares); "Giờ và sức chứa" (switch, overrides, service periods, slot preview, affected bookings; auto-confirm for Admins). `schedule:read`; the list's writes `content:update`, restores `content:restore` |
 | `/admin/settings/booking` | Request time, nonce CSP | Booking defaults. Admin (`settings:read`) |
-| `/admin/locales` | Request time, nonce CSP | The languages (spec §8): add one from the catalogue (off), turn it on once its guest emails have a text in it, machine translations on or off, the order, "Xem trước" (Draft Mode), delete one nothing keeps (no booking, email, recipient, policy version or social link names it); which languages each social link shows in. Every change expires `locales` and that language's `i18n:` tag, so guests see it at once. Admin (`locales:read`; writes `locales:update`) |
 | `/admin/translations` | Request time, nonce CSP | Coverage per kind of content and language, and the review queue: machine translations ("Duyệt") and translations whose English changed since ("Vẫn đúng"), one at a time or up to 50 ticked, each with its History row; "Sửa" opens the item's form in that language. Machine translation of what is missing comes with phase 9. `content:read`; reviews `content:update` |
 | `/admin/settings/notifications` | Request time, nonce CSP | Who hears about new bookings, the shared inbox, the restaurants that fall back to it, "Gửi email thử". Admin (`settings:read`; every save `settings:update`) |
 | `/api/auth/*` | Dynamic | Better Auth; `/api/auth/admin/*` is refused with 403 |

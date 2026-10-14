@@ -23,9 +23,16 @@ export function resetDatabase(url: string, until?: string): void {
   });
 }
 
-/** Applies every pending migration. Throws when one fails. */
-export function migrate(url: string): void {
-  execFileSync(process.execPath, ['scripts/migrate.mjs'], {
+/**
+ * The last migration with a locales table (011 drops it, with the foreign keys
+ * and social_links.visible_locales): the tests of 004–010 check their own
+ * schema on a database built up to here.
+ */
+export const BEFORE_011 = '010_locales_phase8.sql';
+
+/** Applies every pending migration, optionally stopping after `until`. Throws when one fails. */
+export function migrate(url: string, until?: string): void {
+  execFileSync(process.execPath, ['scripts/migrate.mjs', ...(until ? ['--until', until] : [])], {
     stdio: 'inherit',
     env: { ...process.env, DATABASE_URL_UNPOOLED: url },
   });

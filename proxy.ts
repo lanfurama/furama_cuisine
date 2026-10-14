@@ -2,8 +2,8 @@ import { getSessionCookie } from 'better-auth/cookies';
 import { NextResponse, type NextRequest } from 'next/server';
 import { adminContentSecurityPolicy, adminSecurityHeaders, createNonce } from '@/lib/admin/csp';
 import { ADMIN_SIGN_IN, isAdminPath, isPublicAdminPath } from '@/lib/admin/paths';
-import { enabledLocalesBestEffort } from '@/lib/i18n/enabled-locales';
 import { LOCALE_CODE_RE, LOCALE_COOKIE, pickLocale } from '@/lib/i18n/locales';
+import { ENABLED_LOCALE_CODES } from '@/lib/i18n/site-locales';
 
 /*
  * Runs only on paths without a locale prefix, and on /admin. Guest pages under
@@ -39,7 +39,7 @@ export async function proxy(request: NextRequest) {
   const locale = pickLocale(
     request.cookies.get(LOCALE_COOKIE)?.value,
     request.headers.get('accept-language'),
-    await enabledLocalesBestEffort(), // the proxy's only database read (spec §6.1): 60 s per instance, 500 ms at most
+    ENABLED_LOCALE_CODES, // lib/i18n/site-locales.ts: the proxy reads no database
   );
   const url = request.nextUrl.clone(); // keeps the query string
   url.pathname = `/${locale}${pathname === '/' ? '' : pathname}`;

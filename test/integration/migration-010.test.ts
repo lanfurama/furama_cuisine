@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { SCRIPTS } from '@/lib/i18n/scripts';
 import { PRIVACY_POLICY_VERSION } from '@/lib/legal';
-import { TEST_DATABASE_URL, databaseUrl, migrate, resetDatabase, withClient } from '../helpers/db';
+import { BEFORE_011, TEST_DATABASE_URL, databaseUrl, migrate, resetDatabase, withClient } from '../helpers/db';
 
 /*
  * Migration 010 (phase 8): locales.script names a script this build has fonts
@@ -45,7 +45,7 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 010: languages (database)', () =>
 
   it('passes the runbook pre-flight at 009, then the post-check', async () => {
     expect((await checks('db/checks/preflight-010.sql')).filter((r) => !r.ok)).toEqual([]);
-    migrate(url);
+    migrate(url, BEFORE_011);
     expect((await checks('db/checks/postcheck-010.sql')).filter((r) => !r.ok)).toEqual([]);
   });
 

@@ -7,6 +7,7 @@ import { slotVerdict } from '@/lib/booking/slot-code';
 import type { BookingErrorCode } from '@/lib/booking-errors';
 import { UPCOMING_STATUSES } from '@/lib/reservations/lifecycle';
 import { newReference } from '@/lib/server/reference';
+import { guestLocale } from '@/lib/i18n/site-locales';
 import { venueNow, type IsoDate } from '@/lib/venue-time';
 import { currentPolicyVersion } from '@/lib/server/content/policy-version';
 import type { ReservationRequest } from './input';
@@ -155,8 +156,8 @@ async function insertInTransaction(
         email, note, status, confirmed_at, source, locale, consent_version, consent_locale, consented_at, offer_id)
      VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8, $9, $10, $11, $12,
              CASE WHEN $12 = 'confirmed' THEN now() END, 'web',
-             COALESCE((SELECT code FROM locales WHERE code = $13 AND is_enabled),
-                      (SELECT code FROM locales WHERE is_default)),
+             -- The guest's language while guests can open it, else the default (guestLocale).
+             $13,
              -- The policy version and language the guest agreed to (consentFor).
              $14, $16, now(),
              -- R9, a soft link: the id came over the wire, and the guest may have switched
@@ -180,7 +181,7 @@ async function insertInTransaction(
       input.email,
       input.note,
       status,
-      input.locale,
+      guestLocale(input.locale),
       consent.version,
       input.offerId,
       consent.locale,

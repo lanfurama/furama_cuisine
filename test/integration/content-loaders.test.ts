@@ -26,8 +26,8 @@ import {
  * migration 008's seed. The expected values are the frozen content of phase 5
  * (test/fixtures/phase5-content.ts), so a loader that drifts from what the
  * site rendered fails here as well as in the visual baselines. Then the rules:
- * language fallback per field (spec §5.1 item 5), machine translations behind
- * serve_machine, unpublished rows, nav items following their section, and
+ * language fallback per field (spec §5.1 item 5), machine translations never
+ * shown, unpublished rows, nav items following their section, and
  * offers shown by the date in Da Nang.
  */
 
@@ -40,12 +40,11 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
     for (const table of ['cuisine_i18n', 'destination_i18n', 'media_i18n', 'nav_item_i18n', 'experience_i18n', 'story_i18n', 'offer_i18n']) {
       await sql(`DELETE FROM ${table} WHERE locale <> 'en'`);
     }
-    await sql(`UPDATE locales SET serve_machine = false WHERE code = 'vi'`);
     await sql(`UPDATE sections SET is_visible = true`);
     await sql(`UPDATE cuisines SET is_published = true`);
     await sql(`UPDATE destinations SET is_published = true`);
     await sql(`UPDATE nav_items SET is_published = true`);
-    await sql(`UPDATE social_links SET is_published = true, visible_locales = NULL`);
+    await sql(`UPDATE social_links SET is_published = true`);
     await sql(`UPDATE experiences SET is_published = true`);
     await sql(`UPDATE stories SET is_published = true`);
     await sql(`UPDATE hero_slides SET is_published = true`);
@@ -91,7 +90,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
     });
 
     it('social links and the site settings', async () => {
-      expect(await loadSocials('en')).toEqual(SOCIALS_AT_8FE98F5.map(({ platform, href }) => ({ platform, href })));
+      expect(await loadSocials()).toEqual(SOCIALS_AT_8FE98F5.map(({ platform, href }) => ({ platform, href })));
       expect(await loadSiteSettings()).toMatchObject({
         ...SETTINGS_AT_8FE98F5,
         heroAutoplayMs: HERO_AUTOPLAY_MS_AT_8FE98F5,
@@ -298,11 +297,9 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
       expect((await loadDestinations('en')).find((d) => d.id === 'mm')?.name).toBe('Furama MM Supercenter');
     });
 
-    it('hides a machine translation until the language serves them', async () => {
+    it('never shows a machine translation', async () => {
       await sql(`INSERT INTO cuisine_i18n (cuisine_id, locale, label, status, origin) VALUES ('thai', 'vi', 'Món Thái', 'machine', 'ai')`);
       expect((await loadCuisines('vi')).find((c) => c.id === 'thai')?.label).toBe('Thai');
-      await sql(`UPDATE locales SET serve_machine = true WHERE code = 'vi'`);
-      expect((await loadCuisines('vi')).find((c) => c.id === 'thai')?.label).toBe('Món Thái');
     });
 
     it('translates alt text, and keeps a decorative image’s empty', async () => {
@@ -396,7 +393,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
       expect((await loadCuisines('en')).map((c) => c.id)).not.toContain('hotpot');
       expect((await loadDestinations('en')).map((d) => d.id)).toEqual(['resort', 'dining-house', 'mm']);
       expect((await loadNav('en')).map((n) => n.target)).not.toContain('stories');
-      expect((await loadSocials('en')).map((s) => s.platform)).toEqual(['facebook', 'instagram', 'youtube']);
+      expect((await loadSocials()).map((s) => s.platform)).toEqual(['facebook', 'instagram', 'youtube']);
     });
 
     it('an unpublished offer, and the offers of a restaurant that is unpublished or archived', async () => {
@@ -405,12 +402,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content loaders (database)', ()
       await sql(`UPDATE restaurants SET is_published = false WHERE id = 'taya-house'`);
       await sql(`UPDATE restaurants SET archived_at = now() WHERE id = 'hai-van-lounge'`);
       expect(await loadOffers('en')).toEqual([]);
-    });
-
-    it('a social link meant for other languages', async () => {
-      await sql(`UPDATE social_links SET visible_locales = ARRAY['vi'] WHERE platform = 'youtube'`);
-      expect((await loadSocials('en')).map((s) => s.platform)).not.toContain('youtube');
-      expect((await loadSocials('vi')).map((s) => s.platform)).toContain('youtube');
     });
 
     it('a switched-off section sends no picture and no link: the layout hands every section to the browser', async () => {

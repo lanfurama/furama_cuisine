@@ -20,7 +20,18 @@ import { REGISTRY } from '@/lib/i18n/registry';
 import { createEmailSender } from '@/lib/server/email/send';
 import { sendTestEmail } from '@/lib/server/email/test-email';
 import { addDays, venueNow } from '@/lib/venue-time';
+import { emailKeys } from '@/lib/email/keys';
+import { registryLocaleDefault } from '@/lib/i18n/registry';
+import { SITE_LOCALE_ROWS } from '@/lib/i18n/site-locales';
 import { TEST_DATABASE_URL } from '../helpers/db';
+
+// The site's list with Korean added, off: a test turns it on by flipping its row (lib/i18n/site-locales.ts is code).
+vi.mock('@/lib/i18n/site-locales', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/lib/i18n/site-locales')>();
+  const ko = { code: 'ko', bcp47: 'ko', nativeName: '한국어', shortLabel: 'KO', script: 'hangul' as const, isDefault: false, isEnabled: false, sortOrder: 90 };
+  return { ...real, SITE_LOCALE_ROWS: [...real.SITE_LOCALE_ROWS.map((l) => ({ ...l })), ko] };
+});
+const korean = () => SITE_LOCALE_ROWS.find((l) => l.code === 'ko') as { isEnabled: boolean };
 import { startSmtpSink, type SmtpSink } from '../helpers/smtp-sink';
 
 /*
@@ -154,21 +165,18 @@ describe.skipIf(!TEST_DATABASE_URL)('email screens and templates (database)', ()
     await sink.close();
     await pool.query(`UPDATE site_settings SET email = 'fb@furamavietnam.com'`);
     await pool.query(`DELETE FROM content_strings WHERE key LIKE 'email.%'`);
-    await pool.query(`DELETE FROM locales WHERE code = 'ko'`);
-    await pool.query(`UPDATE locales SET is_enabled = (code = 'en')`);
     await pool.end();
   });
   beforeEach(async () => {
     await pool.query('TRUNCATE reservations, reservation_events, reservation_notes, email_outbox, notification_recipients, audit_log CASCADE');
     await pool.query(`DELETE FROM content_strings WHERE key LIKE 'email.%'`);
-    await pool.query(`DELETE FROM locales WHERE code = 'ko'`);
-    await pool.query(`UPDATE locales SET is_enabled = (code = 'en')`);
+    korean().isEnabled = false;
     await pool.query(`UPDATE site_settings SET email = 'fb@furamavietnam.com'`);
   });
 
   describe('rendering from the reservation row', () => {
-    it('a guest email speaks the booking’s language when it is on, or when the registry has its copy (vi); else the default (R10)', async () => {
-      // vi is off on the site (migration 004), yet the registry has every email key in Vietnamese: a phone booking in vi reads Vietnamese.
+    it('a guest email speaks the booking’s language when the registry has its copy (vi), or when it is on and its copy is whole; else the default (R10)', async () => {
+      // The registry has every email key in Vietnamese: a booking in vi reads Vietnamese.
       // Rendering reads no clock, so a literal date can pin the formatted day.
       const viBooking = await seedReservation({ locale: 'vi', status: 'confirmed', date: '2026-10-05' });
       const off = await render('guest.confirmed', viBooking, 'vi');
@@ -176,16 +184,21 @@ describe.skipIf(!TEST_DATABASE_URL)('email screens and templates (database)', ()
       expect(off.html).toContain('lang="vi"');
       expect(off.text).toContain('Thứ Hai, 5 tháng 10, 2026');
       // A language with no copy of its own, switched off: the default language, not English copy with Korean dates.
-      await pool.query(`INSERT INTO locales (code, bcp47, native_name, short_label, script, sort_order) VALUES ('ko', 'ko', '한국어', 'KO', 'hangul', 90)`);
       const ko = await seedReservation({ locale: 'ko', status: 'confirmed', date: '2026-10-05' });
       const fallback = await render('guest.confirmed', ko, 'ko');
       expect(fallback).toMatchObject({ locale: 'en', subject: expect.stringMatching(/^Your table is confirmed \(FC-/) });
       expect(fallback.text).toContain('Monday, 5 October 2026');
-      // Switched on, it is the guest's language: English copy per key, its own date format (Known risk 19).
-      await pool.query(`UPDATE locales SET is_enabled = true WHERE code = 'ko'`);
+      // Switched on but not translated: still the default language, never half the email in English (R8-6).
+      korean().isEnabled = true;
+      expect((await render('guest.confirmed', ko, 'ko')).locale).toBe('en');
+      // Once reviewed rows fill every key the email reads, it is the guest's language, with its own date format.
+      for (const key of emailKeys('guest.confirmed').filter((k) => registryLocaleDefault(k, 'ko') === undefined)) {
+        await pool.query(`INSERT INTO content_strings (key, locale, value, status, origin) VALUES ($1, 'ko', $2, 'reviewed', 'human')`, [key, `[ko] ${key}`]);
+      }
       const on = await render('guest.confirmed', ko, 'ko');
       expect(on.locale).toBe('ko');
       expect(on.html).toContain('lang="ko"');
+      await pool.query(`DELETE FROM content_strings WHERE locale = 'ko'`);
       // Staff keep the recipient's language, on the site or not.
       const staff = await render('staff.new', viBooking, 'vi');
       expect(staff).toMatchObject({ locale: 'vi', subject: expect.stringMatching(/^Đặt bàn mới FC-/) });
@@ -199,7 +212,7 @@ describe.skipIf(!TEST_DATABASE_URL)('email screens and templates (database)', ()
            ('email.staff.new.heading', 'vi', 'Đơn mới (máy dịch)', 'machine', 'ai')`,
       );
       expect((await render('guest.confirmed', id, 'en')).text).toContain('See you soon');
-      // An unreviewed machine row for vi (serve_machine off) does not reach the email; the registry's Vietnamese does.
+      // An unreviewed machine row for vi does not reach the email; the registry's Vietnamese does.
       const staff = await render('staff.new', id, 'vi');
       expect(staff.text).toContain('Có đặt bàn online mới');
       expect(staff.text).not.toContain('máy dịch');

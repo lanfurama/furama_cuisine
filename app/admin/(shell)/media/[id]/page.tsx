@@ -45,7 +45,7 @@ export default async function MediaFilePage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const pool = getPool();
-  const [item, uses, history, tabs] = await Promise.all([getMedia(pool, id), mediaUsage(pool, id), listHistory(pool, 'media', id), formLocales(pool)]);
+  const [item, uses, history, tabs] = await Promise.all([getMedia(pool, id), mediaUsage(pool, id), listHistory(pool, 'media', id), formLocales()]);
   if (!item) notFound();
   const name = item.pathname.split('/').pop() ?? item.pathname;
   const isPdf = item.contentType === 'application/pdf';

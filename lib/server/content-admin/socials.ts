@@ -11,16 +11,15 @@ import { orderToken, readItems, snapshotToken, type ItemDef, type ItemSnapshot }
  * (social.<platform>, R11, L7-15), edited on the same screen. Every write
  * goes through makeListEditor: at most 6 shown (R4), the platform one of
  * migration 008's (CHECK social_links.platform), the address https (CHECK;
- * the form's schema says so first). visible_locales (which languages show the
- * link; NULL: every one) is no field of the form: a save leaves it as it is,
- * a restore puts back the version's (phase 8 edits it, L8-6).
+ * the form's schema says so first). Every link shows in every language:
+ * the column of per-language links is no longer read or written (owner, 2026-10-14).
  */
 
 export const SOCIAL_LINK: ItemDef = {
   entityType: 'social_links',
   table: 'social_links',
   idType: 'bigint',
-  columns: ['platform', 'href', 'visible_locales', 'sort_order', 'is_published'],
+  columns: ['platform', 'href', 'sort_order', 'is_published'],
   tables: ['social_links'],
 };
 

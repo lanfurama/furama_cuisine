@@ -68,7 +68,7 @@ export default async function RestaurantContentPage({ params }: { params: Promis
     listMediaOptions(pool, 'image'),
     listMediaOptions(pool, 'pdf'),
     listHistory(pool, 'restaurants', id),
-    formLocales(pool),
+    formLocales(),
   ]);
   if (!editor) notFound();
   const v = editor.values;

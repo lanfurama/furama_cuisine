@@ -44,11 +44,11 @@ export async function getNav(locale: string) {
   return loadNav(locale);
 }
 
-export async function getSocials(locale: string) {
+export async function getSocials() {
   'use cache';
   cacheLife('max');
-  cacheTag(...LOADERS.socials.tags, TAGS.i18n(locale));
-  return loadSocials(locale);
+  cacheTag(...LOADERS.socials.tags);
+  return loadSocials();
 }
 
 /**

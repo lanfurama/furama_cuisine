@@ -141,8 +141,8 @@ describe.skipIf(!TEST_DATABASE_URL)('email outbox (database + local SMTP sink)',
       await guestBooking();
       expect((await outbox(`audience = 'guest'`)).length).toBe(0);
       await pool.query(`UPDATE booking_settings SET guest_ack_email = true; UPDATE restaurants SET auto_confirm = true WHERE id = 'taya-house'`);
-      await guestBooking({ time: '19:30', locale: 'vi' });
-      expect(await outbox(`audience = 'guest'`)).toMatchObject([{ event: 'guest.confirmed', locale: 'en' }]); // vi is not enabled: the booking is in en
+      await guestBooking({ time: '19:30', locale: 'ko' });
+      expect(await outbox(`audience = 'guest'`)).toMatchObject([{ event: 'guest.confirmed', locale: 'en' }]); // ko is not on the site: the booking is in en
       await guestBooking({ time: '20:00', email: '' });
       expect((await outbox(`audience = 'guest'`)).length).toBe(1);
     });

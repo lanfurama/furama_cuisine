@@ -5,7 +5,8 @@ import { resolveStrings } from '@/lib/i18n/resolve';
 import { renderEmail } from '../send';
 import { formatEmailDate, formatEmailShortDate, formatEmailTime } from './format';
 import type { BookingEmailData } from './load';
-import { buildBookingEmail, emailKeys, type EmailKey } from './render';
+import { emailKeys, type EmailKey } from '@/lib/email/keys';
+import { buildBookingEmail } from './render';
 
 const EN = { code: 'en', bcp47: 'en' };
 const VI = { code: 'vi', bcp47: 'vi' }; // locales.bcp47 as seeded (migration 004)

@@ -3,7 +3,7 @@ import { isEmailEvent } from '@/lib/email/events';
 import { DEFAULT_LOCALE, LOCALE_CODE_RE } from '@/lib/i18n/locales';
 import { isStringKey } from '@/lib/i18n/registry';
 import { requirePermission } from '@/lib/server/dal/session';
-import { emailKeys, type EmailKey } from '@/lib/server/email/booking/render';
+import { emailKeys, type EmailKey } from '@/lib/email/keys';
 import { renderSampleEmail, TEST_SUBJECT_PREFIX } from '@/lib/server/email/booking/sample';
 import { appOrigin } from '@/lib/server/email/origin';
 import { validateValue } from '@/lib/server/content/strings-admin';

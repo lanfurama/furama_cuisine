@@ -22,7 +22,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('GET /api/availability v2 (datab
   beforeEach(async () => {
     await sql('DELETE FROM reservations');
     await sql('DELETE FROM closures');
-    await sql(`UPDATE locales SET is_enabled = false, serve_machine = false WHERE code = 'vi'`);
     await sql('UPDATE booking_settings SET window_days = 14, lead_minutes = 30, max_party = 12, same_day_cutoff = NULL');
     await sql('UPDATE restaurants SET booking_enabled = true, max_party = NULL, window_days = NULL, lead_minutes = NULL');
     // Restore the seeded Tàya dinner (a test below edits it).
@@ -70,10 +69,9 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('GET /api/availability v2 (datab
         { date: '2026-10-05', state: 'closed', reason: 'Private event' },
         { date: '2026-10-06', state: 'open' },
       ]);
-      // vi is off for the site, and an invalid lang is ignored: English.
-      expect((await calendar('restaurant=taya-house&from=2026-10-04&to=2026-10-04&lang=vi')).days[0].reason).toBe('Private event');
+      // ko is not on the site, and an invalid lang is ignored: English.
+      expect((await calendar('restaurant=taya-house&from=2026-10-04&to=2026-10-04&lang=ko')).days[0].reason).toBe('Private event');
       expect((await calendar('restaurant=taya-house&from=2026-10-04&to=2026-10-04&lang=../etc')).days[0].reason).toBe('Private event');
-      await sql(`UPDATE locales SET is_enabled = true WHERE code = 'vi'`);
       expect((await calendar('restaurant=taya-house&from=2026-10-04&to=2026-10-04&lang=vi')).days[0].reason).toBe('Sự kiện riêng');
       // show_reason off: closed, no reason.
       await sql('UPDATE closures SET show_reason = false');

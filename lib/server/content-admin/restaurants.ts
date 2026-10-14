@@ -1,4 +1,5 @@
 import 'server-only';
+import { DEFAULT_LOCALE_SQL } from '@/lib/i18n/locales';
 import type { Pool, PoolClient } from 'pg';
 import { detailPageErrors, followRename, limitError } from '@/lib/admin/content-rules';
 import type { Saved } from '@/lib/admin/save-state';
@@ -642,7 +643,7 @@ export async function listRestaurantsAdmin(db: Db): Promise<{ items: RestaurantL
             m.url, m.width, m.height
        FROM restaurants r
        JOIN destinations d ON d.id = r.destination_id
-       LEFT JOIN destination_i18n dt ON dt.destination_id = r.destination_id AND dt.locale = (SELECT code FROM locales WHERE is_default)
+       LEFT JOIN destination_i18n dt ON dt.destination_id = r.destination_id AND dt.locale = ${DEFAULT_LOCALE_SQL}
        LEFT JOIN media m ON m.id = r.card_image_id
       ORDER BY r.sort_order, r.id`,
   );

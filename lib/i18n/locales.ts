@@ -1,14 +1,17 @@
 /*
  * Locale constants and pure helpers, safe in the proxy, on the server and in
- * the browser. Which languages are enabled is the `locales` table's job: the
- * proxy reads it best effort (lib/i18n/enabled-locales.ts, spec §6.1), the
- * pages through getEnabledLocales.
+ * the browser. Which languages are enabled is lib/i18n/site-locales.ts's job
+ * (the proxy, and the pages through getEnabledLocales).
  */
 export const DEFAULT_LOCALE = 'en';
 export const LOCALE_COOKIE = 'NEXT_LOCALE';
 
-/** What the proxy redirects to when it cannot read the locales table (spec §6.1). */
-export const FALLBACK_LOCALES: readonly string[] = [DEFAULT_LOCALE];
+/**
+ * DEFAULT_LOCALE as an SQL string literal, for the queries that fall back to
+ * the default language (there is no locales table since migration 011). A
+ * code constant of LOCALE_CODE_RE's shape: nothing in it to escape.
+ */
+export const DEFAULT_LOCALE_SQL = `'${DEFAULT_LOCALE}'`;
 
 /**
  * A URL locale code: en, vi, zh-hans, pt-br. The same shape as the CHECK on

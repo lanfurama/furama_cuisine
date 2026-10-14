@@ -3,6 +3,8 @@ import type { Pool } from 'pg';
 import { findPlannedSlot, planDay, type PlannedPeriod } from '@/lib/booking/resolve-day';
 import { HOLDING_STATUSES, type ReservationStatus } from '@/lib/booking/rules';
 import type { Meal } from '@/lib/data';
+import { DEFAULT_LOCALE_SQL } from '@/lib/i18n/locales';
+import { SITE_LOCALE_ROWS } from '@/lib/i18n/site-locales';
 import { escapeLike, parseSearch } from '@/lib/reservations/search';
 import type { IsoDate } from '@/lib/venue-time';
 import { loadBookingRules } from './rules';
@@ -48,7 +50,7 @@ const CREATED_CURSOR = /^(\d{1,17})_(\d{1,18})$/;
 const COLUMNS = `r.id::text, r.reference, r.restaurant_id AS "restaurantId", t.name AS "restaurantName",
   to_char(r.reserved_on, 'YYYY-MM-DD') AS date, r.reserved_at AS time, r.guests, r.guest_name AS name, r.phone, r.email,
   r.status, r.source, r.version, r.over_capacity AS "overCapacity", r.is_test AS "isTest", r.created_at AS "createdAt",
-  (SELECT oi.title FROM offer_i18n oi JOIN locales l ON l.code = oi.locale AND l.is_default WHERE oi.offer_id = r.offer_id) AS "offerTitle"`;
+  (SELECT oi.title FROM offer_i18n oi WHERE oi.offer_id = r.offer_id AND oi.locale = ${DEFAULT_LOCALE_SQL}) AS "offerTitle"`;
 
 /**
  * One page of a tab, or of a search. Cần xử lý: requested, soonest sitting
@@ -189,12 +191,9 @@ export async function listGuestContacts(pool: Pool, ids: readonly string[]): Pro
   return rows;
 }
 
-/** The languages a guest may speak, enabled on the site or not: staff record the guest's, the email follows it from phase 5. */
-export async function listLocales(pool: Pool): Promise<{ code: string; name: string; isDefault: boolean }[]> {
-  const { rows } = await pool.query<{ code: string; name: string; isDefault: boolean }>(
-    `SELECT code, native_name AS name, is_default AS "isDefault" FROM locales ORDER BY sort_order, code`,
-  );
-  return rows;
+/** The languages a guest may speak, every listed one, enabled on the site or not: staff record the guest's, the email follows it. */
+export async function listLocales(): Promise<{ code: string; name: string; isDefault: boolean }[]> {
+  return SITE_LOCALE_ROWS.map((l) => ({ code: l.code, name: l.nativeName, isDefault: l.isDefault }));
 }
 
 // ── the day sheet (spec §7.2 "Bảng theo ngày", printable) ───────────────────

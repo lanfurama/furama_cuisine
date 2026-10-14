@@ -47,7 +47,6 @@ const PAGES = {
 const TAGS = [
   'restaurants',
   'i18n:en',
-  'locales',
   'content:ui',
   'content:sections',
   'content:cuisines',

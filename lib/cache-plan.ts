@@ -9,13 +9,12 @@ import { TAGS } from './cache-tags';
  * drift from its entry; a phase-7 editor expires tagsForSave(<tables>) (in a
  * Server Action: updateTag each) for the tables its transaction wrote.
  *
- * Every loader also carries i18n:<locale> (it takes the locale), so enabling,
- * disabling or changing the machine-translation switch of a language expires
- * everything served in it.
+ * Every loader also carries i18n:<locale> (it takes the locale). Which
+ * languages exist is code (lib/i18n/site-locales.ts): a change is a deploy,
+ * which starts every cache afresh.
  */
 
 export const CONTENT_TABLES = [
-  'locales',
   'content_strings',
   'media',
   'media_i18n',
@@ -49,11 +48,9 @@ export type ContentTable = (typeof CONTENT_TABLES)[number];
  * What a save to each table expires. `restaurant:<id>` is added by the caller
  * for a restaurant's own rows (tagsForSave's second argument). content_strings
  * is per key prefix (phase 7: hero.* → content:hero, legal.* → content:legal,
- * the rest → content:ui); a change on /admin/locales goes through
- * tagsForLocales instead (phase 8).
+ * the rest → content:ui).
  */
 export const SAVE_TAGS: Record<ContentTable, readonly string[]> = {
-  locales: [TAGS.locales],
   // By key prefix (phase 7): legal.* → content:legal, the rest → content:ui (and a section's own keys its tag).
   content_strings: [TAGS.contentUi, TAGS.contentLegal],
   media: [TAGS.media],
@@ -89,26 +86,23 @@ type Loader = { reads: readonly ContentTable[]; tags: readonly string[] };
 
 /** Every cached guest loader: the tables its SQL touches and the tags it carries (besides i18n:<locale>). */
 export const LOADERS = {
-  locales: { reads: ['locales'], tags: [TAGS.locales] },
-  // Both read serve_machine and the default language from locales (loadStringRows), so they carry its tag (phase-2 M9).
-  strings: { reads: ['locales', 'content_strings'], tags: [TAGS.contentUi, TAGS.locales] },
-  legal: { reads: ['locales', 'content_strings'], tags: [TAGS.contentLegal, TAGS.locales] },
+  strings: { reads: ['content_strings'], tags: [TAGS.contentUi] },
+  legal: { reads: ['content_strings'], tags: [TAGS.contentLegal] },
   policyVersion: { reads: ['legal_versions'], tags: [TAGS.contentLegal] },
-  sections: { reads: ['locales', 'sections', 'media', 'media_i18n'], tags: [TAGS.contentSections, TAGS.media] },
+  sections: { reads: ['sections', 'media', 'media_i18n'], tags: [TAGS.contentSections, TAGS.media] },
   settings: { reads: ['site_settings'], tags: [TAGS.contentContact] },
-  cuisines: { reads: ['locales', 'cuisines', 'cuisine_i18n', 'media', 'media_i18n'], tags: [TAGS.contentCuisines, TAGS.media] },
+  cuisines: { reads: ['cuisines', 'cuisine_i18n', 'media', 'media_i18n'], tags: [TAGS.contentCuisines, TAGS.media] },
   destinations: {
-    reads: ['locales', 'destinations', 'destination_i18n', 'media', 'media_i18n'],
+    reads: ['destinations', 'destination_i18n', 'media', 'media_i18n'],
     tags: [TAGS.contentDestinations, TAGS.media],
   },
-  nav: { reads: ['locales', 'nav_items', 'nav_item_i18n', 'sections'], tags: [TAGS.contentNav, TAGS.contentSections] },
+  nav: { reads: ['nav_items', 'nav_item_i18n', 'sections'], tags: [TAGS.contentNav, TAGS.contentSections] },
   socials: { reads: ['social_links'], tags: [TAGS.contentContact] },
   // The SEO screen's share picture (site_settings.og_image_id) with its alt, for every page's metadata.
-  shareImage: { reads: ['locales', 'site_settings', 'media', 'media_i18n'], tags: [TAGS.contentContact, TAGS.media] },
+  shareImage: { reads: ['site_settings', 'media', 'media_i18n'], tags: [TAGS.contentContact, TAGS.media] },
   // The search text folds cuisine labels and the destination's name in; CALL falls back to the destination's number.
   restaurants: {
     reads: [
-      'locales',
       'restaurants',
       'restaurant_i18n',
       'restaurant_cuisines',
@@ -122,20 +116,19 @@ export const LOADERS = {
     ],
     tags: [TAGS.restaurants, TAGS.media, TAGS.contentCuisines, TAGS.contentDestinations],
   },
-  heroSlides: { reads: ['locales', 'hero_slides', 'media', 'media_i18n'], tags: [TAGS.contentHero, TAGS.media] },
-  experiences: { reads: ['locales', 'experiences', 'experience_i18n'], tags: [TAGS.contentExperiences] },
-  stories: { reads: ['locales', 'stories', 'story_i18n', 'media', 'media_i18n'], tags: [TAGS.contentStories, TAGS.media] },
+  heroSlides: { reads: ['hero_slides', 'media', 'media_i18n'], tags: [TAGS.contentHero, TAGS.media] },
+  experiences: { reads: ['experiences', 'experience_i18n'], tags: [TAGS.contentExperiences] },
+  stories: { reads: ['stories', 'story_i18n', 'media', 'media_i18n'], tags: [TAGS.contentStories, TAGS.media] },
   // cacheLife('hours') and the daily cron. The venue is the restaurant's name, and a hidden restaurant hides its offers,
   // as does a hidden destination (L7-2). The price wording is the offers screen's registry keys (offers.price_*),
   // hence content_strings and content:ui.
   offers: {
-    reads: ['locales', 'offers', 'offer_i18n', 'restaurants', 'destinations', 'content_strings'],
+    reads: ['offers', 'offer_i18n', 'restaurants', 'destinations', 'content_strings'],
     tags: [TAGS.contentOffers, TAGS.restaurants, TAGS.contentDestinations, TAGS.contentUi],
   },
   // Plus restaurant:<id>, added once the query has found the restaurant.
   detail: {
     reads: [
-      'locales',
       'restaurants',
       'restaurant_i18n',
       'restaurant_highlights',
@@ -152,16 +145,6 @@ export const LOADERS = {
 } as const satisfies Record<string, Loader>;
 
 export type LoaderName = keyof typeof LOADERS;
-
-/**
- * What a change on /admin/locales expires (spec §8 step 4, §6.2): `locales`
- * (the switcher, the sitemap, the language checks; the proxy reads the table
- * itself, within a minute) and `i18n:<code>` of each language whose visible
- * rows changed: enabled or disabled, serve_machine, deleted.
- */
-export function tagsForLocales(changed: readonly string[]): string[] {
-  return [TAGS.locales, ...new Set(changed.map((code) => TAGS.i18n(code)))];
-}
 
 /** The tags a transaction that wrote `tables` must expire; `restaurantId` adds that restaurant's own tag. */
 export function tagsForSave(tables: readonly ContentTable[], restaurantId?: string): string[] {

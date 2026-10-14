@@ -1,5 +1,7 @@
 import 'server-only';
 import type { Db } from '@/db/client';
+import { DEFAULT_LOCALE_SQL } from '@/lib/i18n/locales';
+import { guestLocale } from '@/lib/i18n/site-locales';
 import { HOLDING_STATUSES, type BookedCovers, type BookingRules, type GroupPhone } from '@/lib/booking/rules';
 import type { IsoDate } from '@/lib/venue-time';
 
@@ -66,9 +68,8 @@ type RulesRow = {
 /**
  * One round trip for any number of restaurants. `from` is the earliest date of
  * interest: closures that ended before it are left out. The closure reason is
- * the guest's language when that language is on (a reviewed row, or a machine
- * row with serve_machine), else the default language's; NULL when the closure
- * hides its reason. Unknown ids are simply missing from the map.
+ * the guest's language when that language is on (a reviewed row), else the
+ * default language's; NULL when the closure hides its reason. Unknown ids are simply missing from the map.
  *
  * bookingEnabled is "guests may book it online": its switch, and it is
  * published, not archived and at a published destination (bookableSql), so the availability API and the
@@ -105,11 +106,10 @@ export async function loadBookingRules(db: Db, restaurantIds: readonly string[],
                        'publicReason', CASE WHEN c.show_reason THEN COALESCE(t.public_reason, d.public_reason) END)
                      ORDER BY c.starts_on, c.id)
                 FROM closures c
-                LEFT JOIN locales l ON l.code = $2 AND l.is_enabled
                 LEFT JOIN closure_i18n t
-                       ON t.closure_id = c.id AND t.locale = l.code AND (t.status = 'reviewed' OR l.serve_machine)
+                       ON t.closure_id = c.id AND t.locale = $2 AND t.status = 'reviewed'
                 LEFT JOIN closure_i18n d
-                       ON d.closure_id = c.id AND d.locale = (SELECT code FROM locales WHERE is_default)
+                       ON d.closure_id = c.id AND d.locale = ${DEFAULT_LOCALE_SQL}
                WHERE c.ends_on >= $3::date
                  AND (c.scope = 'all'
                       OR (c.scope = 'destination' AND c.destination_id = r.destination_id)
@@ -118,7 +118,7 @@ export async function loadBookingRules(db: Db, restaurantIds: readonly string[],
       CROSS JOIN booking_settings s
       WHERE r.id = ANY ($1::text[])
       ORDER BY r.sort_order, r.id`,
-    [restaurantIds, locale, from],
+    [restaurantIds, guestLocale(locale), from],
   );
   return new Map(
     rows.map((r) => [

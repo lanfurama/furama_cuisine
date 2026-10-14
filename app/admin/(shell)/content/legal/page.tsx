@@ -22,7 +22,7 @@ export default async function LegalPage({ searchParams }: { searchParams: Screen
   await requirePagePermission({ content: ['read'] });
   const pool = getPool();
   // The versions of the language the panel edits (its ?lang=, as StringsPanel picks it).
-  const locale = screenLocale(await pickerLocales(pool), (await searchParams).lang);
+  const locale = screenLocale(await pickerLocales(), (await searchParams).lang);
   const versions = await listPolicyVersions(pool, locale);
   return (
     <>

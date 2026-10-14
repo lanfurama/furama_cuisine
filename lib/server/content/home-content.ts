@@ -57,7 +57,7 @@ export async function getSiteContent(locale: string): Promise<SiteContent> {
   const [home, nav, socials, settings] = await Promise.all([
     getHomeContent(locale),
     getNav(locale),
-    getSocials(locale),
+    getSocials(),
     getSiteSettings(),
   ]);
   return {

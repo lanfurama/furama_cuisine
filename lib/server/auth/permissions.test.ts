@@ -11,7 +11,6 @@ const BOTH: Permissions[] = [
 ];
 const ADMIN_ONLY: Permissions[] = [
   { reservations: ['auto-confirm'] },
-  { locales: ['update'] },
   { settings: ['update'] },
   { user: ['create'] },
   { user: ['list'] },
@@ -41,11 +40,10 @@ describe('roleCan', () => {
     }
   });
 
-  it('gives the Editor nothing on user, session, audit, settings or locales', () => {
+  it('gives the Editor nothing on user, session, audit or settings', () => {
     for (const action of statement.user) expect(roleCan('editor', { user: [action] })).toBe(false);
     for (const action of statement.session) expect(roleCan('editor', { session: [action] })).toBe(false);
     for (const action of statement.settings) expect(roleCan('editor', { settings: [action] })).toBe(false);
-    for (const action of statement.locales) expect(roleCan('editor', { locales: [action] })).toBe(false);
     expect(roleCan('editor', { audit: ['read'] })).toBe(false);
   });
 

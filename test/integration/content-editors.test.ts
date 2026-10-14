@@ -327,7 +327,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content editors: save flow, his
       entityType: 'social_links',
       table: 'social_links',
       idType: 'bigint',
-      columns: ['platform', 'href', 'visible_locales', 'sort_order', 'is_published'],
+      columns: ['platform', 'href', 'sort_order', 'is_published'],
       tables: ['social_links'],
     };
 

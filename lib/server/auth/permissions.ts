@@ -18,7 +18,6 @@ export const statement = {
   reservations: ['read', 'update', 'create', 'note', 'configure', 'auto-confirm', 'purge-test'],
   /** Service periods, capacity and closures. */
   schedule: ['read', 'update'],
-  locales: ['read', 'update'],
   /** Booking, notification and AI settings. */
   settings: ['read', 'update'],
   /** The site-wide audit log (/admin/audit). Per-record history is content:read. */
@@ -38,7 +37,6 @@ export const editor = ac.newRole(editorStatements);
 export const admin = ac.newRole({
   ...editorStatements,
   reservations: [...editorStatements.reservations, 'auto-confirm', 'purge-test'],
-  locales: ['read', 'update'],
   settings: ['read', 'update'],
   audit: ['read'],
   user: ['create', 'list', 'get', 'update', 'set-role', 'ban', 'delete', 'set-password'],

@@ -27,7 +27,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('booking rule loaders (database)
   beforeEach(async () => {
     await sql('DELETE FROM reservations');
     await sql('DELETE FROM closures');
-    await sql(`UPDATE locales SET is_enabled = false, serve_machine = false WHERE code = 'vi'`);
     await sql('UPDATE booking_settings SET window_days = 14, lead_minutes = 30, same_day_cutoff = NULL, max_party = 12, auto_confirm = false');
     await sql('UPDATE restaurants SET booking_enabled = true, window_days = NULL, lead_minutes = NULL, max_party = NULL, auto_confirm = NULL');
     await sql(`UPDATE service_periods SET active = true WHERE restaurant_id = 'taya-house'`);
@@ -81,17 +80,17 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('booking rule loaders (database)
 
   it('serves the reason in the guest’s language only when that language is on, else the default', async () => {
     const id = await closure('restaurant', { restaurant: 'taya-house' }, '2026-10-04', '2026-10-04');
-    await sql(`INSERT INTO closure_i18n (closure_id, locale, public_reason) VALUES ($1, 'en', 'Private event'), ($1, 'vi', 'Sự kiện riêng')`, [id]);
+    await sql(
+      `INSERT INTO closure_i18n (closure_id, locale, public_reason) VALUES ($1, 'en', 'Private event'), ($1, 'vi', 'Sự kiện riêng'), ($1, 'ko', '비공개 행사')`,
+      [id],
+    );
     const reason = async (locale: string) => (await loadRestaurantRules(getPool(), 'taya-house', locale, '2026-10-01'))!.rules.closures[0].publicReason;
-    // vi is off for the site: English, even though the vi row is reviewed.
-    expect(await reason('vi')).toBe('Private event');
-    await sql(`UPDATE locales SET is_enabled = true WHERE code = 'vi'`);
     expect(await reason('vi')).toBe('Sự kiện riêng');
-    // A machine translation is served only with serve_machine on.
+    // ko is not on the site (lib/i18n/site-locales.ts): English, even though its row is reviewed.
+    expect(await reason('ko')).toBe('Private event');
+    // A machine translation is never served.
     await sql(`UPDATE closure_i18n SET status = 'machine' WHERE locale = 'vi'`);
     expect(await reason('vi')).toBe('Private event');
-    await sql(`UPDATE locales SET serve_machine = true WHERE code = 'vi'`);
-    expect(await reason('vi')).toBe('Sự kiện riêng');
     expect(await reason('xx')).toBe('Private event');
     // show_reason off: no reason in any language.
     await sql('UPDATE closures SET show_reason = false');

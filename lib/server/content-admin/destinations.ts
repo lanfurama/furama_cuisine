@@ -1,4 +1,5 @@
 import 'server-only';
+import { DEFAULT_LOCALE_SQL } from '@/lib/i18n/locales';
 import type { Pool, PoolClient } from 'pg';
 import type { Db } from '@/db/client';
 import { makeListEditor, WHOLE_ITEM, type ListFailure } from './list-editor';
@@ -228,7 +229,7 @@ export async function listDestinationOptions(db: Db): Promise<{ id: string; name
   const { rows } = await db.query<{ id: string; name: string }>(
     `SELECT d.id, coalesce(dt.name, d.id) AS name
        FROM destinations d
-       LEFT JOIN destination_i18n dt ON dt.destination_id = d.id AND dt.locale = (SELECT code FROM locales WHERE is_default)
+       LEFT JOIN destination_i18n dt ON dt.destination_id = d.id AND dt.locale = ${DEFAULT_LOCALE_SQL}
       WHERE d.kind = 'venue'
       ORDER BY d.sort_order, d.id`,
   );

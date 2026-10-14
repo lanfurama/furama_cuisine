@@ -40,10 +40,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /*
- * Every guest page sits below this layout. It checks the language against the
- * locales table, so notFound() renders [lang]/not-found.tsx with a real 404 (and
- * that cached 404 carries the `locales` tag, so enabling the language clears
- * it), and it reads the catalogue, the chrome's content (getSiteContent in
+ * Every guest page sits below this layout. It checks the language against
+ * lib/i18n/site-locales.ts, so notFound() renders [lang]/not-found.tsx with a
+ * real 404, and it reads the catalogue, the chrome's content (getSiteContent in
  * lib/server/content/home-content.ts: nav, footer, cuisines, destinations,
  * sections, site settings) and the UI strings, so a database failure renders
  * [lang]/error.tsx. In the root layout neither could be caught.

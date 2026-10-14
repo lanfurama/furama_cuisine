@@ -226,7 +226,7 @@ describe.skipIf(!TEST_DATABASE_URL)('reservation inbox (database)', () => {
   });
 
   it('lists every language a guest may speak, enabled or not, the default marked', async () => {
-    expect(await listLocales(pool)).toEqual([
+    expect(await listLocales()).toEqual([
       { code: 'en', name: 'English', isDefault: true },
       { code: 'vi', name: 'Tiếng Việt', isDefault: false },
     ]);

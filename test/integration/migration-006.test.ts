@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { fold } from '@/lib/booking';
-import { TEST_DATABASE_URL, databaseUrl, migrate, resetDatabase, withClient } from '../helpers/db';
+import { BEFORE_011, TEST_DATABASE_URL, databaseUrl, migrate, resetDatabase, withClient } from '../helpers/db';
 
 const url = databaseUrl('furama_cuisine_migrate006_test');
 const sql = (text: string, values: unknown[] = []) => withClient(url, (c) => c.query(text, values));
@@ -50,7 +50,7 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 006: booking v2 (database)', () =
       await legacy('FC-12345', 'taya-house', '19:00', 'confirmed');
       await legacy('FC-AAAAAAAA', 'cafe-indochine', '07:00', 'cancelled', '0905 000 001', '+84905000001');
       await legacy('FC-BBBBBBBB', 'hai-van-lounge', '18:00', 'requested', '+1 415 555 0100', '+14155550100');
-      migrate(url);
+      migrate(url, BEFORE_011);
     });
 
     it('keeps every row, its status and reference, and marks it legacy test data', async () => {
@@ -144,7 +144,7 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 006: booking v2 (database)', () =
   });
 
   describe('constraints, the trigger and search folding', () => {
-    beforeAll(() => resetDatabase(url));
+    beforeAll(() => resetDatabase(url, BEFORE_011));
 
     it('accepts the six statuses only, and 1–50 guests', async () => {
       const statuses = ['requested', 'confirmed', 'seated', 'no_show', 'cancelled', 'declined'];
@@ -323,7 +323,7 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 006: booking v2 (database)', () =
   it('stops, and changes nothing, when an old row has a malformed time', async () => {
     resetDatabase(url, '005_staff_auth_audit.sql');
     await legacy('FC-77777', 'taya-house', '7pm', 'requested');
-    expect(() => migrate(url)).toThrow();
+    expect(() => migrate(url, BEFORE_011)).toThrow();
     expect((await sql(`SELECT 1 FROM information_schema.tables WHERE table_name = 'service_periods'`)).rowCount).toBe(0);
     expect((await one(`SELECT count(*)::int AS n FROM _migrations WHERE name = '006_booking_v2.sql'`)).n).toBe(0);
   });

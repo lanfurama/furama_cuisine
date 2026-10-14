@@ -59,7 +59,6 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('submitReservation v2 (database)
     await sql('DELETE FROM closures');
     await sql('UPDATE restaurants SET booking_enabled = true, max_party = NULL, auto_confirm = NULL, lead_minutes = NULL, window_days = NULL');
     await sql('UPDATE booking_settings SET window_days = 14, lead_minutes = 30, max_party = 12, auto_confirm = false, same_day_cutoff = NULL');
-    await sql(`UPDATE locales SET is_enabled = false, serve_machine = false WHERE code = 'vi'`);
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-10-01T18:00:00Z')); // 01:00 on 2 Oct in Da Nang, server on UTC
   });
@@ -116,14 +115,13 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('submitReservation v2 (database)
     expect(afterTasks).toHaveLength(0);
   });
 
-  it('falls back to the default language for an unknown or disabled locale', async () => {
-    await submitReservation({ ...request, locale: 'vi' }); // vi exists but is disabled
+  it('falls back to the default language for a locale the site does not have on', async () => {
+    await submitReservation({ ...request, locale: 'ko' }); // in the catalogue, not on the site (lib/i18n/site-locales.ts)
     await submitReservation({ ...request, time: '19:30', locale: 'zz' });
     expect((await sql('SELECT DISTINCT locale FROM reservations')).rows).toEqual([{ locale: 'en' }]);
   });
 
-  it('keeps the guest’s language once it is enabled, with its consent stamped in the policy’s language', async () => {
-    await sql(`UPDATE locales SET is_enabled = true WHERE code = 'vi'`);
+  it('keeps the guest’s language while it is on, with its consent stamped in the policy’s language', async () => {
     expect(await submitReservation({ ...request, locale: 'vi' })).toMatchObject({ ok: true });
     // vi has no policy version of its own yet: the guest agreed to the English wording, and the booking says so.
     expect((await sql('SELECT locale, consent_locale FROM reservations')).rows).toEqual([{ locale: 'vi', consent_locale: 'en' }]);

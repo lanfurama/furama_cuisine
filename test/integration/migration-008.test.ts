@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { TEST_DATABASE_URL, databaseUrl, migrate, resetDatabase, withClient } from '../helpers/db';
+import { BEFORE_011, TEST_DATABASE_URL, databaseUrl, migrate, resetDatabase, withClient } from '../helpers/db';
 
 /*
  * Migration 008 (phase 6): the content tables, the restaurants' content
@@ -43,7 +43,7 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 008: content tables (database)', 
     beforeAll(async () => {
       resetDatabase(url, '007_email_and_consent.sql');
       existing = await booking();
-      migrate(url);
+      migrate(url, BEFORE_011);
     });
 
     it('seeds every table and leaves the bookings as they were, without an offer', async () => {
@@ -172,7 +172,7 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 008: content tables (database)', 
     it('stops, changing nothing, when a booking already carries an offer_id', async () => {
       resetDatabase(url, '007_email_and_consent.sql');
       await sql(`UPDATE reservations SET offer_id = 2 WHERE id = $1`, [await booking()]);
-      expect(() => migrate(url)).toThrow();
+      expect(() => migrate(url, BEFORE_011)).toThrow();
       expect(await tableExists('media')).toBe(false);
       expect(await one(`SELECT count(*)::int AS n FROM _migrations WHERE name = '008_content.sql'`)).toEqual({ n: 0 });
       await expect(sql(readFileSync(FILE, 'utf8'))).rejects.toThrow(/1 booking\(s\) already carry an offer_id/);
@@ -187,7 +187,7 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 008: content tables (database)', 
   });
 
   describe('constraints', () => {
-    beforeAll(() => resetDatabase(url));
+    beforeAll(() => resetDatabase(url, BEFORE_011));
 
     it('media: a static file is served from /assets at its own path; images have a size, PDFs none; one row per path', async () => {
       const add = (over: Record<string, unknown>) => {

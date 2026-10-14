@@ -1,7 +1,7 @@
 import type { Script } from './scripts';
 
 /*
- * The languages an Admin may add on /admin/locales (spec §8 step 1: "chọn
+ * The languages lib/i18n/site-locales.ts may list (spec §8 step 1: "chọn
  * ngôn ngữ trong danh sách có sẵn"). Configuration, not UI text: each name is
  * the language's own, as the switcher shows it. Only scripts with fonts
  * (SCRIPTS); no right-to-left language (spec §2). The URL code is lower case

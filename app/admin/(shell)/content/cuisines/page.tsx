@@ -39,7 +39,7 @@ export default async function CuisinesPage({ searchParams }: { searchParams: Scr
     listHistory(pool, 'cuisines', null, 10),
     listMediaOptions(pool, 'image'),
   ]);
-  const tabs = await formLocales(pool);
+  const tabs = await formLocales();
   const states = await listStates(pool, CUISINE, tabs);
   const histories = await Promise.all(items.map((c) => listHistory(pool, 'cuisines', c.id, 10)));
   const upload = { prefix: envPrefix(), configured: isBlobConfigured() };

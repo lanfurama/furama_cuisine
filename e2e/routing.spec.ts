@@ -1,5 +1,3 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { DETAIL_PATH, HOME_PATH } from './paths';
 
@@ -25,9 +23,10 @@ test.describe('old and unprefixed links', () => {
     expect(await hop(request, '/x?y=1')).toMatchObject({ status: 307, to: '/en/x?y=1' });
   });
 
-  test('a language that is not enabled, asked for by header or cookie, still lands on /en', async ({ request }) => {
-    expect(await hop(request, '/', { 'accept-language': 'vi-VN,vi;q=0.9' })).toMatchObject({ status: 307, to: '/en' });
-    expect(await hop(request, '/', { cookie: 'NEXT_LOCALE=vi' })).toMatchObject({ status: 307, to: '/en' });
+  test('a language that is not on, asked for by header or cookie, still lands on /en; one that is on lands on itself', async ({ request }) => {
+    expect(await hop(request, '/', { 'accept-language': 'ko-KR,ko;q=0.9' })).toMatchObject({ status: 307, to: '/en' });
+    expect(await hop(request, '/', { cookie: 'NEXT_LOCALE=ko' })).toMatchObject({ status: 307, to: '/en' });
+    expect(await hop(request, '/', { 'accept-language': 'vi-VN,vi;q=0.9' })).toMatchObject({ status: 307, to: '/vi' });
   });
 
   test('the old Tàya House URL moved permanently and keeps its query', async ({ request }) => {
@@ -57,7 +56,7 @@ test.describe('pages that do not exist', () => {
     request,
     page,
   }) => {
-    for (const path of ['/vi', '/fr', '/zz/restaurants/taya-house']) {
+    for (const path of ['/ko', '/fr', '/zz/restaurants/taya-house']) {
       const res = await request.get(path, { maxRedirects: 0 });
       expect(res.status(), path).toBe(404);
       const html = await res.text();
@@ -66,22 +65,10 @@ test.describe('pages that do not exist', () => {
     }
     // The server HTML of this 404 is a __next_error__ shell with the page in the RSC
     // payload, so the site look (ruling 2: not Next's bare 404) is checked in a browser.
-    const res = await page.goto('/vi');
+    const res = await page.goto('/ko');
     expect(res?.status()).toBe(404);
     await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
     expect(await page.evaluate(() => getComputedStyle(document.body).fontFamily)).toContain('Be Vietnam Pro');
-  });
-
-  test('the cached 404 of a disabled language carries the locales tag, so enabling it clears the 404', async ({
-    request,
-  }) => {
-    test.skip(!!process.env.E2E_BASE_URL, 'reads the cache of the production build that next start serves');
-    expect((await request.get('/vi')).status()).toBe(404);
-    expect((await request.get('/vi')).status()).toBe(404);
-    const meta = join(process.cwd(), '.next', 'server', 'app', 'vi.meta');
-    await expect.poll(() => existsSync(meta)).toBe(true);
-    const tags = String(JSON.parse(readFileSync(meta, 'utf8')).headers['x-next-cache-tags']).split(',');
-    expect(tags).toContain('locales');
   });
 
   test('a file a crawler asks for is a 404, not a server error, though its name lands where a language goes', async ({

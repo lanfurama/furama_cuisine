@@ -32,7 +32,7 @@ export default async function NotificationsPage() {
     restaurantsWithoutRecipient(pool),
     listRestaurantOptions(pool),
     listDestinationOptions(pool),
-    listLocales(pool),
+    listLocales(),
   ]);
   const destinationName = new Map(destinations.map((d) => [d.id, d.name]));
   // The language by its name, as the form's select shows it, not its code (phase-5 T6.9).

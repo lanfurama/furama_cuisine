@@ -115,6 +115,8 @@ Một DB, schema `public`. Migration mới = `db/migrations/NNN_*.sql` kế ti�
 
 ## 4. Site khách & i18n
 
+- Ngôn ngữ là **code**: `lib/i18n/site-locales.ts` (bật/tắt, thứ tự, mặc định). Không có bảng `locales`, không có màn admin. Đổi ngôn ngữ = sửa file + deploy. SQL cần ngôn ngữ mặc định dùng `DEFAULT_LOCALE_SQL`; ngôn ngữ của khách qua `guestLocale()`.
+- Khách chỉ thấy bản dịch **đã duyệt**; thiếu thì về ngôn ngữ mặc định. Email khách chỉ gửi bằng ngôn ngữ đó khi đủ mọi key.
 - Trang khách gọi `await requireEnabledLocale(...)` trước khi đọc gì *(CI)*.
 - Chữ khách nhìn thấy nằm trong registry (`lib/i18n/registry.ts`) hoặc DB, không literal trong component *(CI)*.
 - Truy vấn DOM trong phạm vi trang đang hiện (`usePageRoot()`), không cả document *(CI)*.

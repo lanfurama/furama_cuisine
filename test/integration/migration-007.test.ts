@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { EMAIL_EVENTS, EMAIL_STATUSES } from '@/lib/email/events';
-import { TEST_DATABASE_URL, databaseUrl, migrate, resetDatabase, withClient } from '../helpers/db';
+import { BEFORE_011, TEST_DATABASE_URL, databaseUrl, migrate, resetDatabase, withClient } from '../helpers/db';
 
 /*
  * Migration 007 (phase 5): the early site_settings row, notification_recipients,
@@ -37,7 +37,7 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 007: email outbox, recipients, si
     beforeAll(async () => {
       resetDatabase(url, '006_booking_v2.sql');
       existing = await booking();
-      migrate(url);
+      migrate(url, BEFORE_011);
     });
 
     it('adds the three tables, seeds the general email, and leaves the bookings and their events as they were', async () => {
@@ -83,7 +83,7 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 007: email outbox, recipients, si
     let b: { id: string; event: string };
     const base = () => ({ env: 'development', event: 'staff.new', audience: 'staff', reservation_id: b.id, to_email: 'lan@furama.test', locale: 'vi' });
     beforeAll(async () => {
-      resetDatabase(url);
+      resetDatabase(url, BEFORE_011);
       b = await booking();
     });
 

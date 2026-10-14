@@ -289,11 +289,8 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 008 seeds exactly the content of 
     // One label: the menu shows it, the header shows it in capitals (CSS text-transform).
     expect(nav.map((n) => ({ target: n.target_section, header: n.label.toUpperCase(), menu: n.label }))).toEqual(NAV_AT_8FE98F5);
 
-    const socials = await rows<{ platform: string; href: string; visible_locales: string[] | null }>(
-      `SELECT platform, href, visible_locales FROM social_links WHERE is_published ORDER BY sort_order, id`,
-    );
+    const socials = await rows<{ platform: string; href: string }>(`SELECT platform, href FROM social_links WHERE is_published ORDER BY sort_order, id`);
     expect(socials.map((s) => ({ platform: s.platform, label: s.platform.toUpperCase(), href: s.href }))).toEqual(SOCIALS_AT_8FE98F5);
-    expect(socials.every((s) => s.visible_locales === null)).toBe(true);
 
     expect(await rows(`SELECT email, default_restaurant_id, default_occasion, og_image_id, hero_autoplay_ms FROM site_settings`)).toEqual([
       {

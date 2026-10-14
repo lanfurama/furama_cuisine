@@ -17,7 +17,7 @@ const ACTOR: AuditActor = { id: 'staff-lan', email: 'lan@furama.test', name: 'La
 const ID = '2';
 
 const editor = async () => (await getOfferEditor(pool, ID))!;
-const states = async () => itemStates(OFFER, (await readItem(pool, OFFER, ID))!, await formLocales(pool));
+const states = async () => itemStates(OFFER, (await readItem(pool, OFFER, ID))!, await formLocales());
 const vi = async () =>
   (await pool.query(`SELECT title, status, origin, source_hash, updated_by FROM offer_i18n WHERE offer_id = $1 AND locale = 'vi'`, [ID])).rows[0];
 async function save(change: (values: Awaited<ReturnType<typeof editor>>['values']) => object, actor = ACTOR) {
@@ -89,32 +89,27 @@ describe.skipIf(!TEST_DATABASE_URL)('saving translations (database)', () => {
 describe.skipIf(!TEST_DATABASE_URL)('closure reasons and alt text per language (database)', () => {
   it('an edit of a closure that posts English and Vietnamese keeps its Korean reason, and an emptied English one goes (phase-4 T13)', async () => {
     const { createClosure, listClosures, updateClosure } = await import('@/lib/server/booking/config');
-    await pool.query(`INSERT INTO locales (code, bcp47, native_name, short_label, script, sort_order) VALUES ('ko', 'ko', '한국어', 'KO', 'hangul', 30) ON CONFLICT DO NOTHING`);
-    try {
-      const input = {
-        scope: 'restaurant' as const,
-        destinationId: null,
-        restaurantId: 'taya-house',
-        startsOn: '2030-01-05' as const,
-        endsOn: '2030-01-05' as const,
-        meals: null,
-        showReason: true,
-        publicReason: { en: 'Private event', vi: 'Sự kiện riêng' },
-        internalNote: null,
-      };
-      const { data } = await createClosure(pool, ACTOR, input);
-      await pool.query(`INSERT INTO closure_i18n (closure_id, locale, public_reason, status, origin) VALUES ($1, 'ko', '비공개 행사', 'machine', 'ai')`, [data.id]);
-      const view = (await listClosures(pool, '2030-01-01')).find((c) => c.id === data.id)!;
-      expect(await updateClosure(pool, ACTOR, { ...input, id: data.id, token: view.token, publicReason: { en: '', vi: 'Sự kiện riêng tư' } })).toMatchObject({ ok: true });
-      const rows = (await pool.query(`SELECT locale, public_reason, status FROM closure_i18n WHERE closure_id = $1 ORDER BY locale`, [data.id])).rows;
-      expect(rows).toEqual([
-        { locale: 'ko', public_reason: '비공개 행사', status: 'machine' },
-        { locale: 'vi', public_reason: 'Sự kiện riêng tư', status: 'reviewed' },
-      ]);
-      await pool.query(`DELETE FROM closures WHERE id = $1`, [data.id]);
-    } finally {
-      await pool.query(`DELETE FROM locales WHERE code = 'ko'`);
-    }
+    const input = {
+      scope: 'restaurant' as const,
+      destinationId: null,
+      restaurantId: 'taya-house',
+      startsOn: '2030-01-05' as const,
+      endsOn: '2030-01-05' as const,
+      meals: null,
+      showReason: true,
+      publicReason: { en: 'Private event', vi: 'Sự kiện riêng' },
+      internalNote: null,
+    };
+    const { data } = await createClosure(pool, ACTOR, input);
+    await pool.query(`INSERT INTO closure_i18n (closure_id, locale, public_reason, status, origin) VALUES ($1, 'ko', '비공개 행사', 'machine', 'ai')`, [data.id]);
+    const view = (await listClosures(pool, '2030-01-01')).find((c) => c.id === data.id)!;
+    expect(await updateClosure(pool, ACTOR, { ...input, id: data.id, token: view.token, publicReason: { en: '', vi: 'Sự kiện riêng tư' } })).toMatchObject({ ok: true });
+    const rows = (await pool.query(`SELECT locale, public_reason, status FROM closure_i18n WHERE closure_id = $1 ORDER BY locale`, [data.id])).rows;
+    expect(rows).toEqual([
+      { locale: 'ko', public_reason: '비공개 행사', status: 'machine' },
+      { locale: 'vi', public_reason: 'Sự kiện riêng tư', status: 'reviewed' },
+    ]);
+    await pool.query(`DELETE FROM closures WHERE id = $1`, [data.id]);
   });
 
   it('a file’s Vietnamese alt is saved beside its English one, and emptied it goes', async () => {

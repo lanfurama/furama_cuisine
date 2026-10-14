@@ -35,7 +35,7 @@ let seed: ItemSnapshot[] = [];
 const audit = async () => (await pool.query('SELECT a.id::text AS id, actor_id, action, entity_type, entity_id, before, after FROM audit_log a ORDER BY a.id')).rows;
 const link = async (platform: string) => (await listSocialLinksAdmin(pool)).items.find((s) => s.values.platform === platform)!;
 const listToken = async () => (await listSocialLinksAdmin(pool)).token;
-const footer = async (locale = 'en') => (await loadSocials(locale)).map((s) => `${s.platform}:${s.href}`);
+const footer = async () => (await loadSocials()).map((s) => `${s.platform}:${s.href}`);
 
 /** Puts the links back as migration 008 seeded them. */
 async function resetSocials() {
@@ -120,24 +120,15 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('social links editor (database)'
     expect(await footer()).toHaveLength(6);
   });
 
-  it('the languages a link shows in (phase 8) survive a save, and come back with a deleted link, under its id in its place', async () => {
+  it('a deleted link comes back under its id, in its place', async () => {
     const youtube = await link('youtube');
-    await pool.query(`UPDATE social_links SET visible_locales = '{en}' WHERE id = $1`, [youtube.id]);
     const before = (await listSocialLinksAdmin(pool)).items.map((s) => s.id);
-    const fresh = await link('youtube');
-    expect(await updateSocialLink(pool, ACTOR, fresh.id, fresh.token, { ...fresh.values, href: 'https://www.youtube.com/@furama' })).toEqual(SAVED);
-    expect((await pool.query('SELECT visible_locales FROM social_links WHERE id = $1', [youtube.id])).rows[0]).toEqual({ visible_locales: ['en'] });
-    expect(await footer('vi')).not.toContain('youtube:https://www.youtube.com/@furama');
-
-    expect(await deleteSocialLink(pool, ACTOR, youtube.id, (await link('youtube')).token)).toEqual({ ok: true, data: { meta: null } });
-    expect(await footer()).not.toContain('youtube:https://www.youtube.com/@furama');
+    expect(await deleteSocialLink(pool, ACTOR, youtube.id, youtube.token)).toEqual({ ok: true, data: { meta: null } });
+    expect(await footer()).not.toContain(`youtube:${youtube.values.href}`);
     const [gone] = await listDeleted(pool, SOCIAL_LINK);
     expect(await restoreSocialLink(pool, OTHER, { id: gone.id, auditId: gone.auditId, side: 'before', token: 'deleted' })).toEqual({ ok: true, data: null });
     expect((await listSocialLinksAdmin(pool)).items.map((s) => s.id)).toEqual(before);
-    expect((await pool.query('SELECT visible_locales, href FROM social_links WHERE id = $1', [youtube.id])).rows[0]).toEqual({
-      visible_locales: ['en'],
-      href: 'https://www.youtube.com/@furama',
-    });
+    expect(await footer()).toContain(`youtube:${youtube.values.href}`);
   });
 
   it('a new order reaches the footer, and the order’s History puts the old one back', async () => {

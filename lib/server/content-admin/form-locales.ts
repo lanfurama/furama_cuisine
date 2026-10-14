@@ -2,26 +2,26 @@ import 'server-only';
 import { sourceHash, translationState, type TranslationState } from '@/lib/i18n/source-hash';
 import type { Db } from '@/db/client';
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
+import { SITE_LOCALE_ROWS } from '@/lib/i18n/site-locales';
 import { readItems, type I18nRow, type ItemDef, type ItemSnapshot } from '@/lib/server/history/snapshot';
 
 /*
  * The language tabs of the content forms (phase 8, spec §7.3, R8-5): every
- * language in the table, the default one first, then the site's order; a
- * language that is off is a tab too ("đang tắt"), since a language is
- * translated before it is turned on.
+ * language of lib/i18n/site-locales.ts, the default one first, then the
+ * site's order; a language that is off is a tab too ("đang tắt"), since a
+ * language is translated before it is turned on.
  */
+
+const DEFAULT_FIRST = [...SITE_LOCALE_ROWS].sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
 
 export type FormLocale = { code: string; label: string; isDefault: boolean; isEnabled: boolean };
 
-export async function formLocales(db: Db): Promise<FormLocale[]> {
-  const { rows } = await db.query<{ code: string; short_label: string; is_default: boolean; is_enabled: boolean }>(
-    'SELECT code, short_label, is_default, is_enabled FROM locales ORDER BY is_default DESC, sort_order, code',
-  );
-  return rows.map((r) => ({
-    code: r.code,
-    label: r.is_enabled ? r.short_label : `${r.short_label} (đang tắt)`,
-    isDefault: r.is_default,
-    isEnabled: r.is_enabled,
+export async function formLocales(): Promise<FormLocale[]> {
+  return DEFAULT_FIRST.map((l) => ({
+    code: l.code,
+    label: l.isEnabled ? l.shortLabel : `${l.shortLabel} (đang tắt)`,
+    isDefault: l.isDefault,
+    isEnabled: l.isEnabled,
   }));
 }
 
@@ -52,14 +52,11 @@ export async function listStates(db: Db, def: ItemDef, locales: readonly FormLoc
 }
 
 /** The languages a strings screen can edit (its LocalePicker), the default first, by their own names. */
-export async function pickerLocales(db: Db): Promise<{ code: string; name: string; isEnabled: boolean; isDefault: boolean }[]> {
-  const { rows } = await db.query<{ code: string; native_name: string; is_default: boolean; is_enabled: boolean }>(
-    'SELECT code, native_name, is_default, is_enabled FROM locales ORDER BY is_default DESC, sort_order, code',
-  );
-  return rows.map((r) => ({ code: r.code, name: r.native_name, isEnabled: r.is_enabled, isDefault: r.is_default }));
+export async function pickerLocales(): Promise<{ code: string; name: string; isEnabled: boolean; isDefault: boolean }[]> {
+  return DEFAULT_FIRST.map((l) => ({ code: l.code, name: l.nativeName, isEnabled: l.isEnabled, isDefault: l.isDefault }));
 }
 
-/** The language a screen's ?lang= asks for, when the table has it; else the default one. */
+/** The language a screen's ?lang= asks for, when it is listed; else the default one. */
 export function screenLocale(locales: readonly { code: string; isDefault: boolean }[], asked: string | string[] | undefined): string {
   const code = typeof asked === 'string' ? asked : undefined;
   return locales.find((l) => l.code === code)?.code ?? locales.find((l) => l.isDefault)?.code ?? DEFAULT_LOCALE;

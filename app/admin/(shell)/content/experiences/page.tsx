@@ -37,7 +37,7 @@ export default async function ExperiencesPage({ searchParams }: { searchParams: 
     listDeleted(pool, EXPERIENCE),
     listHistory(pool, 'experiences', null, 10),
   ]);
-  const tabs = await formLocales(pool);
+  const tabs = await formLocales();
   const states = await listStates(pool, EXPERIENCE, tabs);
   const histories = await Promise.all(items.map((e) => listHistory(pool, 'experiences', e.id, 10)));
   const shown = items.filter((i) => i.isPublished).length;

@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import type { ContentTable } from '@/lib/cache-plan';
 import { EDIT_SCREENS } from '@/lib/admin/content-screens';
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
+import { SITE_LOCALE_ROWS } from '@/lib/i18n/site-locales';
 import { ADMIN_SCREENS, REGISTRY, keysForScreen, registryLocaleDefault, type AdminScreen, type StringKey } from '@/lib/i18n/registry';
 import { sourceHash, translationState, type TranslationState } from '@/lib/i18n/source-hash';
 import { insertAudit, withTransaction, type AuditActor } from '../audit';
@@ -222,9 +223,9 @@ async function stringUnits(db: Db, kind: StringsKind, locales: readonly string[]
   return units;
 }
 
-async function allLocales(db: Db): Promise<{ code: string; name: string }[]> {
-  const { rows } = await db.query<{ code: string; native_name: string }>('SELECT code, native_name FROM locales ORDER BY is_default DESC, sort_order, code');
-  return rows.map((r) => ({ code: r.code, name: r.native_name }));
+/** Every listed language, the default first (lib/i18n/site-locales.ts). */
+function allLocales(): { code: string; name: string }[] {
+  return [...SITE_LOCALE_ROWS].sort((a, b) => Number(b.isDefault) - Number(a.isDefault)).map((l) => ({ code: l.code, name: l.nativeName }));
 }
 
 async function allUnits(db: Db, kinds: readonly ContentKind[], locales: readonly string[]): Promise<Unit[]> {
@@ -238,7 +239,7 @@ export type Coverage = { locales: { code: string; name: string }[]; kinds: { key
 
 /** Per kind and per language other than the default: how many of the items with English text are in each state. */
 export async function coverage(db: Db): Promise<Coverage> {
-  const locales = (await allLocales(db)).filter((l) => l.code !== DEFAULT_LOCALE);
+  const locales = allLocales().filter((l) => l.code !== DEFAULT_LOCALE);
   const all = await allUnits(
     db,
     CONTENT_KINDS,
@@ -291,7 +292,7 @@ export const QUEUE_PAGE = 50;
 
 /** The translations that need a person, filtered by language and kind, a page of QUEUE_PAGE at a time. */
 export async function reviewQueue(db: Db, filter: { locale?: string; kind?: string; page?: number } = {}): Promise<{ items: QueueItem[]; total: number }> {
-  const codes = (await allLocales(db)).map((l) => l.code).filter((c) => !filter.locale || c === filter.locale);
+  const codes = allLocales().map((l) => l.code).filter((c) => !filter.locale || c === filter.locale);
   const kinds = CONTENT_KINDS.filter((k) => !filter.kind || k.key === filter.kind);
   const waiting = (await allUnits(db, kinds, codes)).filter((u) => u.machine || u.state === 'stale');
   const page = Math.max(1, filter.page ?? 1);

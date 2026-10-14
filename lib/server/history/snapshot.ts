@@ -2,6 +2,8 @@ import 'server-only';
 import { createHash } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { ContentTable } from '@/lib/cache-plan';
+import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
+import { LISTED_LOCALE_CODES } from '@/lib/i18n/site-locales';
 import { sourceHash } from '@/lib/i18n/source-hash';
 import type { Db } from '@/db/client';
 
@@ -211,8 +213,8 @@ export async function writeI18nRows(client: PoolClient, def: ItemDef, id: string
     `INSERT INTO ${table} (${fk}, ${cols.join(', ')}, updated_at, updated_by)
      SELECT $1${cast(def)}, ${cols.map((c) => `r.${c}`).join(', ')}, now(), $3
        FROM jsonb_populate_recordset(NULL::${table}, $2::jsonb) r
-      WHERE r.locale IN (SELECT code FROM locales)`,
-    [id, JSON.stringify(rows), actorId],
+      WHERE r.locale = ANY ($4::text[])`,
+    [id, JSON.stringify(rows), actorId, LISTED_LOCALE_CODES],
   );
 }
 
@@ -278,9 +280,8 @@ export async function writeChangedTranslations(
 ): Promise<void> {
   if (!def.i18n) throw new Error(`${def.entityType} has no translations`);
   const { table, fk, columns } = def.i18n;
-  const { rows: locales } = await client.query<{ code: string; is_default: boolean }>('SELECT code, is_default FROM locales');
-  const known = new Set(locales.map((l) => l.code));
-  const defaultCode = locales.find((l) => l.is_default)?.code ?? 'en';
+  const known = new Set(LISTED_LOCALE_CODES);
+  const defaultCode = DEFAULT_LOCALE;
   const current = await translationsOf(client, def, id);
   const entries = Object.entries(translations)
     .filter(([locale]) => known.has(locale))

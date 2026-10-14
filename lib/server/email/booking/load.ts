@@ -1,4 +1,5 @@
 import 'server-only';
+import { DEFAULT_LOCALE_SQL } from '@/lib/i18n/locales';
 import type { Pool, PoolClient } from 'pg';
 import type { GroupPhone, ReservationStatus } from '@/lib/booking/rules';
 import { groupPhoneSql } from '@/lib/server/booking/rules';
@@ -59,7 +60,7 @@ export async function loadBookingEmailData(db: Pool | PoolClient, reservationId:
   const { rows } = await db.query<DataRow>(
     `SELECT r.id::text, r.reference, t.name AS restaurant_name, to_char(r.reserved_on, 'YYYY-MM-DD') AS date,
             r.reserved_at AS time, r.guests, r.status, r.status_reason, r.guest_name, r.phone, r.email, r.note,
-            (SELECT oi.title FROM offer_i18n oi JOIN locales l ON l.code = oi.locale AND l.is_default WHERE oi.offer_id = r.offer_id) AS offer_title,
+            (SELECT oi.title FROM offer_i18n oi WHERE oi.offer_id = r.offer_id AND oi.locale = ${DEFAULT_LOCALE_SQL}) AS offer_title,
             ${groupPhoneSql('t')} AS group_phone, r.anonymized_at IS NOT NULL AS anonymized
        FROM reservations r JOIN restaurants t ON t.id = r.restaurant_id
       WHERE r.id = $1`,

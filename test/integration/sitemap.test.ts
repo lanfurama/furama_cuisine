@@ -1,5 +1,4 @@
-import { afterAll, describe, expect, it, vi } from 'vitest';
-import { getPool } from '@/db/client';
+import { describe, expect, it, vi } from 'vitest';
 import { TEST_DATABASE_URL } from '../helpers/db';
 
 // Outside a Next build the cache calls are no-ops: the readers below query the test database each time.
@@ -13,15 +12,7 @@ const { default: robots } = await import('@/app/robots');
  * hreflang alternates, and never a disabled one; robots.txt points at it.
  */
 describe.skipIf(!TEST_DATABASE_URL)('sitemap.xml and robots.txt (database)', () => {
-  const sql = (text: string) => getPool().query(text);
-  afterAll(async () => {
-    await sql(`UPDATE locales SET is_enabled = false WHERE code = 'vi'`);
-    await sql(`DELETE FROM locales WHERE code = 'ko'`);
-  });
-
   it('lists the home page, the policy and each restaurant page in each enabled language, with alternates', async () => {
-    await sql(`UPDATE locales SET is_enabled = true WHERE code = 'vi'`);
-    await sql(`INSERT INTO locales (code, bcp47, native_name, short_label, script, sort_order) VALUES ('ko', 'ko', '한국어', 'KO', 'hangul', 30)`);
     const entries = await sitemap();
     const urls = entries.map((e) => e.url);
     expect(urls).toContain('https://dining.example/en');

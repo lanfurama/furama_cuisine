@@ -66,7 +66,7 @@ export default async function DestinationsPage({ searchParams }: { searchParams:
     listHistory(pool, 'destinations', null, 10),
     listMediaOptions(pool, 'image'),
   ]);
-  const tabs = await formLocales(pool);
+  const tabs = await formLocales();
   const states = await listStates(pool, DESTINATION, tabs);
   const histories = await Promise.all(items.map((d) => listHistory(pool, 'destinations', d.id, 10)));
   const upload = { prefix: envPrefix(), configured: isBlobConfigured() };

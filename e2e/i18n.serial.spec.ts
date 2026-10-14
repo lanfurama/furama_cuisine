@@ -5,14 +5,12 @@ import { expectHydrated } from './csp';
 import { STAFF, db, expect, seedStaff, signInAs, test } from './staff-fixtures';
 
 /*
- * Phase 8 (spec §8, §14.1 row 8): the languages screen drives the guest site
- * without a deploy. Enabling Vietnamese on /admin/locales shows the switcher
- * and opens /vi at once (the locales tag), disabling it closes both; a language
- * without its guest emails cannot be enabled (R8-6); a staff preview opens a
- * disabled language for staff only (Draft Mode, C6).
+ * The languages are code (lib/i18n/site-locales.ts: English and Vietnamese,
+ * owner 2026-10-14): the switcher offers Vietnamese and keeps the page, a
+ * language that is not on is a 404, the admin has no language screen, and
+ * Vietnamese saved in the admin reaches /vi; a booking on /vi keeps it.
  *
- * Serial (desktop-serial): it changes which languages every guest page offers,
- * and puts the table back as migration 004 seeded it (en on, vi off) at the end.
+ * Serial (desktop-serial): it writes Vietnamese text every guest page reads.
  */
 
 async function guest(browser: Browser): Promise<Page> {
@@ -21,81 +19,23 @@ async function guest(browser: Browser): Promise<Page> {
   return context.newPage();
 }
 
-const row = (page: Page, name: string) => page.locator('tr', { hasText: name });
-
-async function resetLocales() {
-  const c = db();
-  await c.connect();
-  try {
-    await c.query(`DELETE FROM content_strings WHERE locale NOT IN ('en', 'vi')`);
-    await c.query(`DELETE FROM locales WHERE code NOT IN ('en', 'vi')`);
-    await c.query(`UPDATE locales SET is_enabled = (code = 'en'), serve_machine = false`);
-  } finally {
-    await c.end();
-  }
-}
-
 test.beforeAll(() => seedStaff());
-// Each test starts from the seed's languages (en on, vi off, nothing else), whatever the one before added.
-test.beforeEach(resetLocales);
-test.afterAll(resetLocales);
 
-test('enabling a language on /admin/locales opens it to guests at once, and disabling it closes it', async ({ page, browser }) => {
+test('the switcher opens the same page in Vietnamese and remembers it; a language that is not on is a 404', async ({ browser }) => {
   const visitor = await guest(browser);
-  await visitor.goto('/en');
-  await expect(visitor.locator('.hdr-lang-btn')).toHaveCount(0);
-  expect((await visitor.goto('/vi'))?.status()).toBe(404);
-
-  await signInAs(page, STAFF.admin);
-  await page.goto('/admin/locales');
-  await row(page, 'Tiếng Việt (vi)').getByRole('button', { name: 'Bật cho khách' }).click();
-  await expect(row(page, 'Tiếng Việt (vi)')).toContainText('Đang bật');
-
   await visitor.goto('/en/restaurants/taya-house?x=1');
   await visitor.locator('.hdr-lang-btn').click();
   await Promise.all([visitor.waitForURL(/\/vi\/restaurants\/taya-house\?x=1$/), visitor.getByRole('link', { name: 'Tiếng Việt' }).click()]);
   await expect(visitor.locator('html')).toHaveAttribute('lang', 'vi');
   expect((await visitor.context().cookies()).find((c) => c.name === 'NEXT_LOCALE')?.value).toBe('vi');
-
-  page.once('dialog', (d) => d.accept());
-  await row(page, 'Tiếng Việt (vi)').getByRole('button', { name: 'Tắt' }).click();
-  await expect(row(page, 'Tiếng Việt (vi)')).toContainText('Đang tắt');
-  expect((await visitor.goto('/vi'))?.status()).toBe(404);
-  await visitor.goto('/en');
-  await expect(visitor.locator('.hdr-lang-btn')).toHaveCount(0);
-});
-
-test('a language whose guest emails are not translated cannot be enabled; staff can preview it, guests cannot', async ({ page, browser }) => {
-  await signInAs(page, STAFF.admin);
-  await page.goto('/admin/locales');
-  await page.getByRole('form', { name: 'Thêm ngôn ngữ' }).getByLabel('Ngôn ngữ').selectOption('ko');
-  await page.getByRole('button', { name: 'Thêm ngôn ngữ' }).click();
-  await expect(row(page, '한국어 (ko)')).toContainText('Đang tắt');
-
-  await row(page, '한국어 (ko)').getByRole('button', { name: 'Bật cho khách' }).click();
-  await expect(row(page, '한국어 (ko)').locator('.a-warn-list')).toContainText('email gửi khách');
-
-  const visitor = await guest(browser);
   expect((await visitor.goto('/ko'))?.status()).toBe(404);
-  expect((await visitor.goto('/api/admin/preview?path=/ko'))?.status()).toBe(403);
-
-  await page.goto('/api/admin/preview?path=/ko/restaurants/taya-house');
-  await expect(page.locator('html')).toHaveAttribute('lang', 'ko');
-  await expect(page.locator('.preview-banner')).toBeVisible();
-  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
-  await expect(page.locator('link[href="/fonts/hangul.css"]')).toHaveCount(1);
-  expect(await (await page.request.get('/sitemap.xml')).text()).not.toContain('/ko');
-  await page.locator('.preview-banner a').click();
-  await page.waitForURL(/\/en$/);
+  expect(await (await visitor.request.get('/sitemap.xml')).text()).toContain('/vi');
+  await visitor.context().close();
 });
 
-test('an Editor has no Ngôn ngữ link, and /admin/locales shows the 403 view with no languages', async ({ page }) => {
-  await signInAs(page, STAFF.editor);
+test('the admin has no language screen', async ({ page }) => {
+  await signInAs(page, STAFF.admin);
   await expect(page.getByRole('link', { name: 'Ngôn ngữ' })).toHaveCount(0);
-  // Status 200, not 403: see app/admin/layout.tsx (as e2e/admin-users.spec.ts). What matters is what the response holds.
-  await page.goto('/admin/locales');
-  await expect(page.getByRole('heading', { name: 'Không có quyền truy cập' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Các ngôn ngữ' })).toHaveCount(0);
 });
 
 test('a content form has a tab per language: a Vietnamese save shows on /vi, and an English edit marks it "EN đã đổi"', async ({ page, browser }) => {
@@ -105,9 +45,6 @@ test('a content form has a tab per language: a Vietnamese save shows on /vi, and
   const original = rows[0].title;
   try {
     await signInAs(page, STAFF.admin);
-    await page.goto('/admin/locales');
-    await row(page, 'Tiếng Việt (vi)').getByRole('button', { name: 'Bật cho khách' }).click();
-    await expect(row(page, 'Tiếng Việt (vi)')).toContainText('Đang bật');
 
     await page.goto('/admin/content/offers/2');
     const tabs = page.getByRole('tablist', { name: 'Tiêu đề: ngôn ngữ' });
@@ -140,9 +77,6 @@ test('a strings screen edits one language: Vietnamese text saved on ?lang=vi sho
   await c.connect();
   try {
     await signInAs(page, STAFF.admin);
-    await page.goto('/admin/locales');
-    await row(page, 'Tiếng Việt (vi)').getByRole('button', { name: 'Bật cho khách' }).click();
-    await expect(row(page, 'Tiếng Việt (vi)')).toContainText('Đang bật');
 
     await page.goto('/admin/content/stories');
     await expectHydrated(page);
@@ -193,7 +127,7 @@ test('the Vietnamese email screen previews the Vietnamese being typed, the staff
   expect(body).toContain('· vi</div>');
 });
 
-test('an Editor approves a machine translation on Bản dịch: /vi shows it only once it is reviewed (serve_machine off)', async ({ page, browser }) => {
+test('an Editor approves a machine translation on Bản dịch: /vi shows it only once it is reviewed', async ({ page, browser }) => {
   const c = db();
   await c.connect();
   const { rows } = await c.query<{ title: string }>(`SELECT title FROM offer_i18n WHERE offer_id = 2 AND locale = 'en'`);
@@ -202,9 +136,6 @@ test('an Editor approves a machine translation on Bản dịch: /vi shows it onl
   try {
     await c.query(`INSERT INTO offer_i18n (offer_id, locale, title, status, origin, ai_model) VALUES (2, 'vi', $1, 'machine', 'ai', 'e2e')`, [machine]);
     await signInAs(page, STAFF.admin);
-    await page.goto('/admin/locales');
-    await row(page, 'Tiếng Việt (vi)').getByRole('button', { name: 'Bật cho khách' }).click();
-    await expect(row(page, 'Tiếng Việt (vi)')).toContainText('Đang bật');
 
     const visitor = await guest(browser);
     const titles = () => visitor.locator('#offers .offer-title').allTextContents();
@@ -268,6 +199,17 @@ async function bookFrom(visitor: Page, path: string, email: string, submit: stri
   return (await drawer.locator('.drawer-ref').textContent()) ?? '';
 }
 
+/** Saves booking.submit's Vietnamese on the booking screen's strings form ('' puts the English back). */
+async function saveSubmitWord(page: Page, value: string) {
+  await page.goto('/admin/content/booking?lang=vi');
+  await expectHydrated(page);
+  const form = page.locator('form').filter({ has: page.locator('[name="v:booking.submit"]') });
+  await expect(form).toContainText('Đang sửa: Tiếng Việt');
+  await form.getByLabel(/^Nút gửi yêu cầu đặt bàn/).fill(value);
+  await form.getByRole('button', { name: /^Lưu/ }).click();
+  await expect(form.getByRole('status')).toContainText('Đã lưu');
+}
+
 test('a booking on /vi is kept in Vietnamese with the consent it showed; its emails go out in Vietnamese; /en books in English with en-GB dates (spec §13)', async ({
   page,
   browser,
@@ -275,12 +217,9 @@ test('a booking on /vi is kept in Vietnamese with the consent it showed; its ema
   const c = db();
   await c.connect();
   try {
-    // A Vietnamese drawer word from the strings screen's table (the rest falls back to English).
-    await c.query(`INSERT INTO content_strings (key, locale, value, status) VALUES ('booking.submit', 'vi', 'GỬI YÊU CẦU', 'reviewed')`);
+    // A Vietnamese drawer word, saved on the booking screen so the cached /vi pages learn of it (the rest falls back to English).
     await signInAs(page, STAFF.admin);
-    await page.goto('/admin/locales');
-    await row(page, 'Tiếng Việt (vi)').getByRole('button', { name: 'Bật cho khách' }).click();
-    await expect(row(page, 'Tiếng Việt (vi)')).toContainText('Đang bật');
+    await saveSubmitWord(page, 'GỬI YÊU CẦU');
 
     const visitor = await guest(browser);
     const viGuest = `vi-${Date.now()}@example.com`;
@@ -306,7 +245,8 @@ test('a booking on /vi is kept in Vietnamese with the consent it showed; its ema
     expect(enAck.text).toMatch(/\b\d{2}:\d{2} \(Da Nang time, GMT\+7\)/);
     await visitor.context().close();
   } finally {
-    await c.query(`DELETE FROM content_strings WHERE key = 'booking.submit' AND locale = 'vi'`);
+    // Emptied, the key falls back to English again, through the screen so no cached page keeps the word.
+    await saveSubmitWord(page, '');
     await c.end();
   }
 });

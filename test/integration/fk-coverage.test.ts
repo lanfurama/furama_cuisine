@@ -34,7 +34,6 @@ const OFFER_ACCEPTANCE: [string, string] = [
   'ACCEPTANCE: edit an offer, restore the version before; delete it, restore it; the guest list follows each step',
 ];
 const NEVER_DELETED = 'restaurants are never deleted, only archived (F10, R22): no path deletes the parent';
-const LOCALES = 'phase 8: languages are managed on /admin/locales; no phase-7 path deletes one (migration-008.test.ts pins the action)';
 const BOOKINGS = 'bookings are never deleted before phase 10’s retention (spec §11): no phase-7 path deletes the parent';
 
 const FK_MATRIX: Record<string, Covered> = {
@@ -139,24 +138,6 @@ const FK_MATRIX: Record<string, Covered> = {
   reservation_notes_reservation_id_fkey: { action: 'c', none: BOOKINGS },
   email_outbox_reservation_id_fkey: { action: 'c', none: BOOKINGS },
   email_outbox_reservation_event_id_fkey: { action: 'n', none: BOOKINGS },
-  // Languages (phase 8).
-  content_strings_locale_fkey: { action: 'c', none: LOCALES },
-  closure_i18n_locale_fkey: { action: 'c', none: LOCALES },
-  reservations_locale_fkey: { action: 'a', none: LOCALES },
-  notification_recipients_locale_fkey: { action: 'a', none: LOCALES },
-  email_outbox_locale_fkey: { action: 'a', none: LOCALES },
-  media_i18n_locale_fkey: { action: 'c', none: LOCALES },
-  destination_i18n_locale_fkey: { action: 'c', none: LOCALES },
-  cuisine_i18n_locale_fkey: { action: 'c', none: LOCALES },
-  restaurant_i18n_locale_fkey: { action: 'c', none: LOCALES },
-  restaurant_highlight_i18n_locale_fkey: { action: 'c', none: LOCALES },
-  experience_i18n_locale_fkey: { action: 'c', none: LOCALES },
-  story_i18n_locale_fkey: { action: 'c', none: LOCALES },
-  offer_i18n_locale_fkey: { action: 'c', none: LOCALES },
-  nav_item_i18n_locale_fkey: { action: 'c', none: LOCALES },
-  // Migration 010: a policy version and a booking's consent name their language; no path deletes a language they name (R8-2).
-  legal_versions_locale_fk: { action: 'a', none: LOCALES },
-  reservations_consent_locale_fk: { action: 'a', none: LOCALES },
 };
 
 const ROOT = join(__dirname, '..', '..');

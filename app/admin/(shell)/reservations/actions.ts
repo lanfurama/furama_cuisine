@@ -111,7 +111,7 @@ export async function createReservation(_prev: ActionResult | null, formData: Fo
     const staff = await requirePermission({ reservations: ['create'] });
     const input = NewReservationForm.parse(Object.fromEntries(formData));
     const pool = getPool();
-    if (!(await listLocales(pool)).some((l) => l.code === input.locale)) {
+    if (!(await listLocales()).some((l) => l.code === input.locale)) {
       return { ok: false, code: 'invalid', fieldErrors: { locale: ['Chọn ngôn ngữ của khách.'] } };
     }
     const effects = outboxEffects();

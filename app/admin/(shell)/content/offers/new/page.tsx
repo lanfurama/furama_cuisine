@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: 'Thêm ưu đãi' };
 
 export default async function NewOfferPage() {
   await requirePagePermission({ content: ['update'] });
-  const [restaurants, tabs] = await Promise.all([listRestaurantOptions(getPool()), formLocales(getPool())]);
+  const [restaurants, tabs] = await Promise.all([listRestaurantOptions(getPool()), formLocales()]);
   return (
     <>
       <p className="a-crumbs">

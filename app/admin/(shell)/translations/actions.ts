@@ -16,7 +16,7 @@ import { auditActor, requirePermission } from '@/lib/server/dal/session';
  * "EN đã đổi" one) and "Duyệt các mục đã chọn" post the same thing: rows as
  * kind|id|locale|token, each checked against its token in one transaction
  * (lib/server/content-admin/translations.ts). Then the tags of what changed:
- * a reviewed row may now reach guests (serve_machine off).
+ * a reviewed row may now reach guests (they see reviewed rows only).
  */
 
 const Item = z

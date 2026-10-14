@@ -117,12 +117,7 @@ export async function loadNav(locale: string): Promise<NavItem[]> {
   );
 }
 
-/** The footer's social links shown in `locale` (visible_locales NULL: every language). */
-export async function loadSocials(locale: string): Promise<SocialLink[]> {
-  return query<SocialLink>(
-    `SELECT platform, href FROM social_links
-      WHERE is_published AND (visible_locales IS NULL OR $1 = ANY (visible_locales))
-      ORDER BY sort_order, id`,
-    [locale],
-  );
+/** The footer's social links, the same in every language (owner, 2026-10-14). */
+export async function loadSocials(): Promise<SocialLink[]> {
+  return query<SocialLink>(`SELECT platform, href FROM social_links WHERE is_published ORDER BY sort_order, id`);
 }

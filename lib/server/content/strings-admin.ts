@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import { TAGS } from '@/lib/cache-tags';
 import { checkMessage, describeProblem, messageArgs } from '@/lib/i18n/icu';
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
+import { LISTED_LOCALE_CODES } from '@/lib/i18n/site-locales';
 import { REGISTRY, isStringKey, keysForScreen, registryLocaleDefault, type AdminScreen, type StringDef, type StringKey } from '@/lib/i18n/registry';
 import { sourceHash, translationState, type TranslationState } from '@/lib/i18n/source-hash';
 import { AGREED_KEYS, PRIVACY_KEYS } from '@/lib/legal';
@@ -154,10 +155,8 @@ export const AGREED_ON_PREVIEW = 'Chữ khách đồng ý (chính sách, câu đ
 
 const isAgreed = (key: StringKey) => (AGREED_KEYS as readonly string[]).includes(key);
 
-/** Whether `locale` is a language of the table: a screen edits only those. */
-async function knownLocale(db: Db, locale: string): Promise<boolean> {
-  return (await db.query('SELECT 1 FROM locales WHERE code = $1', [locale])).rowCount === 1;
-}
+/** Whether `locale` is a listed language (lib/i18n/site-locales.ts): a screen edits only those. */
+const knownLocale = (locale: string): boolean => LISTED_LOCALE_CODES.includes(locale);
 const UNKNOWN_LOCALE: Invalid = { ok: false, code: 'invalid', fieldErrors: { locale: ['Ngôn ngữ này không có trong danh sách ngôn ngữ.'] } };
 
 /**
@@ -169,7 +168,7 @@ const UNKNOWN_LOCALE: Invalid = { ok: false, code: 'invalid', fieldErrors: { loc
  */
 export async function saveStrings(pool: Pool, actor: AuditActor, input: StringsInput): Promise<{ ok: true; data: StringsWritten } | Invalid | Conflict> {
   const locale = input.locale ?? DEFAULT_LOCALE;
-  if (!(await knownLocale(pool, locale))) return UNKNOWN_LOCALE;
+  if (!knownLocale(locale)) return UNKNOWN_LOCALE;
   const preview = policyWritesRefused();
   const allowed = new Set<string>(keysForScreen(input.screen));
   const fieldErrors: Record<string, string[]> = {};

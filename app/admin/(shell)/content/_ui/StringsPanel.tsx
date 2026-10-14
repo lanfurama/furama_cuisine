@@ -31,7 +31,7 @@ export async function StringsPanel({
 }) {
   const pool = getPool();
   const params = (await searchParams) ?? {};
-  const locales = await pickerLocales(pool);
+  const locales = await pickerLocales();
   const locale = screenLocale(locales, params.lang);
   const language = locales.find((l) => l.code === locale);
   const [fields, history] = await Promise.all([loadScreenStrings(pool, screen, locale), loadScreenHistory(pool, screen, locale)]);

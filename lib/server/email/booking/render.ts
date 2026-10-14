@@ -3,9 +3,11 @@ import { createElement, type ReactElement } from 'react';
 import type { Pool, PoolClient } from 'pg';
 import type { ReservationStatus } from '@/lib/booking/rules';
 import { audienceOf, type EmailAudience, type EmailEvent } from '@/lib/email/events';
+import { emailKeys, GUEST_EMAILS, type EmailKey } from '@/lib/email/keys';
 import { formatMessage } from '@/lib/i18n/format';
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
-import { registryLocaleDefault, type StringKey } from '@/lib/i18n/registry';
+import { SITE_LOCALE_ROWS } from '@/lib/i18n/site-locales';
+import { registryLocaleDefault } from '@/lib/i18n/registry';
 import { resolveStrings } from '@/lib/i18n/resolve';
 import { loadSiteSettings } from '@/lib/server/content/settings.queries';
 import { loadStringRows } from '@/lib/server/content/strings.queries';
@@ -23,11 +25,12 @@ import type { BookingEmailData } from './load';
  * email.common.*, overridden by content_strings rows (phase 7) exactly as the
  * guest site resolves them.
  *
- * Language (R10): a guest email uses the reservation's locale while that
- * language is enabled on the site, or while the registry has its own text for
- * every key the email reads (Vietnamese does); otherwise the default language,
- * so a guest never reads English copy with foreign dates. A staff email uses
- * the recipient's locale, enabled or not.
+ * Language (R10): a guest email uses the reservation's locale while the
+ * registry has its own text for every key the email reads (Vietnamese does),
+ * or while that language is enabled on the site (lib/i18n/site-locales.ts)
+ * and reviewed rows fill every key the registry lacks; otherwise the default
+ * language, so a guest never reads English copy with foreign dates. A staff
+ * email uses the recipient's locale, enabled or not.
  *
  * Who sees what (code rule 10): guest emails carry the destination's phone and
  * never the admin link, the guest's phone or their note; staff.new carries the
@@ -36,62 +39,7 @@ import type { BookingEmailData } from './load';
  */
 
 type Db = Pool | PoolClient;
-export type EmailKey = Extract<StringKey, `email.${string}`>;
 export type EmailLocale = { code: string; bcp47: string };
-
-const COMMON_KEYS = [
-  'email.common.label_reference',
-  'email.common.label_restaurant',
-  'email.common.label_date',
-  'email.common.label_time',
-  'email.common.time_value',
-  'email.common.label_guests',
-] as const satisfies readonly EmailKey[];
-
-type GuestEvent = Exclude<EmailEvent, 'staff.new'>;
-
-/**
- * Each guest email's own keys, written once (phase-5 ledger T5.3): the
- * subject, heading and intro buildBookingEmail prints, and the shared lines it
- * shows after them. emailKeys() and the template both read this table.
- */
-const GUEST_EMAILS = {
-  'guest.ack': { subject: 'email.guest.ack.subject', heading: 'email.guest.ack.heading', intro: 'email.guest.ack.intro', reason: false },
-  'guest.confirmed': { subject: 'email.guest.confirmed.subject', heading: 'email.guest.confirmed.heading', intro: 'email.guest.confirmed.intro', reason: false },
-  'guest.declined': { subject: 'email.guest.declined.subject', heading: 'email.guest.declined.heading', intro: 'email.guest.declined.intro', reason: true },
-  'guest.cancelled': { subject: 'email.guest.cancelled.subject', heading: 'email.guest.cancelled.heading', intro: 'email.guest.cancelled.intro', reason: true },
-} as const satisfies Record<GuestEvent, { subject: EmailKey; heading: EmailKey; intro: EmailKey; reason: boolean }>;
-
-/** Each guest event's keys, from GUEST_EMAILS alone: a new guest email is one row there. */
-function guestEventKeys(): Record<GuestEvent, readonly EmailKey[]> {
-  const keys = {} as Record<GuestEvent, readonly EmailKey[]>;
-  for (const [event, g] of Object.entries(GUEST_EMAILS) as [GuestEvent, (typeof GUEST_EMAILS)[GuestEvent]][]) {
-    keys[event] = [g.subject, g.heading, g.intro, ...(g.reason ? (['email.common.label_reason'] as const) : []), 'email.common.contact', 'email.common.footer_guest'];
-  }
-  return keys;
-}
-
-const EVENT_KEYS = {
-  'staff.new': [
-    'email.staff.new.subject',
-    'email.staff.new.heading',
-    'email.staff.new.intro_requested',
-    'email.staff.new.intro_confirmed',
-    'email.staff.new.label_guest',
-    'email.staff.new.label_phone',
-    'email.staff.new.label_email',
-    'email.staff.new.label_note',
-    'email.staff.new.label_offer',
-    'email.staff.new.button',
-    'email.common.footer_staff',
-  ],
-  ...guestEventKeys(),
-} as const satisfies Record<EmailEvent, readonly EmailKey[]>;
-
-/** Every registry key one event's email reads. */
-export function emailKeys(event: EmailEvent): EmailKey[] {
-  return [...COMMON_KEYS, ...EVENT_KEYS[event]];
-}
 
 export type BuiltEmail = { subject: string; preview: string; element: ReactElement<BookingEmailProps> };
 
@@ -173,15 +121,22 @@ export function buildBookingEmail(
 
 /** The language an email goes out in (R10, see the header), with its BCP 47 tag for Intl and <html lang>. */
 export async function resolveEmailLocale(db: Db, requested: string, audience: EmailAudience, event: EmailEvent): Promise<EmailLocale> {
-  const { rows } = await db.query<{ code: string; bcp47: string; is_enabled: boolean; is_default: boolean }>(
-    'SELECT code, bcp47, is_enabled, is_default FROM locales WHERE code = $1 OR is_default',
-    [requested],
-  );
-  const asked = rows.find((r) => r.code === requested);
-  const fallback = rows.find((r) => r.is_default) ?? { code: 'en', bcp47: 'en' };
+  const asked = SITE_LOCALE_ROWS.find((l) => l.code === requested);
+  const fallback = SITE_LOCALE_ROWS.find((l) => l.isDefault) ?? { code: DEFAULT_LOCALE, bcp47: DEFAULT_LOCALE };
+  const keys = emailKeys(event);
   // The default language always has its own copy (the registry's English); another one when the registry writes every key in it (T5.2).
-  const ownCopy = (code: string) => code === DEFAULT_LOCALE || emailKeys(event).every((key) => registryLocaleDefault(key, code) !== undefined);
-  const usable = asked && (audience === 'staff' || asked.is_enabled || ownCopy(asked.code));
+  const ownCopy = (code: string) => code === DEFAULT_LOCALE || keys.every((key) => registryLocaleDefault(key, code) !== undefined);
+  // An enabled language whose copy of this email is whole, reviewed rows filling what the registry lacks (R8-6):
+  // never half the email in English.
+  const whole = async (code: string) => {
+    const { rows } = await db.query<{ key: string }>(
+      `SELECT key FROM content_strings WHERE locale = $1 AND key = ANY ($2::text[]) AND status = 'reviewed'`,
+      [code, keys],
+    );
+    const saved = new Set(rows.map((r) => r.key));
+    return keys.every((key) => saved.has(key) || registryLocaleDefault(key, code) !== undefined);
+  };
+  const usable = asked && (audience === 'staff' || ownCopy(asked.code) || (asked.isEnabled && (await whole(asked.code))));
   const picked = usable ? asked : fallback;
   return { code: picked.code, bcp47: picked.bcp47 };
 }

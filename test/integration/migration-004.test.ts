@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { TEST_DATABASE_URL, databaseUrl, migrate, resetDatabase, withClient } from '../helpers/db';
+import { BEFORE_011, TEST_DATABASE_URL, databaseUrl, migrate, resetDatabase, withClient } from '../helpers/db';
 
 const url = databaseUrl('furama_cuisine_migrate004_test');
 const sql = (text: string, values: unknown[] = []) => withClient(url, (c) => c.query(text, values));
 
 describe.skipIf(!TEST_DATABASE_URL)('migration 004: locales, content_strings, destinations (database)', () => {
-  beforeAll(() => resetDatabase(url));
+  beforeAll(() => resetDatabase(url, BEFORE_011));
 
   it('seeds en (default, enabled) and vi (disabled)', async () => {
     const { rows } = await sql(
@@ -130,7 +130,7 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 004: locales, content_strings, de
       `INSERT INTO reservations (reference, restaurant_id, reserved_on, reserved_at, guests, guest_name, phone, phone_e164)
        VALUES ('FC-99999', 'taya-house', '2026-10-05', '19:00', 2, 'Guest', '0905 000 000', '+84905000000')`,
     );
-    migrate(url);
+    migrate(url, BEFORE_011);
     expect((await sql(`SELECT count(*)::int AS n FROM reservations WHERE reference = 'FC-99999'`)).rows[0].n).toBe(1);
     expect((await sql('SELECT count(*)::int AS n FROM destinations')).rows[0].n).toBe(4);
   });

@@ -1,9 +1,8 @@
 import { NextRequest } from 'next/server';
 import { describe, expect, it, vi } from 'vitest';
 
-// The proxy's one database read (lib/i18n/enabled-locales.ts), tested on its own; here en and vi are on.
-const enabled = vi.fn(async (): Promise<readonly string[]> => ['en', 'vi']);
-vi.mock('@/lib/i18n/enabled-locales', () => ({ enabledLocalesBestEffort: () => enabled() }));
+// The languages come from lib/i18n/site-locales.ts; here en and vi are on, whatever the list says today.
+vi.mock('@/lib/i18n/site-locales', () => ({ ENABLED_LOCALE_CODES: ['en', 'vi'] }));
 const { proxy } = await import('@/proxy');
 
 const SESSION = 'better-auth.session_token';
@@ -72,7 +71,7 @@ describe('proxy: /admin with a session cookie', () => {
   });
 });
 
-describe('proxy: guest paths go to a language the database has on', () => {
+describe('proxy: guest paths go to a language SITE_LOCALES has on', () => {
   it.each([
     [{ headers: { 'accept-language': 'vi-VN,vi;q=0.9' } }, '/vi/restaurants'],
     [{ cookie: 'NEXT_LOCALE=vi' }, '/vi/restaurants'],
@@ -81,12 +80,6 @@ describe('proxy: guest paths go to a language the database has on', () => {
     const res = await get('/restaurants', init);
     expect(res.status).toBe(307);
     expect(new URL(res.headers.get('location')!).pathname).toBe(location);
-  });
-
-  it('serves en alone when the database read fell back', async () => {
-    enabled.mockResolvedValueOnce(['en']);
-    const res = await get('/', { headers: { 'accept-language': 'vi' } });
-    expect(new URL(res.headers.get('location')!).pathname).toBe('/en');
   });
 
   it('lower-cases an upper-case language prefix with a permanent redirect, keeping the query', async () => {

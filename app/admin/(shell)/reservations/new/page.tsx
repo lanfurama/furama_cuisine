@@ -31,7 +31,7 @@ export default async function NewReservationPage({ searchParams }: { searchParam
   await requirePagePermission({ reservations: ['create'] });
   const params = await searchParams;
   const pool = getPool();
-  const [restaurants, locales] = await Promise.all([listRestaurantOptions(pool), listLocales(pool)]);
+  const [restaurants, locales] = await Promise.all([listRestaurantOptions(pool), listLocales()]);
   const today = serviceDay();
   const restaurantId = restaurants.some((r) => r.id === one(params.nha_hang)) ? one(params.nha_hang)! : restaurants[0]?.id;
   const date = isValidIsoDate(one(params.ngay)) ? one(params.ngay)! : today;

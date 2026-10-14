@@ -1,7 +1,7 @@
 import { draftMode } from 'next/headers';
 import { NextResponse, type NextRequest } from 'next/server';
 import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
-import { loadEnabledLocales } from '@/lib/server/content/locales.queries';
+import { ENABLED_LOCALE_CODES } from '@/lib/i18n/site-locales';
 import { previewPath } from '@/lib/server/content/preview';
 
 /*
@@ -13,7 +13,6 @@ import { previewPath } from '@/lib/server/content/preview';
  */
 export async function GET(request: NextRequest) {
   (await draftMode()).disable();
-  const enabled = (await loadEnabledLocales()).map((l) => l.code);
-  const target = previewPath(request.nextUrl.searchParams.get('path'), enabled) ?? `/${DEFAULT_LOCALE}`;
+  const target = previewPath(request.nextUrl.searchParams.get('path'), ENABLED_LOCALE_CODES) ?? `/${DEFAULT_LOCALE}`;
   return NextResponse.redirect(new URL(target, request.nextUrl.origin), 303);
 }

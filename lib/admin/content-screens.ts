@@ -28,8 +28,6 @@ export type EditScreen =
   | 'restaurant'
   /** One restaurant's booking: service periods, rules (phase 4, /admin/restaurants/[id]/booking). */
   | 'restaurant-booking'
-  /** Languages (phase 8, /admin/locales). */
-  | 'locales'
   /** The shared inbox (phase 5, /admin/settings/notifications). */
   | 'notifications';
 
@@ -71,7 +69,6 @@ export const EDIT_SCREENS: Record<EditScreen, ScreenRoute> = {
     page: 'app/admin/(shell)/restaurants/[id]/booking/page.tsx',
     phase: 4,
   },
-  locales: { route: '/admin/locales', page: 'app/admin/(shell)/locales/page.tsx', phase: 8 },
   notifications: { route: '/admin/settings/notifications', page: 'app/admin/(shell)/settings/notifications/page.tsx', phase: 5 },
 };
 
@@ -107,20 +104,7 @@ const LIST_META = {
 } as const;
 
 export const COLUMN_SCREENS: Record<ContentTable, Record<string, ColumnOwner>> = {
-  locales: {
-    code: 'locales',
-    bcp47: 'locales',
-    native_name: 'locales',
-    short_label: 'locales',
-    script: 'locales',
-    is_default: 'locales',
-    is_enabled: 'locales',
-    serve_machine: 'locales',
-    sort_order: 'locales',
-    created_at: BOOKKEEPING,
-    updated_at: BOOKKEEPING,
-    updated_by: BOOKKEEPING,
-  },
+
   // The value's screen is the key's registry `screen` (the editing-screens guard checks those separately).
   content_strings: { key: KEY, value: { none: 'edited on the screen its key names (registry `screen`)' }, ...I18N_META },
   media: {
@@ -246,8 +230,7 @@ export const COLUMN_SCREENS: Record<ContentTable, Record<string, ColumnOwner>> =
   offer_i18n: { offer_id: KEY, title: 'offers', schedule: 'offers', venue_override: 'offers', ...I18N_META },
   nav_items: { ...LIST_META, target_section: 'navigation', is_published: 'navigation' },
   nav_item_i18n: { nav_item_id: KEY, label: 'navigation', ...I18N_META },
-  // Which languages show a link: phase 8 (L8-6), with the language tabs; the contact screen leaves it as it is (NULL: every language).
-  social_links: { ...LIST_META, platform: 'contact', href: 'contact', visible_locales: 'locales', is_published: 'contact' },
+  social_links: { ...LIST_META, platform: 'contact', href: 'contact', is_published: 'contact' },
   legal_versions: {
     locale: { none: 'the language whose agreed text the save changed (phase 8, migration 010)' },
     version: { none: 'written by a legal save that changes the agreed text (lib/server/content/policy-version.ts)' },
