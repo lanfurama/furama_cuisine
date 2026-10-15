@@ -112,8 +112,10 @@
   transition: translate 0.45s var(--ease-out), background-color 0.3s ease, color 0.3s ease;
 }
 
-/* ── Destination cards open on hover (a desktop's row of four) ───────────── */
+/* ── Destination cards: a desktop's row of four, each under its stop on the route ── */
 
+/* Equal and still: a card that grew on hover left its stop on the route and set the others' words wrapping
+   on every frame. Its hover is in styles/home.css. */
 @media (min-width: 1080px) and (hover: hover) {
   .dest-rail {
     display: flex;
@@ -125,26 +127,6 @@
     min-width: 0;
     aspect-ratio: auto;
     height: clamp(440px, 36vw, 540px);
-    transition: flex-grow 0.8s var(--ease-inout);
-  }
-
-  .dest-rail:hover .dest-card,
-  .dest-rail:focus-within .dest-card {
-    flex-grow: 0.8;
-  }
-
-  .dest-rail .dest-card:hover,
-  .dest-rail .dest-card:focus-within {
-    flex-grow: 1.9;
-  }
-
-  /* The title grows a little with its card. */
-  .dest-title {
-    transition: font-size 0.8s var(--ease-inout);
-  }
-
-  .dest-rail .dest-card:hover .dest-title {
-    font-size: clamp(26px, 2.2vw, 32px);
   }
 }
 
@@ -183,13 +165,6 @@
   color: transparent;
   -webkit-text-stroke: 1px rgba(198, 166, 100, 0.4);
   user-select: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dest-card,
-  .dest-title {
-    transition: none;
-  }
 }
 
 /* ── The classic half: numbered chapters, framed pictures, a drop cap ────── */

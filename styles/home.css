@@ -993,6 +993,13 @@ a.rcard:hover {
   border-radius: 50%;
   border: 1px solid var(--gold);
   background: var(--white);
+  transition: background-color 0.25s var(--ease-out), scale 0.25s var(--ease-out);
+}
+
+/* The stop of the card under the pointer or the keyboard's focus (components/home/Destinations.tsx). */
+.journey-dot[data-lit] {
+  background: var(--gold);
+  scale: 1.4;
 }
 
 .dest-rail {
@@ -1045,12 +1052,7 @@ a.dest-hit:hover {
   position: absolute;
   inset: 0;
   transform: scale(1);
-  transition: transform 1.1s var(--ease-soft);
-}
-
-.dest-hit:hover .dest-zoom,
-.dest-hit:focus-visible .dest-zoom {
-  transform: scale(1.06);
+  transition: transform 0.9s var(--ease-out);
 }
 
 .dest-img {
@@ -1078,13 +1080,7 @@ a.dest-hit:hover {
   inset: 12px;
   border: 1px solid rgba(198, 166, 100, 0.28);
   pointer-events: none;
-  transition: inset 0.6s var(--ease-soft), border-color 0.4s ease;
-}
-
-.dest-hit:hover .dest-frame,
-.dest-hit:focus-visible .dest-frame {
-  inset: 16px;
-  border-color: rgba(198, 166, 100, 0.8);
+  transition: scale 0.5s var(--ease-out), border-color 0.3s ease;
 }
 
 .dest-index {
@@ -1098,6 +1094,7 @@ a.dest-hit:hover {
   color: var(--on-dark);
   pointer-events: none;
   text-shadow: 0 1px 12px rgba(12, 18, 15, 0.5);
+  transition: color 0.3s ease;
 }
 
 .dest-copy {
@@ -1107,6 +1104,7 @@ a.dest-hit:hover {
   bottom: clamp(28px, 3vw, 44px);
   pointer-events: none;
   display: block;
+  transition: translate 0.5s var(--ease-out);
 }
 
 .dest-title {
@@ -1137,20 +1135,96 @@ a.dest-hit:hover {
   color: var(--gold);
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 0.4s ease, transform 0.4s ease;
+  transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out);
 }
 
-/* Pointer devices reveal the count on hover; touch shows it outright. */
+.dest-count span {
+  display: inline-block;
+  transition: translate 0.3s var(--ease-out);
+}
+
+/*
+ * A card that leads somewhere (a link or a button; the teaser, a plain box,
+ * stays still) answers the keyboard's focus and a pointer's hover alike: the
+ * photograph leans in, the hairline closes in and brightens, the number turns
+ * gold, the words lift and the count rises under them, its arrow stepping on;
+ * the route's stop above lights up with it. The hover for a pointer only: on a
+ * touch screen a tap would leave the card so until the next, and the count is
+ * there outright. Going in, the count follows the lift; going out, all at once.
+ */
+.dest-hit:focus-visible .dest-zoom {
+  transform: scale(1.05);
+}
+
+.dest-hit:focus-visible .dest-frame {
+  scale: 0.97;
+  border-color: rgba(198, 166, 100, 0.8);
+}
+
+.dest-hit:focus-visible .dest-index {
+  color: var(--gold);
+}
+
+.dest-hit:focus-visible .dest-copy {
+  translate: 0 -6px;
+}
+
+.dest-hit:focus-visible .dest-count span {
+  translate: 4px 0;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .dest-count {
     opacity: 0;
     transform: translateY(10px);
   }
 
-  .dest-hit:hover .dest-count,
-  .dest-hit:focus-visible .dest-count {
+  .dest-hit:focus-visible .dest-count,
+  .dest-hit:is(a, button):hover .dest-count {
     opacity: 1;
     transform: translateY(0);
+    transition-delay: 60ms;
+  }
+
+  /* The teaser has no hover to wait for: its COMING SOON is there outright. */
+  .dest-hit-static .dest-count {
+    opacity: 1;
+    transform: none;
+  }
+
+  .dest-hit:is(a, button):hover .dest-zoom {
+    transform: scale(1.05);
+  }
+
+  .dest-hit:is(a, button):hover .dest-frame {
+    scale: 0.97;
+    border-color: rgba(198, 166, 100, 0.8);
+  }
+
+  .dest-hit:is(a, button):hover .dest-index {
+    color: var(--gold);
+  }
+
+  .dest-hit:is(a, button):hover .dest-copy {
+    translate: 0 -6px;
+  }
+
+  .dest-hit:is(a, button):hover .dest-count span {
+    translate: 4px 0;
+  }
+}
+
+/* Reduced motion: the colours and the count's fade stay, nothing moves or grows. */
+@media (prefers-reduced-motion: reduce) {
+  .dest-zoom,
+  .dest-frame,
+  .dest-copy,
+  .dest-count,
+  .dest-count span,
+  .journey-dot {
+    transform: none !important;
+    scale: none !important;
+    translate: none !important;
   }
 }
 

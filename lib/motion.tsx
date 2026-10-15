@@ -20,11 +20,11 @@ export type RevealKind =
   | 'fade'
   | 'up'
   | 'card'
-  | 'clip'
   | 'wipe'
-  | 'journey'
   | 'right'
-  | 'pop';
+  | 'pop'
+  /* A box whose pieces reveal themselves: shown at once, the choreography passed to useReveal plays inside it. */
+  | 'stage';
 
 export const EASE_OUT = 'cubic-bezier(.16,1,.3,1)';
 export const EASE_INOUT = 'cubic-bezier(.76,0,.24,1)';
@@ -39,9 +39,7 @@ const SPECS: Record<RevealKind, Spec> = {
   fade: { frames: [{ opacity: 0 }, { opacity: 1 }], duration: 1000, easing: 'ease' },
   up: { frames: [{ opacity: 0, transform: 'translateY(22px)' }, { opacity: 1, transform: 'none' }], duration: 1000, easing: EASE_OUT },
   card: { frames: [{ opacity: 0, transform: 'translateY(28px)' }, { opacity: 1, transform: 'none' }], duration: 1100, easing: EASE_OUT },
-  clip: { frames: [{ clipPath: 'inset(100% 0% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 0%)' }], duration: 1400, easing: EASE_INOUT },
   wipe: { frames: [{ clipPath: 'inset(0% 100% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 0%)' }], duration: 1500, easing: EASE_INOUT },
-  journey: { frames: [{ opacity: 0 }, { opacity: 1 }], duration: 400, easing: 'ease' },
   right: { frames: [{ opacity: 0, transform: 'translateX(20px)' }, { opacity: 1, transform: 'none' }], duration: 1000, easing: EASE_OUT },
   // A plate set down with a little bounce: the cuisine chips.
   pop: {
@@ -53,7 +51,11 @@ const SPECS: Record<RevealKind, Spec> = {
     duration: 950,
     easing: EASE_POP,
   },
+  stage: { frames: [{ opacity: 0 }, { opacity: 1 }], duration: 0, easing: 'linear' },
 };
+
+/** What a 'stage' plays inside itself as it comes into view, from `delay` on (its animations, fill 'backwards'). */
+export type Choreography = (el: HTMLElement, delay: number) => Animation[];
 
 /** A heading's words (components/ui/SplitWords.tsx) rise out of their masks one after another. */
 const WORD_FRAMES: Keyframe[] = [
@@ -71,7 +73,7 @@ export function readMotionLevel(): MotionLevel {
 
 type Registry = {
   motion: MotionLevel;
-  observe: (el: HTMLElement, kind: RevealKind) => () => void;
+  observe: (el: HTMLElement, kind: RevealKind, choreography?: Choreography) => () => void;
 };
 
 const MotionContext = createContext<Registry | null>(null);
@@ -84,6 +86,7 @@ const MotionContext = createContext<Registry | null>(null);
 export function MotionProvider({ children }: { children: React.ReactNode }) {
   const [motion, setMotion] = useState<MotionLevel>(2);
   const kinds = useRef(new WeakMap<HTMLElement, RevealKind>());
+  const choreographies = useRef(new WeakMap<HTMLElement, Choreography>());
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   useEffect(() => {
@@ -120,7 +123,7 @@ export function MotionProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Cards wipe their image box up, then let the photo settle out of a slight push-in.
-    if (kind === 'card' || kind === 'clip' || kind === 'wipe') {
+    if (kind === 'card' || kind === 'wipe') {
       const box = kind === 'card' ? el.querySelector<HTMLElement>('[data-reveal-img]') : el;
       if (box && kind === 'card') {
         anims.push(
@@ -143,26 +146,8 @@ export function MotionProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    if (kind === 'journey') {
-      el.querySelectorAll<HTMLElement>('[data-jline]').forEach((x) =>
-        anims.push(
-          x.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], {
-            duration: 1700,
-            delay,
-            easing: EASE_INOUT,
-            fill: 'backwards',
-          }),
-        ),
-      );
-      el.querySelectorAll<HTMLElement>('[data-jdot]').forEach((x, i) =>
-        anims.push(
-          x.animate(
-            [{ transform: 'scale(0)' }, { transform: 'scale(1.6)', offset: 0.6 }, { transform: 'none' }],
-            { duration: 700, delay: delay + 150 + i * 420, easing: EASE_POP, fill: 'backwards' },
-          ),
-        ),
-      );
-    }
+    const choreography = choreographies.current.get(el);
+    if (choreography) anims.push(...choreography(el, delay));
 
     settle();
     Promise.all(anims.map((a) => a.finished))
@@ -200,13 +185,14 @@ export function MotionProvider({ children }: { children: React.ReactNode }) {
   );
 
   const observe = useCallback(
-    (el: HTMLElement, kind: RevealKind) => {
+    (el: HTMLElement, kind: RevealKind, choreography?: Choreography) => {
       if (el.hasAttribute('data-revealed')) return () => {};
       if (!readMotionLevel()) {
         el.setAttribute('data-revealed', '');
         return () => {};
       }
       kinds.current.set(el, kind);
+      if (choreography) choreographies.current.set(el, choreography);
       const io = getObserver();
       io.observe(el);
       return () => io.unobserve(el);
@@ -226,16 +212,18 @@ export function useMotion(): MotionLevel {
  * Attach to any element to have it reveal on scroll. The matching
  * `data-reveal="<kind>"` attribute sets the pre-animation state in CSS, so
  * nothing flashes before hydration and no-JS visitors still see content.
+ * A 'stage' also takes the choreography it plays inside itself (read once,
+ * when it starts watching: a module-level function, not one made per render).
  */
-export function useReveal<T extends HTMLElement = HTMLDivElement>(kind: RevealKind = 'up'): RefObject<T | null> {
+export function useReveal<T extends HTMLElement = HTMLDivElement>(kind: RevealKind = 'up', choreography?: Choreography): RefObject<T | null> {
   const ref = useRef<T | null>(null);
   const ctx = useContext(MotionContext);
 
   useEffect(() => {
     const el = ref.current;
     if (!el || !ctx) return;
-    return ctx.observe(el, kind);
-  }, [ctx, kind]);
+    return ctx.observe(el, kind, choreography);
+  }, [ctx, kind, choreography]);
 
   return ref;
 }
