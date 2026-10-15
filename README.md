@@ -807,6 +807,26 @@ with or without it.
 a guest sees. To undo the pictures, use the content pack's History (each
 item's "Khôi phục bản trước lần này").
 
+### Migration 014 (destination websites)
+
+`014_destination_website.sql` adds `destinations.website_url` (https, up to
+2000 characters, NULL by default). A home destination card with a website
+opens it in a new tab; without one a venue's card still picks its
+restaurants and the teaser stays static. Staff set it on "Điểm đến"
+(field "Website"). It only adds a column and is safe to run again.
+
+**014 first, then the deploy, then the pack.** The new code reads the
+column; the old code ignores it.
+
+- **Apply:** `DATABASE_URL_UNPOOLED=<production's direct URL> node scripts/migrate.mjs`
+  (it prints `✓ 014_destination_website.sql`).
+- **Check:** `SELECT count(*) FROM information_schema.columns WHERE table_name = 'destinations' AND column_name = 'website_url'` returns 1.
+- **Pack:** `db/content-packs/2026-10-destination-websites.json` sets the
+  resort's (furamavietnam.com) and the dining house's (furamadining.com).
+
+**Rollback:** leave 014 in place (earlier code ignores the column) and roll
+back the deployment only.
+
 ### Content packs
 
 A content pack is a reviewed JSON file of edits to the content the migrations

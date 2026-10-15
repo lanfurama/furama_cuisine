@@ -121,6 +121,15 @@ function Fields({ id, token, values: v, images, upload, hideNote, state }: Props
         error={error('phoneDisplay')}
       />
       <TextField name="mapUrl" label="Link bản đồ" type="url" defaultValue={v.mapUrl} max={2000} hint="https://…" error={error('mapUrl')} />
+      <TextField
+        name="websiteUrl"
+        label="Website"
+        type="url"
+        defaultValue={v.websiteUrl}
+        max={2000}
+        hint="https://… Bấm thẻ ở trang chủ mở trang này (tab mới). Để trống: thẻ địa điểm mở danh sách nhà hàng."
+        error={error('websiteUrl')}
+      />
       <TextField name="email" label="Email" type="email" defaultValue={v.email} max={254} error={error('email')} />
       <label className="a-check a-field--wide">
         <input type="checkbox" name="showInFooter" defaultChecked={v.showInFooter} />

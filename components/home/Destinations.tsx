@@ -13,7 +13,8 @@ import { useReveal } from '@/lib/motion';
 /** The cards come from the layout's destinations; the section's copy (destinations.*) from the page, read on the server. */
 export function Destinations({ copy }: { copy: Copy<'destinations'> }) {
   const { site, restaurants, pickDestination, strings, locale } = useSite();
-  // destinations and destination_i18n: the venues, then the teaser ("Future Locations"), which is not a link.
+  // destinations and destination_i18n: the venues, then the teaser ("Future Locations"). A card with a website opens it;
+  // otherwise a venue's card picks its restaurants and the teaser is not a link.
   const cards = site.destinations;
   const title = useReveal<HTMLHeadingElement>('title');
   const ornament = useReveal<HTMLSpanElement>('fade');
@@ -53,7 +54,7 @@ export function Destinations({ copy }: { copy: Copy<'destinations'> }) {
                   ? strings['common.coming_soon']
                   : `${formatMessage(copy['destinations.count'], { count: restaurants.filter((r) => r.dest === card.id).length }, locale)} →`
               }
-              onPick={card.kind === 'teaser' ? undefined : () => pickDestination(card.id)}
+              onPick={card.kind === 'teaser' || card.website ? undefined : () => pickDestination(card.id)}
             />
           ))}
         </div>
@@ -72,6 +73,7 @@ function DestCard({
   /** The card's place in the row, drawn as "01", "02"…: the order staff gave the destinations. */
   index: number;
   count: string;
+  /** Without a website: the venue's card picks its restaurants. */
   onPick?: () => void;
 }) {
   const ref = useReveal<HTMLDivElement>('clip');
@@ -105,7 +107,12 @@ function DestCard({
 
   return (
     <div ref={ref} data-reveal="clip" className="dest-card">
-      {onPick ? (
+      {card.website ? (
+        <a href={card.website} target="_blank" rel="noopener" className="dest-hit">
+          {body}
+          <span className="sr-only">{`${card.cardTitle.join(' ')} — ${count}`}</span>
+        </a>
+      ) : onPick ? (
         <button type="button" className="dest-hit" onClick={onPick}>
           {body}
           <span className="sr-only">{`${card.cardTitle.join(' ')} — ${count}`}</span>

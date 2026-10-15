@@ -28,7 +28,7 @@ export const DESTINATION: ItemDef = {
   entityType: 'destinations',
   table: 'destinations',
   idType: 'text',
-  columns: ['kind', 'card_image_id', 'phone_e164', 'phone_display', 'email', 'map_url', 'show_in_footer', 'sort_order', 'is_published'],
+  columns: ['kind', 'card_image_id', 'phone_e164', 'phone_display', 'email', 'map_url', 'website_url', 'show_in_footer', 'sort_order', 'is_published'],
   i18n: { table: 'destination_i18n', fk: 'destination_id', columns: ['name', 'card_title_1', 'card_title_2', 'card_blurb_1', 'card_blurb_2', 'address'] },
   tables: ['destinations', 'destination_i18n'],
   media: [{ column: 'card_image_id', kind: 'image', field: 'cardImageId' }],
@@ -48,6 +48,8 @@ export type DestinationInput = {
   phoneE164: string | null;
   email: string | null;
   mapUrl: string | null;
+  /** The card opens it in a new tab; null: a venue's card picks its restaurants. */
+  websiteUrl: string | null;
   name: Text;
   cardTitle1: Text;
   cardTitle2: Text;
@@ -70,6 +72,7 @@ const destinations = makeListEditor<DestinationInput>(DESTINATION, {
     phone_display: input.phoneDisplay,
     email: input.email,
     map_url: input.mapUrl,
+    website_url: input.websiteUrl,
     show_in_footer: input.showInFooter,
     is_published: input.isPublished,
   }),
@@ -165,6 +168,7 @@ export function destinationValues(s: ItemSnapshot): DestinationInput {
     phoneE164: (r.phone_e164 as string | null) ?? null,
     email: (r.email as string | null) ?? null,
     mapUrl: (r.map_url as string | null) ?? null,
+    websiteUrl: (r.website_url as string | null) ?? null,
     name: localeTexts(s.i18n, 'name'),
     cardTitle1: localeTexts(s.i18n, 'card_title_1'),
     cardTitle2: localeTexts(s.i18n, 'card_title_2'),

@@ -1035,6 +1035,12 @@ a.rcard:hover {
   text-align: left;
 }
 
+/* A card with a website is a link: it keeps the card's colours, not base.css's link green. */
+a.dest-hit,
+a.dest-hit:hover {
+  color: var(--on-dark);
+}
+
 .dest-zoom {
   position: absolute;
   inset: 0;

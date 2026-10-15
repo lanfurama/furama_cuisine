@@ -69,6 +69,7 @@ type DestinationRow = {
   phone_e164: string | null;
   phone_display: string | null;
   map_url: string | null;
+  website_url: string | null;
   show_in_footer: boolean;
   image: Media | null;
 };
@@ -81,7 +82,7 @@ export async function loadDestinations(locale: string): Promise<Destination[]> {
             ${tr('dt', 'card_title_1')} AS title_1, ${tr('dt', 'card_title_2')} AS title_2,
             ${tr('dt', 'card_blurb_1')} AS blurb_1, ${tr('dt', 'card_blurb_2')} AS blurb_2,
             ${tr('dt', 'address')} AS address,
-            d.phone_e164, d.phone_display, d.map_url, d.show_in_footer, img.j AS image
+            d.phone_e164, d.phone_display, d.map_url, d.website_url, d.show_in_footer, img.j AS image
        FROM destinations d CROSS JOIN lc
        ${i18nJoin('destination_i18n', 'dt', 'destination_id', 'd.id')}
        LEFT JOIN LATERAL ${mediaJson('d.card_image_id')} AS img ON true
@@ -99,6 +100,7 @@ export async function loadDestinations(locale: string): Promise<Destination[]> {
     address: r.address,
     phone: r.phone_e164 && r.phone_display ? { tel: r.phone_e164, display: r.phone_display } : null,
     map: r.map_url,
+    website: r.website_url,
     showInFooter: r.show_in_footer,
   }));
 }

@@ -51,6 +51,8 @@ export type Destination = {
   address: string | null;
   phone: Phone | null;
   map: string | null;
+  /** The destination's own site, which its home card opens; null: the card picks its restaurants (a teaser stays static). */
+  website: string | null;
   showInFooter: boolean;
 };
 

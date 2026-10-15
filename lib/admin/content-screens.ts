@@ -144,6 +144,7 @@ export const COLUMN_SCREENS: Record<ContentTable, Record<string, ColumnOwner>> =
     phone_display: 'destinations',
     email: 'destinations',
     map_url: 'destinations',
+    website_url: 'destinations',
     show_in_footer: 'destinations',
     is_published: 'destinations',
   },

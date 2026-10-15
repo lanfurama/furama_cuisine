@@ -378,6 +378,7 @@ export const DestinationForm = z
     phoneDisplay: optionalText(30),
     email: optionalEmail,
     mapUrl: httpsUrl(2000),
+    websiteUrl: httpsUrl(2000),
     name: translatable(80),
     cardTitle1: translatable(40),
     cardTitle2: translatable(40),

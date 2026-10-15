@@ -17,6 +17,7 @@ const destination = (id: string, kind: Destination['kind'], name: string | null)
   address: null,
   phone: null,
   map: null,
+  website: null,
   showInFooter: false,
 });
 

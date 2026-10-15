@@ -1,0 +1,12 @@
+{
+  "id": "2026-10-destination-websites",
+  "note": "Each destination card on the home page opens the place's own website (migration 014). MM Supercenter has no site of its own yet: its card still picks its restaurants until staff set one.",
+  "sources": {
+    "resort": "https://furamavietnam.com/",
+    "dining-house": "https://www.furamadining.com/"
+  },
+  "changes": [
+    { "kind": "row", "entity": "destinations", "id": "resort", "column": "website_url", "from": null, "to": "https://furamavietnam.com/" },
+    { "kind": "row", "entity": "destinations", "id": "dining-house", "column": "website_url", "from": null, "to": "https://www.furamadining.com/" }
+  ]
+}

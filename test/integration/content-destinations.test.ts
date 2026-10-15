@@ -62,6 +62,7 @@ function venue(id: string, patch: Partial<DestinationInput> = {}): DestinationIn
     phoneE164: null,
     email: null,
     mapUrl: null,
+    websiteUrl: null,
     name: { en: `Test ${id}` },
     cardTitle1: { en: null },
     cardTitle2: { en: null },

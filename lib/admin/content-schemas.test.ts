@@ -226,6 +226,7 @@ describe('content form schemas (spec §7.3, §7.4)', () => {
       phoneDisplay: ' 0236 3000 000 ',
       email: '',
       mapUrl: '',
+      websiteUrl: ' https://furama-hoian.example/ ',
       'name.en': ' Furama Hội An ',
       'cardTitle1.en': 'Furama',
       'cardTitle2.en': '',
@@ -243,6 +244,7 @@ describe('content form schemas (spec §7.3, §7.4)', () => {
       phoneE164: '+842363000000',
       email: null,
       mapUrl: null,
+      websiteUrl: 'https://furama-hoian.example/',
       name: { en: 'Furama Hội An' },
       cardTitle1: { en: 'Furama' },
       cardTitle2: { en: null },
@@ -250,11 +252,12 @@ describe('content form schemas (spec §7.3, §7.4)', () => {
       cardBlurb2: { en: null },
       address: { en: null },
     });
-    expect(fieldErrors(DestinationForm.safeParse(readForm(form({ ...base, id: '2-cities', kind: 'shop', phoneDisplay: '12', email: 'desk', mapUrl: 'http://x' }))).error)).toEqual({
+    expect(fieldErrors(DestinationForm.safeParse(readForm(form({ ...base, id: '2-cities', kind: 'shop', phoneDisplay: '12', email: 'desk', mapUrl: 'http://x', websiteUrl: 'furama.example' }))).error)).toEqual({
       id: ['Chỉ chữ thường không dấu, số và gạch nối, bắt đầu bằng một chữ, ví dụ dining-house.'],
       kind: ['Chọn loại thẻ.'],
       email: ['Email không hợp lệ.'],
       mapUrl: ['Đường dẫn phải bắt đầu bằng https://'],
+      websiteUrl: ['Đường dẫn phải bắt đầu bằng https://'],
     });
     // The phone is checked once the fields are valid (the transform runs after them).
     expect(fieldErrors(DestinationForm.safeParse(readForm(form({ ...base, phoneDisplay: '12' }))).error)).toEqual({ phoneDisplay: ['Số điện thoại không hợp lệ.'] });
@@ -286,7 +289,7 @@ describe('content form schemas (spec §7.3, §7.4)', () => {
 
   it('“all” is the guest filters’ “everything”, never a destination’s or a cuisine’s id (G7DAT-6)', () => {
     const ALL = ['Mã “all” dành cho bộ lọc “tất cả”; chọn mã khác.'];
-    const teaser = { kind: 'teaser', cardImageId: '', phoneDisplay: '', email: '', mapUrl: '', 'name.en': '', 'cardTitle1.en': 'All', 'cardTitle2.en': '', 'cardBlurb1.en': '', 'cardBlurb2.en': '', 'address.en': '' };
+    const teaser = { kind: 'teaser', cardImageId: '', phoneDisplay: '', email: '', mapUrl: '', websiteUrl: '', 'name.en': '', 'cardTitle1.en': 'All', 'cardTitle2.en': '', 'cardBlurb1.en': '', 'cardBlurb2.en': '', 'address.en': '' };
     expect(fieldErrors(DestinationForm.safeParse(readForm(form({ ...teaser, id: 'all' }))).error)).toEqual({ id: ALL });
     expect(fieldErrors(CuisineForm.safeParse(readForm(form({ id: ' all ', imageId: '5b0b1f3a-2b1c-4c1e-9a43-3f1d2c7b9e10', 'label.en': 'All' }))).error)).toEqual({
       id: ALL,
