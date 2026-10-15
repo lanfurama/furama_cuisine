@@ -1,6 +1,7 @@
 'use client';
 
 import { HeaderLanguages } from '@/components/site/LanguageSwitcher';
+import { BrandMark } from '@/components/ui/BrandMark';
 import { useSite } from '@/components/site/SiteProvider';
 import { homeHref } from '@/lib/i18n/href';
 
@@ -32,8 +33,11 @@ export function Header() {
               goHomeTop();
             }}
           >
-            <span className="hdr-logo-word">FURAMA</span>
-            <span className="hdr-logo-sub">CUISINE</span>
+            <BrandMark className="hdr-logo-mark" />
+            <span className="hdr-logo-text">
+              <span className="hdr-logo-word">FURAMA</span>
+              <span className="hdr-logo-sub">CUISINE</span>
+            </span>
           </a>
 
           {/* nav_item_i18n holds one label per language as written ("Restaurants"); styles/layout.css sets it in capitals here. */}
@@ -73,6 +77,7 @@ export function Header() {
               goHomeTop();
             }}
           >
+            <BrandMark className="hdr-wordmark-mark" />
             FURAMA CUISINE
           </a>
           <div className="hdr-compact-actions">

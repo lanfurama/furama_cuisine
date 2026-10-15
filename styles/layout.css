@@ -120,6 +120,11 @@ main[data-view='home'][data-hero='none'] {
   .hdr-full .btn-gold {
     padding-inline: clamp(24px, 3vw - 8px, 30px);
   }
+
+  /* The mark's 54 px do not fit here: the wordmark alone, as before it. */
+  .hdr-full .hdr-logo-mark {
+    display: none;
+  }
 }
 
 /* The condensed header for tablets and phones. Its ends keep clear of a notch on a phone turned on its side. */
@@ -170,16 +175,39 @@ html {
   }
 }
 
+/* The mark (components/ui/BrandMark.tsx) beside the two-line wordmark, as tall as the pair. */
 .hdr-logo {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 14px;
   color: var(--on-dark);
   flex: 0 0 auto;
 }
 
 .hdr-logo:hover {
   color: var(--on-dark);
+}
+
+.hdr-logo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hdr-logo-mark {
+  width: clamp(40px, 3.3vw, 46px);
+}
+
+.brand-mark {
+  display: block;
+  flex: none;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.brand-mark-rule {
+  stroke: var(--gold);
+  stroke-width: 1.5;
 }
 
 .hdr-logo-word {
@@ -208,6 +236,13 @@ html {
   letter-spacing: 0.16em;
   color: var(--on-dark);
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hdr-wordmark-mark {
+  width: 30px;
 }
 
 .hdr-wordmark:hover {

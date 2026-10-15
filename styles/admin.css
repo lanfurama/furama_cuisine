@@ -253,20 +253,18 @@ body.admin {
   text-decoration: none;
 }
 
+/* The site's mark (components/ui/BrandMark.tsx): its rule in brass, its F in the brand's light gold. */
 .a-brand-mark {
-  display: grid;
+  display: block;
   flex: none;
-  place-items: center;
   width: 38px;
   height: 38px;
-  border: 1px solid rgb(154 118 57 / 70%);
-  border-radius: 50%;
-  background: rgb(154 118 57 / 14%);
   color: #e7cf9f;
-  font-family: var(--a-serif);
-  font-size: 22px;
-  font-weight: 500;
-  line-height: 1;
+}
+
+.a-brand-mark .brand-mark-rule {
+  stroke: #c6a664;
+  stroke-width: 1.5;
 }
 
 .a-brand-text {
@@ -2844,8 +2842,10 @@ fieldset.a-field legend {
   color: var(--a-brand);
 }
 
+/* On the light sign-in page: the mark as it stands on the site's green. */
 .a-auth-brand .a-brand-mark {
-  border-color: var(--a-accent);
+  padding: 4px;
+  border-radius: 8px;
   background: var(--a-brand);
 }
 
@@ -3496,7 +3496,6 @@ fieldset.a-field legend {
   .a-brand-mark {
     width: 32px;
     height: 32px;
-    font-size: 19px;
   }
 
   .a-drawer-close {

@@ -3,6 +3,7 @@ import { navGroupsFor, ROLE_LABELS } from '@/lib/admin/nav';
 import { roleCan } from '@/lib/server/auth/permissions';
 import { loadAiFeatures } from '@/lib/server/ai/features';
 import { verifySession } from '@/lib/server/dal/session';
+import { BrandMark } from './_ui/BrandMark';
 import { Icon } from './_ui/Icon';
 import { signOut } from './actions';
 import { AdminFrame } from './AdminFrame';
@@ -33,9 +34,7 @@ export default async function ShellLayout({ children }: { children: React.ReactN
       sidebar={
         <>
           <Link className="a-brand" href="/admin">
-            <span className="a-brand-mark" aria-hidden="true">
-              F
-            </span>
+            <BrandMark className="a-brand-mark" />
             <span className="a-brand-text">
               Furama Cuisine
               <small>Quản trị</small>

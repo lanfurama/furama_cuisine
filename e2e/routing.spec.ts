@@ -47,7 +47,7 @@ test.describe('old and unprefixed links', () => {
     expect((await hop(request, HOME_PATH)).status).toBe(200);
     expect((await hop(request, DETAIL_PATH)).status).toBe(200);
     expect((await hop(request, '/api/availability')).status).toBe(400); // the handler answered: no restaurant given
-    expect((await hop(request, '/icon.svg')).status).toBe(200);
+    for (const path of ['/icon.svg', '/favicon.ico', '/apple-icon.png']) expect((await hop(request, path)).status, path).toBe(200);
   });
 });
 
@@ -74,9 +74,9 @@ test.describe('pages that do not exist', () => {
   test('a file a crawler asks for is a 404, not a server error, though its name lands where a language goes', async ({
     request,
   }) => {
-    // A path with a dot skips the proxy (proxy.ts), so /favicon.ico is the home page of a language
-    // "favicon.ico": the page checks the language before it reads (requireEnabledLocale).
-    for (const path of ['/favicon.ico', '/apple-touch-icon.png', '/wp-login.php', '/favicon.ico/privacy']) {
+    // A path with a dot skips the proxy (proxy.ts), so /wp-login.php is the home page of a language
+    // "wp-login.php": the page checks the language before it reads (requireEnabledLocale).
+    for (const path of ['/apple-touch-icon.png', '/wp-login.php', '/favicon.ico/privacy']) {
       expect((await request.get(path, { maxRedirects: 0 })).status(), path).toBe(404);
     }
   });
