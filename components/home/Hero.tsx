@@ -118,7 +118,7 @@ export function Hero({ slides, copy }: { slides: HeroSlide[]; copy: Copy<'hero'>
           <div className="hero-actions" data-intro="5">
             <button type="button" className="btn-slab hero-explore" data-magnetic="" onClick={() => scrollToId('restaurants')}>
               {copy['hero.cta_explore']}
-              <span className="hero-arrow">→</span>
+              <span aria-hidden="true" className="hero-arrow">→</span>
             </button>
 
             {shown.has('film') && (
@@ -133,7 +133,7 @@ export function Hero({ slides, copy }: { slides: HeroSlide[]; copy: Copy<'hero'>
             {shown.has('finder') && (
               <button type="button" className="hero-find" onClick={() => open('sheet')}>
                 {copy['hero.cta_find']}
-                <span>→</span>
+                <span aria-hidden="true">→</span>
               </button>
             )}
           </div>

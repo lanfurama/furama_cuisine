@@ -48,7 +48,7 @@ export function Finder() {
 
           <button type="button" className="btn-green finder-submit" data-magnetic="" onClick={applyFinder}>
             {strings['finder.submit']}
-            <span className="arrow">→</span>
+            <span aria-hidden="true" className="arrow">→</span>
           </button>
         </div>
       </div>

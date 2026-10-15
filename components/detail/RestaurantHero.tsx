@@ -67,7 +67,7 @@ export function RestaurantHero({ detail }: { detail: RestaurantDetail }) {
                   onClick={() => openReserve({ restaurant: detail.id })}
                 >
                   {strings['ui.reserve_table']}
-                  <span className="arrow">→</span>
+                  <span aria-hidden="true" className="arrow">→</span>
                 </button>
               )}
               {(detail.phone || detail.map || menu) && (

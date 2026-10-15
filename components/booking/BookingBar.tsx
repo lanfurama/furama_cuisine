@@ -112,7 +112,7 @@ export function BookingBar() {
 
           <button type="button" className="btn-green booking-submit" data-magnetic="" onClick={() => openReserve()}>
             {strings['booking.find_table']}
-            <span className="arrow">→</span>
+            <span aria-hidden="true" className="arrow">→</span>
           </button>
         </div>
         {/* Without its dates or times the bar would just sit empty: say why, with the number to call

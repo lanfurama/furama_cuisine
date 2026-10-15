@@ -58,7 +58,7 @@ function OfferCard({ offer, cta }: { offer: Offer; cta: string }) {
           onClick={() => openReserve({ restaurant: offer.restaurantId }, { id: offer.id, title: offer.title })}
         >
           {cta}
-          <span>→</span>
+          <span aria-hidden="true">→</span>
         </button>
       )}
     </div>

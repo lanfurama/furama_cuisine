@@ -229,7 +229,7 @@ test('a search result’s Call → dials the restaurant’s own number, not its 
       await home.getByRole('banner').getByRole('button', { name: 'SEARCH', exact: true }).click();
       const search = home.getByRole('dialog', { name: 'Search' });
       await search.getByRole('textbox', { name: 'Search restaurants, cuisines, places' }).fill('hai van');
-      const result = search.getByRole('button', { name: /^Hải Vân Lounge.*Call →$/ });
+      const result = search.getByRole('button', { name: /^Hải Vân Lounge.*Call$/ });
       await expect(result).toHaveCount(1);
       const dialled: string[] = [];
       home.on('request', (r) => {
@@ -249,7 +249,7 @@ test('a search result’s Call → dials the restaurant’s own number, not its 
     await after.getByRole('banner').getByRole('button', { name: 'SEARCH', exact: true }).click();
     const search = after.getByRole('dialog', { name: 'Search' });
     await search.getByRole('textbox', { name: 'Search restaurants, cuisines, places' }).fill('hai van');
-    await expect(search.getByRole('button', { name: /^Hải Vân Lounge.*Reserve →$/ })).toHaveCount(1);
+    await expect(search.getByRole('button', { name: /^Hải Vân Lounge.*Reserve$/ })).toHaveCount(1);
   } finally {
     await closeAll(guests);
   }

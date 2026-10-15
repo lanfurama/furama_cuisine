@@ -168,7 +168,7 @@ test('switching has_detail_page on opens a working page for another restaurant, 
     await visitor.getByRole('banner').getByRole('button', { name: 'SEARCH', exact: true }).click();
     const search = visitor.getByRole('dialog', { name: 'Search' });
     await search.getByRole('textbox', { name: 'Search restaurants, cuisines, places' }).fill('the fan');
-    await expect(search.getByRole('button', { name: /^Steakhouse The Fan.*Reserve →$/ })).toHaveCount(1);
+    await expect(search.getByRole('button', { name: /^Steakhouse The Fan.*Reserve$/ })).toHaveCount(1);
   } finally {
     await phone?.context().close();
     await visitor.context().close();

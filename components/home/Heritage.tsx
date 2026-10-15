@@ -57,7 +57,7 @@ export function Heritage({ copy }: { copy: Copy<'heritage'> }) {
         {link && (
           <a ref={cta} data-reveal="up" href={link} target="_blank" rel="noopener" className="btn-slab heritage-cta" data-magnetic="">
             {copy['heritage.cta']}
-            <span className="arrow">→</span>
+            <span aria-hidden="true" className="arrow">→</span>
           </a>
         )}
       </div>

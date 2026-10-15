@@ -61,7 +61,7 @@ export function FinderSheet() {
 
         <button type="button" className="sheet-submit" onClick={applyFinder}>
           {strings['finder.submit']}
-          <span>→</span>
+          <span aria-hidden="true">→</span>
         </button>
       </div>
     </div>

@@ -97,7 +97,7 @@ export function SearchOverlay() {
                   {/* With online booking off, a restaurant with a number is called (R20); one without has no action. */}
                   {(r.hasDetailPage || r.bookingEnabled || r.phone) && (
                     <span className="search-result-action">
-                      {r.hasDetailPage ? strings['search.view'] : r.bookingEnabled ? strings['search.reserve'] : strings['booking.call_action']} →
+                      {r.hasDetailPage ? strings['search.view'] : r.bookingEnabled ? strings['search.reserve'] : strings['booking.call_action']} <span aria-hidden="true">→</span>
                     </span>
                   )}
                 </button>

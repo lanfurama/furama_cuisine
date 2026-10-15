@@ -52,7 +52,7 @@ export function Destinations({ copy }: { copy: Copy<'destinations'> }) {
               count={
                 card.kind === 'teaser'
                   ? strings['common.coming_soon']
-                  : `${formatMessage(copy['destinations.count'], { count: restaurants.filter((r) => r.dest === card.id).length }, locale)} →`
+                  : `${formatMessage(copy['destinations.count'], { count: restaurants.filter((r) => r.dest === card.id).length }, locale)}`
               }
               onPick={card.kind === 'teaser' || card.website ? undefined : () => pickDestination(card.id)}
             />
@@ -100,7 +100,10 @@ function DestCard({
           <br />
           {card.cardBlurb[1]}
         </span>
-        <span className="dest-count">{count}</span>
+        <span className="dest-count">
+          {count}
+          {card.kind !== 'teaser' && <> <span aria-hidden="true">→</span></>}
+        </span>
       </span>
     </>
   );

@@ -41,7 +41,7 @@ export function Restaurants() {
             className="text-link"
             onClick={clearFilters}
           >
-            {`${strings['restaurants.view_all']} →`}
+            {strings['restaurants.view_all']} <span aria-hidden="true">→</span>
           </button>
         </div>
 

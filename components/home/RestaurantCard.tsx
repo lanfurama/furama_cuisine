@@ -43,7 +43,13 @@ export function RestaurantCard({ restaurant, hidden }: { restaurant: Restaurant;
         </span>
         {/* The call tag holds a whole phone number, longer than the narrowest cards: it wraps (home.css), and a
             no-break space keeps the arrow on the number's last line. VIEW and RESERVE keep their plain space. */}
-        {tag && <span className={calls ? 'rcard-tag rcard-tag-call' : 'rcard-tag'}>{tag}{calls ? '\u00a0→' : ' →'}</span>}
+        {tag && (
+          <span className={calls ? 'rcard-tag rcard-tag-call' : 'rcard-tag'}>
+            {tag}
+            {calls ? '\u00a0' : ' '}
+            <span aria-hidden="true">→</span>
+          </span>
+        )}
       </span>
       <span className="rcard-name">{restaurant.name}</span>
       <span className="rcard-type">{restaurant.type}</span>
