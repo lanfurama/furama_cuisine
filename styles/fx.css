@@ -474,7 +474,17 @@ main[data-view='home'] .experiences .eyebrow::before {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  transition: color 0.45s var(--ease-out), translate 0.45s var(--ease-out);
+  transition: color 0.45s var(--ease-out), translate 0.45s var(--ease-out), scale 0.16s var(--ease-out);
+}
+
+/* A button gives a little under the finger: the only answer a tap gets, the fill being the pointer's hover.
+   Its own `scale`, so the hover's `translate` stays as it is. None of it with reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .btn-slab:active,
+  .btn-green:active,
+  .btn-gold:active {
+    scale: 0.97;
+  }
 }
 
 /* Unclipped: its fill never leaves its box, and the compact header's RESERVE takes taps a little past it (styles/layout.css). */

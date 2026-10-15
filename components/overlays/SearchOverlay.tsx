@@ -5,7 +5,8 @@ import { fold } from '@/lib/booking';
 import type { Media } from '@/lib/content/types';
 import { formatMessage } from '@/lib/i18n/format';
 import { useSite } from '@/components/site/SiteProvider';
-import { useOpenAnimation } from '@/lib/motion';
+import { useRef } from 'react';
+import { EASE_OUT, useOverlayPresence } from '@/lib/motion';
 
 /**
  * A result's thumbnail (an 80×60 CSS background) as next/image's optimiser
@@ -22,24 +23,39 @@ export function SearchOverlay() {
   const { site, destName, restaurants, overlay, close, query, setQuery, openRestaurant, strings, locale } = useSite();
   const open = overlay === 'search';
 
-  useOpenAnimation(open, (animate) => {
-    animate('[data-anim="search"]', [{ opacity: 0 }, { opacity: 1 }], 400, 0, 'ease');
-    animate(
-      '[data-anim="search-item"]',
-      [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }],
-      800,
-      150,
-    );
-  });
+  const root = useRef<HTMLDivElement>(null);
+  /* In: the search fades up, then its box rises. Out: it fades, quicker. */
+  const present = useOverlayPresence(
+    open,
+    root,
+    (box) => [{ el: box, away: { opacity: 0 }, in: { duration: 400, easing: 'ease' }, out: { duration: 200, easing: EASE_OUT } }],
+    (box) =>
+      box.querySelectorAll('[data-anim="search-item"]').forEach((el) => {
+        el.animate([{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], {
+          duration: 800,
+          delay: 150,
+          easing: EASE_OUT,
+          fill: 'backwards',
+        });
+      }),
+  );
+  const leaving = present && !open;
 
-  if (!open) return null;
+  if (!present) return null;
 
   // r.search is folded on the server: name, type, cuisines and destination in this language and the default one (spec §6.3 item 9).
   const q = fold(query.trim());
   const results = !q ? [] : restaurants.filter((r) => r.search.includes(q));
 
   return (
-    <div data-anim="search" className="search-root" role="dialog" aria-modal="true" aria-label={strings['search.aria']}>
+    <div
+      ref={root}
+      className="search-root"
+      role={leaving ? undefined : 'dialog'}
+      aria-modal={leaving ? undefined : 'true'}
+      aria-label={leaving ? undefined : strings['search.aria']}
+      inert={leaving}
+    >
       <div className="search-inner">
         <div className="search-head">
           <div className="search-wordmark">FURAMA CUISINE</div>

@@ -2,28 +2,42 @@
 
 import { MenuLanguages } from '@/components/site/LanguageSwitcher';
 import { useSite } from '@/components/site/SiteProvider';
-import { useOpenAnimation } from '@/lib/motion';
+import { useRef } from 'react';
+import { EASE_OUT, useOverlayPresence } from '@/lib/motion';
 
 export function MenuOverlay() {
   const { site, overlay, close, open, scrollToId, openReserve, strings } = useSite();
   const isOpen = overlay === 'menu';
 
-  useOpenAnimation(isOpen, (animate) => {
-    animate('[data-anim="menu"]', [{ opacity: 0 }, { opacity: 1 }], 400, 0, 'ease');
-    animate(
-      '[data-anim="menu-item"]',
-      [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }],
-      700,
-      120,
-      undefined,
-      40,
-    );
-  });
+  const root = useRef<HTMLDivElement>(null);
+  /* In: the menu fades up, then its lines rise one after another. Out: it fades, quicker. */
+  const present = useOverlayPresence(
+    isOpen,
+    root,
+    (box) => [{ el: box, away: { opacity: 0 }, in: { duration: 400, easing: 'ease' }, out: { duration: 200, easing: EASE_OUT } }],
+    (box) =>
+      box.querySelectorAll('[data-anim="menu-item"]').forEach((el, i) => {
+        el.animate([{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], {
+          duration: 700,
+          delay: 120 + i * 40,
+          easing: EASE_OUT,
+          fill: 'backwards',
+        });
+      }),
+  );
+  const leaving = present && !isOpen;
 
-  if (!isOpen) return null;
+  if (!present) return null;
 
   return (
-    <div data-anim="menu" className="menu-root" role="dialog" aria-modal="true" aria-label={strings['ui.menu_aria']}>
+    <div
+      ref={root}
+      className="menu-root"
+      role={leaving ? undefined : 'dialog'}
+      aria-modal={leaving ? undefined : 'true'}
+      aria-label={leaving ? undefined : strings['ui.menu_aria']}
+      inert={leaving}
+    >
       <div className="menu-head">
         <div className="menu-wordmark">FURAMA CUISINE</div>
         {/* Where the focus goes when the menu opens (data-autofocus, components/site/Chrome.tsx). */}

@@ -12,7 +12,6 @@ import { describe, expect, it } from 'vitest';
  */
 const ALLOWED = [
   "lib/motion.tsx: querySelectorAll('[data-header]')", // the headers live in the chrome
-  'lib/motion.tsx: querySelectorAll(selector)', // overlay entrances (animateSelector)
 ];
 
 const QUERY =

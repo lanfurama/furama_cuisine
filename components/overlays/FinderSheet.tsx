@@ -2,7 +2,8 @@
 
 import { useSite } from '@/components/site/SiteProvider';
 import { ChipGroup } from '@/components/ui/Dropdown';
-import { useOpenAnimation } from '@/lib/motion';
+import { useRef } from 'react';
+import { EASE_DRAWER, EASE_OUT, useOverlayPresence } from '@/lib/motion';
 import { cuisineOptions, destinationOptions, occasionOptions } from '@/lib/content/options';
 
 /** The phone equivalent of the desktop finder. */
@@ -10,24 +11,43 @@ export function FinderSheet() {
   const { site, overlay, close, finder, setFinder, applyFinder, strings } = useSite();
   const open = overlay === 'sheet';
 
-  useOpenAnimation(open, (animate) => {
-    animate('[data-anim="sheet"]', [{ transform: 'translateY(100%)' }, { transform: 'none' }], 700);
-    animate('[data-anim="backdrop"]', [{ opacity: 0 }, { opacity: 1 }], 400);
-  });
+  const root = useRef<HTMLDivElement>(null);
+  /* Up from the foot and back down it, on the Reserve drawer's curve and times (components/overlays/DrawerMotion.tsx). */
+  const present = useOverlayPresence(open, root, (box) => [
+    {
+      el: box.querySelector('.sheet'),
+      away: { transform: 'translateY(100%)' },
+      in: { duration: 450, easing: EASE_DRAWER },
+      out: { duration: 280, easing: EASE_DRAWER },
+    },
+    {
+      el: box.querySelector('.backdrop'),
+      away: { opacity: 0 },
+      in: { duration: 300, easing: EASE_OUT },
+      out: { duration: 280, easing: EASE_OUT },
+    },
+  ]);
+  const leaving = present && !open;
 
-  if (!open) return null;
+  if (!present) return null;
 
   return (
-    <div className="sheet-root" role="dialog" aria-modal="true" aria-label={strings['finder.title']}>
+    <div
+      ref={root}
+      className="sheet-root"
+      role={leaving ? undefined : 'dialog'}
+      aria-modal={leaving ? undefined : 'true'}
+      aria-label={leaving ? undefined : strings['finder.title']}
+      inert={leaving}
+    >
       <button
         type="button"
-        data-anim="backdrop"
         className="backdrop"
         aria-label={strings['common.close']}
         onClick={close}
       />
 
-      <div data-anim="sheet" className="sheet">
+      <div className="sheet">
         <div className="sheet-grab" aria-hidden="true" />
         <div className="sheet-head">
           <div className="sheet-title">{strings['finder.title']}</div>

@@ -4,7 +4,8 @@ import { useSite } from '@/components/site/SiteProvider';
 import { CmsImage } from '@/components/ui/CmsImage';
 import { homeSections } from '@/lib/content/home-sections';
 import { parseFilmUrl } from '@/lib/media/film';
-import { useOpenAnimation } from '@/lib/motion';
+import { useRef } from 'react';
+import { EASE_OUT, useOverlayPresence } from '@/lib/motion';
 
 export function FilmModal() {
   const { site, overlay, close, strings } = useSite();
@@ -16,25 +17,37 @@ export function FilmModal() {
   const video = parseFilmUrl(site.sections.film.link);
   const open = overlay === 'film' && homeSections(site.sections).has('film');
 
-  useOpenAnimation(open, (animate) => {
-    animate(
-      '[data-anim="film"]',
-      [{ opacity: 0, transform: 'scale(.97)' }, { opacity: 1, transform: 'none' }],
-      600,
-    );
-  });
+  const root = useRef<HTMLDivElement>(null);
+  /* The dark fades in and the picture settles from just under its size; out, both go together, quicker. */
+  const present = useOverlayPresence(open, root, (box) => [
+    { el: box, away: { opacity: 0 }, in: { duration: 300, easing: EASE_OUT }, out: { duration: 200, easing: EASE_OUT } },
+    {
+      el: box.querySelector('.film-frame'),
+      away: { opacity: 0, transform: 'scale(.97)' },
+      in: { duration: 600, easing: EASE_OUT },
+      out: { duration: 200, easing: EASE_OUT },
+    },
+  ]);
+  const leaving = present && !open;
 
-  if (!open) return null;
+  if (!present) return null;
 
   return (
-    <div className="film-root" role="dialog" aria-modal="true" aria-label={strings['film.aria']}>
+    <div
+      ref={root}
+      className="film-root"
+      role={leaving ? undefined : 'dialog'}
+      aria-modal={leaving ? undefined : 'true'}
+      aria-label={leaving ? undefined : strings['film.aria']}
+      inert={leaving}
+    >
       <button type="button" className="film-backdrop" aria-label={strings['film.close_aria']} onClick={close} />
       {/* Where the focus goes when the film opens (data-autofocus, components/site/Chrome.tsx). */}
       <button type="button" className="film-close" aria-label={strings['film.close_aria']} onClick={close} data-autofocus>
         ×
       </button>
 
-      <div data-anim="film" className="film-frame">
+      <div className="film-frame">
         {poster && <CmsImage media={poster} decorative width={poster.width} height={poster.height} sizes="(max-width: 1100px) 100vw, 1100px" className="fill" />}
         {video ? (
           <iframe

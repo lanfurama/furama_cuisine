@@ -63,6 +63,24 @@
   box-shadow: 0 24px 60px rgba(20, 32, 28, 0.16);
   padding: 8px 0;
   z-index: 40;
+  transition: opacity 0.18s var(--ease-out), translate 0.18s var(--ease-out);
+}
+
+/* The list comes out of its field: it fades in from 4 px nearer it. Its own `translate`, not a scale, so the
+   size placePanel (components/ui/Dropdown.tsx) measures as it opens is the list's own. Only the way in: a pick
+   closes it at once. With reduced motion it only fades. */
+@starting-style {
+  .dd-panel {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @starting-style {
+    .dd-panel {
+      translate: 0 -4px;
+    }
+  }
 }
 
 .dd-option {

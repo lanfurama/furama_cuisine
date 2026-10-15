@@ -362,31 +362,87 @@ export function usePresence(open: boolean, plays: { enter: () => void; exit: () 
   return present;
 }
 
-/** Entrance animations for overlays (sheet, search, menu, film; the drawer has usePresence). */
-export function useOpenAnimation(open: boolean, run: (animate: typeof animateSelector) => void) {
-  const motion = useMotion();
-  const runRef = useRef(run);
-  useLayoutEffect(() => {
-    runRef.current = run;
-  });
+/** One moving piece of an overlay: where it stands while away, and how it comes in and goes out. */
+export type OverlayPart = {
+  el: Element | null;
+  /** Its state offstage, e.g. { opacity: 0 } or { transform: 'translateY(100%)' }; at rest it is opacity 1, no transform. */
+  away: Keyframe;
+  in: { duration: number; easing: string };
+  out: { duration: number; easing: string };
+};
 
-  useEffect(() => {
-    if (!open || !motion) return;
-    const id = requestAnimationFrame(() => runRef.current(animateSelector));
-    return () => cancelAnimationFrame(id);
-  }, [open, motion]);
+/** With reduced motion an overlay only fades, this long each way. */
+const OVERLAY_FADE_MS = 150;
+
+/** The way in or out playing on an element (a script animation, not a CSS transition or animation of its own). */
+const scripted = (el: Element) => el.getAnimations().filter((a) => !(a instanceof CSSTransition) && !(a instanceof CSSAnimation));
+
+/** Stops the way in or out on `el` where it stands; returns that point (for `away`'s properties) and whether it was moving. */
+function halt(el: Element, away: Keyframe) {
+  const style = getComputedStyle(el);
+  const at: Keyframe = {};
+  if ('opacity' in away) at.opacity = style.opacity;
+  if ('transform' in away) at.transform = style.transform;
+  const moving = scripted(el);
+  moving.forEach((a) => a.cancel());
+  return { at, moving: moving.length > 0 };
 }
 
-export function animateSelector(
-  selector: string,
-  frames: Keyframe[],
-  duration: number,
-  delay = 0,
-  easing: string = EASE_OUT,
-  stagger = 0,
-) {
-  document.querySelectorAll<HTMLElement>(selector).forEach((el, i) => {
-    if (!el.animate) return;
-    el.animate(frames, { duration, delay: delay + stagger * i, easing, fill: 'backwards' });
-  });
+const rest = (away: Keyframe): Keyframe => ({
+  ...('opacity' in away && { opacity: 1 }),
+  ...('transform' in away && { transform: 'none' }),
+});
+
+/**
+ * An overlay's way in and out (menu, search, finder sheet, film; the Reserve
+ * drawer has its own, components/overlays/DrawerMotion.tsx), on usePresence.
+ * `parts` names its moving pieces inside `root`; each comes in from `away` and
+ * goes back there, the way out quicker than the way in. Turned round mid-way,
+ * a piece starts from where it stands. `after` plays on a fresh way in only
+ * (the menu's lines rising), never on a turn. With reduced motion nothing
+ * moves: the root fades in and out. Returns whether the overlay is in the
+ * document; while it leaves it must drop role="dialog" and be inert, like the
+ * drawer, so the page behind has the focus back at once (Chrome.tsx).
+ */
+export function useOverlayPresence(
+  open: boolean,
+  root: RefObject<HTMLElement | null>,
+  parts: (box: HTMLElement) => OverlayPart[],
+  after?: (box: HTMLElement) => void,
+): boolean {
+  const enter = () => {
+    const box = root.current;
+    if (!box?.animate) return;
+    if (!readMotionLevel()) {
+      const fade = { opacity: 0 };
+      const { at, moving } = halt(box, fade);
+      box.animate([moving ? at : fade, rest(fade)], { duration: OVERLAY_FADE_MS, easing: 'ease', fill: 'backwards' });
+      return;
+    }
+    let turned = false;
+    for (const part of parts(box)) {
+      if (!part.el) continue;
+      const { at, moving } = halt(part.el, part.away);
+      turned ||= moving;
+      part.el.animate([moving ? at : part.away, rest(part.away)], { ...part.in, fill: 'backwards' });
+    }
+    if (!turned) after?.(box);
+  };
+
+  const exit = () => {
+    const box = root.current;
+    if (!box?.animate) return [];
+    if (!readMotionLevel()) {
+      const fade = { opacity: 0 };
+      const { at } = halt(box, fade);
+      return [box.animate([at, fade], { duration: OVERLAY_FADE_MS, easing: 'ease', fill: 'forwards' })];
+    }
+    return parts(box).flatMap((part) => {
+      if (!part.el) return [];
+      const { at } = halt(part.el, part.away);
+      return [part.el.animate([at, part.away], { ...part.out, fill: 'forwards' })];
+    });
+  };
+
+  return usePresence(open, { enter, exit });
 }

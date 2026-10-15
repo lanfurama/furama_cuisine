@@ -315,6 +315,22 @@ html {
   background: var(--white);
   box-shadow: 0 22px 50px rgba(20, 32, 28, 0.18);
   padding: 8px 0;
+  transition: opacity 0.18s var(--ease-out), translate 0.18s var(--ease-out);
+}
+
+/* Out of the language button, like a field's list (styles/dropdown.css): a fade from 4 px nearer it; only a fade with reduced motion. */
+@starting-style {
+  .hdr-lang-panel {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @starting-style {
+    .hdr-lang-panel {
+      translate: 0 -4px;
+    }
+  }
 }
 
 .hdr-lang-option {
@@ -587,6 +603,19 @@ html {
 .tabbar .tabbar-primary {
   background: var(--green);
   color: #efebe0;
+}
+
+/* A cell darkens under the finger (the cells meet edge to edge, so nothing shrinks): at once, and back at the
+   cell's own pace. A colour, not a movement, so it stays with reduced motion. */
+.tabbar button:active,
+.tabbar a:active {
+  background: var(--line-soft);
+  transition-duration: 0s;
+}
+
+.tabbar button[data-active='true']:active,
+.tabbar .tabbar-primary:active {
+  background: var(--green-deep);
 }
 
 /* Draft Mode's bar (components/site/PreviewBanner.tsx): staff only, above everything, never in a guest's page.
