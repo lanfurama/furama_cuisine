@@ -127,7 +127,8 @@ Nội dung khách đọc thuộc CMS: migration chỉ *thêm* (file ảnh mới 
 - Trang khách gọi `await requireEnabledLocale(...)` trước khi đọc gì *(CI)*.
 - Chữ khách nhìn thấy nằm trong registry (`lib/i18n/registry.ts`) hoặc DB, không literal trong component *(CI)*.
 - Truy vấn DOM trong phạm vi trang đang hiện (`usePageRoot()`), không cả document *(CI)*.
-- Lớp phủ khách (`components/overlays/*`, `role="dialog" aria-modal`) đánh dấu chỗ nhận focus bằng `data-autofocus`; `useModalOverlays` trong `components/site/Chrome.tsx` chuyển focus vào khi mở, `inert` phần trang phía sau và trả focus về nút đã mở khi đóng. Lớp phủ mới đặt trong khối overlays của `Chrome`, không tự làm việc này.
+- Lớp phủ khách (`components/overlays/*`, `role="dialog" aria-modal`) đánh dấu chỗ nhận focus bằng `data-autofocus`; `useModalOverlays` trong `components/site/Chrome.tsx` chuyển focus vào khi mở, `inert` phần trang phía sau và trả focus về nút đã mở khi đóng. Lớp phủ mới đặt trong khối overlays của `Chrome`, không tự làm việc này. Lớp phủ có hiệu ứng đóng (drawer đặt bàn) ở lại trong DOM bằng `usePresence` (`lib/motion.tsx`) khi đang trượt ra: lúc đó nó `inert`, không còn `role="dialog"`.
+- Responsive: màn hình ngang thấp (điện thoại xoay ngang) dùng đúng một media query `(orientation: landscape) and (max-height: 500px)` ở mọi file CSS; chiều cao thanh cố định đọc từ token (`--header-h*`, `--tabbar-h` trong `styles/tokens.css`, `--tabbar-space` trong `styles/layout.css`), lề tránh tai thỏ từ `--safe-x`, không viết số cứng.
 
 ---
 

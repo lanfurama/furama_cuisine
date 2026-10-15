@@ -58,14 +58,10 @@
   font-size: 20px;
 }
 
+/* A phone on its side has about 340px of screen: a list no taller than half of it stays mostly in view. */
 .booking-fields .dd-panel {
-  max-height: 320px;
+  max-height: min(320px, 56svh);
   box-shadow: 0 24px 60px rgba(20, 32, 28, 0.22);
-}
-
-/* While one of its lists is open the bar rises above the phone's tab bar (z-index 60), which would cut the list. */
-.booking:has(.dd-panel) {
-  z-index: 70;
 }
 
 .booking-submit {
@@ -91,7 +87,7 @@
 
 /* Phones: the destination and the restaurant, the long names, get a whole row each
    (half a 390px screen cut "Furama Resort Danang" to "Furama Reso…"). */
-@media (max-width: 759px) {
+@media (max-width: 559px) {
   .booking-fields > :nth-child(-n + 2) {
     grid-column: 1 / -1;
   }
@@ -103,8 +99,9 @@
   }
 }
 
-/* Tablets: the destination and the restaurant (the long names) share a row, date, time and party the next. */
-@media (min-width: 760px) {
+/* Tablets, and phones on their side: the destination and the restaurant (the long names) share a row, date, time and
+   party the next. Two rows, not five, on a landscape phone's short screen; from 560px half a row holds the names. */
+@media (min-width: 560px) {
   .booking-fields {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
@@ -118,15 +115,19 @@
   }
 }
 
+/*
+ * One row. Each field is as wide as what it shows, the rest shared out, so the
+ * long names keep their room on a narrow desktop (fixed shares cut "Furama
+ * Resort Danang" at 1194px); when they cannot all fit, the short ones keep
+ * theirs and the long ones share the rest. The button fits its words.
+ */
 @media (min-width: 1180px) {
   .booking-panel {
-    grid-template-columns: minmax(0, 1fr) 178px;
+    grid-template-columns: minmax(0, 1fr) minmax(178px, auto);
   }
 
   .booking-fields {
-    grid-template-columns:
-      minmax(0, 1.35fr) minmax(0, 1.1fr) minmax(0, 1fr)
-      minmax(0, 0.75fr) minmax(0, 0.85fr);
+    grid-template-columns: repeat(5, minmax(0, auto));
   }
 
   .booking-fields > *,

@@ -55,7 +55,9 @@ export function HeaderLanguages() {
     <div className="hdr-lang" data-dd="1">
       <button type="button" className="hdr-link hdr-lang-btn" aria-expanded={open} onClick={() => toggleDropdown('lang')}>
         {current?.shortLabel ?? locale.toUpperCase()}
-        <span className="hdr-lang-caret">▾</span>
+        <span className="hdr-lang-caret" aria-hidden="true">
+          ▾
+        </span>
       </button>
       {open && (
         <div className="hdr-lang-panel" role="group" aria-label={strings['ui.language_aria']}>

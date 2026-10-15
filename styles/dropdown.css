@@ -95,6 +95,21 @@
   background: var(--cream);
 }
 
+.dd-option-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Why a greyed option cannot be chosen (a closure's reason), under its label and darker than it. */
+.dd-hint {
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ink-offer);
+}
+
 .dd-note {
   font-family: var(--sans);
   font-size: 9px;
@@ -141,6 +156,38 @@
   gap: 24px;
   padding: 10px 16px;
   font-size: 17px;
+}
+
+/* Where the list opens (components/ui/Dropdown.tsx): above its field when the screen's foot leaves too little room below, */
+.dd-panel[data-side='above'] {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+/* and lined up with the field's right edge when it would run past the screen's. */
+.dd-panel[data-align='end'] {
+  left: auto;
+  right: -18px;
+}
+
+.dd-boxed .dd-panel[data-align='end'] {
+  right: 0;
+}
+
+/*
+ * On a touch screen, the small capitals over each field and an option's note
+ * come up a size: 9 and 10 px were the smallest text on a phone, under the
+ * 11 px of every other label on the site.
+ */
+@media (pointer: coarse) {
+  .dd-label {
+    font-size: 11px;
+  }
+
+  .dd-boxed .dd-label,
+  .dd-note {
+    font-size: 10px;
+  }
 }
 
 /* Chips — the sheet's flat alternative to a dropdown. */

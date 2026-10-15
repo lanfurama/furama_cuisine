@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -27,7 +28,9 @@ export type RevealKind =
 
 export const EASE_OUT = 'cubic-bezier(.16,1,.3,1)';
 export const EASE_INOUT = 'cubic-bezier(.76,0,.24,1)';
-const EASE_POP = 'cubic-bezier(.22,1,.36,1)';
+export const EASE_POP = 'cubic-bezier(.22,1,.36,1)';
+/** Under way at once and gone without a tail: for what leaves (it plays back as an ease-out when turned round). */
+export const EASE_IN = 'cubic-bezier(.3,0,.8,.15)';
 
 type Spec = { frames: Keyframe[]; duration: number; easing: string };
 
@@ -316,11 +319,68 @@ export function useScrollMotion(overlayOpen: boolean, page: HTMLElement | null) 
   }, [motion, overlayOpen, page]);
 }
 
-/** Entrance animations for overlays (drawer, sheet, search, menu, film). */
+/**
+ * An overlay that animates out as well as in (the Reserve drawer). Returns
+ * whether it is in the document: from the moment `open` turns true until its
+ * way out has played. `enter` plays the way in after a closed overlay
+ * renders, before the browser paints it. `exit` starts the way out and
+ * returns its animations (fill 'forwards'); the overlay leaves when they
+ * finish. Opening again before then, or closing again on the way back, turns
+ * those same animations round from where they are, so the panel changes
+ * direction instead of jumping. With reduced motion (or no animations to
+ * wait for) it opens and leaves at once.
+ */
+export function usePresence(open: boolean, plays: { enter: () => void; exit: () => Animation[] }): boolean {
+  const [present, setPresent] = useState(open);
+  // Adjusting state during render: in at once; out at once only when there is no way out to play. The
+  // preference as it is now (readMotionLevel), not useMotion(): that one says 2 until the provider's first
+  // effect, and a guest can open the drawer before it.
+  if (open && !present) setPresent(true);
+  if (!open && present && !readMotionLevel()) setPresent(false);
+
+  const latest = useRef(plays);
+  useLayoutEffect(() => {
+    latest.current = plays;
+  });
+  const was = useRef(open);
+  /* The way out while it plays, in either direction. */
+  const leaving = useRef<Animation[]>([]);
+  /* Which turn the last wait belongs to: an earlier wait on the same animations stands down. */
+  const turn = useRef(0);
+
+  useLayoutEffect(() => {
+    if (was.current === open) return;
+    was.current = open;
+    if (!present) return;
+    if (leaving.current.length) leaving.current.forEach((a) => a.reverse());
+    else if (open) {
+      if (readMotionLevel()) latest.current.enter();
+      return;
+    } else leaving.current = latest.current.exit();
+
+    const anims = leaving.current;
+    const mine = ++turn.current;
+    const settle = () => {
+      if (mine !== turn.current) return;
+      leaving.current = [];
+      // Back in: the overlay's own styles hold it from here. Out: it leaves the document.
+      if (open) anims.forEach((a) => a.cancel());
+      else setPresent(false);
+    };
+    // A way out cancelled from elsewhere settles too: the overlay must never stay behind, inert, for good.
+    Promise.all(anims.map((a) => a.finished)).then(settle, settle);
+  }, [open, present]);
+
+  return present;
+}
+
+/** Entrance animations for overlays (sheet, search, menu, film; the drawer has usePresence). */
 export function useOpenAnimation(open: boolean, run: (animate: typeof animateSelector) => void) {
   const motion = useMotion();
   const runRef = useRef(run);
-  runRef.current = run;
+  useLayoutEffect(() => {
+    runRef.current = run;
+  });
 
   useEffect(() => {
     if (!open || !motion) return;

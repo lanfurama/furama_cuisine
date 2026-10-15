@@ -18,10 +18,12 @@ export default function PageNotFound() {
   const { locale, strings } = useSite();
   return (
     <ViewMarker view="other">
-      <section className="shell" style={{ padding: '160px 0 120px', textAlign: 'center' }}>
+      <section className="shell page-message">
         <h1>{strings['common.not_found']}</h1>
         <p>
-          <a href={homeHref(locale)}>{strings['common.back_home']}</a>
+          <a href={homeHref(locale)} className="page-message-home">
+            {strings['common.back_home']}
+          </a>
         </p>
       </section>
     </ViewMarker>

@@ -1,19 +1,29 @@
 /* ── Tàya House hero ─────────────────────────────────────────────────────── */
 
+/* A phone's photo grows with a tall screen (a small tablet held upright is a phone here), so the portrait is cropped less. */
 .taya-hero {
   position: relative;
-  height: 418px;
+  height: clamp(418px, 56svh, 640px);
   overflow: hidden;
   background: var(--green-deep);
   color: var(--on-dark);
 }
 
+/* A phone on its side: the hero ends at the tab bar, so the first screen holds the photo and the name above it. */
+@media (max-width: 759px) and (orientation: landscape) and (max-height: 500px) {
+  .taya-hero {
+    height: max(200px, calc(100svh - var(--tabbar-h) - env(safe-area-inset-bottom)));
+  }
+}
+
 @media (min-width: 760px) {
   .taya-hero {
+    /* The space above the copy, also what the portrait leaves of the screen's height (below). */
+    --taya-top: clamp(112px, 10.4vw, 150px);
     height: auto;
     overflow: visible;
     background: var(--green);
-    padding: clamp(112px, 10.4vw, 150px) 0 clamp(56px, 6vw, 88px);
+    padding: var(--taya-top) 0 clamp(56px, 6vw, 88px);
   }
 }
 
@@ -61,13 +71,28 @@
   background: var(--green-deep);
 }
 
+/*
+ * The arch keeps its shape and fits the screen's height under the copy's top
+ * space, so a short laptop sees all of it; it then stands at the column's
+ * right edge. Beside a story longer than it, it stays in view while the story
+ * scrolls (sticky within its grid row).
+ */
 @media (min-width: 760px) {
   .taya-portrait {
-    position: relative;
+    position: sticky;
     inset: auto;
+    top: calc(var(--header-h-compact) + 24px);
+    justify-self: end;
     width: 100%;
+    width: min(100%, calc((100svh - var(--taya-top) - 32px) * 0.8));
     max-height: 680px;
     aspect-ratio: 4 / 5;
+  }
+}
+
+@media (min-width: 1080px) {
+  .taya-portrait {
+    top: calc(var(--header-h-solid) + 24px);
   }
 }
 
@@ -111,18 +136,18 @@
   font-size: 14px;
 }
 
-/* Floating back button, phone only. */
+/* Floating back button, phone only. Its label lines up with the page's gutter (clear of a notch, styles/tokens.css). */
 .taya-back-float {
   position: absolute;
-  top: 12px;
-  left: 10px;
+  top: calc(12px + env(safe-area-inset-top));
+  left: calc(var(--gutter) - 10px);
   z-index: 2;
   height: 44px;
   padding: 0 10px;
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.2em;
   color: var(--on-dark);
@@ -155,8 +180,8 @@
 
 .taya-hero-mobile-copy {
   position: absolute;
-  left: 20px;
-  right: 20px;
+  left: var(--gutter);
+  right: var(--gutter);
   bottom: 26px;
   pointer-events: none;
 }
@@ -168,7 +193,7 @@
 }
 
 .taya-kicker-m {
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -187,7 +212,7 @@
 
 .taya-story-label {
   margin-top: clamp(28px, 3vw, 44px);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -203,10 +228,10 @@
   text-wrap: pretty;
 }
 
-/* The story repeats below the phone hero, on cream. */
+/* The story repeats below the phone hero, on cream, in the page's gutter. */
 .taya-story-mobile {
   background: var(--cream);
-  padding: 40px 20px 0;
+  padding: 40px var(--gutter) 0;
 }
 
 @media (min-width: 760px) {
@@ -222,6 +247,7 @@
 
 .taya-story-m {
   margin: 14px 0 0;
+  max-width: 640px;
   font-size: 15px;
   line-height: 1.7;
   color: var(--ink-soft);
@@ -242,7 +268,15 @@
   gap: 14px;
 }
 
+/* CALL, MAP and MENU wrap as one row, so a narrow column (a tablet held upright) never leaves one alone under RESERVE. */
+.taya-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+}
+
 .taya-link {
+  position: relative;
   padding: 6px 0;
   border-bottom: 1px solid rgba(247, 242, 232, 0.4);
   font-size: 11px;
@@ -254,6 +288,50 @@
 
 .taya-link:hover {
   color: var(--gold);
+}
+
+/* A 44px touch area; the underline stays under the word. */
+.taya-link::after {
+  content: '';
+  position: absolute;
+  inset: -9px 0;
+}
+
+/*
+ * A big phone on its side (the short-landscape query of styles/tokens.css):
+ * the hero keeps the name, its actions and the whole arch on the first screen.
+ * The story moves below it, as on a phone, and the rest tightens.
+ */
+@media (min-width: 760px) and (orientation: landscape) and (max-height: 500px) {
+  .taya-hero {
+    --taya-top: calc(var(--header-h-compact) + 20px);
+    padding-bottom: 28px;
+  }
+
+  .taya-kicker {
+    margin-top: 14px;
+  }
+
+  .taya-title {
+    margin-top: 10px;
+    font-size: clamp(40px, 13svh, 56px);
+  }
+
+  .taya-hero-copy > :is(.taya-story-label, .taya-story) {
+    display: none;
+  }
+
+  .taya-actions {
+    margin-top: 20px;
+  }
+
+  .taya-reserve {
+    height: 56px;
+  }
+
+  .taya-story-mobile {
+    display: block;
+  }
 }
 
 /* ── At Tàya House ───────────────────────────────────────────────────────── */
@@ -268,8 +346,10 @@
   padding-inline: var(--gutter);
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(min(66vw, 240px), 1fr);
-  gap: clamp(14px, 1.7vw, 24px);
+  /* Four to a row at most: one or two highlights keep a card's size instead of filling the width. */
+  --rail-gap: clamp(14px, 1.7vw, 24px);
+  grid-auto-columns: minmax(min(66vw, 240px), calc((100% - 3 * var(--rail-gap)) / 4));
+  gap: var(--rail-gap);
   overflow-x: auto;
   scrollbar-width: none;
   scroll-snap-type: x mandatory;
@@ -336,7 +416,8 @@
   padding-inline: var(--gutter);
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(min(44vw, 180px), 1fr);
+  /* Five to a row at most, as on the home page's rows: a destination with two restaurants shows one card, not a banner. */
+  grid-auto-columns: minmax(min(44vw, 180px), calc((100% - 4 * 16px) / 5));
   gap: 16px;
   overflow-x: auto;
   scrollbar-width: none;

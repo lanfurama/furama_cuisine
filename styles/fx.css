@@ -477,6 +477,11 @@ main[data-view='home'] .experiences .eyebrow::before {
   transition: color 0.45s var(--ease-out), translate 0.45s var(--ease-out);
 }
 
+/* Unclipped: its fill never leaves its box, and the compact header's RESERVE takes taps a little past it (styles/layout.css). */
+.btn-gold {
+  overflow: visible;
+}
+
 .btn-slab::before,
 .btn-green::before,
 .btn-gold::before {
@@ -501,25 +506,48 @@ main[data-view='home'] .experiences .eyebrow::before {
   background: var(--green-deep);
 }
 
-.btn-slab:is(:hover, :focus-visible)::before,
-.btn-green:is(:hover, :focus-visible)::before,
-.btn-gold:is(:hover, :focus-visible)::before {
+/*
+ * The fill and the label's new colour go together, for the keyboard's focus
+ * as for a pointer's hover: focus alone used to fill the button and leave the
+ * label as it was, dark ink on the green, pale on the gold. The hover only
+ * where a pointer hovers: a tap would leave a button filled until the next.
+ */
+.btn-slab:focus-visible::before,
+.btn-green:focus-visible::before,
+.btn-gold:focus-visible::before {
   transform: scaleY(1);
 }
 
-.btn-slab:hover {
-  background: var(--cream);
+.btn-slab:focus-visible,
+.btn-gold:focus-visible {
   color: var(--on-dark);
 }
 
-.btn-green:hover {
-  background: var(--green-btn);
+.btn-green:focus-visible {
   color: var(--on-gold);
 }
 
-.btn-gold:hover {
-  background: var(--gold);
-  color: var(--on-dark);
+@media (hover: hover) {
+  .btn-slab:hover::before,
+  .btn-green:hover::before,
+  .btn-gold:hover::before {
+    transform: scaleY(1);
+  }
+
+  .btn-slab:hover {
+    background: var(--cream);
+    color: var(--on-dark);
+  }
+
+  .btn-green:hover {
+    background: var(--green-btn);
+    color: var(--on-gold);
+  }
+
+  .btn-gold:hover {
+    background: var(--gold);
+    color: var(--on-dark);
+  }
 }
 
 /* Arrows step forward. */
@@ -529,9 +557,11 @@ main[data-view='home'] .experiences .eyebrow::before {
   transition: transform 0.45s var(--ease-out);
 }
 
-:is(.btn-slab, .btn-green, .offer-cta):hover :is(.arrow, .hero-arrow, span:last-child),
-.experience-row:hover .experience-arrow {
-  transform: translateX(6px);
+@media (hover: hover) {
+  :is(.btn-slab, .btn-green, .offer-cta):hover :is(.arrow, .hero-arrow, span:last-child),
+  .experience-row:hover .experience-arrow {
+    transform: translateX(6px);
+  }
 }
 
 /* Links draw a gold line from the left under their words. */
@@ -542,10 +572,12 @@ main[data-view='home'] .experiences .eyebrow::before {
   transition: background-size 0.6s var(--ease-out), color 0.25s;
 }
 
-.text-link:hover,
-.offer-cta:hover,
-.footer-social:hover {
-  background-size: 100% 1px;
+@media (hover: hover) {
+  .text-link:hover,
+  .offer-cta:hover,
+  .footer-social:hover {
+    background-size: 100% 1px;
+  }
 }
 
 /* An Experiences row draws its gold line along its rule. */

@@ -37,24 +37,27 @@ export function FinderSheet() {
           </button>
         </div>
 
-        <ChipGroup
-          label={strings['finder.cuisine']}
-          value={finder.cuisine}
-          options={cuisineOptions(site.cuisines, strings)}
-          onPick={(cuisine) => setFinder({ cuisine })}
-        />
-        <ChipGroup
-          label={strings['finder.occasion']}
-          value={finder.occasion}
-          options={occasionOptions(strings)}
-          onPick={(occasion) => setFinder({ occasion })}
-        />
-        <ChipGroup
-          label={strings['finder.destination']}
-          value={finder.destination}
-          options={destinationOptions(site.destinations, strings)}
-          onPick={(destination) => setFinder({ destination })}
-        />
+        {/* The choices: what scrolls when the screen is short, between the title and the button. */}
+        <div className="sheet-body">
+          <ChipGroup
+            label={strings['finder.cuisine']}
+            value={finder.cuisine}
+            options={cuisineOptions(site.cuisines, strings)}
+            onPick={(cuisine) => setFinder({ cuisine })}
+          />
+          <ChipGroup
+            label={strings['finder.occasion']}
+            value={finder.occasion}
+            options={occasionOptions(strings)}
+            onPick={(occasion) => setFinder({ occasion })}
+          />
+          <ChipGroup
+            label={strings['finder.destination']}
+            value={finder.destination}
+            options={destinationOptions(site.destinations, strings)}
+            onPick={(destination) => setFinder({ destination })}
+          />
+        </div>
 
         <button type="button" className="sheet-submit" onClick={applyFinder}>
           {strings['finder.submit']}

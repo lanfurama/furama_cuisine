@@ -97,13 +97,39 @@ main[data-view='home'][data-hero='none'] {
   }
 }
 
-/* The condensed header for tablets and phones. */
+/*
+ * From 1080 to 1280 px (a small laptop, an iPad Pro on its side) the six
+ * sections, SEARCH, the language and RESERVE ran up to 48 px into the right
+ * gutter, and ABOUT sat closer to SEARCH than to its own neighbours. There the
+ * gaps and RESERVE's padding narrow with the window, reaching their usual
+ * sizes at 1280, and the nav keeps a clear 32 px from the logo and the actions.
+ */
+@media (min-width: 1080px) and (max-width: 1279px) {
+  .hdr-full .hdr-inner {
+    gap: 32px;
+  }
+
+  .hdr-full .hdr-nav {
+    gap: clamp(18px, 7vw - 58px, 32px);
+  }
+
+  .hdr-full .hdr-actions {
+    gap: clamp(12px, 4.7vw - 39px, 21px);
+  }
+
+  .hdr-full .btn-gold {
+    padding-inline: clamp(24px, 3vw - 8px, 30px);
+  }
+}
+
+/* The condensed header for tablets and phones. Its ends keep clear of a notch on a phone turned on its side. */
 .hdr-compact {
   height: var(--header-h-compact);
 }
 
 .hdr-compact .hdr-inner {
-  padding: 0 clamp(10px, 2.4vw, 28px) 0 clamp(20px, 4vw, 40px);
+  /* The wordmark on the page's gutter, in line with the content below; the burger's tap area reaches nearer the edge. */
+  padding: 0 max(clamp(10px, 2.4vw, 28px), var(--safe-x)) 0 var(--gutter);
   gap: 16px;
 }
 
@@ -118,6 +144,29 @@ main[data-view='home'][data-hero='none'] {
   html[data-view='detail'] .hdr,
   html:not([data-view]):has(main[data-view='detail']) .hdr {
     display: none;
+  }
+}
+
+/*
+ * The fixed header's height is the page's top scroll padding, as the tab bar's
+ * is its bottom one (below): a control scrolled into view by the keyboard
+ * stops below the header (WCAG 2.4.11), and a dropdown's list does not open
+ * under it (components/ui/Dropdown.tsx).
+ */
+html {
+  scroll-padding-top: var(--header-h-compact);
+}
+
+@media (min-width: 1080px) {
+  html {
+    scroll-padding-top: var(--header-h-solid);
+  }
+}
+
+@media (max-width: 759px) {
+  html[data-view='detail'],
+  html:not([data-view]):has(main[data-view='detail']) {
+    scroll-padding-top: 0;
   }
 }
 
@@ -171,9 +220,11 @@ main[data-view='home'][data-hero='none'] {
   gap: clamp(16px, 2.5vw, 36px);
 }
 
-/* Small-caps nav item whose gold rule grows in from the left on hover. */
+/* Small-caps nav item whose gold rule grows in from the left on hover. A 44px touch area (an iPad on its side shows
+   this header); the negative margin keeps the row as it was. */
 .hdr-link {
-  padding: 10px 0;
+  padding: 15px 0;
+  margin-block: -5px;
   font-size: clamp(11px, 0.84vw, 12px);
   font-weight: 500;
   letter-spacing: 0.14em;
@@ -181,7 +232,7 @@ main[data-view='home'][data-hero='none'] {
   white-space: nowrap;
   background-image: linear-gradient(var(--gold), var(--gold));
   background-repeat: no-repeat;
-  background-position: 0 calc(100% - 5px);
+  background-position: 0 calc(100% - 10px);
   background-size: 0% 1px;
   transition: color 0.25s, background-size 0.45s var(--ease-soft);
 }
@@ -191,9 +242,12 @@ main[data-view='home'][data-hero='none'] {
   text-transform: uppercase;
 }
 
-.hdr-link:hover {
-  color: var(--gold);
-  background-size: 100% 1px;
+/* Only where a pointer hovers: a tap on a tablet would leave the item lit until the next tap elsewhere. */
+@media (hover: hover) {
+  .hdr-link:hover {
+    color: var(--gold);
+    background-size: 100% 1px;
+  }
 }
 
 .hdr-actions {
@@ -276,8 +330,8 @@ main[data-view='home'][data-hero='none'] {
   inset: -3px 0;
 }
 
-/* Tablets get a reserve shortcut; phones rely on the bottom bar. */
-@media (min-width: 760px) {
+/* Tablets get a reserve shortcut; phones rely on the bottom bar (a phone on its side too: see the tab bars below). */
+@media (min-width: 760px), (orientation: landscape) and (max-height: 500px) {
   .hdr-compact-reserve {
     display: block;
   }
@@ -332,12 +386,13 @@ main[data-view='home'][data-hero='none'] {
   color: var(--gold);
 }
 
+/* One line wherever it fits (the row wraps it to a line of its own first); a 320 px phone breaks it in two, evenly. */
 .footer-tagline {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.18em;
   color: var(--gold-footer);
-  white-space: nowrap;
+  text-wrap: balance;
 }
 
 .footer-socials {
@@ -366,7 +421,7 @@ main[data-view='home'][data-hero='none'] {
   font-weight: 500;
   letter-spacing: 0.16em;
   color: var(--on-dark);
-  white-space: nowrap;
+  text-wrap: balance;
 }
 
 .footer-bottom-wrap {
@@ -396,22 +451,40 @@ main[data-view='home'][data-hero='none'] {
   color: var(--gold);
 }
 
+/* Clears the fixed tab bar where one shows (--tabbar-space, below). */
 .footer-bottom-space {
-  height: 0;
-}
-
-@media (max-width: 759px) {
-  .footer-bottom-space {
-    height: 76px;
-  }
-
-  /* A control scrolled into view by the keyboard stops above the fixed tab bar (WCAG 2.4.11). */
-  html {
-    scroll-padding-bottom: calc(76px + env(safe-area-inset-bottom));
-  }
+  height: var(--tabbar-space);
 }
 
 /* ── Mobile tab bars ─────────────────────────────────────────────────────── */
+
+/*
+ * --tabbar-space: how much of the screen's foot the tab bar covers on the page
+ * shown, the home indicator's strip under it included; 0 where no bar shows
+ * (wider screens, the privacy policy and a page not found, a home page on a
+ * phone turned on its side). The footer ends that far lower, a control
+ * scrolled into view by the keyboard stops above it (WCAG 2.4.11), and the
+ * Draft Mode bar and a dropdown's list (components/ui/Dropdown.tsx, through
+ * scroll-padding-bottom) keep clear of it.
+ */
+:root {
+  --tabbar-space: 0px;
+}
+
+@media (max-width: 759px) {
+  :root {
+    --tabbar-space: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  }
+
+  html[data-view='other'],
+  html:not([data-view]):has(main[data-view='other']) {
+    --tabbar-space: 0px;
+  }
+
+  html {
+    scroll-padding-bottom: var(--tabbar-space);
+  }
+}
 
 .tabbar {
   position: fixed;
@@ -431,6 +504,25 @@ main[data-view='home'][data-hero='none'] {
   }
 }
 
+/*
+ * A phone on its side (short landscape, the same query as tokens.css): the
+ * home page gives up its bar, as a tablet does. The compact header carries
+ * RESERVE (above), its wordmark leads back to the top and its menu holds the
+ * sections, so the photograph and the headline get the screen. A restaurant
+ * page keeps its bar, slimmer (CALL, MAP and MENU are nowhere else on a
+ * phone), with no header above it.
+ */
+@media (orientation: landscape) and (max-height: 500px) {
+  .tabbar-home {
+    display: none;
+  }
+
+  html[data-view='home'],
+  html:not([data-view]):has(main[data-view='home']) {
+    --tabbar-space: 0px;
+  }
+}
+
 .tabbar-home {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -439,12 +531,15 @@ main[data-view='home'][data-hero='none'] {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+/* A label of several words longer than its cell (four cells on a 320 px phone are 80 px each) wraps at a space, centred. */
 .tabbar button,
 .tabbar a {
-  height: 76px;
+  height: var(--tabbar-h);
   display: flex;
   align-items: center;
   justify-content: center;
+  text-align: center;
+  line-height: 1.3;
   background: var(--white);
   color: var(--ink);
   font-size: 11px;
@@ -459,16 +554,18 @@ main[data-view='home'][data-hero='none'] {
   color: #efebe0;
 }
 
-/* Draft Mode's bar (components/site/PreviewBanner.tsx): staff only, above everything, never in a guest's page. */
+/* Draft Mode's bar (components/site/PreviewBanner.tsx): staff only, above everything, never in a guest's page.
+   On a phone it sits on the tab bar rather than over its labels, and clear of the home indicator. */
 .preview-banner {
   position: fixed;
-  inset: auto 0 0 0;
+  inset: auto 0 var(--tabbar-space) 0;
   z-index: 1000;
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 4px 16px;
   align-items: center;
   justify-content: center;
-  padding: 10px 16px;
+  padding: 10px max(16px, var(--safe-x)) calc(10px + max(0px, env(safe-area-inset-bottom) - var(--tabbar-space)));
   background: var(--gold);
   color: var(--ink);
   font-size: 13px;

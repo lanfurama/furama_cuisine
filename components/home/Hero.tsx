@@ -170,12 +170,15 @@ export function Hero({ slides, copy }: { slides: HeroSlide[]; copy: Copy<'hero'>
   );
 }
 
-/** Slide 1: the art-directed <picture> (desktop file + phone crop), both optimised (components/ui/CmsImage.tsx). */
+/**
+ * Slide 1: the art-directed <picture> (desktop file + phone crop), both optimised (components/ui/CmsImage.tsx).
+ * The phone crop is upright: a phone on its side gets the wide desktop file, which its wide, short hero crops far less.
+ */
 function FirstSlide({ slide }: { slide: HeroSlide }) {
   const { img, mobileSrcSet } = cmsPictureProps(slide.image, slide.mobile, { sizes: '100vw', priority: true });
   return (
     <picture>
-      {mobileSrcSet && <source media="(max-width: 759px)" srcSet={mobileSrcSet} sizes="100vw" />}
+      {mobileSrcSet && <source media="(max-width: 759px) and (orientation: portrait)" srcSet={mobileSrcSet} sizes="100vw" />}
       <img {...img} alt={slide.image.alt} className="fill" />
     </picture>
   );

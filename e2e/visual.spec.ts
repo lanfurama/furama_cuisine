@@ -4,7 +4,7 @@ import { PAGES } from './paths';
 
 /**
  * Full-page screenshots of every guest page, compared pixel for pixel with the
- * baselines in e2e/__visual__/ (taken again for the 2026-10-14 redesign, on the seeded database).
+ * baselines in e2e/__visual__/ (taken on the seeded database; last retaken 2026-10-15 for the responsive pass).
  * VISUAL_SUFFIX lets a run hit the same page under a different URL (used to
  * prove the comparison works across URLs: VISUAL_SUFFIX='?x=1').
  */

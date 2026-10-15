@@ -13,13 +13,13 @@ export default function GlobalError({ retry }: { error: Error & { digest?: strin
     <html lang="en">
       <body>
         <title>Furama Cuisine</title>
-        <main className="shell" style={{ padding: '160px 0 120px', textAlign: 'center' }}>
+        <main className="shell page-message">
           <h1>We could not load this page.</h1>
           <p>
             Please try again, or call us to book:{' '}
             <a href={`tel:${FALLBACK_PHONE.tel}`}>{FALLBACK_PHONE.display}</a>
           </p>
-          <button type="button" className="btn-slab" onClick={() => retry()}>
+          <button type="button" className="btn-green" onClick={() => retry()}>
             TRY AGAIN
           </button>
         </main>

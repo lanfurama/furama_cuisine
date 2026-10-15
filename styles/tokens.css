@@ -59,11 +59,15 @@
 
   /* Rhythm */
   --shell: 1440px;
-  --gutter: clamp(20px, 5.56vw, 80px);
-  --gutter-wide: clamp(24px, 5.56vw, 80px);
+  /* A notched phone on its side runs the page under its notch (viewport-fit=cover): the side insets, both sides alike. */
+  --safe-x: max(env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+  --gutter: max(clamp(20px, 5.56vw, 80px), var(--safe-x));
+  --gutter-wide: max(clamp(24px, 5.56vw, 80px), var(--safe-x));
   --header-h: 96px;
   --header-h-solid: 76px;
   --header-h-compact: 64px;
+  /* The phone tab bar (styles/layout.css), without the home indicator's strip under it. */
+  --tabbar-h: 76px;
   /* How far the home finder's card rides up over the hero (styles/home.css). */
   --finder-lift: clamp(44px, 4.4vw, 64px);
 
@@ -72,4 +76,18 @@
   --ease-inout: cubic-bezier(0.76, 0, 0.24, 1);
   --ease-soft: cubic-bezier(0.2, 0.7, 0.2, 1);
   --ease-pop: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+ * Short landscape: a phone on its side, 320 to 430 px tall. The fixed header
+ * and tab bar at their usual 64 + 76 px took 41% of it and hid the hero's
+ * headline, so both slim down (still 44 px and more to tap). The same query
+ * wherever a page special-cases it, so the bars, the hero and the overlays
+ * switch together.
+ */
+@media (orientation: landscape) and (max-height: 500px) {
+  :root {
+    --header-h-compact: 52px;
+    --tabbar-h: 52px;
+  }
 }

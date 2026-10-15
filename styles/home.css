@@ -18,9 +18,14 @@
 
 .hero {
   position: relative;
-  height: 600px;
-  /* A short phone keeps FIND A RESTAURANT above the fixed tab bar (76px). */
-  height: clamp(460px, calc(100svh - 76px), 600px);
+  /* The heights are floors: copy taller than the hero (a short window, a long line that wraps) makes the hero
+     taller instead of running up under the fixed header (.hero-content's top padding). */
+  display: flex;
+  flex-direction: column;
+  min-height: 600px;
+  /* A short phone keeps FIND A RESTAURANT above the fixed tab bar and the home indicator's strip below it
+     (--tabbar-space, styles/layout.css). */
+  min-height: clamp(460px, calc(100svh - var(--tabbar-space, var(--tabbar-h, 76px))), 600px);
   overflow: hidden;
   background: var(--green-deep);
   color: var(--on-dark);
@@ -28,7 +33,9 @@
 
 @media (min-width: 760px) {
   .hero {
-    height: clamp(600px, calc(100vh - 40px), 820px);
+    min-height: clamp(600px, calc(100vh - 40px), 820px);
+    /* svh: a tablet's browser bars do not push the finder off the first screen. */
+    min-height: clamp(600px, calc(100svh - 40px), 820px);
   }
 }
 
@@ -144,10 +151,13 @@
 .hero-content {
   position: relative;
   z-index: 4;
-  height: 100%;
+  flex: 1 0 auto;
+  width: 100%;
   max-width: var(--shell);
   margin: 0 auto;
-  padding: 0 20px 60px;
+  /* The top stays clear of the fixed header: the compact one, the roomy one from 1080px (styles/layout.css).
+     The sides are the page's gutter, so the copy lines up with the sections below (and clears a notch: --gutter). */
+  padding: calc(var(--header-h-compact) + 24px) var(--gutter) 60px;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -156,7 +166,14 @@
 
 @media (min-width: 760px) {
   .hero-content {
-    padding: 0 clamp(24px, 5.56vw, 80px) clamp(36px, 3.8vw, 54px);
+    padding-inline: var(--gutter-wide);
+    padding-bottom: clamp(36px, 3.8vw, 54px);
+  }
+}
+
+@media (min-width: 1080px) {
+  .hero-content {
+    padding-top: calc(var(--header-h) + 24px);
   }
 }
 
@@ -165,7 +182,7 @@
 }
 
 .hero-kicker {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -183,16 +200,19 @@
   margin: 12px 0 0;
   font-family: var(--serif);
   font-weight: 300;
-  font-size: 40px;
+  /* 40px on a phone; a small tablet in the phone layout grows it towards the 52px it gets from 760px. */
+  font-size: clamp(40px, 7.5vw, 52px);
   line-height: 1.02;
   letter-spacing: -0.015em;
   color: var(--on-dark);
 }
 
+/* From 760px the headline and the gaps around it follow the window's height as well as its width, so a wide
+   but short window (a laptop's) still shows the copy and the finder's top in one screen. */
 @media (min-width: 760px) {
   .hero-title {
-    margin-top: 22px;
-    font-size: clamp(52px, 6.2vw, 100px);
+    margin-top: clamp(14px, 2.6vh, 22px);
+    font-size: clamp(52px, min(6.2vw, 10vh), 100px);
     line-height: 0.98;
     letter-spacing: -0.022em;
   }
@@ -232,6 +252,7 @@
 @media (min-width: 760px) {
   .hero-lede {
     display: block;
+    margin-top: clamp(16px, 3.1vh, 26px);
   }
 }
 
@@ -245,7 +266,7 @@
 
 @media (min-width: 760px) {
   .hero-actions {
-    margin-top: 38px;
+    margin-top: clamp(22px, 4.5vh, 38px);
   }
 }
 
@@ -321,6 +342,13 @@
   letter-spacing: 0.14em;
 }
 
+/* Across a phone on its side or a small tablet a bar the full width reads as a banner, not a button. */
+@media (min-width: 500px) {
+  .hero-find {
+    max-width: 420px;
+  }
+}
+
 @media (min-width: 760px) {
   .hero-find {
     display: none;
@@ -338,13 +366,15 @@
 @media (min-width: 760px) {
   .hero-dots {
     display: flex;
+    margin-top: clamp(16px, 3.3vh, 28px);
   }
 }
 
 .hero-dot {
-  /* 44px tall to touch on tablets; the negative margin keeps the old 22px box's spacing. */
-  padding: 21px 0;
-  margin: -11px 0;
+  /* 44px tall and 28px wide to touch on tablets (a waiting dot is 18px); the negative margins keep the old
+     22px box's spacing, and the side padding meets the next dot's in the middle of the gap. */
+  padding: 21px 5px;
+  margin: -11px -5px;
 }
 
 .hero-dot span {
@@ -418,7 +448,7 @@
 @media (min-width: 760px) {
   .hero-scroll {
     position: absolute;
-    right: clamp(24px, 5.56vw, 80px);
+    right: var(--gutter-wide);
     bottom: calc(var(--finder-lift) + clamp(36px, 3.8vw, 54px));
     display: block;
     width: 1px;
@@ -482,6 +512,75 @@
   }
 }
 
+/*
+ * A phone on its side, or any window under 500px tall (the shared short-landscape query: the header, the tab bar
+ * and the overlays switch with it). The hero fits the screen under the slimmer header (and above the tab bar,
+ * where one shows: --tabbar-space, styles/layout.css), so the headline and its button show at once instead of the
+ * photo alone; the copy is the phone's (two title lines, no lede) at a size the height allows. After the finder's
+ * rule above, which it overrides.
+ */
+@media (orientation: landscape) and (max-height: 500px) {
+  .hero {
+    min-height: calc(100svh - var(--tabbar-space, var(--tabbar-h, 76px)));
+  }
+
+  .hero-content,
+  .hero:has(~ .finder) .hero-content {
+    padding-top: calc(var(--header-h-compact) + 12px);
+    padding-bottom: 20px;
+  }
+
+  .hero-title {
+    margin-top: 8px;
+    font-size: clamp(30px, 11vh, 40px);
+  }
+
+  .hero-actions {
+    margin-top: 16px;
+  }
+
+  .hero-find {
+    height: 48px;
+  }
+}
+
+/* From 760px the finder rides over the hero's foot, and the slideshow's buttons show. */
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 760px) {
+  .hero:has(~ .finder) .hero-content {
+    padding-bottom: calc(16px + var(--finder-lift));
+  }
+
+  .hero-title {
+    font-size: clamp(32px, 11vh, 52px);
+  }
+
+  .hero-title-mid,
+  .hero-lede {
+    display: none;
+  }
+
+  .hero-explore {
+    height: 52px;
+  }
+
+  .hero-play {
+    width: 44px;
+    height: 44px;
+  }
+
+  .hero-dots {
+    margin-top: 12px;
+  }
+}
+
+/* The roomy header from 1080px. */
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 1080px) {
+  .hero-content,
+  .hero:has(~ .finder) .hero-content {
+    padding-top: calc(var(--header-h) + 12px);
+  }
+}
+
 .finder-inner {
   position: relative;
   padding: 14px 14px 14px clamp(20px, 2.2vw, 32px);
@@ -511,16 +610,23 @@
 
 .finder-submit {
   height: clamp(64px, 6.2vw, 88px);
-  padding: 0 32px;
+  /* SHOW RESTAURANTS fits the 235px column on one line; a longer translation (up to 30 characters) wraps
+     instead of being cut at both ends by the button's clip (styles/fx.css). */
+  padding: 0 20px;
+  white-space: normal;
+  text-align: center;
 }
 
+/* One row. Each field is as wide as what it shows, the rest shared out (as the booking bar's, styles/booking.css):
+   equal quarters cut "Any destination" to an ellipsis from 1080px to 1194px (an iPad Pro on its side) while
+   "Dinner" had room to spare. When they cannot all fit, the short ones keep theirs and the long ones share the rest. */
 @media (min-width: 1080px) {
   .finder-inner {
     grid-template-columns: minmax(0, 1fr) 235px;
   }
 
   .finder-fields {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, auto));
   }
 }
 
@@ -691,7 +797,8 @@
   row-gap: clamp(32px, 3.6vw, 56px);
 }
 
-@media (min-width: 760px) {
+/* Three from 600px: two cards across a phone on its side or a small tablet were each half the screen tall. */
+@media (min-width: 600px) {
   .restaurant-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1057,12 +1164,34 @@ a.rcard:hover {
   overflow: hidden;
 }
 
+/* Stacked (under 920px, the two 460px halves) the picture runs the full width: a band 41.6vw tall cut the
+   photo to a sliver on a tablet. A phone keeps its 340px; a phone on its side, a band the screen can show. */
+@media (max-width: 919px) {
+  .experiences-media {
+    min-height: clamp(340px, 56vw, 480px);
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 919px) {
+  .experiences-media {
+    min-height: 340px;
+  }
+}
+
 .experiences-body {
   flex: 1 1 460px;
   padding: clamp(48px, 6.7vw, 96px) var(--gutter);
   display: flex;
   flex-direction: column;
   justify-content: center;
+}
+
+/* On a screen wider than the page's shell the copy stops where the other sections' does (half the shell, less
+   its gutters), not at the window's edge, where the rows ran 1,100px wide with their arrows far from their words. */
+@media (min-width: 1440px) {
+  .experiences-body > * {
+    max-width: calc(var(--shell) / 2 - 2 * var(--gutter));
+  }
 }
 
 .experiences-title {
@@ -1288,6 +1417,25 @@ a.rcard:hover {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(max(280px, calc((100% - 48px) / 3)), 1fr));
   gap: 24px;
+  /* The rules below place a last card left alone on its row, by the grid's own width. */
+  container-type: inline-size;
+}
+
+/* Two to a row (584px, two 280px cards and the gap, up to the 888px three need): an odd last card sits
+   centred under the pair, the width of one, instead of alone at the left with half the row empty. */
+@container (min-width: 584px) and (max-width: 887.98px) {
+  .offer:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: calc((100% - 24px) / 2);
+  }
+}
+
+/* Three to a row: a fourth card alone takes the middle column. */
+@container (min-width: 888px) {
+  .offer:last-child:nth-child(3n + 1) {
+    grid-column: 2;
+  }
 }
 
 .offer {

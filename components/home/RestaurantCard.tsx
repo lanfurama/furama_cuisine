@@ -36,7 +36,7 @@ export function RestaurantCard({ restaurant, hidden }: { restaurant: Restaurant;
             <CmsImage
               media={restaurant.image}
               fill
-              sizes="(max-width: 759px) 50vw, (max-width: 1079px) 33vw, 320px"
+              sizes="(max-width: 599px) 50vw, (max-width: 1079px) 33vw, 320px"
               className="rcard-img"
             />
           )}

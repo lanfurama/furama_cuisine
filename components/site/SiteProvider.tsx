@@ -503,7 +503,9 @@ export function SiteProvider({
   const scrollTo = useCallback((id: string) => {
     const el = findSection(id);
     if (!el) return;
-    const offset = window.innerWidth < 1080 ? 63 : 75;
+    // Under the header as the page's scroll padding has it (styles/layout.css: compact, condensed, a landscape
+    // phone's slimmer one, none on a phone's restaurant page), a pixel less so no hairline of the section above shows.
+    const offset = Math.max(0, (parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0) - 1);
     window.scrollTo({
       top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - offset),
       behavior: 'smooth',

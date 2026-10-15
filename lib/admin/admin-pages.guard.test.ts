@@ -54,7 +54,7 @@ describe('admin pages', () => {
 
   it('has its own error boundary above the shell and auth layouts, as client components (not pages: no instant export needed)', () => {
     // app/admin/error.tsx catches what (shell)/layout.tsx and the (auth) pages throw; without
-    // it they reach app/global-error.tsx, the guest's English page with an inline style.
+    // it they reach app/global-error.tsx, the guest's English page.
     const boundaries = all.filter((f) => /(^|\/)error\.tsx$/.test(f));
     expect(boundaries).toContain(join(ADMIN, 'error.tsx'));
     for (const f of boundaries) {

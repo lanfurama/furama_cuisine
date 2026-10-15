@@ -207,6 +207,13 @@ img {
   color: var(--gold-deep);
 }
 
+/* A size up on a touch screen, as a dropdown's label (styles/dropdown.css). */
+@media (pointer: coarse) {
+  .field-label {
+    font-size: 11px;
+  }
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

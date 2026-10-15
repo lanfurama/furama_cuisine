@@ -21,7 +21,7 @@ export function Experiences({ items, copy }: { items: Experience[]; copy: Copy<'
   return (
     <section id="experiences" className="experiences">
       <div ref={media} data-reveal="wipe" className="experiences-media">
-        {image && <CmsImage media={image} width={image.width} height={image.height} sizes="(max-width: 759px) 100vw, 50vw" className="fill" />}
+        {image && <CmsImage media={image} width={image.width} height={image.height} sizes="(max-width: 919px) 100vw, 50vw" className="fill" />}
       </div>
 
       <div className="experiences-body motif-lattice">

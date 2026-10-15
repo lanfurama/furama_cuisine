@@ -70,21 +70,25 @@ export function RestaurantHero({ detail }: { detail: RestaurantDetail }) {
                   <span className="arrow">→</span>
                 </button>
               )}
-              {/* The restaurant's own, else its destination's; neither hides the button (spec §6.4). */}
-              {detail.phone && (
-                <a href={`tel:${detail.phone.tel}`} className="taya-link">
-                  {strings['detail.call']}
-                </a>
-              )}
-              {detail.map && (
-                <a href={detail.map} target="_blank" rel="noopener" className="taya-link">
-                  {strings['detail.map']}
-                </a>
-              )}
-              {menu && (
-                <button type="button" className="taya-link" onClick={() => openMenu(menu, () => scrollToId('dishes'))}>
-                  {strings['detail.menu']}
-                </button>
+              {(detail.phone || detail.map || menu) && (
+                <div className="taya-links">
+                  {/* The restaurant's own, else its destination's; neither hides the button (spec §6.4). */}
+                  {detail.phone && (
+                    <a href={`tel:${detail.phone.tel}`} className="taya-link">
+                      {strings['detail.call']}
+                    </a>
+                  )}
+                  {detail.map && (
+                    <a href={detail.map} target="_blank" rel="noopener" className="taya-link">
+                      {strings['detail.map']}
+                    </a>
+                  )}
+                  {menu && (
+                    <button type="button" className="taya-link" onClick={() => openMenu(menu, () => scrollToId('dishes'))}>
+                      {strings['detail.menu']}
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>

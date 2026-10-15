@@ -10,9 +10,9 @@ import { formatMessage } from '@/lib/i18n/format';
 import { formatDay, type IsoDate } from '@/lib/venue-time';
 import { useSite, type ClientStrings, type LoadFailure } from '@/components/site/SiteProvider';
 import { Dropdown, type Option } from '@/components/ui/Dropdown';
-import { animateSelector, useOpenAnimation } from '@/lib/motion';
 import { privacyHref } from '@/lib/legal';
 import { Honeypot } from '@/components/overlays/Honeypot';
+import { Still, useDrawerMotion } from '@/components/overlays/DrawerMotion';
 import { BookingError, WithPhone } from '@/components/booking/WithPhone';
 import { DEFAULT_PHONE } from '@/lib/booking-errors';
 
@@ -298,6 +298,7 @@ export function ReserveDrawer() {
   const consentErrorId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
+  const backdropRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLDivElement>(null);
   const datesLabelRef = useRef<HTMLDivElement>(null);
   const timesLabelRef = useRef<HTMLDivElement>(null);
@@ -329,8 +330,8 @@ export function ReserveDrawer() {
     if (!armed) return;
     const dialog = dialogRef.current;
     const root = drawerRef.current;
-    if (!dialog || !root) {
-      restore.current = null; // closed: nothing to put back on the next open
+    if (!open || !dialog || !root) {
+      restore.current = null; // closed, or on its way out: nothing to put back on the next open
       return;
     }
     const active = document.activeElement;
@@ -373,12 +374,16 @@ export function ReserveDrawer() {
     field?.scrollIntoView({ block: 'center' });
   }, [invalidNudge]);
 
-  useOpenAnimation(open, (animate) => {
-    animate('[data-anim="drawer"]', [{ transform: 'translateX(100%)' }, { transform: 'none' }], 800);
-    animate('[data-anim="backdrop"]', [{ opacity: 0 }, { opacity: 1 }], 450);
-  });
+  const present = useDrawerMotion(
+    open,
+    { root: dialogRef, backdrop: backdropRef, panel: drawerRef },
+    open && board ? `${booking.restaurant} ${booking.date}` : null,
+    done,
+  );
+  /* On its way out: no longer a dialog, nothing in it reachable (Chrome.tsx has given the focus back), the panel held still. */
+  const leaving = present && !open;
 
-  if (!open) return null;
+  if (!present) return null;
 
   const restaurant = findRestaurant(bookable, booking.restaurant) ?? findRestaurant(restaurants, booking.restaurant);
   const at = now();
@@ -401,349 +406,356 @@ export function ReserveDrawer() {
     .join(' · ');
 
   return (
-    <div ref={dialogRef} className="drawer-root" role="dialog" aria-modal="true" aria-label={strings['booking.drawer_aria']}>
-      <button
-        type="button"
-        data-anim="backdrop"
-        className="backdrop"
-        aria-label={strings['common.close']}
-        onClick={closeDrawer}
-      />
+    <div
+      ref={dialogRef}
+      className="drawer-root"
+      role={leaving ? undefined : 'dialog'}
+      aria-modal={leaving ? undefined : 'true'}
+      aria-label={leaving ? undefined : strings['booking.drawer_aria']}
+      inert={leaving}
+    >
+      <button ref={backdropRef} type="button" className="backdrop" aria-label={strings['common.close']} onClick={closeDrawer} />
 
-      <aside ref={drawerRef} data-anim="drawer" className="drawer">
-        <div className="drawer-head">
-          <div className="drawer-head-copy">
-            {/* tabIndex -1, like the DATE and TIME labels: where the focus goes when the drawer opens (data-autofocus,
-                components/site/Chrome.tsx) and when nothing else is left to hold it. */}
-            <div ref={headingRef} className="drawer-kicker" tabIndex={-1} data-autofocus>
-              {strings['ui.reserve_table']}
-            </div>
-            {/* With every restaurant booking offline (R20) none is chosen: no empty name and meta band above the message. */}
-            {restaurant && (
-              <>
-                <div className="drawer-name">{restaurant.name}</div>
-                <div className="drawer-meta">{`${restaurant.type} · ${destName(restaurant.dest)}`}</div>
-              </>
-            )}
-          </div>
-          <button type="button" className="drawer-close" aria-label={strings['common.close']} onClick={closeDrawer}>
-            ×
-          </button>
-        </div>
-
-        {bookable.length === 0 && !done ? (
-          // Every restaurant books offline (R14): there is nothing to choose and no availability to wait
-          // for, so no form, only whom to call (R20; before, "Checking tables…" stayed for good).
-          <div className="drawer-body">
-            <p className="drawer-error" role="alert">
-              <WithPhone template={strings['booking.all_offline']} params={{}} phone={DEFAULT_PHONE} />
-            </p>
-          </div>
-        ) : done ? (
-          <div className="drawer-done">
-            <div className="drawer-tick" aria-hidden="true">
-              ✓
-            </div>
-            <div className="drawer-thanks">{formatMessage(strings['booking.thanks'], { name: form.name.trim() || strings['booking.thanks_anon'] }, locale)}</div>
-            {/* What was booked, as sent, in the words for its status: an auto-confirmed
-                booking never waits in the pending tab, so nobody would call to confirm it. */}
-            <p className="drawer-done-lede">
-              {formatMessage(strings[booked?.status === 'confirmed' ? 'booking.done_confirmed' : 'booking.done_requested'], {
-                restaurant: booked?.restaurantName ?? '',
-              })}
-            </p>
-            <div className="drawer-summary">
-              <div className="drawer-summary-row">
-                <span>{strings['booking.label_date']}</span>
-                <span>{confirmedDate ? fmtDay(confirmedDate) : ''}</span>
-              </div>
-              <div className="drawer-summary-row">
-                <span>{strings['booking.label_time']}</span>
-                <span>{booked?.time}</span>
-              </div>
-              <div className="drawer-summary-row">
-                <span>{strings['booking.label_guests']}</span>
-                <span>{booked ? guestLabel(booked.guests) : ''}</span>
-              </div>
-              <div className="drawer-summary-row">
-                <span>{strings['booking.label_reference']}</span>
-                <span className="drawer-ref">{reference}</span>
-              </div>
-            </div>
-            <button type="button" className="drawer-done-btn" onClick={closeDrawer}>
-              {strings['booking.done']}
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="drawer-body">
-              <div className="drawer-selects">
-                <Dropdown
-                  id="dDestination"
-                  variant="boxed"
-                  label={strings['booking.label_destination']}
-                  value={booking.destination}
-                  options={destinationOptions}
-                  onPick={(destination) => setBooking({ destination })}
-                />
-                <Dropdown
-                  id="dRestaurant"
-                  variant="boxed"
-                  label={strings['booking.label_restaurant']}
-                  value={booking.restaurant}
-                  options={restaurantOptions}
-                  onPick={(restaurant) => setBooking({ restaurant })}
-                />
-              </div>
-
-              <DayStrip
-                label={
-                  <div ref={datesLabelRef} className="drawer-label" tabIndex={-1}>
-                    {strings['booking.section_date']}
-                  </div>
-                }
-                days={days}
-                selected={booking.date}
-                onPick={(date) => setBooking({ date })}
-                strings={strings}
-                groupPhone={groupPhone}
-                moved={dateMoved?.restaurant === booking.restaurant ? dateMoved : null}
-                failure={
-                  loadFailed?.at === 'dates' ? (
-                    <LoadFailed
-                      count={loadFailed.count}
-                      code={loadFailed.code}
-                      strings={strings}
-                      phone={groupPhone}
-                      onRetry={retry}
-                      onFocus={() => arm('dates')}
-                    />
-                  ) : null
-                }
-              />
-
-              <div className="guests">
-                <div>
-                  <div className="guests-label">{strings['booking.section_guests']}</div>
-                  <div className="guests-value">{guestLabel(booking.guests)}</div>
+      <aside ref={drawerRef} className="drawer">
+        {/* The form's scroller: what scrolls on a short screen is the head with the form, under a footer that stays (styles/overlays.css). */}
+        <div className="drawer-scroll">
+          <Still still={leaving}>
+            <div className="drawer-head">
+              <div className="drawer-head-copy">
+                {/* tabIndex -1, like the DATE and TIME labels: where the focus goes when the drawer opens (data-autofocus,
+                    components/site/Chrome.tsx) and when nothing else is left to hold it. */}
+                <div ref={headingRef} className="drawer-kicker" tabIndex={-1} data-autofocus>
+                  {strings['ui.reserve_table']}
                 </div>
-                <div className="guests-steppers">
-                  {/* aria-disabled, not disabled, on both: a button that turns disabled loses
-                      the focus to <body>, which drops a keyboard user out of the stepper at
-                      either end (at the top just as the hint below tells them whom to call). */}
-                  <button
-                    type="button"
-                    aria-label={strings['booking.fewer_guests']}
-                    aria-disabled={booking.guests <= 1 || undefined}
-                    onClick={() => {
-                      if (booking.guests > 1) setBooking({ guests: booking.guests - 1 });
-                    }}
-                  >
-                    −
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={strings['booking.more_guests']}
-                    aria-disabled={noMore || undefined}
-                    aria-describedby={hint ? hintId : undefined}
-                    onClick={() => {
-                      if (!noMore) setBooking({ guests: booking.guests + 1 });
-                    }}
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-              {/* Always mounted, empty below the limit, so the hint is read out when it appears. */}
-              <div id={hintId} role="status">
-                {hint && (
-                  <p className="guests-hint">
-                    <WithPhone
-                      template={strings['error.party_too_large']}
-                      params={{ max: maxParty }}
-                      phone={groupPhone}
-                    />
-                  </p>
+                {/* With every restaurant booking offline (R20) none is chosen: no empty name and meta band above the message. */}
+                {restaurant && (
+                  <>
+                    <div className="drawer-name">{restaurant.name}</div>
+                    <div className="drawer-meta">{`${restaurant.type} · ${destName(restaurant.dest)}`}</div>
+                  </>
                 )}
               </div>
-
-              <div ref={timesLabelRef} className="drawer-label" tabIndex={-1}>
-                {strings['booking.section_time']}
-              </div>
-              {loadFailed
-                ? loadFailed.at === 'times' && (
-                    <LoadFailed
-                      count={loadFailed.count}
-                      code={loadFailed.code}
-                      strings={strings}
-                      phone={groupPhone}
-                      onRetry={retry}
-                      onFocus={() => arm('times')}
-                    />
-                  )
-                : !board && booking.date && <div className="slot-loading">{strings['booking.loading']}</div>}
-              {/* Why there is no time to choose: the day closed, or every time is taken. Always mounted,
-                  empty otherwise, so a screen reader hears the news when the day's answer brings it. */}
-              <div role="status">
-                {board?.state === 'closed' ? (
-                  <div className="drawer-error">{strings['error.closed']}</div>
-                ) : (
-                  !anyAvailable && <div className="drawer-error">{strings['booking.no_tables']}</div>
-                )}
-              </div>
-              {/* By meal, not by service: two lunch services (a cooking class at 11:00 and at 14:00) are one "Lunch". */}
-              {board &&
-                mealGroups(board.periods).map((g) => (
-                  <div key={g.meal} className="slotgroup" data-closed={g.closed || undefined}>
-                    <div className="slotgroup-meal">{mealLabel(strings, g.meal)}</div>
-                    {g.closed ? (
-                      <div className="slotgroup-note">
-                        <span>{strings['booking.meal_closed']}</span>
-                        {g.reason && <span className="slotgroup-reason">{g.reason}</span>}
-                      </div>
-                    ) : (
-                      <div className="slotgrid">
-                        {g.slots.map(({ period, slot: s }) => {
-                          const taken = !slotOpen(board, period, s, booking.guests, at);
-                          return (
-                            <button
-                              type="button"
-                              // A time is one slot of the day: planDay gives a time two services share to the first.
-                              key={s.time}
-                              className="slot"
-                              data-selected={!taken && s.time === booking.time}
-                              data-taken={taken}
-                              disabled={taken}
-                              aria-label={formatMessage(strings[taken ? 'booking.slot_full_aria' : 'booking.slot_left_aria'], { time: s.time, count: s.left }, locale)}
-                              onClick={() => setBooking({ time: s.time })}
-                            >
-                              {s.time}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-              <div className="drawer-details">
-                <div className="drawer-label">{strings['booking.your_details']}</div>
-                <div className="drawer-fields">
-                  <label className="field">
-                    <span className="field-cap">{strings['form.name']}</span>
-                    <input
-                      value={form.name}
-                      onChange={(e) => setFormField('name', e.target.value)}
-                      placeholder={strings['form.ph_name']}
-                      autoComplete="name"
-                      maxLength={FIELD_MAX.name}
-                      data-invalid={errors.name}
-                      aria-invalid={errors.name}
-                    />
-                    {errors.name && <span className="field-error">{strings['error.invalid_name']}</span>}
-                  </label>
-
-                  <label className="field">
-                    <span className="field-cap">{strings['form.phone']}</span>
-                    <input
-                      type="tel"
-                      value={form.phone}
-                      onChange={(e) => setFormField('phone', e.target.value)}
-                      placeholder={strings['form.ph_phone']}
-                      autoComplete="tel"
-                      maxLength={FIELD_MAX.phone}
-                      data-invalid={errors.phone}
-                      aria-invalid={errors.phone}
-                    />
-                    {errors.phone && <span className="field-error">{strings['error.invalid_phone']}</span>}
-                  </label>
-
-                  <label className="field">
-                    <span className="field-cap">{strings['form.email']}</span>
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => setFormField('email', e.target.value)}
-                      placeholder={strings['form.ph_email']}
-                      autoComplete="email"
-                      maxLength={FIELD_MAX.email}
-                      data-invalid={errors.email}
-                      aria-invalid={errors.email}
-                    />
-                    {errors.email && <span className="field-error">{strings['error.invalid_email']}</span>}
-                  </label>
-
-                  <label className="field">
-                    <span className="field-cap">{strings['form.note']}</span>
-                    <textarea
-                      rows={3}
-                      value={form.note}
-                      onChange={(e) => setFormField('note', e.target.value)}
-                      placeholder={strings['form.ph_note']}
-                      maxLength={FIELD_MAX.note}
-                    />
-                  </label>
-                  <Honeypot value={honeypot} onChange={setHoneypot} />
-                </div>
-
-                {/* Spec §11: the notice at the point of collection, the policy one tap away (a new tab keeps this form), and a box only a person ticks. */}
-                <div className="drawer-consent">
-                  <p className="drawer-privacy" id={privacyId}>
-                    {strings['booking.privacy_notice']}{' '}
-                    <a href={privacyHref(locale)} target="_blank" rel="noopener">
-                      {strings['legal.link']}
-                    </a>
-                  </p>
-                  <label className="consent">
-                    <input
-                      type="checkbox"
-                      checked={consent}
-                      onChange={(e) => setConsent(e.target.checked)}
-                      // The error sits outside the label (the label is the box's name), so it joins the description while it shows.
-                      aria-describedby={errors.consent ? `${privacyId} ${consentErrorId}` : privacyId}
-                      aria-invalid={errors.consent}
-                      data-invalid={errors.consent}
-                    />
-                    <span>{strings['booking.consent']}</span>
-                  </label>
-                  {errors.consent && (
-                    <span id={consentErrorId} className="field-error">
-                      {strings['error.consent_required']}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="drawer-foot">
-              <div className="drawer-foot-copy">
-                <div className="drawer-foot-label">{strings['booking.your_table']}</div>
-                <div className="drawer-foot-summary">{summary}</div>
-                {serverError && (
-                  <div className="drawer-error" role="alert">
-                    <BookingError code={serverError.code} params={serverError.params} strings={strings} phone={groupPhone} />
-                  </div>
-                )}
-                {/* REQUEST BOOKING waiting for the dates: news, not an error. Always mounted, so it is read out. */}
-                <div className="drawer-foot-status" role="status">
-                  {footLoading ? strings['booking.loading'] : null}
-                </div>
-              </div>
-              <button
-                type="button"
-                className="drawer-submit"
-                onClick={submit}
-                disabled={pending}
-                aria-busy={pending}
-              >
-                {strings[pending ? 'booking.sending' : 'booking.submit']}
+              <button type="button" className="drawer-close" aria-label={strings['common.close']} onClick={closeDrawer}>
+                ×
               </button>
             </div>
-          </>
-        )}
+
+            {bookable.length === 0 && !done ? (
+              // Every restaurant books offline (R14): there is nothing to choose and no availability to wait
+              // for, so no form, only whom to call (R20; before, "Checking tables…" stayed for good).
+              <div className="drawer-body">
+                <p className="drawer-error" role="alert">
+                  <WithPhone template={strings['booking.all_offline']} params={{}} phone={DEFAULT_PHONE} />
+                </p>
+              </div>
+            ) : done ? (
+              <div className="drawer-done">
+                <div className="drawer-tick" aria-hidden="true">
+                  ✓
+                </div>
+                <div className="drawer-thanks">{formatMessage(strings['booking.thanks'], { name: form.name.trim() || strings['booking.thanks_anon'] }, locale)}</div>
+                {/* What was booked, as sent, in the words for its status: an auto-confirmed
+                    booking never waits in the pending tab, so nobody would call to confirm it. */}
+                <p className="drawer-done-lede">
+                  {formatMessage(strings[booked?.status === 'confirmed' ? 'booking.done_confirmed' : 'booking.done_requested'], {
+                    restaurant: booked?.restaurantName ?? '',
+                  })}
+                </p>
+                <div className="drawer-summary">
+                  <div className="drawer-summary-row">
+                    <span>{strings['booking.label_date']}</span>
+                    <span>{confirmedDate ? fmtDay(confirmedDate) : ''}</span>
+                  </div>
+                  <div className="drawer-summary-row">
+                    <span>{strings['booking.label_time']}</span>
+                    <span>{booked?.time}</span>
+                  </div>
+                  <div className="drawer-summary-row">
+                    <span>{strings['booking.label_guests']}</span>
+                    <span>{booked ? guestLabel(booked.guests) : ''}</span>
+                  </div>
+                  <div className="drawer-summary-row">
+                    <span>{strings['booking.label_reference']}</span>
+                    <span className="drawer-ref">{reference}</span>
+                  </div>
+                </div>
+                <button type="button" className="drawer-done-btn" onClick={closeDrawer}>
+                  {strings['booking.done']}
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="drawer-body">
+                  <div className="drawer-selects">
+                    <Dropdown
+                      id="dDestination"
+                      variant="boxed"
+                      label={strings['booking.label_destination']}
+                      value={booking.destination}
+                      options={destinationOptions}
+                      onPick={(destination) => setBooking({ destination })}
+                    />
+                    <Dropdown
+                      id="dRestaurant"
+                      variant="boxed"
+                      label={strings['booking.label_restaurant']}
+                      value={booking.restaurant}
+                      options={restaurantOptions}
+                      onPick={(id) => setBooking({ restaurant: id })}
+                    />
+                  </div>
+
+                  <DayStrip
+                    label={
+                      <div ref={datesLabelRef} className="drawer-label" tabIndex={-1}>
+                        {strings['booking.section_date']}
+                      </div>
+                    }
+                    days={days}
+                    selected={booking.date}
+                    onPick={(date) => setBooking({ date })}
+                    strings={strings}
+                    groupPhone={groupPhone}
+                    moved={dateMoved?.restaurant === booking.restaurant ? dateMoved : null}
+                    failure={
+                      loadFailed?.at === 'dates' ? (
+                        <LoadFailed
+                          count={loadFailed.count}
+                          code={loadFailed.code}
+                          strings={strings}
+                          phone={groupPhone}
+                          onRetry={retry}
+                          onFocus={() => arm('dates')}
+                        />
+                      ) : null
+                    }
+                  />
+
+                  <div className="guests">
+                    <div>
+                      <div className="guests-label">{strings['booking.section_guests']}</div>
+                      <div className="guests-value">{guestLabel(booking.guests)}</div>
+                    </div>
+                    <div className="guests-steppers">
+                      {/* aria-disabled, not disabled, on both: a button that turns disabled loses
+                          the focus to <body>, which drops a keyboard user out of the stepper at
+                          either end (at the top just as the hint below tells them whom to call). */}
+                      <button
+                        type="button"
+                        aria-label={strings['booking.fewer_guests']}
+                        aria-disabled={booking.guests <= 1 || undefined}
+                        onClick={() => {
+                          if (booking.guests > 1) setBooking({ guests: booking.guests - 1 });
+                        }}
+                      >
+                        −
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={strings['booking.more_guests']}
+                        aria-disabled={noMore || undefined}
+                        aria-describedby={hint ? hintId : undefined}
+                        onClick={() => {
+                          if (!noMore) setBooking({ guests: booking.guests + 1 });
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  {/* Always mounted, empty below the limit, so the hint is read out when it appears. */}
+                  <div id={hintId} role="status">
+                    {hint && (
+                      <p className="guests-hint">
+                        <WithPhone
+                          template={strings['error.party_too_large']}
+                          params={{ max: maxParty }}
+                          phone={groupPhone}
+                        />
+                      </p>
+                    )}
+                  </div>
+
+                  <div ref={timesLabelRef} className="drawer-label" tabIndex={-1}>
+                    {strings['booking.section_time']}
+                  </div>
+                  {loadFailed
+                    ? loadFailed.at === 'times' && (
+                        <LoadFailed
+                          count={loadFailed.count}
+                          code={loadFailed.code}
+                          strings={strings}
+                          phone={groupPhone}
+                          onRetry={retry}
+                          onFocus={() => arm('times')}
+                        />
+                      )
+                    : !board && booking.date && <div className="slot-loading">{strings['booking.loading']}</div>}
+                  {/* Why there is no time to choose: the day closed, or every time is taken. Always mounted,
+                      empty otherwise, so a screen reader hears the news when the day's answer brings it. */}
+                  <div role="status">
+                    {board?.state === 'closed' ? (
+                      <div className="drawer-error">{strings['error.closed']}</div>
+                    ) : (
+                      !anyAvailable && <div className="drawer-error">{strings['booking.no_tables']}</div>
+                    )}
+                  </div>
+                  {/* By meal, not by service: two lunch services (a cooking class at 11:00 and at 14:00) are one "Lunch". */}
+                  {board &&
+                    mealGroups(board.periods).map((g) => (
+                      <div key={g.meal} className="slotgroup" data-closed={g.closed || undefined}>
+                        <div className="slotgroup-meal">{mealLabel(strings, g.meal)}</div>
+                        {g.closed ? (
+                          <div className="slotgroup-note">
+                            <span>{strings['booking.meal_closed']}</span>
+                            {g.reason && <span className="slotgroup-reason">{g.reason}</span>}
+                          </div>
+                        ) : (
+                          <div className="slotgrid">
+                            {g.slots.map(({ period, slot: s }) => {
+                              const taken = !slotOpen(board, period, s, booking.guests, at);
+                              return (
+                                <button
+                                  type="button"
+                                  // A time is one slot of the day: planDay gives a time two services share to the first.
+                                  key={s.time}
+                                  className="slot"
+                                  data-selected={!taken && s.time === booking.time}
+                                  data-taken={taken}
+                                  disabled={taken}
+                                  aria-label={formatMessage(strings[taken ? 'booking.slot_full_aria' : 'booking.slot_left_aria'], { time: s.time, count: s.left }, locale)}
+                                  onClick={() => setBooking({ time: s.time })}
+                                >
+                                  {s.time}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                  <div className="drawer-details">
+                    <div className="drawer-label">{strings['booking.your_details']}</div>
+                    <div className="drawer-fields">
+                      <label className="field">
+                        <span className="field-cap">{strings['form.name']}</span>
+                        <input
+                          value={form.name}
+                          onChange={(e) => setFormField('name', e.target.value)}
+                          placeholder={strings['form.ph_name']}
+                          autoComplete="name"
+                          maxLength={FIELD_MAX.name}
+                          data-invalid={errors.name}
+                          aria-invalid={errors.name}
+                        />
+                        {errors.name && <span className="field-error">{strings['error.invalid_name']}</span>}
+                      </label>
+
+                      <label className="field">
+                        <span className="field-cap">{strings['form.phone']}</span>
+                        <input
+                          type="tel"
+                          value={form.phone}
+                          onChange={(e) => setFormField('phone', e.target.value)}
+                          placeholder={strings['form.ph_phone']}
+                          autoComplete="tel"
+                          maxLength={FIELD_MAX.phone}
+                          data-invalid={errors.phone}
+                          aria-invalid={errors.phone}
+                        />
+                        {errors.phone && <span className="field-error">{strings['error.invalid_phone']}</span>}
+                      </label>
+
+                      <label className="field">
+                        <span className="field-cap">{strings['form.email']}</span>
+                        <input
+                          type="email"
+                          value={form.email}
+                          onChange={(e) => setFormField('email', e.target.value)}
+                          placeholder={strings['form.ph_email']}
+                          autoComplete="email"
+                          maxLength={FIELD_MAX.email}
+                          data-invalid={errors.email}
+                          aria-invalid={errors.email}
+                        />
+                        {errors.email && <span className="field-error">{strings['error.invalid_email']}</span>}
+                      </label>
+
+                      <label className="field">
+                        <span className="field-cap">{strings['form.note']}</span>
+                        {/* Reached by Tab on a landscape phone it may be half under the sticky footer, and a partly
+                            shown field is not scrolled: brought fully into view, clear of the footer (scroll padding). */}
+                        <textarea
+                          rows={3}
+                          onFocus={(e) => e.currentTarget.scrollIntoView({ block: 'nearest' })}
+                          value={form.note}
+                          onChange={(e) => setFormField('note', e.target.value)}
+                          placeholder={strings['form.ph_note']}
+                          maxLength={FIELD_MAX.note}
+                        />
+                      </label>
+                      <Honeypot value={honeypot} onChange={setHoneypot} />
+                    </div>
+
+                    {/* Spec §11: the notice at the point of collection, the policy one tap away (a new tab keeps this form), and a box only a person ticks. */}
+                    <div className="drawer-consent">
+                      <p className="drawer-privacy" id={privacyId}>
+                        {strings['booking.privacy_notice']}{' '}
+                        <a href={privacyHref(locale)} target="_blank" rel="noopener">
+                          {strings['legal.link']}
+                        </a>
+                      </p>
+                      <label className="consent">
+                        <input
+                          type="checkbox"
+                          checked={consent}
+                          onChange={(e) => setConsent(e.target.checked)}
+                          // The error sits outside the label (the label is the box's name), so it joins the description while it shows.
+                          aria-describedby={errors.consent ? `${privacyId} ${consentErrorId}` : privacyId}
+                          aria-invalid={errors.consent}
+                          data-invalid={errors.consent}
+                        />
+                        <span>{strings['booking.consent']}</span>
+                      </label>
+                      {errors.consent && (
+                        <span id={consentErrorId} className="field-error">
+                          {strings['error.consent_required']}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="drawer-foot">
+                  <div className="drawer-foot-copy">
+                    <div className="drawer-foot-label">{strings['booking.your_table']}</div>
+                    <div className="drawer-foot-summary">{summary}</div>
+                    {serverError && (
+                      <div className="drawer-error" role="alert">
+                        <BookingError code={serverError.code} params={serverError.params} strings={strings} phone={groupPhone} />
+                      </div>
+                    )}
+                    {/* REQUEST BOOKING waiting for the dates: news, not an error. Always mounted, so it is read out. */}
+                    <div className="drawer-foot-status" role="status">
+                      {footLoading ? strings['booking.loading'] : null}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="drawer-submit"
+                    onClick={submit}
+                    disabled={pending}
+                    aria-busy={pending}
+                  >
+                    {strings[pending ? 'booking.sending' : 'booking.submit']}
+                  </button>
+                </div>
+              </>
+            )}
+          </Still>
+        </div>
       </aside>
     </div>
   );
 }
-
-export { animateSelector };
