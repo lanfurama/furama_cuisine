@@ -248,7 +248,7 @@
   border: 1px solid var(--line);
   background: var(--white);
   color: var(--ink);
-  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, transform 0.2s var(--ease-out);
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, transform 0.16s var(--ease-out);
 }
 
 .day[data-selected='true'] {
@@ -257,7 +257,7 @@
   color: var(--cream);
 }
 
-@media (hover: hover) {
+@media (hover: hover) and (pointer: fine) {
   .day[data-state='open']:not([data-selected='true']):hover,
   .slot:not(:disabled):not([data-selected='true']):hover,
   .guests-steppers button:not(:disabled):not([aria-disabled='true']):hover {
@@ -409,7 +409,7 @@
   font-size: 13px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, transform 0.2s var(--ease-out);
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, transform 0.16s var(--ease-out);
 }
 
 .slot[data-selected='true'] {
@@ -764,7 +764,7 @@
 
   .drawer :is(.drawer-error, .field-error, .day-note, .guests-hint, .slot-loading, .load-retry),
   .drawer-foot-status:not(:empty) {
-    animation: drawer-note-in 0.4s var(--ease-out) both;
+    animation: drawer-note-in 0.2s var(--ease-out) both;
   }
 }
 

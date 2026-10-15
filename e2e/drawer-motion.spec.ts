@@ -8,7 +8,7 @@ import { HOME_PATH } from './paths';
  * does, the page behind already has the focus and the keyboard back
  * (components/site/Chrome.tsx, useModalOverlays): the leaving panel is no
  * longer a dialog, and inert. Opening it again on its way out turns the same
- * panel round. With reduced motion it opens and closes at once. Animations
+ * panel round. With reduced motion it fades in and out, never moving. Animations
  * are slowed through Chrome's DevTools protocol, so a step can land mid-way;
  * availability is mocked: nothing here needs the database.
  */
@@ -157,19 +157,28 @@ test.describe('with motion', () => {
 test.describe('with reduced motion', () => {
   test.use({ reducedMotion: 'reduce' });
 
-  test('the drawer opens and closes at once, without moving', async ({ page }) => {
+  test('the drawer fades in and out, without moving', async ({ page }) => {
     await page.goto(HOME_PATH);
     const reserve = reserveButton(page);
+    await playAt(page, 0.05);
     await reserve.click();
     const drawer = page.getByRole('dialog', { name: 'Reserve a table' });
+    await expect(drawer).toBeVisible();
+    expect(await offset(page)).toEqual({ x: 0, y: 0 });
+    expect(Number(await page.locator('.drawer').evaluate((el) => getComputedStyle(el).opacity))).toBeLessThan(1);
+    await playAt(page, 1);
     await expect(drawer.locator('.slot').first()).toBeVisible();
-    expect(await playing(page)).toBe(0);
+    await expect.poll(() => playing(page)).toBe(0);
     expect(await offset(page)).toEqual({ x: 0, y: 0 });
 
+    await playAt(page, 0.05);
     await page.keyboard.press('Escape');
-    // Gone in the same update as the close: no assertion that waits.
-    expect(await page.locator('.drawer-root').count()).toBe(0);
+    // On its way out it fades where it stands, already out of the keyboard's way.
+    await expect(page.locator('.drawer-root')).toHaveAttribute('inert', '');
+    expect(await offset(page)).toEqual({ x: 0, y: 0 });
     await expect(reserve).toBeFocused();
     await expect(behind(page)).not.toHaveAttribute('inert');
+    await playAt(page, 1);
+    await expect(page.locator('.drawer-root')).toHaveCount(0);
   });
 });

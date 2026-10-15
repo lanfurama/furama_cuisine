@@ -1,13 +1,13 @@
 'use client';
 
 import { memo, useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
-import { EASE_IN, EASE_OUT, EASE_POP, readMotionLevel, usePresence } from '@/lib/motion';
+import { EASE_DRAWER, EASE_OUT, EASE_POP, readMotionLevel, usePresence } from '@/lib/motion';
 
 /*
  * The Reserve drawer's motion (components/overlays/ReserveDrawer.tsx): its
  * way in and out, the times of a day coming in, and the thanks. Transforms
- * and opacity only, on the drawer's own elements (no document queries), and
- * none of it with reduced motion: the drawer then opens and closes at once.
+ * and opacity only, on the drawer's own elements (no document queries). With
+ * reduced motion nothing moves: the drawer fades in and out, nothing else plays.
  * The small motions that need no script (a day or a time giving under the
  * finger, a message fading in) are in styles/overlays.css.
  */
@@ -35,6 +35,26 @@ function offstage(root: HTMLElement, panel: HTMLElement) {
   return panel.offsetWidth >= root.clientWidth - 1 ? 'translateY(100%)' : 'translateX(100%)';
 }
 
+/** The panel's slide in, its slide out (a quicker reply to a close), and the fade that stands for both with reduced motion. */
+const IN_MS = 450;
+const OUT_MS = 280;
+const FADE_MS = 150;
+
+/** The way in or out playing on an element (not a CSS transition or animation of its own). */
+const playingOn = (el: Element) => el.getAnimations().filter((a) => !(a instanceof CSSTransition) && !(a instanceof CSSAnimation));
+
+/**
+ * Where the panel and its shade stand now, mid-way or at rest, and the way in
+ * or out stopped there: what follows starts from this point, so a quick
+ * reopen or close turns round instead of jumping.
+ */
+function standstill(sheet: HTMLElement, shade: HTMLElement) {
+  const moving = playingOn(sheet).length > 0 || playingOn(shade).length > 0;
+  const at = { moving, transform: getComputedStyle(sheet).transform, opacity: getComputedStyle(sheet).opacity, dim: getComputedStyle(shade).opacity };
+  for (const el of [sheet, shade]) playingOn(el).forEach((a) => a.cancel());
+  return at;
+}
+
 type Parts = {
   /** The dialog's box (the whole window), its shade, and the panel. */
   root: RefObject<HTMLElement | null>;
@@ -50,25 +70,39 @@ type Parts = {
 export function useDrawerMotion(open: boolean, { root, backdrop, panel }: Parts, times: string | null, done: boolean): boolean {
   /* The way in: the shade, the panel, then the head and the form's sections
      one after another (only those on screen: below the fold nothing is seen
-     to wait), with the footer early, so REQUEST BOOKING is never the last to
-     come. Measured before the panel moves, so a line's place is where it
-     will settle. */
+     to wait), with the footer early, so REQUEST BOOKING is there with the
+     panel. Measured before the panel moves, so a line's place is where it
+     will settle. Turned round on its way out, the panel comes back from where
+     it is, its lines already in place. */
   const enter = () => {
     const box = root.current;
     const shade = backdrop.current;
     const sheet = panel.current;
     if (!box || !shade || !sheet?.animate) return;
+    const at = standstill(sheet, shade);
+    if (!readMotionLevel()) {
+      sheet.animate([{ opacity: at.moving ? at.opacity : 0 }, { opacity: 1 }], { duration: FADE_MS, easing: 'ease', fill: 'backwards' });
+      shade.animate([{ opacity: at.moving ? at.dim : 0 }, { opacity: 1 }], { duration: FADE_MS, easing: 'ease', fill: 'backwards' });
+      return;
+    }
     const fold = box.clientHeight;
-    const lines = [...sheet.querySelectorAll<HTMLElement>('.drawer-head>*,.drawer-body>*')].filter((el) => {
-      const at = el.getBoundingClientRect();
-      return at.height > 0 && at.top < fold;
+    const lines = at.moving
+      ? []
+      : [...sheet.querySelectorAll<HTMLElement>('.drawer-head>*,.drawer-body>*')].filter((el) => {
+          const place = el.getBoundingClientRect();
+          return place.height > 0 && place.top < fold;
+        });
+    shade.animate([{ opacity: at.moving ? at.dim : 0 }, { opacity: 1 }], { duration: 300, easing: EASE_OUT, fill: 'backwards' });
+    sheet.animate([{ transform: at.moving ? at.transform : offstage(box, sheet) }, { transform: 'none' }], {
+      duration: IN_MS,
+      easing: EASE_DRAWER,
+      fill: 'backwards',
     });
-    const rise = (el: Element, delay: number) => el.animate(RISE, { duration: 560, delay, easing: EASE_OUT, fill: 'backwards' });
-    shade.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: 'ease', fill: 'backwards' });
-    sheet.animate([{ transform: offstage(box, sheet) }, { transform: 'none' }], { duration: 640, easing: EASE_OUT, fill: 'backwards' });
-    lines.forEach((el, i) => rise(el, 140 + Math.min(i, 8) * 45));
+    if (at.moving) return;
+    const rise = (el: Element, delay: number) => el.animate(RISE, { duration: 300, delay, easing: EASE_OUT, fill: 'backwards' });
+    lines.forEach((el, i) => rise(el, 80 + Math.min(i, 8) * 30));
     const foot = sheet.querySelector('.drawer-foot');
-    if (foot) rise(foot, 300);
+    if (foot) rise(foot, 120);
   };
 
   /* The way out: the panel back where it came from, the shade lifting with it,
@@ -78,12 +112,16 @@ export function useDrawerMotion(open: boolean, { root, backdrop, panel }: Parts,
     const shade = backdrop.current;
     const sheet = panel.current;
     if (!box || !shade || !sheet?.animate) return [];
-    const from = getComputedStyle(sheet).transform;
-    const dim = getComputedStyle(shade).opacity;
-    for (const el of [sheet, shade]) el.getAnimations().forEach((a) => a.cancel());
+    const at = standstill(sheet, shade);
+    if (!readMotionLevel()) {
+      return [
+        sheet.animate([{ opacity: at.opacity }, { opacity: 0 }], { duration: FADE_MS, easing: 'ease', fill: 'forwards' }),
+        shade.animate([{ opacity: at.dim }, { opacity: 0 }], { duration: FADE_MS, easing: 'ease', fill: 'forwards' }),
+      ];
+    }
     return [
-      sheet.animate([{ transform: from }, { transform: offstage(box, sheet) }], { duration: 380, easing: EASE_IN, fill: 'forwards' }),
-      shade.animate([{ opacity: dim }, { opacity: 0 }], { duration: 380, easing: 'linear', fill: 'forwards' }),
+      sheet.animate([{ transform: at.transform }, { transform: offstage(box, sheet) }], { duration: OUT_MS, easing: EASE_DRAWER, fill: 'forwards' }),
+      shade.animate([{ opacity: at.dim }, { opacity: 0 }], { duration: OUT_MS, easing: EASE_OUT, fill: 'forwards' }),
     ];
   };
 
@@ -105,12 +143,12 @@ export function useDrawerMotion(open: boolean, { root, backdrop, panel }: Parts,
     panel.current?.querySelectorAll<HTMLElement>('.slotgroup-meal,.slotgroup-note,.slot').forEach((el, i) => {
       el.animate?.(
         [
-          { opacity: 0, transform: 'translateY(8px)' },
+          { opacity: 0, transform: 'translateY(4px)' },
           { opacity: 1, transform: 'none' },
         ],
         {
-          duration: 420,
-          delay: Math.min(i, 16) * 24,
+          duration: 200,
+          delay: Math.min(i, 8) * 15,
           easing: EASE_OUT,
           fill: 'backwards',
         },
@@ -130,16 +168,17 @@ export function useDrawerMotion(open: boolean, { root, backdrop, panel }: Parts,
       ],
       { duration: 720, delay: 60, easing: EASE_POP, fill: 'backwards' },
     );
-    const settle = (selector: string, from: number, frames = RISE) =>
+    const settle = (selector: string, from: number, frames = RISE, duration = 400) =>
       sheet.querySelectorAll(selector).forEach((el, i) => {
-        el.animate(frames, { duration: 560, delay: from + i * 70, easing: EASE_OUT, fill: 'backwards' });
+        el.animate(frames, { duration, delay: from + i * 70, easing: EASE_OUT, fill: 'backwards' });
       });
     settle('.drawer-thanks,.drawer-done-lede,.drawer-summary', 200);
     settle('.drawer-summary-row', 420, [
       { opacity: 0, transform: 'translateY(6px)' },
       { opacity: 1, transform: 'none' },
     ]);
-    settle('.drawer-done-btn', 740);
+    // The way out is not kept waiting behind the thanks.
+    settle('.drawer-done-btn', 400, RISE, 300);
   }, [done, open, panel]);
 
   return present;
