@@ -12,7 +12,7 @@ export default function GlobalError({ retry }: { error: Error & { digest?: strin
   return (
     <html lang="en">
       <body>
-        <title>Furama Cuisine</title>
+        <title>Furama Dining World</title>
         <main className="shell page-message">
           <h1>We could not load this page.</h1>
           <p>

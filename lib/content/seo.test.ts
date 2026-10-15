@@ -11,11 +11,11 @@ const TAYA = { name: 'Tàya House', seo: { title: null, description: 'A wellness
 describe('the guest site’s metadata (spec §7.2 content/seo, L7-13)', () => {
   it('the home page says what it said before, from seo.*', () => {
     expect(homeMetadata(T, null)).toEqual({
-      title: 'Furama Cuisine — Many Flavours. Many Destinations.',
-      description: 'From beachfront dining to vibrant city destinations – discover the restaurants, cuisines and people of Furama Cuisine in Da Nang.',
+      title: 'Furama Dining World — Many Flavours. Many Destinations.',
+      description: 'From beachfront dining to vibrant city destinations – discover the restaurants, cuisines and people of Furama Dining World in Da Nang.',
       openGraph: {
-        title: 'Furama Cuisine',
-        description: 'Furama Culinary World — the restaurants of Furama Resort Danang, Furama Dining House and the Furama Culinary Hub in Da Nang.',
+        title: 'Furama Dining World',
+        description: 'Furama Dining World — the restaurants of Furama Resort Danang, Furama Dining House and Dining Village Mega Market in Da Nang.',
         type: 'website',
       },
     });
@@ -24,10 +24,10 @@ describe('the guest site’s metadata (spec §7.2 content/seo, L7-13)', () => {
 
   it('a restaurant page shares its own title and description, never the home page’s, and falls back to the SEO screen’s picture', () => {
     expect(restaurantMetadata(T, TAYA, SHARE, 'en')).toEqual({
-      title: 'Tàya House — Furama Cuisine',
+      title: 'Tàya House — Furama Dining World',
       description: 'A wellness dining home.',
       openGraph: {
-        title: 'Tàya House — Furama Cuisine',
+        title: 'Tàya House — Furama Dining World',
         description: 'A wellness dining home.',
         type: 'website',
         images: [{ url: SHARE.url, width: 1600, height: 1000, alt: SHARE.alt }],
@@ -42,14 +42,14 @@ describe('the guest site’s metadata (spec §7.2 content/seo, L7-13)', () => {
   });
 
   it('names the other pages from seo.page_title and seo.not_found_title', () => {
-    expect(pageTitle(T, 'Privacy policy', 'en')).toBe('Privacy policy — Furama Cuisine');
-    expect(ownPageMetadata('Privacy policy — Furama Cuisine', 'What we do with your details.', null)).toEqual({
-      title: 'Privacy policy — Furama Cuisine',
+    expect(pageTitle(T, 'Privacy policy', 'en')).toBe('Privacy policy — Furama Dining World');
+    expect(ownPageMetadata('Privacy policy — Furama Dining World', 'What we do with your details.', null)).toEqual({
+      title: 'Privacy policy — Furama Dining World',
       description: 'What we do with your details.',
-      openGraph: { title: 'Privacy policy — Furama Cuisine', description: 'What we do with your details.', type: 'website' },
+      openGraph: { title: 'Privacy policy — Furama Dining World', description: 'What we do with your details.', type: 'website' },
     });
     // alternates: null drops the canonical and hreflang a 404 would otherwise inherit from the layout (the home page's).
-    expect(notFoundMetadata(T)).toEqual({ title: 'Page not found — Furama Cuisine', robots: { index: false }, alternates: null });
+    expect(notFoundMetadata(T)).toEqual({ title: 'Page not found — Furama Dining World', robots: { index: false }, alternates: null });
   });
 
   it('a decorative share picture says no alt, rather than an empty og:image:alt (7B ledger)', () => {

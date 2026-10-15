@@ -8,7 +8,7 @@ export default function LanguageNotFound() {
       <h1>Page not found</h1>
       <p>
         <a href={homeHref(DEFAULT_LOCALE)} className="page-message-home">
-          Back to Furama Cuisine
+          Back to Furama Dining World
         </a>
       </p>
     </main>

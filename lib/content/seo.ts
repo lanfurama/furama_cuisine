@@ -50,7 +50,7 @@ function page(title: string, description: string, image: Media | null): Metadata
   return { title, description, openGraph: { title, description, type: 'website', ...(shared ? { images: shared } : {}) } };
 }
 
-/** "{page} — Furama Cuisine": a page's tab title from seo.page_title. */
+/** "{page} — Furama Dining World": a page's tab title from seo.page_title. */
 export function pageTitle(t: Pick<SeoCopy, 'seo.page_title'>, name: string, locale: string): string {
   return formatMessage(t['seo.page_title'], { page: name }, locale);
 }
@@ -71,7 +71,7 @@ export function ownPageMetadata(title: string, description: string, share: Media
 }
 
 /**
- * A restaurant's page (L7-13): its SEO title, else "{name} — Furama Cuisine";
+ * A restaurant's page (L7-13): its SEO title, else "{name} — Furama Dining World";
  * its SEO description, else the SEO screen's; its own share picture, else the
  * SEO screen's. Its share text is always its own title and description.
  */

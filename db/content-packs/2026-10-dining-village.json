@@ -1,0 +1,9 @@
+{
+  "id": "2026-10-dining-village",
+  "note": "The MM destination is now called Dining Village Mega Market (staff's request, 2026-10-15): its name and the two lines of its home card title.",
+  "changes": [
+    { "kind": "text", "entity": "destinations", "id": "mm", "column": "name", "from": "Furama Culinary Hub, MM Supercenter", "to": "Dining Village Mega Market" },
+    { "kind": "text", "entity": "destinations", "id": "mm", "column": "card_title_1", "from": "Furama", "to": "Dining Village" },
+    { "kind": "text", "entity": "destinations", "id": "mm", "column": "card_title_2", "from": "Culinary Hub", "to": "Mega Market" }
+  ]
+}

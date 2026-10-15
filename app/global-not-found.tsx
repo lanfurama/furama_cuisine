@@ -5,7 +5,7 @@ import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Page not found — Furama Cuisine',
+  title: 'Page not found — Furama Dining World',
 };
 
 /*
@@ -20,7 +20,7 @@ export default function GlobalNotFound() {
         <main className="shell" style={{ padding: '160px 0 120px', textAlign: 'center' }}>
           <h1>Page not found</h1>
           <p>
-            <a href={homeHref(DEFAULT_LOCALE)}>Back to Furama Cuisine</a>
+            <a href={homeHref(DEFAULT_LOCALE)}>Back to Furama Dining World</a>
           </p>
         </main>
       </body>

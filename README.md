@@ -1,4 +1,4 @@
-# Furama Cuisine
+# Furama Dining World
 
 Implementation of the `Furama Cuisine.dc.html` design canvas as a Next.js app,
 with reservations persisted in Neon Postgres.
@@ -827,6 +827,24 @@ column; the old code ignores it.
 **Rollback:** leave 014 in place (earlier code ignores the column) and roll
 back the deployment only.
 
+### Migration 015 (brand name in the privacy policy)
+
+The brand is now Furama Dining World, and the privacy policy and the consent
+label name it. `015_legal_brand_name.sql` adds the English `legal_versions`
+row for the new text (version `2026-10-15`), so bookings made after the
+deploy record the text they agreed to. It only adds a row and is safe to run
+again.
+
+**015 and the deploy in the same window.** Until the deploy, guests still
+read the old text under the new version.
+
+- **Apply:** `DATABASE_URL_UNPOOLED=<production's direct URL> node scripts/migrate.mjs`
+  (it prints `✓ 015_legal_brand_name.sql`).
+- **Check:** `SELECT version FROM legal_versions WHERE locale = 'en' ORDER BY version` returns `2026-10-03`, `2026-10-15`.
+- **Pack:** `db/content-packs/2026-10-furama-dining-world.json` (see "Content packs").
+
+**Rollback:** leave 015 in place and roll back the deployment only.
+
 ### Content packs
 
 A content pack is a reviewed JSON file of edits to the content the migrations
@@ -943,6 +961,14 @@ FILM Furama's own video, and aligns three restaurants' online booking with
 their published hours (Tàya House: the 11:00 and 14:00 classes; V-Senses
 Cafe: no weekends, last seating 20:00; Phố Cuốn: from 09:00). Its `facts`
 and `sources` name the page behind each change. Apply it after 013.
+
+`db/content-packs/2026-10-dining-village.json` renames the MM destination
+Dining Village Mega Market (its name and both lines of its card title).
+Apply it after the official-photos pack.
+
+`db/content-packs/2026-10-furama-dining-world.json` renames the brand in the
+one seeded text that names it (Tàya House's SEO title); the code carries the
+name Furama Dining World everywhere else.
 
 ### Media in Vercel Blob (phase 7A)
 
@@ -1086,7 +1112,7 @@ undone by restoring the rows from their audit rows.
 | `BETTER_AUTH_URL` | `https://<production domain>`, the origin of emailed links (required outside log mode) | the preview's own URL | `http://localhost:<port>` |
 | `EMAIL_DELIVERY` | `redirect` until go-live, then `live` (Production only: the sender refuses `live` on a Preview and under `vercel dev`) | `redirect` | `log` (also the default when unset) |
 | `EMAIL_REDIRECT_TO` | the Admin's inbox, only while Production runs on redirect (before go-live) | the Admin's inbox, which receives every preview email | — |
-| `EMAIL_FROM` | `Furama Cuisine <no-reply@…>`, an address the SMTP login may send as, and a mailbox someone reads (bounces land there) | same | unset (log mode) |
+| `EMAIL_FROM` | `Furama Dining World <no-reply@…>`, an address the SMTP login may send as, and a mailbox someone reads (bounces land there) | same | unset (log mode) |
 | `SMTP_HOST` | the provider's submission host | same | never set |
 | `SMTP_PORT` | `587` (STARTTLS, the default) or `465` (TLS) | same | never set |
 | `SMTP_SECURE` | only if the port rule does not fit: `true` (TLS from the first byte) or `false` (STARTTLS); unset means `true` on 465 only | same | never set |
@@ -1306,7 +1332,7 @@ a new deployment.
    "Authenticated SMTP" turned on), or use Google Workspace with an app
    password, or a transactional SMTP provider (SMTP relay with a username and
    password). Mind each provider's daily recipient limit.
-5. **`EMAIL_FROM`:** for example `Furama Cuisine <no-reply@mail.furamavietnam.com>`,
+5. **`EMAIL_FROM`:** for example `Furama Dining World <no-reply@mail.furamavietnam.com>`,
    an address or alias the login may send as. It must also be a mailbox or
    alias someone reads (a `no-reply@` alias too): Microsoft 365 and Google
    accept a mistyped guest address and bounce it later to the sender, so the

@@ -51,7 +51,7 @@ function codeOf(err: unknown): string {
 
 export function createAuth(deps: AuthDeps) {
   return betterAuth({
-    appName: 'Furama Cuisine',
+    appName: 'Furama Dining World',
     secret: deps.secret,
     baseURL: deps.baseURL,
     database: deps.pool,

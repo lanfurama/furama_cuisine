@@ -39,7 +39,7 @@ export function MenuOverlay() {
       inert={leaving}
     >
       <div className="menu-head">
-        <div className="menu-wordmark">FURAMA CUISINE</div>
+        <div className="menu-wordmark">FURAMA DINING WORLD</div>
         {/* Where the focus goes when the menu opens (data-autofocus, components/site/Chrome.tsx). */}
         <button type="button" className="overlay-close" aria-label={strings['ui.close_menu']} onClick={close} data-autofocus>
           ×

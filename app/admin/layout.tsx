@@ -26,7 +26,7 @@ import '@/styles/admin.css';
 export const instant = false;
 
 export const metadata: Metadata = {
-  title: { template: '%s · Quản trị Furama Cuisine', default: 'Quản trị Furama Cuisine' },
+  title: { template: '%s · Quản trị Furama Dining World', default: 'Quản trị Furama Dining World' },
   robots: { index: false, follow: false },
 };
 

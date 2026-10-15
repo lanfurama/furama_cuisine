@@ -6,7 +6,7 @@ const FONT_STACK = "Helvetica, Arial, 'Apple SD Gothic Neo', 'Malgun Gothic', 'P
 
 const brand = '#7a1f2b';
 
-const STAFF_FOOTER = 'Đây là email tự động từ hệ thống quản trị Furama Cuisine. Vui lòng không trả lời email này.';
+const STAFF_FOOTER = 'Đây là email tự động từ hệ thống quản trị Furama Dining World. Vui lòng không trả lời email này.';
 
 /**
  * Shared shell for every email. Inline styles only: email clients ignore stylesheets.
@@ -21,7 +21,7 @@ export function EmailLayout({ preview, children, lang = 'vi', footer = STAFF_FOO
       <Body lang={lang} style={{ backgroundColor: '#f6f3ee', margin: 0, padding: '24px 0', fontFamily: FONT_STACK, color: '#2b2622' }}>
         <Container style={{ backgroundColor: '#ffffff', maxWidth: 520, margin: '0 auto', padding: '32px 28px', borderTop: `4px solid ${brand}` }}>
           <Text style={{ margin: '0 0 24px', fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', color: brand }}>
-            Furama Cuisine
+            Furama Dining World
           </Text>
           {children}
           <Hr style={{ borderColor: '#e6e0d6', margin: '28px 0 12px' }} />

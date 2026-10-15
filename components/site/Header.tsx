@@ -36,7 +36,7 @@ export function Header() {
             <BrandMark className="hdr-logo-mark" />
             <span className="hdr-logo-text">
               <span className="hdr-logo-word">FURAMA</span>
-              <span className="hdr-logo-sub">CUISINE</span>
+              <span className="hdr-logo-sub">DINING WORLD</span>
             </span>
           </a>
 
@@ -78,7 +78,7 @@ export function Header() {
             }}
           >
             <BrandMark className="hdr-wordmark-mark" />
-            FURAMA CUISINE
+            FURAMA DINING WORLD
           </a>
           <div className="hdr-compact-actions">
             <button type="button" className="btn-gold hdr-compact-reserve" onClick={() => openReserve()}>

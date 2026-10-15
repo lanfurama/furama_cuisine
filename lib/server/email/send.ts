@@ -101,7 +101,7 @@ export function resolveMode(raw: string | undefined, vercelEnv: string | undefin
   return value;
 }
 
-/** The domain of EMAIL_FROM ("Furama Cuisine <no-reply@mail.furamavietnam.com>" → mail.furamavietnam.com). */
+/** The domain of EMAIL_FROM ("Furama Dining World <no-reply@mail.furamavietnam.com>" → mail.furamavietnam.com). */
 export function senderDomain(from: string | undefined): string | null {
   const match = from?.trim().match(/@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)>?$/);
   return match ? match[1].toLowerCase() : null;

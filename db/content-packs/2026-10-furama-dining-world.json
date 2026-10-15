@@ -1,0 +1,7 @@
+{
+  "id": "2026-10-furama-dining-world",
+  "note": "The brand is now Furama Dining World (owner's request, 2026-10-15). The code carries the name everywhere else; this is the one seeded text in the database that names it.",
+  "changes": [
+    { "kind": "text", "entity": "restaurants", "id": "taya-house", "column": "seo_title", "from": "Tàya House — Furama Cuisine", "to": "Tàya House — Furama Dining World" }
+  ]
+}

@@ -535,7 +535,7 @@ export const REGISTRY = {
     label: 'Thông báo bảo mật trong form đặt bàn',
   },
   'booking.consent': {
-    en: 'I agree to Furama Cuisine using my details as described in the privacy policy.',
+    en: 'I agree to Furama Dining World using my details as described in the privacy policy.',
     maxLength: 160,
     context:
       'Reservation form, the label of the required consent checkbox. The policy link sits next to it (legal.link), not inside the label.',
@@ -565,7 +565,7 @@ export const REGISTRY = {
     label: 'Dòng “cập nhật ngày”',
   },
   'legal.intro': {
-    en: 'Furama Cuisine is the dining brand of Furama Resort Danang and Furama Dining House. This policy explains what we do with the details you give us when you request a table online.',
+    en: 'Furama Dining World is the dining brand of Furama Resort Danang and Furama Dining House. This policy explains what we do with the details you give us when you request a table online.',
     maxLength: 600,
     context: 'Privacy policy page, the opening paragraph: who is responsible for the data.',
     screen: 'legal',
@@ -742,8 +742,8 @@ export const REGISTRY = {
   // ── Hero (spec §7.2 content/hero): the home page reads them on the server and hands them to the hero (page props);
   // the same three title lines name the page from a hidden <h1> when the hero is left out (phase-6 F-A, L7-16) ──
   'hero.kicker': {
-    // The name Furama gives its dining (furamavietnam.com/culinary/: "Furama Culinary World").
-    en: 'Furama Culinary World',
+    // The brand name (renamed from "Furama Culinary World" / "Furama Cuisine", 2026-10-15).
+    en: 'Furama Dining World',
     maxLength: 48,
     context: 'Home page, small line above the hero title, over the photo. One line on a phone.',
     screen: 'hero',
@@ -765,14 +765,14 @@ export const REGISTRY = {
     label: 'Tiêu đề, dòng 2 (chỉ máy tính)',
   },
   'hero.title_3': {
-    en: 'One Furama Cuisine.',
+    en: 'One Furama Dining World.',
     maxLength: 28,
     context: 'Home page, hero title, line 3 of 3; ends the sentence of lines 1 and 2.',
     screen: 'hero',
     label: 'Tiêu đề, dòng 3',
   },
   'hero.lede': {
-    en: 'From beachfront dining to vibrant city destinations – discover the restaurants, cuisines and people of Furama Cuisine.',
+    en: 'From beachfront dining to vibrant city destinations – discover the restaurants, cuisines and people of Furama Dining World.',
     maxLength: 160,
     context: 'Home page, one sentence under the hero title, over the photo.',
     screen: 'hero',
@@ -809,7 +809,7 @@ export const REGISTRY = {
   },
   // ── The film dialog (spec §5.2 sections[film]): a client component of the chrome (CLIENT_KEYS) ──
   'film.aria': {
-    en: 'Furama Cuisine film',
+    en: 'Furama Dining World film',
     maxLength: 60,
     context: 'Screen-reader name of the film dialog.',
     screen: 'hero',
@@ -823,7 +823,7 @@ export const REGISTRY = {
     label: 'Nút đóng phim (trình đọc màn hình)',
   },
   'film.title': {
-    en: 'One Furama Cuisine',
+    en: 'One Furama Dining World',
     maxLength: 40,
     context: 'Film dialog, the large title over the poster while no video link is set.',
     screen: 'hero',
@@ -837,7 +837,7 @@ export const REGISTRY = {
     label: 'Dòng “sắp ra mắt”',
   },
   'film.player_title': {
-    en: 'One Furama Cuisine — the film',
+    en: 'One Furama Dining World — the film',
     maxLength: 80,
     context: 'Screen-reader name of the video player (YouTube or Vimeo) inside the film dialog.',
     screen: 'hero',
@@ -1055,13 +1055,13 @@ export const REGISTRY = {
     label: 'Câu dẫn mục Our Destinations',
   },
   'destinations.count': {
-    en: '{count, plural, one {# restaurant} other {# restaurants}}',
+    en: '{count, plural, one {# venue} other {# venues}}',
     maxLength: 80,
     vars: ['count'],
     context:
-      'A destination card, how many restaurants guests can see there; the card filters the restaurants by that place. ICU plural: keep {count, plural, …} and # (the number). An arrow follows it.',
+      'A destination card, how many venues (restaurants, cafés, bars) guests can see there; the card filters the restaurants by that place. ICU plural: keep {count, plural, …} and # (the number). An arrow follows it.',
     screen: 'destinations',
-    label: 'Số nhà hàng trên thẻ (số ít / số nhiều)',
+    label: 'Số địa điểm trên thẻ (số ít / số nhiều)',
   },
   // ── The header, the phone menu and the phone tab bar (spec §7.2 ui-text: ui.*): client components of the chrome
   // (CLIENT_KEYS). The menu's own items are nav_items rows (content/navigation) ──
@@ -1179,7 +1179,7 @@ export const REGISTRY = {
     label: 'Trang không tồn tại: tiêu đề',
   },
   'common.back_home': {
-    en: 'Back to Furama Cuisine',
+    en: 'Back to Furama Dining World',
     maxLength: 40,
     context: 'The page for an address that does not exist: the link back to the home page.',
     screen: 'ui-text',
@@ -1268,7 +1268,7 @@ export const REGISTRY = {
     // furamavietnam.com: "Culinary Heritage Resort in Danang", established in 1997.
     en: 'CULINARY HERITAGE | DA NANG | SINCE 1997',
     maxLength: 60,
-    context: 'The line under the FURAMA CUISINE wordmark in the footer, and at the foot of the phone menu. Capitals, three short parts.',
+    context: 'The line under the FURAMA DINING WORLD wordmark in the footer, and at the foot of the phone menu. Capitals, three short parts.',
     screen: 'contact',
     label: 'Khẩu hiệu (chân trang, cuối menu điện thoại)',
   },
@@ -1351,14 +1351,14 @@ export const REGISTRY = {
   },
   // ── Metadata: read on the server by generateMetadata, never sent to the browser; the SEO screen ──
   'seo.home_title': {
-    en: 'Furama Cuisine — Many Flavours. Many Destinations.',
+    en: 'Furama Dining World — Many Flavours. Many Destinations.',
     maxLength: 70,
     context: 'The browser tab title of the home page, and what search results show as its link. About 60 characters at most is best for search results.',
     screen: 'seo',
     label: 'Tiêu đề trang chủ (tab trình duyệt, kết quả tìm kiếm)',
   },
   'seo.home_description': {
-    en: 'From beachfront dining to vibrant city destinations – discover the restaurants, cuisines and people of Furama Cuisine in Da Nang.',
+    en: 'From beachfront dining to vibrant city destinations – discover the restaurants, cuisines and people of Furama Dining World in Da Nang.',
     maxLength: 200,
     context:
       'The home page’s description for search results (meta description); also the description of a restaurant page that has none of its own. About 160 characters at most is best.',
@@ -1366,21 +1366,21 @@ export const REGISTRY = {
     label: 'Mô tả trang chủ (kết quả tìm kiếm; trang nhà hàng chưa có mô tả riêng cũng dùng)',
   },
   'seo.og_title': {
-    en: 'Furama Cuisine',
+    en: 'Furama Dining World',
     maxLength: 70,
     context: 'The title a shared link to the home page shows (Facebook, Zalo, messaging apps: og:title).',
     screen: 'seo',
     label: 'Tiêu đề khi chia sẻ link trang chủ',
   },
   'seo.og_description': {
-    en: 'Furama Culinary World — the restaurants of Furama Resort Danang, Furama Dining House and the Furama Culinary Hub in Da Nang.',
+    en: 'Furama Dining World — the restaurants of Furama Resort Danang, Furama Dining House and Dining Village Mega Market in Da Nang.',
     maxLength: 200,
     context: 'The description a shared link to the home page shows under its title (og:description).',
     screen: 'seo',
     label: 'Mô tả khi chia sẻ link trang chủ',
   },
   'seo.page_title': {
-    en: '{page} — Furama Cuisine',
+    en: '{page} — Furama Dining World',
     maxLength: 70,
     vars: ['page'],
     context: 'The tab title of a page other than the home page: a restaurant page without an SEO title of its own, the privacy policy. {page} is the page’s name (the restaurant’s, “Privacy policy”); keep it.',
@@ -1388,7 +1388,7 @@ export const REGISTRY = {
     label: 'Mẫu tiêu đề các trang khác',
   },
   'seo.not_found_title': {
-    en: 'Page not found — Furama Cuisine',
+    en: 'Page not found — Furama Dining World',
     maxLength: 70,
     context: 'The tab title of the page shown for an address that does not exist (an unknown restaurant).',
     screen: 'seo',
@@ -1626,16 +1626,16 @@ export const REGISTRY = {
     label: 'Dòng liên hệ (email gửi khách)',
   },
   'email.common.footer_guest': {
-    en: 'You are receiving this email because a table was booked with this address at Furama Cuisine.',
-    vi: 'Bạn nhận được email này vì có một đặt bàn tại Furama Cuisine dùng địa chỉ email này.',
+    en: 'You are receiving this email because a table was booked with this address at Furama Dining World.',
+    vi: 'Bạn nhận được email này vì có một đặt bàn tại Furama Dining World dùng địa chỉ email này.',
     maxLength: 200,
     context: 'Guest booking emails, small print at the bottom.',
     screen: 'emails',
     label: 'Chữ nhỏ cuối email gửi khách',
   },
   'email.common.footer_staff': {
-    en: 'Automatic notification from the Furama Cuisine booking system.',
-    vi: 'Thông báo tự động từ hệ thống đặt bàn Furama Cuisine.',
+    en: 'Automatic notification from the Furama Dining World booking system.',
+    vi: 'Thông báo tự động từ hệ thống đặt bàn Furama Dining World.',
     maxLength: 200,
     context: 'Staff notification emails, small print at the bottom.',
     screen: 'emails',

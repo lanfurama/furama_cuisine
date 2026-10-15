@@ -58,7 +58,7 @@ export function SearchOverlay() {
     >
       <div className="search-inner">
         <div className="search-head">
-          <div className="search-wordmark">FURAMA CUISINE</div>
+          <div className="search-wordmark">FURAMA DINING WORLD</div>
           <button type="button" className="overlay-close" aria-label={strings['search.close']} onClick={close}>
             ×
           </button>

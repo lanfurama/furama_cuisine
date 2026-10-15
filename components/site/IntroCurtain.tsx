@@ -40,7 +40,7 @@ export function IntroCurtain() {
           ))}
         </div>
         <div className="intro-curtain-rule" />
-        <div className="intro-curtain-sub">CUISINE</div>
+        <div className="intro-curtain-sub">DINING WORLD</div>
       </div>
     </div>
   );

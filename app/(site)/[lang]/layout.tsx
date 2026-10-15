@@ -13,7 +13,7 @@ import '../../globals.css';
  * pages of this segment, R8) keep this title: every page below
  * (guarded)/layout.tsx names itself from the SEO screen's words (seo.*).
  */
-export const metadata: Metadata = { title: 'Furama Cuisine' };
+export const metadata: Metadata = { title: 'Furama Dining World' };
 
 export const viewport: Viewport = {
   width: 'device-width',

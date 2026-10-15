@@ -30,7 +30,7 @@ export function Footer() {
             goHomeTop();
           }}
         >
-          FURAMA CUISINE
+          FURAMA DINING WORLD
         </a>
         <div className="footer-tagline">{strings['footer.tagline']}</div>
         <div className="footer-socials">

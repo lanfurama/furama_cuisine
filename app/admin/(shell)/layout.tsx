@@ -36,7 +36,7 @@ export default async function ShellLayout({ children }: { children: React.ReactN
           <Link className="a-brand" href="/admin">
             <BrandMark className="a-brand-mark" />
             <span className="a-brand-text">
-              Furama Cuisine
+              Furama Dining World
               <small>Quản trị</small>
             </span>
           </Link>

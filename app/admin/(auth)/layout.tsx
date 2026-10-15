@@ -8,7 +8,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <p className="a-auth-brand">
           <BrandMark className="a-brand-mark" />
           <span className="a-brand-text">
-            Furama Cuisine
+            Furama Dining World
             <small>Quản trị</small>
           </span>
         </p>

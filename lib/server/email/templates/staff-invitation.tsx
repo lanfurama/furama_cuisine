@@ -12,15 +12,15 @@ export type StaffInvitationProps = {
 
 export const roleLabelVi = { admin: 'Quản trị viên', editor: 'Biên tập viên' } as const;
 
-export const staffInvitationSubject = 'Lời mời tham gia quản trị Furama Cuisine';
+export const staffInvitationSubject = 'Lời mời tham gia quản trị Furama Dining World';
 
 export function StaffInvitationEmail({ acceptUrl, role, inviterName, expiresInDays }: StaffInvitationProps) {
   const roleLabel = roleLabelVi[role];
   return (
-    <EmailLayout preview={`${inviterName} mời bạn tham gia quản trị Furama Cuisine với vai trò ${roleLabel}`}>
-      <Heading as="h1" style={emailStyles.heading}>Bạn được mời tham gia quản trị Furama Cuisine</Heading>
+    <EmailLayout preview={`${inviterName} mời bạn tham gia quản trị Furama Dining World với vai trò ${roleLabel}`}>
+      <Heading as="h1" style={emailStyles.heading}>Bạn được mời tham gia quản trị Furama Dining World</Heading>
       <Text style={emailStyles.paragraph}>
-        {`${inviterName} đã mời bạn vào khu vực quản trị Furama Cuisine với vai trò `}<strong>{roleLabel}</strong>.
+        {`${inviterName} đã mời bạn vào khu vực quản trị Furama Dining World với vai trò `}<strong>{roleLabel}</strong>.
       </Text>
       <Button href={acceptUrl} style={emailStyles.button}>Chấp nhận lời mời</Button>
       <Text style={emailStyles.small}>

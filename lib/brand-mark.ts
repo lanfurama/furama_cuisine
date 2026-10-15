@@ -1,5 +1,5 @@
 /*
- * Furama Cuisine's mark, on a 64 × 64 grid: Crimson Pro's F (wght 500) in a
+ * Furama Dining World's mark, on a 64 × 64 grid: Crimson Pro's F (wght 500) in a
  * square rule whose corners turn in as the key fret (hồi văn) of Furama's
  * emblem, the fret that tops the footer (styles/ornament.css). The site's
  * <BrandMark> (components/ui) and the admin's (app/admin/(shell)/_ui) draw it

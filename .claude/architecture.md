@@ -1,4 +1,4 @@
-# Kiến trúc Furama Cuisine
+# Kiến trúc Furama Dining World
 
 > Modular monolith gọn cho một app Next.js (App Router, Cache Components) trên Vercel + Neon free tier.
 > Mọi code mới PHẢI theo tài liệu này. Luật nào có guard test thì CI chặn — xem mục 6.

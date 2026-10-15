@@ -9,14 +9,14 @@ export type PasswordResetProps = {
   expiresInMinutes: number;
 };
 
-export const passwordResetSubject = 'Đặt lại mật khẩu quản trị Furama Cuisine';
+export const passwordResetSubject = 'Đặt lại mật khẩu quản trị Furama Dining World';
 
 export function PasswordResetEmail({ resetUrl, userName, expiresInMinutes }: PasswordResetProps) {
   return (
-    <EmailLayout preview="Đặt lại mật khẩu quản trị Furama Cuisine">
+    <EmailLayout preview="Đặt lại mật khẩu quản trị Furama Dining World">
       <Heading as="h1" style={emailStyles.heading}>Đặt lại mật khẩu</Heading>
       <Text style={emailStyles.paragraph}>
-        {`${userName ? `Xin chào ${userName}, chúng` : 'Chúng'} tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản quản trị Furama Cuisine của bạn.`}
+        {`${userName ? `Xin chào ${userName}, chúng` : 'Chúng'} tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản quản trị Furama Dining World của bạn.`}
       </Text>
       <Button href={resetUrl} style={emailStyles.button}>Đặt mật khẩu mới</Button>
       <Text style={emailStyles.small}>
