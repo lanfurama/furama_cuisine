@@ -81,9 +81,10 @@ export function PeriodsEditor({ restaurantId, token, meals, periods }: { restaur
       <input type="hidden" name="periods" value={JSON.stringify(rows)} />
       <FormMessage state={state} success="Đã lưu ca phục vụ." />
       <FieldError state={state} name="periods" id={`${uid}-periods-error`} />
-      {/* Eight columns of controls: on a phone or tablet the table scrolls in its own box. */}
+      {/* Eight columns of controls: a table on a wide screen; below that each period is a card, its meal and its
+          weekdays on lines of their own (admin.css, .a-table--cards). */}
       <div className="a-table-scroll">
-        <table className="a-table a-table--compact a-periods">
+        <table className="a-table a-table--compact a-table--cards a-periods">
           <thead>
             <tr>
               <th scope="col">Bữa</th>
@@ -106,7 +107,7 @@ export function PeriodsEditor({ restaurantId, token, meals, periods }: { restaur
               const covers = field(i, 'coversPerSlot');
               return (
                 <tr key={row.id ?? `new-${i}`}>
-                  <td>
+                  <td className="a-cell-wide" data-label="Bữa">
                     <select
                       aria-label={`Bữa của ca ${i + 1}`}
                       value={row.meal}
@@ -122,8 +123,8 @@ export function PeriodsEditor({ restaurantId, token, meals, periods }: { restaur
                     </select>
                     {meal.error}
                   </td>
-                  <td>
-                    <div role="group" aria-label={`Ngày trong tuần của ca ${names[i]}`} aria-describedby={days.describedBy}>
+                  <td className="a-cell-wide" data-label="Ngày trong tuần">
+                    <div className="a-days" role="group" aria-label={`Ngày trong tuần của ca ${names[i]}`} aria-describedby={days.describedBy}>
                       {WEEKDAYS.map(([d, label]) => (
                         <label className="a-check a-check--day" key={d}>
                           <input
@@ -141,7 +142,7 @@ export function PeriodsEditor({ restaurantId, token, meals, periods }: { restaur
                     </div>
                     {days.error}
                   </td>
-                  <td>
+                  <td data-label="Giờ đầu">
                     <input
                       aria-label={`Giờ đầu của ca ${names[i]}`}
                       type="time"
@@ -153,7 +154,7 @@ export function PeriodsEditor({ restaurantId, token, meals, periods }: { restaur
                     />
                     {first.error}
                   </td>
-                  <td>
+                  <td data-label="Giờ cuối">
                     <input
                       aria-label={`Giờ cuối của ca ${names[i]}`}
                       type="time"
@@ -165,7 +166,7 @@ export function PeriodsEditor({ restaurantId, token, meals, periods }: { restaur
                     />
                     {last.error}
                   </td>
-                  <td>
+                  <td data-label="Cách nhau">
                     <select
                       aria-label={`Khoảng cách của ca ${names[i]}`}
                       value={row.intervalMin}
@@ -179,7 +180,7 @@ export function PeriodsEditor({ restaurantId, token, meals, periods }: { restaur
                     </select>
                     {interval.error}
                   </td>
-                  <td>
+                  <td data-label="Khách mỗi khung giờ">
                     <input
                       aria-label={`Sức chứa của ca ${names[i]}`}
                       type="number"
@@ -193,7 +194,7 @@ export function PeriodsEditor({ restaurantId, token, meals, periods }: { restaur
                     />
                     {covers.error}
                   </td>
-                  <td>
+                  <td data-label="Bật">
                     <input
                       aria-label={`Bật ca ${names[i]}`}
                       type="checkbox"
@@ -201,7 +202,7 @@ export function PeriodsEditor({ restaurantId, token, meals, periods }: { restaur
                       onChange={(e) => update(i, { active: e.currentTarget.checked })}
                     />
                   </td>
-                  <td>
+                  <td data-label="Thao tác">
                     <button
                       className="a-btn a-btn--ghost a-btn--small"
                       type="button"

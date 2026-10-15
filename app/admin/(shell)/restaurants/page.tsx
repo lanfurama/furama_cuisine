@@ -54,8 +54,9 @@ export default async function RestaurantsPage({ searchParams }: { searchParams: 
           </a>
         }
       />
+      {/* A table on a wide screen, a card per restaurant in a narrower column, label | value on a phone (admin.css). */}
       <div className="a-table-scroll">
-        <table className="a-table a-table--stack">
+        <table className="a-table a-table--stack a-table--cards">
           <thead>
             <tr>
               <th scope="col">Nhà hàng</th>
@@ -71,7 +72,7 @@ export default async function RestaurantsPage({ searchParams }: { searchParams: 
               const b = booking.get(r.id);
               return (
                 <tr key={r.id}>
-                  <td data-label="Nhà hàng">
+                  <td className="a-cell-double" data-label="Nhà hàng">
                     <span className="a-cell-media">
                       {r.card ? <Thumb file={r.card} width={56} /> : null}
                       {r.name}
@@ -86,7 +87,7 @@ export default async function RestaurantsPage({ searchParams }: { searchParams: 
                   {/* The switch alone is not booking: a hidden or archived restaurant, or one at a hidden destination, takes none (7A review A11, L7-2). */}
                   <td data-label="Đặt bàn online">{onlineBookingLabel({ ...r, bookingEnabled: b?.bookingEnabled ?? false })}</td>
                   <td data-label="Khách tối đa">{b?.maxParty ?? `${settings.maxParty} (mặc định)`}</td>
-                  <td data-label="Thao tác">
+                  <td className="a-cell-double" data-label="Thao tác">
                     <span className="a-cell-links">
                       <Link href={`/admin/restaurants/${r.id}`}>Nội dung</Link>
                       <Link href={`/admin/restaurants/${r.id}/booking`}>Giờ và sức chứa</Link>

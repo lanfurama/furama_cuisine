@@ -125,14 +125,15 @@ body.admin {
   padding: 10px 16px;
   border-radius: var(--a-radius-sm);
   background: var(--a-brand);
-  box-shadow: var(--a-shadow-md);
   color: var(--a-brand-ink);
   font-weight: 600;
   text-decoration: none;
   transform: translateY(calc(-100% - 16px));
 }
 
+/* The shadow only with focus: parked above the screen, it would still fall 18px into the header's corner. */
 .a-skip:focus {
+  box-shadow: var(--a-shadow-md);
   transform: none;
 }
 
@@ -219,14 +220,17 @@ body.admin {
   display: grid;
   grid-template-columns: var(--a-sidebar) minmax(0, 1fr);
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
+/* dvh: the height left by a tablet browser's own toolbars, so "Mở web khách" at the foot is never under them. */
 .a-sidebar {
   position: sticky;
   top: 0;
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   padding: 18px 14px 14px;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -443,6 +447,8 @@ body.admin {
   backdrop-filter: saturate(160%) blur(10px);
 }
 
+/* As wide as the page under it and centred like it (.a-main), so on a big screen "Tạo đặt bàn" and "Đăng xuất"
+   line up with the page's edges instead of the window's. */
 .a-header-bar {
   display: flex;
   flex: 1;
@@ -450,6 +456,8 @@ body.admin {
   justify-content: flex-end;
   gap: 14px;
   min-width: 0;
+  max-width: var(--a-content);
+  margin-inline: auto;
 }
 
 .a-header-cta {
@@ -494,9 +502,12 @@ body.admin {
   white-space: nowrap;
 }
 
+/* Past its width (a 1920 or 2560 screen) the page sits in the middle of the space beside the sidebar, not against it
+   with the rest of the window empty. */
 .a-main {
   width: 100%;
   max-width: calc(var(--a-content) + 2 * var(--a-gutter));
+  margin-inline: auto;
   padding: 28px var(--a-gutter) 72px;
   animation: a-rise 0.28s var(--a-ease);
 }
@@ -930,9 +941,11 @@ fieldset.a-field legend {
   font-size: 13px;
 }
 
+/* min(…, 100%): a form narrower than one column (a list item's editor on a 320px phone) gets one column of its own
+   width, not a 230px one that runs off the screen. The same for every auto-fill grid below. */
 .a-grid-form {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr));
   gap: 0 18px;
   align-items: start;
   max-width: 960px;
@@ -1002,8 +1015,10 @@ fieldset.a-field legend {
   margin: 0;
 }
 
+/* One column as wide as the form, never as wide as its row's content (the field's own width plus "Tìm"). */
 .a-search {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   max-width: 620px;
   margin: 0 0 20px;
@@ -1019,8 +1034,10 @@ fieldset.a-field legend {
   gap: 8px;
 }
 
+/* min-width: 0: the field's own width (its size) would push "Tìm" past the page's edge on a 320px phone. */
 .a-search-row input {
   flex: 1;
+  min-width: 0;
   padding-left: 38px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%238a928d' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='m20 20-4.2-4.2'/%3E%3C/svg%3E");
   background-position: 12px center;
@@ -1063,11 +1080,16 @@ fieldset.a-field legend {
 .a-periods input[type='number'] {
   width: auto;
   min-height: 36px;
-  padding: 0 8px;
+  padding: 0 6px;
 }
 
 .a-periods input[type='number'] {
   width: 84px;
+}
+
+/* A period's weekdays: four to a line at least, never a column of seven checkboxes. */
+.a-days {
+  min-width: 208px;
 }
 
 .a-counter {
@@ -1261,6 +1283,13 @@ fieldset.a-field legend {
   vertical-align: top;
 }
 
+/* The periods editor's eight columns of controls: tighter cells, so the table fits a laptop's column once that is
+   wide enough for a table at all (narrower, it is cards: .a-table--cards below). */
+.a-periods th,
+.a-periods td {
+  padding-inline: 8px;
+}
+
 /* A wide table scrolls inside its own box on a phone or tablet instead of widening the page. Positioned, so a
    visually hidden header inside it (position: absolute) is clipped with the table instead of widening the page. */
 .a-table-scroll {
@@ -1270,12 +1299,14 @@ fieldset.a-field legend {
   border-radius: var(--a-radius);
 }
 
-.a-table-scroll > .a-table {
-  min-width: 640px;
+/* A table of records that turns into cards on a narrow column (see Responsive): its box measures that column. */
+.a-table-scroll:has(> .a-table--cards) {
+  container-type: inline-size;
 }
 
-/* In the bookings inbox a tag ("Vượt sức chứa") may take two lines rather than make the table scroll on a laptop. */
-.a-table--stack .a-tag {
+/* In the bookings inbox a tag ("Vượt sức chứa") may take two lines rather than make the table scroll on a laptop.
+   Only there: a short one ("Đang hiện" in the restaurants table) stays one pill. */
+.a-inbox .a-tag {
   white-space: normal;
 }
 
@@ -2052,7 +2083,7 @@ fieldset.a-field legend {
 
 .a-strings-group {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
   gap: 0 18px;
 }
 
@@ -2063,9 +2094,16 @@ fieldset.a-field legend {
   font-weight: 600;
 }
 
+/* A key's context may name a setting (booking_settings.pii_retention_months): broken anywhere, so one long word never
+   widens its field past a 320px phone. */
 .a-strings-group details,
 .a-tfield details {
   font-size: 13.5px;
+}
+
+.a-field details,
+.a-tfield details {
+  overflow-wrap: anywhere;
 }
 
 .a-strings-group details > summary,
@@ -2079,11 +2117,12 @@ fieldset.a-field legend {
   margin-bottom: 6px;
 }
 
-/* The preview frame; the email's own CSP comes with its response (app/api/admin/emails/preview). */
+/* The preview frame; the email's own CSP comes with its response (app/api/admin/emails/preview). At most most of the
+   screen tall, so on a short one the page still scrolls past it instead of the frame taking every swipe. */
 .a-email-preview {
   display: block;
   width: 100%;
-  height: 640px;
+  height: clamp(360px, 80vh, 640px);
   margin-top: 12px;
   border: 1px solid var(--a-line);
   border-radius: 8px;
@@ -2094,7 +2133,7 @@ fieldset.a-field legend {
 
 .a-media-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(176px, 100%), 1fr));
   gap: 16px;
   margin: 16px 0;
   padding: 0;
@@ -2264,9 +2303,10 @@ fieldset.a-field legend {
 
 .a-picker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
   gap: 8px;
-  max-height: 340px;
+  /* Never taller than most of the screen (a phone on its side is 320px tall), so the page around it still scrolls. */
+  max-height: min(340px, 60vh);
   margin-top: 10px;
   padding: 2px;
   overflow-y: auto;
@@ -2606,16 +2646,15 @@ fieldset.a-field legend {
   text-decoration: underline;
 }
 
+/* Guests · restaurant · code: wraps under itself rather than cut the code off with "…" (two columns on a laptop
+   leave it about 240px). */
 .a-mini-who small {
   display: block;
-  overflow: hidden;
   color: var(--a-ink-soft);
   font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-/* The booking's code in that line: never broken at its hyphen when the line wraps on a phone, in the line's own size. */
+/* The booking's code in that line: never broken at its hyphen when the line wraps, in the line's own size. */
 .a-mini-who .a-ref {
   font-size: inherit;
 }
@@ -2704,7 +2743,7 @@ fieldset.a-field legend {
 
 .a-tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   gap: 12px;
   margin: 0;
   padding: 0;
@@ -2906,6 +2945,13 @@ fieldset.a-field legend {
   .a-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  /* The day sheet's seven columns on a tablet at the host stand (or beside the sidebar): tighter cells leave its
+     notes room to read. */
+  .a-sheet .a-table--compact th,
+  .a-sheet .a-table--compact td {
+    padding-inline: 9px;
+  }
 }
 
 /* The sidebar becomes a drawer behind "Menu" (AdminFrame). */
@@ -2998,6 +3044,102 @@ fieldset.a-field legend {
 
   .a-media-detail {
     grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * A table marked .a-table--cards (the bookings inbox, the restaurants, a restaurant's periods, the email log, the
+ * bookings a change leaves out) needs about 940px. In a narrower column (a tablet either way up, a 1024 or 1194
+ * window beside the sidebar) each row becomes a card of its cells, the column's name over each value, as many to a
+ * line as fit: nothing hides past the edge ("Xác nhận", "Xóa ca", "Gửi lại"), and nothing has to scroll sideways. The query is the table's own box, so
+ * the sidebar and the drawer count by themselves. A cell marked .a-cell-wide takes a line of its own. On a phone a
+ * table that also stacks (.a-table--stack, below) reads label | value instead: the rules there come later and win.
+ */
+@container (max-width: 939px) {
+  .a-table--cards,
+  .a-table--cards tbody,
+  .a-table-scroll > .a-table--cards {
+    display: block;
+    min-width: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .a-table--cards thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .a-table--cards tr {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+    gap: 12px 18px;
+    margin: 0 0 10px;
+    padding: 14px 16px;
+    border: 1px solid var(--a-line);
+    border-radius: var(--a-radius);
+    background: var(--a-surface);
+  }
+
+  .a-table--cards tbody tr:hover {
+    background: var(--a-surface);
+  }
+
+  /* A long address (fb@furamavietnam.com) breaks inside its column rather than run into the next one. */
+  .a-table--cards td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* The column's name, for the eye; a screen reader has it from the table already (alt text ''). */
+  .a-table--cards td::before {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--a-ink-faint);
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    content: attr(data-label);
+    content: attr(data-label) / '';
+  }
+
+  .a-table--cards td:empty {
+    display: none;
+  }
+
+  .a-table--cards .a-cell-wide {
+    grid-column: 1 / -1;
+  }
+
+  /* Two columns' worth (a restaurant's picture and name, its links and buttons). Only in a table that also stacks
+     on a phone: its cards always have three columns or more. */
+  .a-table--cards .a-cell-double {
+    grid-column: span 2;
+  }
+
+  .a-table--cards .a-cell-media {
+    min-width: 0;
+  }
+
+  /* A booking's cell in the email log: its restaurant and sitting wrap in the card's column; the code stays whole. */
+  .a-table--cards td.a-ref {
+    white-space: normal;
+  }
+
+  .a-table--cards td.a-ref > a {
+    white-space: nowrap;
+  }
+
+  /* On a line of its own the weekdays wrap at the card's width. */
+  .a-table--cards .a-days {
+    min-width: 0;
   }
 }
 
@@ -3101,22 +3243,38 @@ fieldset.a-field legend {
     font-size: 28px;
   }
 
-  /* The overview's short lists: on a phone the restaurant and the code wrap under the name instead of being cut off. */
-  .a-mini-who small {
-    white-space: normal;
-  }
-
+  /* The save bar stays in sight while the form scrolls, so on a phone it is as short as it can be: its status on one
+     line, then its buttons side by side (a long name takes two lines inside its button), about 90px instead of
+     160px on a 320px phone. */
   .a-savebar {
     bottom: 8px;
-    padding: 10px 12px;
+    gap: 6px 8px;
+    padding: 8px 10px;
+  }
+
+  .a-savebar-status {
+    flex-basis: 100%;
+  }
+
+  .a-savebar-status:empty {
+    display: none;
+  }
+
+  .a-savebar-status .a-muted {
+    font-size: 13px;
+    line-height: 1.35;
   }
 
   .a-savebar .a-actions {
+    flex-wrap: nowrap;
     width: 100%;
   }
 
   .a-savebar .a-actions .a-btn {
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 4px 10px;
+    white-space: normal;
   }
 
   .a-filter,
@@ -3139,8 +3297,30 @@ fieldset.a-field legend {
     grid-column: 1 / -1;
   }
 
+  /* A list item's handle (grip, position, ↑ ↓) becomes a row above it, so the item and its editor get the card's
+     whole width instead of a column beside the handle (about 170px on a 320px phone). */
   .a-sortable-drop {
+    grid-template-columns: minmax(0, 1fr);
     gap: 10px;
+  }
+
+  .a-sortable-handle {
+    flex-direction: row;
+    gap: 8px;
+    padding: 0 0 8px;
+    border-right: 0;
+    border-bottom: 1px solid var(--a-line);
+  }
+
+  .a-sortable-item {
+    padding: 10px 12px;
+  }
+
+  /* On a phone a table keeps a readable width and scrolls in its box (one that turns into cards needs no floor).
+     Wider, it takes its column and scrolls only when its content cannot fit: a 640px floor everywhere made a
+     tablet's two-column table scroll for nothing. */
+  .a-table-scroll > .a-table:not(.a-table--cards) {
+    min-width: 640px;
   }
 
   /* A table marked to stack (the bookings inbox) turns each row into a card: label, then value. */
@@ -3238,6 +3418,195 @@ fieldset.a-field legend {
     grid-column: 2;
     justify-self: start;
     margin-top: 4px;
+  }
+
+  /* Two buttons side by side in the save bar: each name on one line where it can be. */
+  .a-savebar .a-actions .a-btn {
+    padding-inline: 6px;
+    font-size: 13.5px;
+  }
+}
+
+/*
+ * A phone on its side, or any window this short (the same query as the guest site's, so both switch together): the
+ * header scrolls away with the page instead of keeping 60px of a 320px screen, the save bar is one line, the menu
+ * drawer lays its groups side by side so it shows whole, and the sign-in card starts near the top.
+ */
+@media (orientation: landscape) and (max-height: 500px) {
+  .a-header {
+    position: relative;
+  }
+
+  html:has(> body.admin) {
+    scroll-padding: 16px 0 72px;
+  }
+
+  .a-savebar {
+    flex-wrap: nowrap;
+    padding: 6px 8px 6px 14px;
+  }
+
+  .a-savebar-status {
+    flex: 1 1 auto;
+  }
+
+  .a-savebar .a-actions {
+    flex: none;
+    width: auto;
+  }
+
+  .a-savebar .a-actions .a-btn {
+    flex: none;
+    min-height: 36px;
+    white-space: nowrap;
+  }
+
+  .a-auth {
+    padding: 16px;
+  }
+
+  .a-auth-inner {
+    gap: 12px;
+  }
+
+  .a-card {
+    padding: 22px 26px 20px;
+  }
+
+  .a-card h1 {
+    font-size: 26px;
+  }
+
+  .a-card .a-lede {
+    margin-bottom: 14px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 960px) {
+  .a-sidebar {
+    width: min(680px, calc(100vw - 48px));
+    padding: 10px 14px 12px;
+  }
+
+  .a-brand {
+    margin-bottom: 8px;
+    padding-block: 2px;
+  }
+
+  .a-brand-mark {
+    width: 32px;
+    height: 32px;
+    font-size: 19px;
+  }
+
+  .a-drawer-close {
+    top: 6px;
+  }
+
+  /* Three columns of about 200px (two on a 568px phone): one group each, kept whole. As tall as its groups (no flex
+     share of the drawer's height, which would push a column out sideways); the drawer scrolls if needed. */
+  .a-nav {
+    flex: none;
+    column-gap: 12px;
+    column-width: 190px;
+  }
+
+  .a-nav-group {
+    padding-bottom: 8px;
+    break-inside: avoid;
+  }
+
+  .a-nav-group + .a-nav-group {
+    margin-top: 0;
+  }
+
+  .a-nav a {
+    min-height: 36px;
+    padding-block: 6px;
+  }
+
+  /* The current page's bar sits inside its item: a column's left edge is not the drawer's. */
+  .a-nav a[aria-current='page']::before {
+    left: 0;
+  }
+
+  .a-sidebar-foot {
+    margin-top: 6px;
+    padding-block: 8px;
+  }
+}
+
+/*
+ * A touch screen (a phone, a tablet at the host stand): what a finger presses is at least about 36px, the size a
+ * mouse does not need. Checkboxes, small buttons, the ↑ ↓ of a list, a field's language tabs, the "Sửa …" and
+ * "Chọn ảnh khác" disclosures, and the links that stand alone (the way back, a panel's "Hộp thư", a restaurant's
+ * "Nội dung", a booking's code). Text fields at 16px: iOS zooms the page into any smaller one on focus.
+ */
+@media (pointer: coarse) {
+  :where(.admin) :where(input:not([type='checkbox'], [type='radio'], [type='file'], [type='hidden'], [type='range'], [type='color']), select, textarea) {
+    font-size: 16px;
+  }
+
+  .admin input[type='checkbox'],
+  .admin input[type='radio'] {
+    width: 20px;
+    height: 20px;
+  }
+
+  .a-check {
+    min-height: 36px;
+  }
+
+  .admin summary {
+    min-height: 36px;
+  }
+
+  /* A checkbox alone in a cell (a period's "Bật"): no label around it to take the press. */
+  .a-table td > input[type='checkbox'] {
+    width: 24px;
+    height: 24px;
+  }
+
+  .a-crumbs a,
+  .a-cell-links a,
+  .a-card-foot a,
+  .a-picker-current a,
+  .a-progress-row a,
+  .a-ref a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+  }
+
+  .a-panel-head a {
+    min-height: 36px;
+  }
+
+  /* A guest's name in the overview's lists, a log entry's record: a taller press area that leaves the line as it is. */
+  .a-mini-who a,
+  .a-table td:not(.a-ref) > a {
+    display: inline-block;
+    margin-block: -8px;
+    padding-block: 8px;
+  }
+
+  .a-btn--small,
+  .a-actions .a-btn {
+    min-height: 38px;
+  }
+
+  .a-sortable-handle .a-btn--small {
+    width: 38px;
+    min-height: 34px;
+  }
+
+  .a-tfield .a-tabs [role='tab'],
+  .a-pager a {
+    min-height: 40px;
+  }
+
+  .a-locale-picker .a-tag {
+    min-height: 36px;
   }
 }
 

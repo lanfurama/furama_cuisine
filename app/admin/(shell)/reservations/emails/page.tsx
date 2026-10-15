@@ -68,8 +68,9 @@ export default async function EmailLogPage({ searchParams }: { searchParams: Pro
       {rows.length === 0 ? (
         <p className="a-empty">Không có email nào.</p>
       ) : (
+        // A table on a wide screen, a card per email in a narrower column (a tablet, a phone): "Gửi lại" stays on screen.
         <div className="a-table-scroll">
-          <table className="a-table">
+          <table className="a-table a-table--cards">
             <thead>
               <tr>
                 <th scope="col">Email · tạo lúc</th>
@@ -83,26 +84,26 @@ export default async function EmailLogPage({ searchParams }: { searchParams: Pro
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id}>
-                  <td>
+                  <td data-label="Email · tạo lúc">
                     {EMAIL_EVENT_LABELS[r.event]}
                     <small className="a-sub">{formatDateTimeVi(r.createdAt)}</small>
                   </td>
-                  <td>
+                  <td data-label="Người nhận">
                     {r.audience === 'guest' ? maskEmail(r.toEmail) : r.toEmail}
                     <small className="a-sub">{r.locale}</small>
                   </td>
-                  <td className="a-ref">
+                  <td className="a-ref" data-label="Đặt bàn">
                     <Link href={`/admin/reservations/${r.reservationId}`}>{r.reference}</Link>
                     <small className="a-sub">{r.restaurantName}</small>
                     <small className="a-sub">{`Giờ hẹn: ${formatIsoDayVi(r.sittingDate)} ${r.sittingTime}`}</small>
                   </td>
-                  <td>
+                  <td data-label="Trạng thái">
                     <EmailStatusBadge status={r.status} />
                     {r.status === 'sent' && r.sentAt ? <small className="a-sub">{formatDateTimeVi(r.sentAt)}</small> : null}
                     {r.status === 'queued' && r.attempts > 0 ? <small className="a-sub">{`Lần tới: ${formatDateTimeVi(r.nextAttemptAt)}`}</small> : null}
                     <small className="a-sub">{`${r.attempts} lần gửi`}</small>
                   </td>
-                  <td>
+                  <td className="a-cell-wide" data-label="Lỗi gần nhất">
                     {r.lastError ? (
                       <>
                         <span className="a-error-text">{outboxErrorHint(r.lastError)}</span>
@@ -113,7 +114,7 @@ export default async function EmailLogPage({ searchParams }: { searchParams: Pro
                     )}
                   </td>
                   {/* Past its sitting the drain would only skip it (F5): nothing to send again. */}
-                  <td>
+                  <td data-label="Thao tác">
                     {canResend && resendable(r.status) && !r.sittingPassed ? (
                       <ResendEmail id={r.id} label={`${EMAIL_EVENT_LABELS[r.event]} ${r.reference}`} />
                     ) : null}

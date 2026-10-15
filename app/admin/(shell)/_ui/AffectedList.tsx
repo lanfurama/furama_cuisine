@@ -95,7 +95,7 @@ export function AffectedList({ items, title }: { items: AffectedItem[]; title: s
     >
       <p className="a-warn">{`${items.length} đặt bàn bị ảnh hưởng. Hệ thống không tự hủy: chọn những đặt bàn cần hủy, ghi lý do rồi bấm Hủy.`}</p>
       <div className="a-table-scroll">
-        <table className="a-table a-table--compact">
+        <table className="a-table a-table--compact a-table--cards">
           <thead>
             <tr>
               <th scope="col">Chọn</th>
@@ -111,21 +111,23 @@ export function AffectedList({ items, title }: { items: AffectedItem[]; title: s
           <tbody>
             {items.map((item) => (
               <tr key={item.id}>
-                <td>
+                <td data-label="Chọn">
                   <input type="checkbox" name="item" value={`${item.id}:${item.version}`} aria-label={`Chọn ${item.reference}`} />
                 </td>
-                <td className="a-ref">
+                <td className="a-ref" data-label="Mã">
                   <Link href={`/admin/reservations/${item.id}`}>{item.reference}</Link>
                 </td>
-                <td>{item.restaurantName}</td>
-                <td>{`${item.dayLabel} ${item.time}`}</td>
-                <td>{`${item.name} · ${item.guests}`}</td>
-                <td>
+                <td data-label="Nhà hàng">{item.restaurantName}</td>
+                <td data-label="Ngày giờ">{`${item.dayLabel} ${item.time}`}</td>
+                <td data-label="Khách">{`${item.name} · ${item.guests}`}</td>
+                <td data-label="Liên hệ">
                   <a href={telHref(item.phone)}>{item.phone}</a>
                   {item.hasEmail ? null : <span className="a-tag">không có email</span>}
                 </td>
-                <td>{item.statusLabel}</td>
-                <td>{item.why}</td>
+                <td data-label="Trạng thái">{item.statusLabel}</td>
+                <td className="a-cell-wide" data-label="Lý do">
+                  {item.why}
+                </td>
               </tr>
             ))}
           </tbody>

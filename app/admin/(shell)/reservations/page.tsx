@@ -73,9 +73,10 @@ export default async function ReservationsPage({ searchParams }: { searchParams:
       {rows.length === 0 ? (
         <p className="a-empty">Không có đặt bàn nào.</p>
       ) : (
-        // Below 640px the rows stack as cards; between that and a wide screen the table scrolls in its own box.
+        // A table on a wide screen; in a narrower column (a tablet, a 1024 window beside the sidebar) each booking is a card
+        // of its cells, so "Xác nhận" never hides past the edge; on a phone the cards read label | value (admin.css).
         <div className="a-table-scroll">
-          <table className="a-table a-table--stack">
+          <table className="a-table a-table--stack a-table--cards a-inbox">
             <thead>
               <tr>
                 <th scope="col">Mã</th>
