@@ -102,15 +102,16 @@ main[data-view='home'][data-hero='none'] {
  * sections, SEARCH, the language and RESERVE ran up to 48 px into the right
  * gutter, and ABOUT sat closer to SEARCH than to its own neighbours. There the
  * gaps and RESERVE's padding narrow with the window, reaching their usual
- * sizes at 1280, and the nav keeps a clear 32 px from the logo and the actions.
+ * sizes at 1280. The nav keeps at least the header's 24 px from the logo and
+ * the actions (the spare width adds to it), more than the 16 px between its
+ * sections where the room is shortest. That leaves room for the text while it
+ * is still in a fallback face (font-display: swap), which runs wider: at
+ * 1080 px, in DejaVu, the actions ran 19 px into the gutter when the nav kept
+ * 32 px apart and its sections 18 px.
  */
 @media (min-width: 1080px) and (max-width: 1279px) {
-  .hdr-full .hdr-inner {
-    gap: 32px;
-  }
-
   .hdr-full .hdr-nav {
-    gap: clamp(18px, 7vw - 58px, 32px);
+    gap: clamp(16px, 8vw - 70.4px, 32px);
   }
 
   .hdr-full .hdr-actions {
