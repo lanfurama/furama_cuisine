@@ -329,7 +329,8 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 008 seeds exactly the content of 
       SECTIONS_AT_8FE98F5.heritage.image,
       ...HERO_SLIDES_AT_8FE98F5.filter((s) => s.alt === '').map((s) => s.image),
     ].sort();
-    expect((await rows<{ pathname: string }>(`SELECT pathname FROM media WHERE is_decorative ORDER BY pathname`)).map((m) => m.pathname)).toEqual(
+    // Byte order, as the JS sort above (the database's collation may skip the "-").
+    expect((await rows<{ pathname: string }>(`SELECT pathname FROM media WHERE is_decorative ORDER BY pathname COLLATE "C"`)).map((m) => m.pathname)).toEqual(
       decorative,
     );
     // Every other file has English alt text.
