@@ -72,7 +72,7 @@ async function refreshGuestPages(page: Page) {
  */
 async function expectNotFound(visitor: Page) {
   await expect(visitor.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible();
-  await expect(visitor).toHaveTitle('Page not found — Furama Cuisine');
+  await expect(visitor).toHaveTitle('Page not found — Furama Dining World');
   await expect(visitor.locator('.taya-hero-copy')).toHaveCount(0);
 }
 
@@ -101,7 +101,7 @@ test('switching has_detail_page on opens a working page for another restaurant, 
 
       // The page renders from the database, at a URL that was a cached 404 a moment ago.
       await visitor.goto(FAN_PATH);
-      await expect(visitor).toHaveTitle('Steakhouse The Fan — Furama Cuisine');
+      await expect(visitor).toHaveTitle('Steakhouse The Fan — Furama Dining World');
       const hero = visitor.locator('.taya-hero-copy');
       await expect(hero.getByRole('heading', { level: 1 })).toHaveText('Steakhouse The Fan');
       await expect(hero.locator('.taya-kicker')).toHaveText('Steak & Wine · Furama Dining House');

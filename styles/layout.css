@@ -102,15 +102,16 @@ main[data-view='home'][data-hero='none'] {
  * sections, SEARCH, the language and RESERVE ran up to 48 px into the right
  * gutter, and ABOUT sat closer to SEARCH than to its own neighbours. There the
  * gaps and RESERVE's padding narrow with the window, reaching their usual
- * sizes at 1280, and the nav keeps a clear 32 px from the logo and the actions.
+ * sizes at 1280. The nav keeps at least the header's 24 px from the logo and
+ * the actions (the spare width adds to it), more than the 16 px between its
+ * sections where the room is shortest. That leaves room for the text while it
+ * is still in a fallback face (font-display: swap), which runs wider: at
+ * 1080 px, in DejaVu, the actions ran 19 px into the gutter when the nav kept
+ * 32 px apart and its sections 18 px.
  */
 @media (min-width: 1080px) and (max-width: 1279px) {
-  .hdr-full .hdr-inner {
-    gap: 32px;
-  }
-
   .hdr-full .hdr-nav {
-    gap: clamp(18px, 7vw - 58px, 32px);
+    gap: clamp(16px, 8vw - 70.4px, 32px);
   }
 
   .hdr-full .hdr-actions {
@@ -275,6 +276,33 @@ html {
 /* nav_item_i18n stores one label as written ("Restaurants"); the header sets it in capitals (spec §6.3 item 6, R18). */
 .hdr-nav .hdr-link {
   text-transform: uppercase;
+}
+
+/*
+ * A language longer than English (the editors may write labels 1.3 times as
+ * long, spec §8) lets the labels break between their words rather than push
+ * RESERVE past the gutter: at 1440 px six such labels ran it 105 px past it.
+ * The row shrinks in proportion, so once it is a pixel too wide every label of
+ * several words takes two lines, not just the longest. SEARCH may break too
+ * (its row gives way: the rule below wins over `.hdr-actions`' `flex: 0 0
+ * auto` by specificity); the language and RESERVE keep one line. Where the row
+ * fits, as in English, nothing shrinks and every label stays on one line. Two
+ * lines sit inside the condensed header's height; labels near their maximum
+ * length (18 characters a nav label, 24 SEARCH) can take three or more at
+ * 1080 px and run below the bar, which the editors' 1.3 times warning keeps
+ * them from in practice.
+ */
+.hdr-full .hdr-nav .hdr-link,
+.hdr-full .hdr-actions > .hdr-link {
+  white-space: normal;
+}
+
+.hdr-full .hdr-actions {
+  flex-shrink: 1;
+}
+
+.hdr-full .hdr-actions .btn-gold {
+  white-space: nowrap;
 }
 
 /* Only where a pointer hovers: a tap on a tablet would leave the item lit until the next tap elsewhere. */
