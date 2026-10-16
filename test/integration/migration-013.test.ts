@@ -35,8 +35,9 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 013: the official photographs (da
   });
 
   it('gives every file of public/assets exactly one row, measured from the file, and nothing else', async () => {
+    // Byte order, as the JS sort below: a database's own collation may skip the "-" (CI's Postgres does).
     const media = (
-      await sql(`SELECT storage, url, pathname, content_type, width, height, bytes, blur_data_url, deleted_at FROM media ORDER BY pathname`)
+      await sql(`SELECT storage, url, pathname, content_type, width, height, bytes, blur_data_url, deleted_at FROM media ORDER BY pathname COLLATE "C"`)
     ).rows;
     const files = readdirSync(ASSETS).filter((f) => !f.startsWith('.')).sort();
     expect(media.map((m) => m.pathname)).toEqual(files.map((f) => `/assets/${f}`));

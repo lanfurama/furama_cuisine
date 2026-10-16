@@ -14,7 +14,7 @@ import { STAFF, expect, one, seedStaff, signInAs, test } from './staff-fixtures'
  * SQL, then a save, only if a step failed half-way.
  */
 
-const HOME_TITLE = 'Furama Cuisine — Many Flavours. Many Destinations.';
+const HOME_TITLE = 'Furama Dining World — Many Flavours. Many Destinations.';
 const TAYA = `${HOME_PATH}/restaurants/taya-house`;
 
 async function guest(browser: Browser): Promise<Page> {
@@ -92,8 +92,9 @@ test('a share picture reaches the home page and, as its fallback, Tàya House’
   const csp = await watchCsp(page);
   const visitor = await guest(browser);
   try {
-    expect(await head(visitor, HOME_PATH)).toMatchObject({ ogTitle: 'Furama Cuisine', ogImage: null });
-    // L7-13: Tàya House's shared link is its own, not the home page's.
+    expect(await head(visitor, HOME_PATH)).toMatchObject({ ogTitle: 'Furama Dining World', ogImage: null });
+    // L7-13: Tàya House's shared link is its own, not the home page's: 008's seeded seo_title. The content pack
+    // 2026-10-furama-dining-world renames it on production; a database built by reset-db.mjs has no pack.
     expect(await head(visitor, TAYA)).toEqual({ title: 'Tàya House — Furama Cuisine', ogTitle: 'Tàya House — Furama Cuisine', ogImage: null });
 
     await signInAs(page, STAFF.editor);

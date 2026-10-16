@@ -12,7 +12,7 @@ import { HOME_PATH } from './paths';
 
 const NOW = new Date('2026-10-02T03:00:00Z'); // 10:00 in Da Nang
 const isServerAction = (r: Request) => r.method() === 'POST' && !!r.headers()['next-action'];
-const CONSENT = 'I agree to Furama Cuisine using my details as described in the privacy policy.';
+const CONSENT = 'I agree to Furama Dining World using my details as described in the privacy policy.';
 
 /** REQUEST BOOKING, and the arguments the aborted Server Action call carried. */
 async function send(drawer: Locator, sent: string[]): Promise<Record<string, unknown>> {
