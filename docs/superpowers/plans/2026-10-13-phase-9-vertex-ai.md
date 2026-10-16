@@ -1600,3 +1600,236 @@ Migration 011 chỉ mở rộng (thêm bảng), nhưng code đợt 9 đọc `ai_
 | 1 | Tạo GCP project và làm README "Before AI" (spec §15 mục 6–11)? | AI ở trạng thái "Chưa cấu hình" trên Production; mọi thứ khác vẫn chạy |
 | 2 | Editor có được bấm dịch hàng loạt không? | Có (quyền `content:ai`, R9-9) |
 | 3 | Dùng Claude không (phải bật trong Model Garden và đặt org policy)? | Không; mọi tính năng dùng Gemini 3.8 Flash |
+
+---
+
+## Đối chiếu với code ngày 2026-10-16 (trước D8)
+
+> Plan này viết ngày 2026-10-13. Sau đó có ba thay đổi:
+> - **Ngôn ngữ thành code** (`cbeb62d`): `lib/i18n/site-locales.ts`, migration `011_drop_locales.sql`; bảng `locales`, cột `serve_machine` và màn ngôn ngữ của admin đã bỏ.
+> - **Migration AI là `012_ai_phase9.sql`** (merge `47fc872`, D1–D7), không phải 011.
+> - **Redesign admin và web khách**: design system `--a-*` trong `styles/admin.css`, `app/admin/(shell)/_ui/` (`PageHeader`, `Icon`, `FormMessage`…), `_kit/`; rồi đến `.claude/architecture.md` (`fbd78a0`), viết **sau** plan và là luật bắt buộc (CLAUDE.md).
+>
+> Mục này đối chiếu D8–D12 với code ở `origin/main` `5657868`. Phần cũ của plan giữ nguyên. Chỗ nào phần cũ nói khác mục này thì **làm theo mục này**: các Ruling R9-16 … R9-26 dưới đây thay hoặc bổ sung Ruling cũ đúng như từng Ruling ghi.
+
+### Chỗ plan nhắc thứ đã đổi
+
+| Plan (dòng) | Hiện tại |
+|---|---|
+| Migration 011 (`:7`, `:97`, `:191-193`, `:236-242`, `:264-265`, `:298`, `:373-381`, `:385`, `:396-397`, mục "Migration lên Neon" `:1594`) | `db/migrations/012_ai_phase9.sql`, `db/checks/preflight-012.sql`/`postcheck-012.sql`, `test/integration/migration-012.test.ts`, README "### Migration 012 (phase 9: AI)" (`README.md:721-773`). D8–D12 không thêm migration (R9-25). |
+| `REFERENCES locales (code) …` của `ai_glossary.locale`, `ai_jobs.locale` (`:329`, `:339`) | Không có khóa ngoại (`012_ai_phase9.sql:12-13`, `:28`, `:38`). App kiểm mã theo `LISTED_LOCALE_CODES` (`lib/i18n/site-locales.ts:51`). |
+| Preflight "`locales` có `en`" (`:375`); D5 "không có trong `locales` thì `invalid`" (`:999`) | Preflight 012 chỉ kiểm 011 đã áp. Glossary kiểm `LISTED_LOCALE_CODES` (`lib/server/ai/glossary.ts:113`). |
+| D7: `localeName(locale)` (`:1164`), body "có trong bảng locales" (`:1211`) | `englishName` (`lib/i18n/catalog.ts:32`); route kiểm `LISTED_LOCALE_CODES` (`app/api/admin/ai/translate/route.ts:37`). |
+| D7: `aiRoute(request, feature)` (`:1117`, `:1200`) | `aiRoute(request, feature, staff)` (`lib/server/ai/route-guard.ts:17`); dòng đầu của handler vẫn là `const staff = await requirePermission({ content: ['ai'] })` (guard). |
+| D7: lỗi hiện trong `role="status"` (`:1224`) | Vùng `aria-live="polite"` luôn mount (`_kit/AiTranslateButton.tsx:57-65`): `role="status"` dành cho thông báo lưu của form. D9–D11 theo khuôn này. |
+| D7 E2E: "Bật `vi` bằng fixture của đợt 8" (`:1232`) | `vi` đã bật trong code (`lib/i18n/site-locales.ts:24`). |
+| D8: nút tắt ở `translations/page.tsx:46-54`, ghi chú `:21` (`:1250`, `:1361`) | Nút tắt và tag "Sắp có" nằm trong `actions` của `PageHeader` ở `page.tsx:47-57`; ghi chú R8-13 ở `:23`. |
+| D8 E2E bước 3: "Bật `serve_machine` cho VI" (`:1366`) | Cột này đã mất cùng bảng `locales` (`011_drop_locales.sql:32`; cột ở `004_…sql:19`). Xem R9-19. |
+| D10: `RestaurantForm.tsx:180-181` (`:1416`) | `:179-181` (`<h2>SEO</h2>`, `seoTitle` max 120, `seoDescription` max 320 `rows={3}`). |
+| D11: `describeImage({ actorId: staff.id })` (`:1491`), `lib/server/media/register.ts` "trả `created`, `contentType`, `decorative`, `hasAlt`" (`:1459`) | `StaffSession` có `userId`, không có `id` (`lib/server/dal/session.ts:21`). `RegisterResult` chỉ có `{ id, created }` (`register.ts:18-20`). Xem R9-21. |
+| Sổ đợt 9 `2026-10-13-phase-9-ledger.md` (`:218`, `:1508`, `:1562`) | Đặt theo ngày D12 xong (R9-26). |
+
+Plan không nhắc `/admin/locales`, và không nhắc tên component hay class CSS admin nào đã đổi. `SaveBar`, `StringsPanel`, `GlossaryTable` và `_kit/*` vẫn đúng tên. Giao diện mới của D8–D11 dùng `PageHeader`/`Icon` (`_ui/`), các class `a-card-row`, `a-table`, `a-btn`, `a-tag`, `a-tag--warn`, `<progress>` (như `settings/ai/page.tsx:96`) và token `--a-*`. Không có `style=""` (CSP, `lib/admin/admin-pages.guard.test.ts`). Id lấy từ `useId()`, vì `<Activity>` giữ trang cũ trong DOM. Màu cảnh báo chỉ dùng `--a-warn*` (`test/guards/admin-css.guard.test.ts`).
+
+### Task D8: Dịch hàng loạt
+
+**Còn đúng:**
+- Bảng `ai_jobs` đủ cột, có partial unique index một job sống mỗi ngôn ngữ (`012_ai_phase9.sql:36-50`). `ai_usage.job_id` có, và `feature='translate'` dùng được cho job.
+- `translateItems` đã nhận `actorId: null` và `jobId` (`lib/server/ai/translate.ts:41-46`), tối đa 20 item mỗi lần gọi (`:26`).
+- `PRIVACY_KEYS`, `AGREED_KEYS` vẫn ở `lib/legal.ts:30`, `:33`. `CONTENT_KINDS` có đủ item và các màn chuỗi (`lib/server/content-admin/translations.ts:98-126`).
+- Quy tắc coverage coi bản `vi` của registry là đã có (`translations.ts:207-209`). Hàng chờ duyệt nhận hàng `machine` ở mọi ngôn ngữ (`:297`).
+- "Duyệt" đã expire qua cache plan (`translations/actions.ts:38-40`).
+- `ADMIN_SCREENS` gồm `legal` và `emails`. Khi trừ `PRIVACY_KEYS ∪ AGREED_KEYS`, màn `legal` không còn gì để dịch.
+- R9-3: job ghi `actor_id NULL`, không tính vào giới hạn theo người; R9-4: vẫn tính ngân sách.
+
+**Lệch:**
+- **Kiến trúc.** `.claude/architecture.md:61` cho `ai` phụ thuộc đúng `dal, kernel`. `jobs.ts` và `machine-write.ts` của plan nằm trong `lib/server/ai/` nhưng import `CONTENT_KINDS` (content-admin), `ItemDef` (history), `stringSource`/`tagsForStrings` (content). `content-admin/offers.ts:81` còn đọc `reservations`. → R9-17.
+- **Ngôn ngữ của job.** `ai_jobs.locale` không còn khóa ngoại (`012_ai_phase9.sql:38`): không gì chặn một mã lạ, hay job của một ngôn ngữ vừa bị gỡ khỏi danh sách. → R9-18.
+- **Khách thấy gì.** `serve_machine` không còn. Khách chỉ thấy bản `reviewed` ở ngôn ngữ khác mặc định (`lib/server/content/sql.ts:19`, `strings.queries.ts:31`; lý do đóng cửa `lib/server/booking/rules.ts:109-110`). `TAGS.i18n(locale)` (`lib/cache-tags.ts:37`) không loader nào gắn, nên `revalidateTag(TAGS.i18n(locale))` ở Step 4.7 không expire gì. → R9-19.
+- **Audit.** Step 4 viết "Không ghi audit cho job", nhưng `.claude/architecture.md:101` (Luật 4) đòi mỗi lần ghi có `insertAudit`. Thêm nữa, form đang mở của một Editor sẽ gặp `conflict` khi job chèn bản dịch (token snapshot gồm cả hàng dịch), và `conflictFromHistory` (`lib/server/conflict.ts:31-46`) lấy người của dòng audit mới nhất: không có dòng của job thì Editor được báo sai người. → R9-20.
+- **Cron.** `vercel.json:3-7` có ba cron, outbox `0 * * * *`. Guard so khớp cả danh sách (`test/guards/vercel-crons.guard.test.ts:22-28`) và chú thích lý do Neon Free (`:5-15`). Plan đặt ai-jobs ở `20 * * * *` (R9-2), tức thêm một lần đánh thức Neon mỗi giờ (README `:1297-1311`, và `:1308`: "Phase 9's AI-jobs cron must follow the same rule"). → R9-16.
+- **Model giả.** `AI_FAKE_FAIL` chưa có cú pháp `@<n>` (`lib/server/ai/fake.ts:13`, `:55-63`). Chưa có route `/api/test/*` nào. `playwright.config.ts:117-127` chưa đặt `E2E=1`. `e2e/blob-routes.ts` là route chặn của Playwright, không phải route của app.
+- **Chỗ gắn UI.** `translations/page.tsx:47-57`. Trang tải `coverage()` + `reviewQueue()`, đọc mọi bảng dịch (`translations.ts:231-235`), nên `router.refresh()` 5 giây một lần là nặng. → R9-24.
+- **Ghi máy.** `upsertTranslation` luôn ghi `reviewed`/`human` (`lib/server/history/snapshot.ts:226-248`). Hàm ghi `machine` vẫn phải viết mới, như plan đã dự kiến.
+- Chú thích `e2e/ai.serial.spec.ts:11-13` còn nói "puts the table back as migration 004 seeded it", là chuyện của bảng đã bỏ. Sửa khi viết phần 2 của spec này.
+- Test cần DB của D4–D7 nằm cạnh code (`lib/server/ai/*.test.ts`). `.claude/architecture.md` §1 đặt test cần DB ở `test/integration/`.
+
+**Xử lý:**
+- Làm theo R9-16 … R9-20, R9-24, R9-25.
+- Step 1–4 chuyển file theo R9-17. Test DB của phần CMS (scan, ghi máy, vòng chạy job) đặt ở `test/integration/machine-translations.test.ts`; Review Focus 1 thành `machine-translations.test.ts › never overwrites a row written after the scan`. Test thuần của `ai/jobs.ts` (claim, lease, chuyển trạng thái) giữ cạnh code như D4–D7.
+- Thêm `@<n>` vào `AI_FAKE_FAIL` (bộ đếm trên `globalThis`, như `aiFakeState`).
+- Route test `POST /api/test/ai-fake` chỉ chạy khi `AI_PROVIDER=fake`, `E2E=1` và `VERCEL_ENV` không đặt; ngược lại trả 404. Thêm `E2E: '1'` vào `webServer.env`.
+- Sửa `vercel.json` và `vercel-crons.guard.test.ts` (danh sách và chú thích) **trong cùng commit**.
+- D8 không cần migration (R9-25).
+- Câu hỏi "Editor có được tạo job không" vẫn để mở (bảng "Cần chủ dự án quyết định", mục 2).
+
+### Task D9: Trợ lý viết
+
+**Còn đúng:**
+- `reserveAiCall` đã có từ D4 (`lib/server/ai/guard.ts:77`), nên `runAiCall` (`:110`) dùng lại nó. Step 2 không phải viết thêm, chỉ dùng.
+- Guard import đã có ngoại lệ cho `_kit/AssistPanel.tsx` và cho `ai` trong route AI (`test/guards/ai-imports.guard.test.ts:27-28`).
+- Model giả stream được (`fake.ts:92-106`). `useAiFeatures().assist` đã có (`_kit/useAiFeatures.tsx:7`).
+- Chỗ gắn có sẵn: trong panel từng ngôn ngữ của `TranslatableField` (`_kit/TranslatableField.tsx:142-149`, cạnh `AiTranslateButton`), và `StringField` (`content/_ui/StringsForm.tsx:192-201`).
+- Ô nhiều dòng của màn chuỗi là `multiline` (`StringsForm.tsx:165`: `maxLength > 120` hoặc có xuống dòng, `rows={4}`). Các form dùng `rows` 3, 4, 6 có sẵn.
+- Khuôn dùng lại của D7: `fillLikeTyping` (`AiTranslateButton.tsx:11-15`), để điền vào ô cũng tính là gõ, nên `SaveBar` và cảnh báo rời trang đều thấy. `AbortController` hủy khi unmount (`:22-24`). Class `.a-ai-translate` (`styles/admin.css:1827`).
+
+**Lệch:**
+- Model giả đọc thao tác từ dòng `ACTION: <rewrite|shorten|brand>` (`fake.ts:78`). Step 2 chưa nói instructions phải có dòng này, sau dòng `TASK: assist`.
+- `useCompletion` (`@ai-sdk/react`) kéo `ai`, `@ai-sdk/provider-utils` và `swr` vào bundle admin (`package-lock.json`). D7 đã ghi rằng phép thử `eval` của zod làm CSP admin báo lỗi (`useAiFeatures.tsx:4`). → R9-23.
+
+**Xử lý:**
+- Instructions có `TASK: assist` rồi `ACTION: <action>` ở đầu.
+- Panel theo R9-23.
+- Nút "Dùng bản này" gọi đúng `onResult` mà `AiTranslateButton` đang dùng ở mỗi chỗ gắn.
+
+### Task D10: Gợi ý SEO
+
+**Còn đúng:**
+- `RestaurantForm.tsx:179-181` có hai ô SEO, dạng `TranslatableField`.
+- Màn SEO là `content/seo/page.tsx` dùng `StringsPanel`.
+- Caps 60/155 vẫn theo spec §9.3: registry cho tới 70/200 (`lib/i18n/registry.ts:1353-1366`), nhưng gợi ý vẫn cắt ở 60/155.
+
+**Lệch:**
+- Registry **không có** cặp `seo.<page>.title/.description` cho từng trang. Màn SEO chỉ có `seo.home_title`, `seo.home_description`, `seo.og_title`, `seo.og_description`, mẫu `seo.page_title` (`{page}`) và `seo.not_found_title` (`registry.ts:1353-1395`). `{ kind: 'page', page: SeoPage }` của R9-11 không có gì để trỏ vào.
+- Mỗi `TranslatableField` giữ tab đang mở của riêng nó (`TranslatableField.tsx:71`). `LocaleTabs` không có tab chung (`_kit/LocaleTabs.tsx`), nên trên `RestaurantForm` không có một "tab ngôn ngữ đang mở" chung cho hai ô.
+- `lib/page-scope.guard.test.ts:17-18`, `:30` quét cả `app/`: nút không được `document.querySelector`.
+- `suggestSeo` đọc nội dung bằng reader của `lib/server/content/*` từ trong `ai`, tức thêm cạnh `ai → content` mà bảng §2 không cho. → R9-17.
+
+**Xử lý:** Làm theo R9-22. Nội dung gửi cho model do phía CMS gom (R9-17); server vẫn tự đọc, không nhận chữ từ client.
+
+### Task D11: Alt ảnh
+
+**Còn đúng:**
+- Hàng chờ duyệt đã nhận alt EN `machine` (`translations.ts:25-26`, `:116`, `:297`), và "Duyệt" xử lý hàng ngôn ngữ mặc định (`:393`).
+- Khách thấy alt EN ngay, kể cả `machine`, vì nó là ngôn ngữ mặc định (`sql.ts:19`).
+- Model giả trả `A fake description of the image.` (`fake.ts:77`). Blob giả của E2E nhận cả lượt đọc lại file (`test/helpers/blob-redirect.mjs`).
+- Luồng upload: presigned Blob (`_kit/MediaUploader.tsx`), rồi `registerMediaAction` (`media/actions.ts:49-60`), rồi `registerUploadedMedia` (`lib/server/media/register.ts:32-60`, đã tải file về để đo). `after()` gắn được trong action này, trước `refresh()` ở `:55`.
+
+**Lệch:**
+- `RegisterResult` chỉ có `{ id, created }` (`register.ts:18-20`): không có `kind`. Uploader chỉ gửi `pathname` (`MediaUploader.tsx:85`), nên lúc upload alt luôn trống và cờ trang trí luôn tắt.
+- `downloadBlob` chỉ nhận URL `*.public.blob.vercel-storage.com` (`lib/server/media/blob.ts:102-104`). Các hàng `storage='static'` (`008_content.sql:65`, `:85`; thêm 37 ảnh ở `013_official_photos.sql:3`, `:18-19`) có URL `/assets/…` và không đọc được qua cổng này. Con số "17 ảnh cũ chưa có alt" (R9-12) tính trước 013, nay phải đếm lại.
+- `ai → media` (`downloadBlob`, ghi `media_i18n`) là cạnh mà bảng §2 không cho. → R9-17.
+- Trang chi tiết không hiện trạng thái của alt EN: `MediaForms.tsx:73-86` là textarea trần, và `itemStates` chỉ tính ngôn ngữ khác mặc định (`media/[id]/page.tsx:100-103`). E2E "nhãn Máy dịch" ở Step 5 chưa có chỗ hiện.
+- Ô alt các ngôn ngữ khác (`MediaForms.tsx:88-94`) chưa có "Dịch từ EN". D7 chỉ gắn vào `TranslatableField` và `StringsForm`.
+- `saveMediaDetails` ghi lại alt EN mỗi lần lưu (`lib/server/media/library.ts:217`), nên lưu form (kể cả chỉ đổi cờ trang trí) là duyệt luôn alt máy. Hợp spec §5.1 mục 4 (lưu là `reviewed`), chỉ cần ghi nhận.
+- Mọi model trong danh mục có `image: true` (`lib/admin/ai-models.ts:19-23`), nên mã `ai_no_image` của Step 2 không cần.
+
+**Xử lý:** Làm theo R9-21. Thêm `AiTranslateButton` vào ô alt từng ngôn ngữ khác (mở rộng R9-8), theo khuôn của `StringField`: dùng `ref`, rồi `fillLikeTyping`.
+
+### Task D12: Nghiệm thu, README, sổ đợt 9
+
+**Còn đúng:**
+- README có mục "Migration 012" (`README.md:721-773`) và dòng `/admin/settings/ai` trong bảng route (`:1527`).
+- "Before launch A" bước 2 đã nói cron AI-jobs phải theo luật Neon (`:1308`), và bước 3 đã bật OIDC Federation cho BotID (`:1312-1314`).
+- `e2e/settings-ai.spec.ts` đã có "Kiểm tra kết nối" với model giả và marker bí mật.
+
+**Lệch:**
+- README chưa có biến AI/GCP trong bảng env (`:1107-1125`). Dòng `CRON_SECRET` liệt kê ba cron (`:1120`). Chưa có mục "Before AI".
+- "Before launch A" bước 11 nói "three crons" (`:1391-1397`), bước 13 nói "all three crons" (`:1413-1416`). Bảng route chưa có `/api/cron/ai-jobs` hay `/api/admin/ai/*` (`:1508-1517`). Dòng `/admin/translations` còn ghi "comes with phase 9" (`:1525`).
+- Plan trỏ "Before launch B, bước 4" (`:1559`), nhưng nay bước 4 là công cụ tìm kiếm (`:1466`). Bước dịch là bước 2 (`:1455`).
+- Sổ đợt 8 viết tiếng Anh, theo các mục `Rulings` / `Closed in 8` / `Deferred, with the reason` / `Needs a decision (owner)` / `Final gate` (`docs/superpowers/ledgers/2026-10-06-phase-8-ledger.md:14`, `:28`, `:42`, `:53`, `:64`). Step 3 của plan liệt kê bằng tiếng Việt.
+- Mục "Before AI" nên trỏ về bước 3 thay vì bật OIDC lần thứ hai. Phần còn phải kiểm là chế độ Team issuer.
+
+**Xử lý:**
+- README:
+  - thêm các biến AI/GCP vào bảng env, và thêm `/api/cron/ai-jobs` vào dòng `CRON_SECRET`;
+  - sửa bước 11 và 13 thành bốn cron;
+  - bảng route: thêm `/api/cron/ai-jobs` và `/api/admin/ai/{translate,jobs,assist,seo,alt}`, sửa dòng `/admin/translations`;
+  - mục "Before AI" trỏ về bước 3, và ghi lịch cron `0 * * * *` (R9-16);
+  - "Before launch B" bước 2 thêm câu về nút dịch hàng loạt, hàng chờ duyệt, và rằng job không dịch chính sách và câu đồng ý.
+- Sổ theo R9-26.
+- Cổng cuối như Step 4. `test:visual` chỉ chạy trên macOS.
+
+### Các Ruling hiện có
+
+- **Còn đúng nguyên:** R9-1 (`lib/server/ai/mode.ts`, có thêm trạng thái `error` ở màn cấu hình), R9-3, R9-4, R9-5, R9-6, R9-7, R9-13, R9-14.
+- **R9-2:** phần `after()`, 240 giây, lease và "không job thì một `SELECT`" còn đúng. Lịch `20 * * * *` thay bằng R9-16.
+- **R9-8:** đã làm ở D7. Mở rộng sang ô alt các ngôn ngữ khác (R9-21). Lỗi hiện trong `aria-live`, không dùng `role="status"`.
+- **R9-9:** phạm vi còn đúng. Thêm R9-17 (file nằm đâu), R9-18 (ngôn ngữ), R9-19 (khách thấy gì) và R9-20 (audit).
+- **R9-10:** ba thao tác và hành vi còn đúng. `useCompletion` thay bằng R9-23.
+- **R9-11:** thay bằng R9-22.
+- **R9-12:** sửa bằng R9-21.
+- **R9-15:** đủ mã, đã có trong `lib/server/ai-error.ts:4-15` (kernel). Không thêm `ai_no_image`.
+- **L9-1:** "chỉ hai luồng ghi `machine`" còn đúng. Theo R9-17, hai luồng đó nằm ở `lib/server/content-admin/machine-translations.ts` và `lib/server/media/library.ts` (`writeMachineAlt`). Lệnh `rg` của "Bản kiểm chứng (Phần 2)" kiểm hai file này thay cho `lib/server/ai/machine-write.ts` và `alt.ts`.
+
+### Ruling mới
+
+- **R9-16 (lịch cron ai-jobs, thay lịch của R9-2).**
+  - `/api/cron/ai-jobs` chạy `0 * * * *`, **cùng phút với outbox**. Neon Free thức một lần mỗi giờ cho cả hai cron, thay vì hai lần (README `:1297-1311`).
+  - Một lượt `after()` hết 240 giây mà job còn việc: job về `queued`, xóa lease. Panel hiện "Đang chờ lượt sau" kèm nút "Chạy tiếp ngay" (cùng route với "Tiếp tục", lại `after()`); không bấm thì cron giờ kế tiếp chạy tiếp.
+  - Sửa `vercel.json`, danh sách và chú thích của `vercel-crons.guard.test.ts`, cùng README (bước 2, 11, 13, dòng `CRON_SECRET`, bảng route) trong cùng commit D8.
+  - Nếu sai: số liệu Neon tháng đầu cho thấy hai cron cùng phút vẫn đánh thức compute hai lần, hoặc chủ dự án lên gói Launch. Khi đó đổi lịch ở `vercel.json` và guard cùng lúc, kèm ghi chú trong guard.
+- **R9-17 (đặt file theo `.claude/architecture.md`, thay sơ đồ file của D8, D10 và D11).**
+  - `lib/server/ai/` vẫn là cổng, chỉ phụ thuộc `dal, kernel`. Hàm AI nhận chữ hoặc byte đã gom sẵn, không tự đọc bảng nội dung:
+    - `ai/jobs.ts`: chỉ SQL của `ai_jobs` (tạo, claim, lease, tiến độ, tạm dừng, tiếp tục, hủy, `liveJobs`);
+    - `ai/translate.ts`: như D7;
+    - `ai/seo.ts`: `suggestSeo(pool, { material, locale, … })`;
+    - `ai/alt.ts`: `describeImage(pool, { bytes, contentType, actorId })`;
+    - `ai/assist.ts`.
+  - Phía CMS nằm ở `lib/server/content-admin/`, module này **được import `ai`**:
+    - `machine-translations.ts`: `missingDocs`, vòng `runTranslationJobs`, `insertMachineTranslation`, `insertMachineString`;
+    - `seo-material.ts`: gom nội dung cho `suggestSeo`;
+    - `machine-alt.ts`: `generateAltQuietly`.
+  - `media` thêm `imageForAi(db, id)` (byte của file) và `writeMachineAlt` vào `library.ts`, vì `media_i18n` là bảng của module media.
+  - Route, cron và `registerMediaAction` gọi các hàm của content-admin.
+  - Commit D8 sửa `.claude/architecture.md:62` thành `content, email, history, media, ai, kernel`. Thứ tự bảng không đổi: `ai` vốn đã nằm dưới `content-admin`.
+  - Siết `ai-imports.guard.test.ts`: các file `content-admin/machine-*.ts` và `seo-material.ts` cũng không được import `booking`/`email` hay chứa `reservations`, như `lib/server/ai/`.
+  - Nếu sai: đội muốn giữ `jobs.ts` và `alt.ts` trong `ai` như plan. Khi đó `ai` phải lên trên `content-admin` trong bảng §2, và chấp nhận `ai` kéo gián tiếp `content-admin/offers.ts` (đọc `reservations`). Spec §9.4 không muốn điều này, nên phải có quyết định của `kien-truc`.
+- **R9-18 (ngôn ngữ của job).**
+  - `createJob` chỉ nhận một mã trong `LISTED_LOCALE_CODES`, khác `DEFAULT_LOCALE`, giống route dịch. Ngôn ngữ đang tắt cũng được, vì README "Before launch B" bước 2 dịch trước rồi mới bật.
+  - Panel chọn ngôn ngữ từ `SITE_LOCALE_ROWS`; ngôn ngữ đang tắt có thêm chữ "(đang tắt)".
+  - Lúc claim, job có ngôn ngữ đã bị gỡ khỏi danh sách thì thành `cancelled`, `error='locale_unlisted'`. Panel hiện "Ngôn ngữ này không còn trên web."
+  - Nếu sai: chủ dự án muốn chỉ dịch hàng loạt ngôn ngữ đã bật. Khi đó lọc theo `ENABLED_LOCALE_CODES`.
+- **R9-19 (khách thấy gì, thay D8 Step 4.7 và Step 7 mục 3).**
+  - Bản `machine` ở ngôn ngữ khác mặc định không hiện cho khách cho tới khi được "Duyệt". Vì vậy job **không expire tag nào**: `TAGS.i18n` không loader nào gắn, và "Duyệt" đã expire qua cache plan.
+  - Ngoại lệ là alt EN do AI viết: khách thấy ngay. `writeMachineAlt` expire `tagsForSave(MEDIA.tables)` bằng `revalidateTag(tag, 'max')` khi file đang được dùng lúc ghi, như `expireIfShown` (`media/actions.ts:35-40`).
+  - E2E bước 3 mới: sau job, `/vi` vẫn hiện tiêu đề tiếng Anh. "Duyệt" trên `/admin/translations` xong thì `/vi` hiện `«vi» …`.
+  - Siết `content-tags.guard.test.ts`: `revalidateTag` cũng chỉ đi qua cache plan, trừ `TAGS.contentOffers` của cron daily.
+  - Nếu sai: sau này chủ dự án cho khách xem bản máy dịch. Khi đó mỗi lô của job expire `tagsForSave(def.tables)` và `tagsForStrings(keys)`.
+- **R9-20 (audit cho mọi ghi máy, thay "Không ghi audit cho job").**
+  - Mỗi item-doc hay mỗi key mà job ghi, và mỗi alt EN tự sinh, có một dòng `insertAudit(client, null, { action: 'machine', … })` trong cùng transaction. Actor `null` ("Tự động", như `ai_usage`); `insertAudit` đã nhận `null` (`lib/server/audit.ts:23`).
+  - Thực thể theo `kind.audit` của `CONTENT_KINDS` (highlight ghi vào nhà hàng; `audit: null` như lý do đóng cửa thì không ghi). Chuỗi theo khuôn `content_strings` + `locale` (`strings-admin.ts:266-273`).
+  - Thêm nhãn "Máy dịch (AI)" vào `lib/admin/audit-labels.ts`.
+  - Form đang mở bị job chen vào thì nhận `conflict` như mọi lần, với câu đúng người.
+  - Nếu sai: History quá dày, ví dụ một job ngôn ngữ mới sinh hàng trăm dòng. Khi đó gộp một dòng audit cho mỗi lô, nhưng vẫn phải có dòng mới nhất cho từng thực thể, để `conflictFromHistory` báo đúng.
+- **R9-21 (alt ảnh: nguồn byte và điều kiện, sửa R9-12).**
+  - `imageForAi` chỉ trả byte cho file `storage='blob'`, chưa xóa, là ảnh, không trang trí. Byte đọc qua `downloadBlob`.
+  - File `static` không có nút "Viết alt bằng AI": thay bằng câu "Ảnh tĩnh: chuyển lên Blob trước" ("Before launch A" 1.3). Đường tự sinh không gặp file static, vì upload luôn là Blob.
+  - Khi thành công, `RegisterResult.data` có thêm `kind: 'image' | 'pdf'`. `registerMediaAction` kiểm Draft Mode **trước** khi gọi `after()`, rồi `after(() => generateAltQuietly(id))` khi `created && kind === 'image'`. `generateAltQuietly` đọc lại hàng để kiểm cờ trang trí và alt EN, rồi tính năng `alt` và `resolveAiMode`.
+  - Nút gọi với `actorId: staff.userId`.
+  - Trang chi tiết hiện tag "Máy dịch" cạnh alt EN khi `media_i18n.status='machine'`.
+  - D11 đếm lại số ảnh chưa có alt (truy vấn đọc, ghi vào sổ) thay cho số 17.
+  - Nếu sai: Production còn hàng `static` sau 013, vì chưa chạy `move-assets-to-blob.mjs` lại. Khi đó thêm đường đọc `public/assets` (fs, kèm `outputFileTracingIncludes` cho route alt), có spike trước.
+- **R9-22 (SEO: đích và chỗ gắn, thay R9-11).**
+  - `POST /api/admin/ai/seo` nhận `{ target: { kind: 'home' } | { kind: 'restaurant', id }, locale }`. Server gom nội dung (R9-17) và trả `{ title, description }` đã qua `fitWords` 60/155.
+  - Với `home`, kết quả điền `seo.home_title` và `seo.home_description`. Cặp `og_*`, mẫu `page_title` và `not_found_title` không gợi ý.
+  - Màn SEO: một nút cạnh khối trang chủ, tìm ô bằng `form.elements.namedItem('v:seo.home_title')` (tên `v:<key>`, `StringsForm.tsx:170`) rồi `fillLikeTyping`. Không truy vấn `document`.
+  - `RestaurantForm`: nút có ô chọn ngôn ngữ riêng (các ngôn ngữ của form, mặc định EN), điền `seoTitle.<code>` và `seoDescription.<code>`, rồi báo "Đã điền tab XX".
+  - Người dùng vẫn phải bấm Lưu.
+  - Nếu sai: review UX muốn nút nằm trong từng tab. Khi đó thêm prop `aside?: (code) => ReactNode` cho `TranslatableField`, và một nút điền cả hai ô qua `form.elements`.
+- **R9-23 (trợ lý viết phía trình duyệt, thay `useCompletion` của R9-10).**
+  - `AssistPanel` dùng `fetch` + `response.body.getReader()` + `TextDecoder`, cùng khuôn `AbortController` của `AiTranslateButton`: đóng panel hay unmount thì `abort()`, và server nhận qua `request.signal`.
+  - Lỗi trước stream là JSON `{ message }`, như route dịch.
+  - Bỏ ngoại lệ `ASSIST_PANEL` trong `ai-imports.guard.test.ts` (siết) và gói `@ai-sdk/react`. Không gói AI nào vào bundle trình duyệt.
+  - Nếu sai: một kiểm tra bundle (`.next/static` không có zod, E2E không có báo cáo CSP) cho thấy `useCompletion` sạch. Khi đó dùng `useCompletion` theo R9-10, và giữ ngoại lệ.
+- **R9-24 (panel job tự làm mới, thay `router.refresh()` 5 giây ở D8 Step 6).**
+  - `AiJobPanel` là một `section.a-card-row` đặt ngay sau `PageHeader`; bỏ nút tắt và tag "Sắp có" khỏi `actions`.
+  - Panel hỏi `GET /api/admin/ai/jobs` mỗi 5 giây; route chỉ trả `liveJobs`, với quyền `content:read`. Panel ngừng hỏi khi không còn job `queued` hay `running`.
+  - Panel chỉ gọi `router.refresh()` khi một job đổi trạng thái, để bảng độ phủ và hàng chờ cập nhật.
+  - Nếu sai: đo trên Neon thấy trang `/admin/translations` render dưới khoảng 200 ms. Khi đó `router.refresh()` 5 giây như plan cũng được.
+- **R9-25 (D8–D12 không thêm migration).**
+  - 012 đã có đủ bảng. `progress.skipped` nằm trong `jsonb`. `ai_usage.feature` đã có `translate` và `alt`.
+  - Nếu cần thay đổi schema thì đó là migration `016_*.sql`, kèm "### Migration 016" trong README và `db/checks` (`runbook.guard.test.ts`), và chủ dự án áp lên production.
+  - Nếu sai: thiếu cột (ví dụ cần index theo `ai_jobs.status`). Khi đó viết 016, chỉ thêm.
+- **R9-26 (sổ đợt 9).**
+  - Tên file là `docs/superpowers/ledgers/<ngày D12 xong>-phase-9-ledger.md`. Sổ viết tiếng Anh như sổ đợt 8, cùng các mục `Acceptance` / `Rulings` / `Closed in 9` / `Deferred, with the reason` / `Needs a decision (owner)` / `Final gate`; chữ giao diện trích nguyên tiếng Việt.
+  - Sổ ghi R9-1 … R9-26 và kết quả từng cái; ghi việc đánh số lại 011 → 012 và tác động của "ngôn ngữ là code" (không còn `serve_machine`).
+  - Nếu sai: chủ dự án muốn sổ tiếng Việt. Khi đó đổi cả khuôn cho đợt 10.
+
+### Cần chủ dự án quyết định (bổ sung)
+
+| # | Câu hỏi | Mặc định khi chưa trả lời |
+|---|---|---|
+| 4 | 012 đã áp lên Neon production chưa? README "Migration 012" chưa có dòng "Done". Preview chạy trên DB production, nên code ở `main` có `/admin/settings/ai` đọc `ai_settings`. | Coi là chưa áp. Mở issue `owner` kèm pre-flight, apply và post-check của README. |
+| 5 | Cho phép job hàng loạt dịch ngôn ngữ đang tắt (R9-18)? | Có. |
+| 6 | Production còn ảnh `static` không (R9-21)? | Coi như đã chạy `move-assets-to-blob.mjs` sau 013; ảnh `static` không có nút alt AI. |
