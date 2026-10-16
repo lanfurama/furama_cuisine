@@ -23,7 +23,7 @@ test('a request BotID calls a bot is refused with the number to call, and nothin
   await drawer.getByLabel('Full name *', { exact: true }).fill('Nguyễn Minh Anh');
   const digits = String(Date.now()).slice(-6);
   await drawer.getByLabel('Phone *', { exact: true }).fill(`0907 ${digits.slice(0, 3)} ${digits.slice(3)}`);
-  await drawer.getByRole('checkbox', { name: 'I agree to Furama Cuisine using my details as described in the privacy policy.' }).check();
+  await drawer.getByRole('checkbox', { name: 'I agree to Furama Dining World using my details as described in the privacy policy.' }).check();
   await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
   await expect(drawer.getByRole('alert')).toHaveText('We could not accept this request online. Please call us on +84 236 651 9999 to book.');
   expect((await one<{ n: number }>(`SELECT count(*)::int AS n FROM reservations WHERE phone_e164 = $1`, [`+84907${digits}`]))!.n).toBe(0);

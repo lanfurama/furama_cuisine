@@ -115,7 +115,7 @@ test('submitting after the chosen sitting has closed explains why and moves the 
   await page.locator('.slot', { hasText: '19:00' }).first().click();
   await page.getByLabel('Full name *').fill('Nguyễn Minh Anh');
   await page.getByLabel('Phone *').fill('0905 000 000');
-  await page.getByRole('checkbox', { name: 'I agree to Furama Cuisine using my details as described in the privacy policy.' }).check();
+  await page.getByRole('checkbox', { name: 'I agree to Furama Dining World using my details as described in the privacy policy.' }).check();
 
   serverNow = new Date('2026-10-02T11:45:00Z');
   await page.clock.setFixedTime(serverNow);
