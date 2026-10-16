@@ -280,12 +280,17 @@ html {
 
 /*
  * A language longer than English (the editors may write labels 1.3 times as
- * long, spec §8) breaks a label onto a second line between its words, rather
- * than push RESERVE past the gutter: at 1440 px six such labels ran it 105 px
- * past it. SEARCH does the same (its row may give way too); the language and
- * RESERVE keep one line. Where the row fits, as in English, nothing shrinks
- * and every label stays on one line; two lines sit inside the condensed
- * header's height.
+ * long, spec §8) lets the labels break between their words rather than push
+ * RESERVE past the gutter: at 1440 px six such labels ran it 105 px past it.
+ * The row shrinks in proportion, so once it is a pixel too wide every label of
+ * several words takes two lines, not just the longest. SEARCH may break too
+ * (its row gives way: the rule below wins over `.hdr-actions`' `flex: 0 0
+ * auto` by specificity); the language and RESERVE keep one line. Where the row
+ * fits, as in English, nothing shrinks and every label stays on one line. Two
+ * lines sit inside the condensed header's height; labels near their maximum
+ * length (18 characters a nav label, 24 SEARCH) can take three or more at
+ * 1080 px and run below the bar, which the editors' 1.3 times warning keeps
+ * them from in practice.
  */
 .hdr-full .hdr-nav .hdr-link,
 .hdr-full .hdr-actions > .hdr-link {
