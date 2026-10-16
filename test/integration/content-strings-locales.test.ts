@@ -13,6 +13,7 @@ import {
   type StringsInput,
 } from '@/lib/server/content/strings-admin';
 import { loadStringRows } from '@/lib/server/content/strings.queries';
+import { BRAND_RENAME, DELETE_ADDED_POLICY_VERSIONS } from '@/test/helpers/legal';
 
 /*
  * Phase 8 C9: a strings screen edits one language (?lang=). Each language's
@@ -51,13 +52,13 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content strings per language (d
   beforeEach(async () => {
     await query('DELETE FROM content_strings');
     await query(`DELETE FROM audit_log WHERE entity_type IN ('content_strings', 'legal_versions')`);
-    await query(`DELETE FROM legal_versions WHERE created_by IS DISTINCT FROM 'seed'`);
+    await query(DELETE_ADDED_POLICY_VERSIONS);
     await query(`DELETE FROM staff_user WHERE id = 'staff-lan'`);
     await query(`INSERT INTO staff_user (id, name, email, email_verified, role) VALUES ('staff-lan', 'Lan', 'lan@furama.test', true, 'editor')`);
   });
   afterAll(async () => {
     await query('DELETE FROM content_strings');
-    await query(`DELETE FROM legal_versions WHERE created_by IS DISTINCT FROM 'seed'`);
+    await query(DELETE_ADDED_POLICY_VERSIONS);
     await query(`DELETE FROM staff_user WHERE id = 'staff-lan'`);
     await getPool().end();
   });
@@ -144,10 +145,10 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content strings per language (d
     it('a Vietnamese policy save versions Vietnamese only; English stays in force for English guests', async () => {
       const saved = await saveStrings(getPool(), LAN, (await screen('legal', 'vi')).input({ 'legal.title': 'Chính sách quyền riêng tư' }));
       expect(saved.ok && saved.data).toMatchObject({ policyVersion: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), policyChanged: true });
-      expect(await currentPolicyVersion(getPool(), 'en')).toMatchObject({ version: '2026-10-03', locale: 'en' });
+      expect(await currentPolicyVersion(getPool(), 'en')).toMatchObject({ version: BRAND_RENAME.version, locale: 'en' });
       expect(await currentPolicyVersion(getPool(), 'vi')).toMatchObject({ version: saved.ok ? saved.data.policyVersion : '', locale: 'vi' });
       // A language without versions agrees to the English wording, and says so.
-      expect(await currentPolicyVersion(getPool(), 'ko')).toMatchObject({ version: '2026-10-03', locale: 'en' });
+      expect(await currentPolicyVersion(getPool(), 'ko')).toMatchObject({ version: BRAND_RENAME.version, locale: 'en' });
     });
 
     it('an English save versions a language that reads the English text of a changed key, not one with its own', async () => {

@@ -187,7 +187,7 @@ test('the privacy policy page, from the footer', async ({ page }) => {
   await expect(page).toHaveURL(/\/en\/privacy$/);
   await expect(page).toHaveTitle('Privacy policy — Furama Cuisine');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Privacy policy');
-  await expect(page.getByText('Last updated 3 October 2026')).toBeVisible();
+  await expect(page.getByText('Last updated 15 October 2026')).toBeVisible();
   // Scoped to main: the chrome's booking bar has a heading of its own on every guest page.
   await expect(page.getByRole('main').getByRole('heading', { level: 2 })).toHaveText([
     'What we collect',
@@ -284,7 +284,7 @@ test('reached from the footer without a page load, the policy page’s header is
 
 test('the policy page sets its date line small, and a shared link previews the policy, not the home page', async ({ page }) => {
   await page.goto(`${HOME_PATH}/privacy`);
-  const updated = page.getByText('Last updated 3 October 2026');
+  const updated = page.getByText('Last updated 15 October 2026');
   await expect(updated).toHaveCSS('font-size', '12px');
   await expect(updated).toHaveCSS('margin-top', '12px');
   await expect(updated).toHaveCSS('margin-bottom', '32px');
