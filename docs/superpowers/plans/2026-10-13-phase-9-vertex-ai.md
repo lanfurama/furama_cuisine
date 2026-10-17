@@ -1833,3 +1833,21 @@ Plan không nhắc `/admin/locales`, và không nhắc tên component hay class 
 | 4 | 012 đã áp lên Neon production chưa? README "Migration 012" chưa có dòng "Done". Preview chạy trên DB production, nên code ở `main` có `/admin/settings/ai` đọc `ai_settings`. | Coi là chưa áp. Mở issue `owner` kèm pre-flight, apply và post-check của README. |
 | 5 | Cho phép job hàng loạt dịch ngôn ngữ đang tắt (R9-18)? | Có. |
 | 6 | Production còn ảnh `static` không (R9-21)? | Coi như đã chạy `move-assets-to-blob.mjs` sau 013; ảnh `static` không có nút alt AI. |
+
+### Đính chính sau review độc lập (2026-10-17)
+
+Review độc lập của PR #19 kiểm từng `file:dòng` của mục trên ở `origin/main` 5657868. Phần lớn đúng. Các chỗ sau thay chữ của Ruling tương ứng; chỗ nào hai mục nói khác nhau thì làm theo mục này.
+
+- **R9-17: xác nhận.** Ở `main` không module nào import `content-admin`, nên cạnh mới `content-admin → ai` không tạo chu trình. Sửa `.claude/architecture.md:62` thành `content, email, history, media, ai, kernel`; `media` chỉ thêm `imageForAi` và `writeMachineAlt`, không import `ai`.
+  - Guard `server-modules` chỉ bắt chu trình, không so từng cạnh với bảng §2. Việc theo bảng §2 vẫn dựa vào review (việc tồn cho đợt 10: thêm assertion "mỗi cạnh nằm trong bảng §2").
+  - `content-admin` có 16 file và `translations.ts` đã 434 dòng (quá ngưỡng ~400 của §5). Code mới đặt trong file mới (`machine-translations.ts`, `seo-material.ts`, `machine-alt.ts`), không dồn thêm vào `translations.ts`.
+  - Câu "Spec §9.4 không muốn" ở nhánh "Nếu sai" nói quá: §9.4 cấm *gửi* dữ liệu khách cho Vertex, không cấm import gián tiếp. Hàng rào thật là guard theo từng file (`ai-imports.guard.test.ts`).
+- **R9-20: sửa (blocker).** `audit_log.action` có CHECK `^(create|update|delete|reorder|restore|settings|staff\.[a-z_]+)$` (`db/migrations/005_staff_auth_audit.sql:108`), nên `action: 'machine'` bị DB từ chối. Ghi máy dùng `insertAudit(client, null, { action: 'update' | 'create', … })` như lần ghi thường (item → `update`, hàng chuỗi mới → `create`), và đánh dấu máy trong `after.meta` (ví dụ `meta: { machine: { model } }`; `meta` không thuộc token, `lib/server/history/snapshot.ts:24`). Nhãn "Máy dịch (AI)" đọc từ `meta`, không thêm vào danh sách action của `lib/admin/audit-labels.ts`. Nhờ vậy R9-25 (không migration) vẫn đứng.
+  - Với actor null, `conflictBy` báo "người khác" (`lib/server/conflict.ts:18-21`) và History hiện "Hệ thống" (`lib/server/history/history.ts:27`). Chấp nhận như vậy; không sửa kernel.
+  - Lý do đóng cửa: job dịch nó thì ghi audit thực thể `closure` (`lib/server/booking/config.ts:406-444`); không thì loại closures khỏi job, và ghi rõ trong sổ.
+- **R9-19: sửa lý do.** Câu "`TAGS.i18n(locale)` không loader nào gắn" sai: có 14 chỗ gắn (`lib/server/content/home.ts`, `legal.ts`, `restaurants.ts`, `seo.ts`, `site.ts`, `strings.ts`). Kết luận vẫn đứng vì lý do khác: ở ngôn ngữ khác mặc định khách chỉ thấy bản `reviewed` (`content/sql.ts:19`, `strings.queries.ts:31`, `booking/rules.ts:110`), email cũng chỉ đếm `reviewed` (`email/booking/render.ts:133`). Đây là lệch có chủ đích so với spec §9.3 ("Gọi `revalidateTag('i18n:<code>', 'max')`"). Nếu sai: một `revalidateTag(TAGS.i18n(locale), 'max')` ở route/cron là đủ.
+  - Theo Luật 3, `lib/server/**` không gọi `revalidateTag`/`updateTag`. `writeMachineAlt` (R9-21) trả `{ wrote, shown }`; callback `after()` ở `app/` (action upload, route alt) mới expire `tagsForSave(MEDIA.tables)`.
+- **Test cần DB:** claim, lease (`FOR UPDATE SKIP LOCKED`) và chuyển trạng thái của `ai/jobs.ts` cần DB, nên đặt ở `test/integration/` theo `.claude/architecture.md` §1. Test không cần DB thì cạnh code.
+- **R9-16:** "Chạy tiếp ngay" dùng chung route với "Tiếp tục", nên route nhận cả job `queued` có `progress.done > 0`, không chỉ `paused`.
+- **Lệch spec có chủ đích (ghi vào sổ đợt 9):** R9-19 (không expire tag, §9.3), R9-22 (SEO chỉ cho trang chủ và nhà hàng, vì registry không có cặp key cho từng trang, §9.3), R9-23 (không dùng `useCompletion`, §9.3).
+- **R9-26:** sổ đợt 9 theo các mục của sổ đợt 8 và thêm mục `Acceptance`; câu "như sổ đợt 8" hiểu là cùng ngôn ngữ và văn phong.
