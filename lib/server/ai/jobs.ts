@@ -30,7 +30,7 @@ export type JobStatus = 'queued' | 'running' | 'paused' | 'done' | 'cancelled';
 export type JobProgress = {
   /** Units written: an item's translation, or one key of a strings screen. */
   done: number;
-  /** Units the model got wrong (a lost name or variable, too long): left empty and tried again. */
+  /** Failures of units: a wrong answer (a lost name or variable, too long) or a call that failed (ai_failed); left empty and tried again. */
   failed: number;
   /** Units still missing at the last count (not the skipped ones); null before the first run. */
   remaining: number | null;
