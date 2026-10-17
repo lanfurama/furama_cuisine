@@ -17,14 +17,19 @@ import { imageForAi, writeMachineAlt } from '@/lib/server/media/library';
  * the person's call, nothing written). Cache expiry is app/'s (Luật 3).
  */
 
-/** The picture described, or null when it is not one the AI may describe (static, PDF, decorative, in the trash, gone; with `withoutAlt`, already described). */
+/**
+ * The picture described, or null when it is not one the AI may describe
+ * (static, PDF, decorative, in the trash, gone; with `withoutAlt`, already
+ * described). The check is one SELECT; the download happens inside the
+ * reserved call (a refused call reads nothing from the store).
+ */
 export async function describeMediaImage(
   pool: Pool,
   input: { mediaId: string; actorId: string | null; settings?: AiSettings; signal?: AbortSignal; withoutAlt?: boolean },
 ): Promise<{ alt: string; model: ModelId } | null> {
   const image = await imageForAi(pool, input.mediaId, { withoutAlt: input.withoutAlt });
   if (!image) return null;
-  return describeImage(pool, { bytes: image.bytes, actorId: input.actorId, settings: input.settings, signal: input.signal });
+  return describeImage(pool, { bytes: image.read, actorId: input.actorId, settings: input.settings, signal: input.signal });
 }
 
 const NOTHING = { wrote: false, shown: false } as const;

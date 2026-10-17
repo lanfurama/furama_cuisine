@@ -53,13 +53,13 @@ Test unit nằm cạnh code (`foo.ts` + `foo.test.ts`). Test cần DB nằm ở 
 | *kernel* (`lib/server/*.ts`) | transaction + audit (`audit.ts`), token đồng thời (`conflict.ts`), kết quả Server Action + `PermissionError` (`action-result.ts`), mã đặt bàn, IP, cron auth | — (không import module nào) |
 | `history` | snapshot item + i18n, ghi/khôi phục, đọc History từ `audit_log` | kernel |
 | `content` | đọc nội dung cho site khách (`*.queries.ts`), locale, SEO, legal, preview | history, kernel |
-| `media` | thư viện ảnh/PDF, Blob (`blob.ts`), đo ảnh, dọn rác | history, kernel |
+| `media` | thư viện ảnh/PDF, Blob (`blob.ts`), đo ảnh, dọn rác; alt máy: `imageForAi` (ảnh Blob được phép gửi AI), `writeMachineAlt` (ghi alt EN `machine` chỉ vào chỗ trống) | history, kernel |
 | `booking` | luật đặt bàn, tạo đặt bàn, vòng đời reservation, cấu hình giờ/đóng cửa | content, history, kernel |
 | `email` | outbox, render, gửi SMTP (`send.ts`), người nhận | booking, content, kernel |
 | `auth` | Better Auth, staff, quyền, email mời / đặt lại mật khẩu | email, kernel |
 | `dal` | phiên đăng nhập, `requirePermission`, `auditActor` | auth, kernel |
 | `ai` | Vertex AI (phase 9): dịch máy, glossary, cấu hình + ngân sách, chặn route AI, bảng `ai_jobs` (tạo, claim, lease, tạm dừng/tiếp tục/hủy). Nhận chữ/byte đã gom sẵn, không tự đọc bảng nội dung | dal, kernel |
-| `content-admin` | các màn sửa nội dung của CMS; phía CMS của AI: gom nội dung gửi model và ghi bản máy dịch (`machine-translations.ts`: chỗ còn thiếu, vòng chạy job, ghi `machine` chỉ vào chỗ trống) | content, email, history, media, ai, kernel |
+| `content-admin` | các màn sửa nội dung của CMS; phía CMS của AI: gom nội dung gửi model và ghi bản máy dịch (`machine-translations.ts`: chỗ còn thiếu, vòng chạy job, ghi `machine` chỉ vào chỗ trống; `machine-alt.ts`: alt ảnh sau upload và nút "Viết alt bằng AI") | content, email, history, media, ai, kernel |
 | `guard` | BotID | — |
 
 Thứ tự trên là thứ tự từ dưới lên. Module mới đặt vào đúng tầng và cập nhật bảng này cùng PR.

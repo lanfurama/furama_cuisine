@@ -8,7 +8,7 @@ import { tagsForSave } from '@/lib/cache-plan';
 import { describeImage } from '@/lib/server/ai/alt';
 import { fakeModel, resetFake, setFakeFlags } from '@/lib/server/ai/fake';
 import { describeMediaImage, generateAltQuietly } from '@/lib/server/content-admin/machine-alt';
-import { imageForAi, MEDIA, writeMachineAlt } from '@/lib/server/media/library';
+import { getMedia, imageForAi, MEDIA, saveMediaDetails, writeMachineAlt } from '@/lib/server/media/library';
 import { registerUploadedMedia } from '@/lib/server/media/register';
 import { installBlobRedirect, refused } from '../helpers/blob-redirect.mjs';
 import { TEST_DATABASE_URL } from '../helpers/db';
@@ -96,6 +96,12 @@ const audits = (id: string) =>
     `SELECT action, actor_id, after FROM audit_log WHERE entity_type = 'media' AND entity_id = $1 ORDER BY id`,
     [id],
   );
+const usageCost = () =>
+  query<{ status: string; error_code: string | null; input_tokens: number; output_tokens: number; cost: string }>(
+    `SELECT status, error_code, input_tokens, output_tokens, cost_usd::text AS cost FROM ai_usage ORDER BY id`,
+  );
+/** The fake store's file reads (GET /cdn/…) since the last reset: what downloadBlob fetched. */
+const downloads = () => fake.requests.filter((r) => r.method === 'GET' && r.path.startsWith('/cdn/')).length;
 const setSettings = (data: unknown) => query(`UPDATE ai_settings SET data = $1::jsonb WHERE id = 1`, [JSON.stringify(data)]);
 const staticImage = async () =>
   (await query<{ id: string }>(`SELECT id::text FROM media WHERE storage = 'static' AND content_type <> 'application/pdf' AND deleted_at IS NULL ORDER BY pathname LIMIT 1`))[0].id;
@@ -173,7 +179,7 @@ describe.skipIf(!TEST_DATABASE_URL)('alt text by AI (database + fake Blob + fake
   describe('describeImage (lib/server/ai/alt.ts: bytes in, one sentence out)', () => {
     it('sends one JPEG file part no larger than 1024 px on its long edge, and answers the model’s sentence', async () => {
       const model = fakeModel();
-      const out = await describeImage(pool, { bytes: await jpeg(3000, 2000), actorId: null, settings: AiSettingsSchema.parse({}) }, { model });
+      const out = await describeImage(pool, { bytes: () => jpeg(3000, 2000), actorId: null, settings: AiSettingsSchema.parse({}) }, { model });
       expect(out).toEqual({ alt: FAKE_ALT, model: MODEL });
       const { mediaType, meta } = await sentImage(model);
       expect(mediaType).toBe('image/jpeg');
@@ -192,7 +198,7 @@ describe.skipIf(!TEST_DATABASE_URL)('alt text by AI (database + fake Blob + fake
           warnings: [],
         }),
       });
-      const { alt } = await describeImage(pool, { bytes: await jpeg(40, 30), actorId: null, settings: AiSettingsSchema.parse({}) }, { model });
+      const { alt } = await describeImage(pool, { bytes: () => jpeg(40, 30), actorId: null, settings: AiSettingsSchema.parse({}) }, { model });
       expect([...alt].length).toBeLessThanOrEqual(250);
       expect(long.startsWith(`${alt} `)).toBe(true);
     });
@@ -203,15 +209,44 @@ describe.skipIf(!TEST_DATABASE_URL)('alt text by AI (database + fake Blob + fake
           throw new DOMException('The operation timed out.', 'TimeoutError');
         },
       });
-      await expect(describeImage(pool, { bytes: await jpeg(40, 30), actorId: null, settings: AiSettingsSchema.parse({}) }, { model })).rejects.toMatchObject({
+      await expect(describeImage(pool, { bytes: () => jpeg(40, 30), actorId: null, settings: AiSettingsSchema.parse({}) }, { model })).rejects.toMatchObject({
         code: 'ai_failed',
       });
       expect(await usage()).toEqual([{ actor_id: null, feature: 'alt', status: 'error', error_code: 'ai_failed' }]);
     });
 
+    it('an empty answer is one error row, the tokens it used billed', async () => {
+      const model = new MockLanguageModelV4({
+        doGenerate: async () => ({
+          content: [{ type: 'text', text: ' \n ' }],
+          finishReason: { unified: 'stop', raw: undefined },
+          usage: { inputTokens: { total: 120, noCache: 120, cacheRead: undefined, cacheWrite: undefined }, outputTokens: { total: 7, text: 7, reasoning: undefined } },
+          warnings: [],
+        }),
+      });
+      await expect(describeImage(pool, { bytes: () => jpeg(40, 30), actorId: null, settings: AiSettingsSchema.parse({}) }, { model })).rejects.toMatchObject({
+        code: 'ai_failed',
+      });
+      const rows = await usageCost();
+      expect(rows).toEqual([{ status: 'error', error_code: 'ai_failed', input_tokens: 120, output_tokens: 7, cost: expect.any(String) }]);
+      expect(Number(rows[0].cost)).toBeGreaterThan(0);
+    });
+
+    it('bytes that cannot be read or decoded fail inside the reserved call: one error row, cost 0, no model call', async () => {
+      const model = fakeModel();
+      for (const bytes of [async () => new TextEncoder().encode('not a picture'), async (): Promise<Uint8Array> => Promise.reject(new Error('store down'))]) {
+        await expect(describeImage(pool, { bytes, actorId: null, settings: AiSettingsSchema.parse({}) }, { model })).rejects.toMatchObject({ code: 'ai_failed' });
+      }
+      expect(model.doGenerateCalls).toHaveLength(0);
+      expect(await usageCost()).toEqual([
+        { status: 'error', error_code: 'ai_failed', input_tokens: 0, output_tokens: 0, cost: '0.000000' },
+        { status: 'error', error_code: 'ai_failed', input_tokens: 0, output_tokens: 0, cost: '0.000000' },
+      ]);
+    });
+
     it('the alt feature switched off is ai_off, before any call', async () => {
       const settings = AiSettingsSchema.parse({ features: { alt: { enabled: false } } });
-      await expect(describeImage(pool, { bytes: await jpeg(40, 30), actorId: null, settings })).rejects.toMatchObject({ code: 'ai_off' });
+      await expect(describeImage(pool, { bytes: () => jpeg(40, 30), actorId: null, settings })).rejects.toMatchObject({ code: 'ai_off' });
       expect(await usage()).toEqual([]);
     });
   });
@@ -221,7 +256,7 @@ describe.skipIf(!TEST_DATABASE_URL)('alt text by AI (database + fake Blob + fake
       const id = await stored();
       const got = await imageForAi(pool, id);
       expect(got?.contentType).toBe('image/jpeg');
-      expect((await sharp(Buffer.from(got!.bytes)).metadata()).width).toBe(64);
+      expect((await sharp(Buffer.from(await got!.read())).metadata()).width).toBe(64);
 
       expect(await imageForAi(pool, await staticImage())).toBeNull();
       expect(await imageForAi(pool, await stored({ decorative: true }))).toBeNull();
@@ -313,7 +348,10 @@ describe.skipIf(!TEST_DATABASE_URL)('alt text by AI (database + fake Blob + fake
       const log = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
       await setSettings({ budgetUsd: 0 });
       const id = await stored();
+      fake.requests.length = 0;
       expect(await generateAltQuietly(pool, id)).toEqual({ wrote: false, shown: false });
+      // Refused before anything is read from the store (the upload's own measuring read came before).
+      expect(downloads()).toBe(0);
       expect(log).toHaveBeenCalledWith('[ai:alt] skipped code=ai_budget');
       expect(await usage()).toEqual([]);
       expect(await enAlt(id)).toBeUndefined();
@@ -335,13 +373,22 @@ describe.skipIf(!TEST_DATABASE_URL)('alt text by AI (database + fake Blob + fake
       expect(await query(`SELECT 1 FROM media_i18n WHERE media_id IN ($1, $2)`, [a, b])).toEqual([]);
     });
 
-    it('a person who saves alt while the model is answering keeps their words', async () => {
+    it('a person who saves alt while the model is answering keeps their words (saveMediaDetails, then the machine write)', async () => {
       const id = await stored();
+      const token = (await getMedia(pool, id))!.token;
       const described = await describeMediaImage(pool, { mediaId: id, actorId: null, settings: AiSettingsSchema.parse({}), withoutAlt: true });
       expect(described?.alt).toBe(FAKE_ALT);
-      await query(`INSERT INTO media_i18n (media_id, locale, alt) VALUES ($1, 'en', 'Typed meanwhile')`, [id]);
+      expect(await saveMediaDetails(pool, ADMIN, { id, token, alt: 'Typed meanwhile', decorative: false })).toMatchObject({ ok: true });
       expect(await writeMachineAlt(pool, id, described!.alt, described!.model)).toEqual({ wrote: false, shown: false });
-      expect(await enAlt(id)).toMatchObject({ alt: 'Typed meanwhile', status: 'reviewed' });
+      expect(await enAlt(id)).toMatchObject({ alt: 'Typed meanwhile', status: 'reviewed', origin: 'human' });
+    });
+
+    it('the AI writing first: a person saving with the token they opened gets conflict, and the AI’s alt stays', async () => {
+      const id = await stored();
+      const token = (await getMedia(pool, id))!.token;
+      expect(await generateAltQuietly(pool, id)).toEqual({ wrote: true, shown: false });
+      expect(await saveMediaDetails(pool, ADMIN, { id, token, alt: 'Typed on the old page', decorative: false })).toMatchObject({ ok: false, code: 'conflict' });
+      expect(await enAlt(id)).toMatchObject({ alt: FAKE_ALT, status: 'machine', origin: 'ai' });
     });
   });
 
@@ -410,10 +457,15 @@ describe.skipIf(!TEST_DATABASE_URL)('alt text by AI (database + fake Blob + fake
     it('the person’s limit applies (R9-3)', async () => {
       state.settings = AiSettingsSchema.parse({ limits: { perMinute: 1 } });
       const id = await stored();
+      fake.requests.length = 0;
       expect((await post({ mediaId: id })).status).toBe(200);
+      expect(downloads()).toBe(1);
       const second = await post({ mediaId: id });
       expect(second.status).toBe(429);
       expect((await second.json()).code).toBe('ai_rate_minute');
+      // The refused click read nothing from the store, and left no ai_usage row.
+      expect(downloads()).toBe(1);
+      expect(await usage()).toHaveLength(1);
     });
 
     it('refuses: no session, another site, a preview, the feature off, a bad id, a static, decorative or missing file', async () => {

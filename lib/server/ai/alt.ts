@@ -12,8 +12,10 @@ import { cachedAiSettings } from './settings';
 /*
  * Alt text for a picture (spec §9.3, R9-12, R9-17): bytes in, one English
  * sentence out. The bytes come gathered by the CMS side
- * (content-admin/machine-alt.ts reads them through the media module); nothing
- * here reads a table or writes one but ai_usage (runAiCall). The picture
+ * (content-admin/machine-alt.ts reads them through the media module), as a
+ * loader this module calls only once the call is reserved: a click the limits
+ * or the budget refuse costs no download and no decode. Nothing here reads a
+ * table or writes one but ai_usage (runAiCall). The picture
  * leaves as a JPEG of at most ALT_EDGE px on its long edge, never larger
  * than it was. No guest data: a picture from the media library.
  */
@@ -30,11 +32,16 @@ const MAX_PIXELS = 50_000_000;
  */
 const IMAGE_CHARS = 1600 * 3;
 
-/** Upright (EXIF), at most ALT_EDGE px on its long edge, JPEG quality 80. Throws on bytes that are not a picture. */
+/**
+ * Upright (EXIF), at most ALT_EDGE px on its long edge, transparency on white
+ * (JPEG has no alpha: left alone it turns black), JPEG quality 80. Throws on
+ * bytes that are not a picture.
+ */
 export async function shrinkForAi(bytes: Uint8Array): Promise<Buffer> {
   return sharp(bytes, { failOn: 'error', limitInputPixels: MAX_PIXELS })
     .rotate()
     .resize({ width: ALT_EDGE, height: ALT_EDGE, fit: 'inside', withoutEnlargement: true })
+    .flatten({ background: '#ffffff' })
     .jpeg({ quality: 80 })
     .toBuffer();
 }
@@ -48,9 +55,14 @@ export function fitWords(text: string, max: number): string {
   return (space > 0 ? cut.slice(0, space) : cut).replace(/[\s,;:–—-]+$/u, '');
 }
 
-/** The model's answer as one line of alt text: no surrounding quotes, no line breaks, within ALT_MAX. */
+/**
+ * The model's answer as one line of alt text: no control or format characters
+ * (a NUL, a bidi override; a control that is whitespace becomes a space), no
+ * surrounding quotes, no line breaks, within ALT_MAX.
+ */
 export function cleanAlt(text: string, max = ALT_MAX): string {
   const line = text
+    .replace(/[\p{Cc}\p{Cf}]/gu, (c) => (/\s/.test(c) ? ' ' : ''))
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/^["'“”‘’]+|["'“”‘’]+$/gu, '')
@@ -62,17 +74,19 @@ export function cleanAlt(text: string, max = ALT_MAX): string {
  * One call of the `alt` feature (its model, region and prompt). `actorId`
  * null is the automatic path after an upload (R9-3: not counted per person,
  * counted in the budget); the button passes the person. `deps.model` is the
- * tests' seam. Throws AiError (ai_off, the limits, the budget, Vertex codes).
+ * tests' seam. `bytes` loads the picture; it runs inside the reserved call,
+ * so a failed download or decode is that call's error (ai_failed, cost 0),
+ * one ai_usage row like any other. Throws AiError (ai_off, the limits, the
+ * budget, Vertex codes).
  */
 export async function describeImage(
   pool: Pool,
-  input: { bytes: Uint8Array; actorId: string | null; signal?: AbortSignal; settings?: AiSettings },
+  input: { bytes: () => Promise<Uint8Array>; actorId: string | null; signal?: AbortSignal; settings?: AiSettings },
   deps: { model?: LanguageModel } = {},
 ): Promise<{ alt: string; model: ModelId }> {
   const settings = input.settings ?? (await cachedAiSettings());
   const cfg = settings.features.alt;
   if (!cfg.enabled) throw new AiError('ai_off');
-  const jpeg = await shrinkForAi(input.bytes);
   const instructions = [
     'TASK: alt',
     'Describe this photo for a screen-reader user of a luxury resort restaurant website in one English sentence, under 125 characters, no "image of".',
@@ -89,6 +103,7 @@ export async function describeImage(
     settings,
     { feature: 'alt', model: cfg.model, region: cfg.region, actorId: input.actorId, inputChars: instructions.length + IMAGE_CHARS, maxOutputTokens: cfg.maxOutputTokens, signal: input.signal },
     async (sig) => {
+      const jpeg = await shrinkForAi(await input.bytes());
       const r = await generateText({
         model,
         instructions,

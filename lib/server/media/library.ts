@@ -189,19 +189,26 @@ export async function registerMediaRow(pool: Pool, actor: AuditActor, input: Reg
 // describe them, and writes the answer back here.
 
 /**
- * The bytes of a picture the AI may describe, or null: only a live file in
- * Vercel Blob (a static file under /assets is not read through the Blob gate:
- * "Before launch A" 1.3 moves them), an image, not decorative. `withoutAlt`:
- * also null once the default language has alt text (the automatic path).
+ * A picture the AI may describe, or null: only a live file in Vercel Blob (a
+ * static file under /assets is not read through the Blob gate: "Before launch
+ * A" 1.3 moves them), an image, not decorative. `withoutAlt`: also null once
+ * the default language has alt text (the automatic path). One SELECT; the
+ * bytes are read only when `read` is called (the AI calls it once its call is
+ * reserved, so a refused call downloads nothing).
  */
-export async function imageForAi(db: Db, id: string, opts: { withoutAlt?: boolean } = {}): Promise<{ bytes: Uint8Array; contentType: MediaContentType } | null> {
+export async function imageForAi(
+  db: Db,
+  id: string,
+  opts: { withoutAlt?: boolean } = {},
+): Promise<{ contentType: MediaContentType; read: () => Promise<Uint8Array> } | null> {
   const { rows } = await db.query<{ url: string; contentType: MediaContentType }>(
     `SELECT m.url, m.content_type AS "contentType" FROM media m
       WHERE m.id = $1::uuid AND m.storage = 'blob' AND m.deleted_at IS NULL AND NOT m.is_decorative AND m.content_type <> 'application/pdf'
         ${opts.withoutAlt ? `AND NOT EXISTS (SELECT 1 FROM media_i18n mi WHERE mi.media_id = m.id AND mi.locale = ${DEFAULT_LOCALE_SQL})` : ''}`,
     [id],
   );
-  return rows[0] ? { bytes: await downloadBlob(rows[0].url), contentType: rows[0].contentType } : null;
+  const file = rows[0];
+  return file ? { contentType: file.contentType, read: () => downloadBlob(file.url) } : null;
 }
 
 /**

@@ -26,6 +26,12 @@ describe('shrinkForAi', () => {
     expect([meta.width, meta.height]).toEqual([100, 200]);
   });
 
+  it('puts transparency on white (JPEG has no alpha)', async () => {
+    const png = await sharp({ create: { width: 8, height: 8, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).png().toBuffer();
+    const { data } = await sharp(await shrinkForAi(png)).raw().toBuffer({ resolveWithObject: true });
+    expect([data[0], data[1], data[2]].every((v) => v >= 250)).toBe(true);
+  });
+
   it('refuses bytes that are not a picture', async () => {
     await expect(shrinkForAi(new TextEncoder().encode('%PDF-1.7'))).rejects.toThrow();
   });
@@ -36,6 +42,11 @@ describe('cleanAlt / fitWords', () => {
     expect(cleanAlt('  "A table set for two\n on the  terrace at dusk."  ')).toBe('A table set for two on the terrace at dusk.');
     expect(cleanAlt('“Grilled prawns.”')).toBe('Grilled prawns.');
     expect(cleanAlt(' \n ')).toBe('');
+  });
+
+  it('drops control and format characters (a NUL, a bidi override), keeping words apart', () => {
+    expect(cleanAlt('Grilled\u0000 prawns\u202E on ice\u200B.')).toBe('Grilled prawns on ice.');
+    expect(cleanAlt('Two\tglasses\r\nof wine')).toBe('Two glasses of wine');
   });
 
   it('cuts past 250 characters at the last whole word', () => {
