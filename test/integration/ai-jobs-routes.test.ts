@@ -31,6 +31,8 @@ import { GET as list, POST as create } from '@/app/api/admin/ai/jobs/route';
 import { POST as act } from '@/app/api/admin/ai/jobs/[id]/route';
 
 const ORIGIN = 'http://localhost:3000';
+/** A whole job is about a hundred fake calls, each with its usage and write transactions: past vitest's 5 s under load. */
+const JOB_TIMEOUT_MS = 60_000;
 const post = (path: string, body: unknown, origin = ORIGIN) =>
   new Request(`${ORIGIN}${path}`, { method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify(body) });
 const createJob = (body: unknown = { locale: 'vi' }, origin?: string) => create(post('/api/admin/ai/jobs', body, origin));
@@ -46,7 +48,7 @@ async function cleanUp() {
   await query(`DELETE FROM audit_log WHERE entity_type = 'ai_jobs' OR after->'meta' ? 'machine'`);
 }
 
-describe.skipIf(!TEST_DATABASE_URL)('/api/admin/ai/jobs (database)', () => {
+describe.skipIf(!TEST_DATABASE_URL)('/api/admin/ai/jobs (database)', { timeout: JOB_TIMEOUT_MS }, () => {
   beforeEach(async () => {
     vi.stubEnv('AI_PROVIDER', 'fake');
     state.role = 'admin';

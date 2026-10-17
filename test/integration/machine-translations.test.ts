@@ -10,6 +10,8 @@ import { ceilingUsd } from '@/lib/server/ai/guard';
 import { cancelJob, createJob, jobById, resumeJob } from '@/lib/server/ai/jobs';
 import { priceUsd } from '@/lib/server/ai/models';
 import { MAX_CHARS } from '@/lib/server/ai/translate';
+import { AiError } from '@/lib/server/ai-error';
+import { saveStrings } from '@/lib/server/content/strings-admin';
 import { loadStringRows } from '@/lib/server/content/strings.queries';
 import { missingDocs, runTranslationJobs } from '@/lib/server/content-admin/machine-translations';
 import { getOfferEditor, updateOffer } from '@/lib/server/content-admin/offers';
@@ -26,14 +28,14 @@ import { TEST_DATABASE_URL } from '../helpers/db';
  * between the scan and the write.
  */
 
-const hook = vi.hoisted(() => ({ calls: 0, before: null as null | ((call: number, ids: string[]) => Promise<void>) }));
+const hook = vi.hoisted(() => ({ calls: 0, before: null as null | ((call: number, ids: string[], texts: string[]) => Promise<void>) }));
 vi.mock('@/lib/server/ai/translate', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/server/ai/translate')>();
   return {
     ...orig,
     translateItems: async (...args: Parameters<typeof orig.translateItems>) => {
       hook.calls += 1;
-      await hook.before?.(hook.calls, args[1].items.map((i) => i.id));
+      await hook.before?.(hook.calls, args[1].items.map((i) => i.id), args[1].items.map((i) => i.text));
       return orig.translateItems(...args);
     },
   };
@@ -44,6 +46,8 @@ const ADMIN: AuditActor = { id: 'staff-d8-run', email: 'run-d8@furama.test', nam
 const I18N = ['offer_i18n', 'cuisine_i18n', 'destination_i18n', 'experience_i18n', 'story_i18n', 'nav_item_i18n', 'restaurant_i18n', 'restaurant_highlight_i18n', 'media_i18n', 'closure_i18n'];
 const MODEL = AiSettingsSchema.parse({}).features.translate.model;
 const BIG = 600_000;
+/** A whole job is about a hundred fake calls, each with its usage and write transactions: past vitest's 5 s under load. */
+const JOB_TIMEOUT_MS = 60_000;
 
 async function cleanUp() {
   for (const t of I18N) await query(`DELETE FROM ${t} WHERE locale = 'vi'`);
@@ -66,9 +70,18 @@ const machineRows = async () => {
   for (const t of I18N) n += (await query<{ n: number }>(`SELECT count(*)::int AS n FROM ${t} WHERE locale = 'vi' AND status = 'machine'`))[0].n;
   return n + (await query<{ n: number }>(`SELECT count(*)::int AS n FROM content_strings WHERE locale = 'vi' AND status = 'machine'`))[0].n;
 };
+/** Every default-language row, as text (updated_at included), by table: a job never writes one. */
+const englishRows = async (exceptOffer?: number) => {
+  const out: Record<string, string> = {};
+  for (const t of [...I18N, 'content_strings']) {
+    const skip = t === 'offer_i18n' && exceptOffer ? ` AND offer_id <> ${exceptOffer}` : '';
+    out[t] = (await query<{ v: string }>(`SELECT count(*) || ':' || coalesce(md5(string_agg(x::text, '|' ORDER BY x::text)), '') AS v FROM ${t} x WHERE locale = 'en'${skip}`))[0].v;
+  }
+  return out;
+};
 const machineAudits = async () => (await query<{ n: number }>(`SELECT count(*)::int AS n FROM audit_log WHERE after->'meta' ? 'machine'`))[0].n;
 
-describe.skipIf(!TEST_DATABASE_URL)('bulk machine translation (database)', () => {
+describe.skipIf(!TEST_DATABASE_URL)('bulk machine translation (database)', { timeout: JOB_TIMEOUT_MS }, () => {
   beforeEach(async () => {
     vi.stubEnv('AI_PROVIDER', 'fake');
     resetFake();
@@ -159,6 +172,7 @@ describe.skipIf(!TEST_DATABASE_URL)('bulk machine translation (database)', () =>
     await query(`INSERT INTO offer_i18n (offer_id, locale, title, status, origin, ai_model) VALUES (2, 'vi', 'Máy cũ', 'machine', 'ai', 'older')`);
     const seeded = (await query<{ title: string }>(`SELECT title FROM offer_i18n WHERE offer_id = 3 AND locale = 'en'`))[0].title;
     const editor = (await getOfferEditor(pool, '1'))!;
+    const englishBefore = await englishRows(3);
     hook.before = async (call) => {
       if (call !== 1) return;
       // Between the scan and the write of offer 1: an Editor saves its Vietnamese, and someone edits offer 3's English.
@@ -174,10 +188,56 @@ describe.skipIf(!TEST_DATABASE_URL)('bulk machine translation (database)', () =>
       // Offer 3 was translated once more, from its new English.
       expect(await offerVi(3)).toMatchObject({ title: '«vi» Sunset Cocktails, renamed', status: 'machine' });
       expect(await query(`SELECT count(*)::int AS n FROM audit_log WHERE entity_type = 'offers' AND entity_id IN ('1', '2') AND after->'meta' ? 'machine'`)).toEqual([{ n: 0 }]);
+      // The English stayed as it was (offer 3's aside, which the test itself renamed): same rows, same updated_at.
+      expect(await englishRows(3)).toEqual(englishBefore);
     } finally {
       // Later files read the seed's English.
       await query(`UPDATE offer_i18n SET title = $1 WHERE offer_id = 3 AND locale = 'en'`, [seeded]);
     }
+  });
+
+  it('never overwrites a key an Editor saved after the scan (insertMachineString finds the row)', async () => {
+    const key: StringKey = 'error.party_too_large';
+    const mine = 'Quá {max} khách, xin gọi {phone}.';
+    hook.before = async (_call, ids) => {
+      if (!ids.includes(key)) return;
+      const saved = await saveStrings(pool, ADMIN, { screen: REGISTRY[key].screen, locale: 'vi', values: { [key]: mine }, originals: { [key]: '' }, tokens: { [key]: '' } });
+      expect(saved).toMatchObject({ ok: true });
+    };
+    const id = await newJob();
+    await runTranslationJobs(pool, { budgetMs: BIG, ids: [id] });
+    expect(await jobById(pool, id)).toMatchObject({ status: 'done' });
+    expect(await query(`SELECT value, status, origin, ai_model FROM content_strings WHERE key = $1 AND locale = 'vi'`, [key])).toEqual([
+      { value: mine, status: 'reviewed', origin: 'human', ai_model: null },
+    ]);
+    expect(await query(`SELECT count(*)::int AS n FROM audit_log WHERE entity_id = $1 AND locale = 'vi' AND after->'meta' ? 'machine'`, [key])).toEqual([{ n: 0 }]);
+    // The other keys of that document were written all the same.
+    expect((await query<{ n: number }>(`SELECT count(*)::int AS n FROM content_strings WHERE locale = 'vi' AND status = 'machine' AND key LIKE 'error.%'`))[0].n).toBeGreaterThan(0);
+  });
+
+  it('a document Vertex keeps failing on (ai_failed) is tried again once, pauses the job, and is skipped on its third failure: the job finishes', async () => {
+    const [{ title }] = await query<{ title: string }>(`SELECT title FROM offer_i18n WHERE offer_id = 1 AND locale = 'en'`);
+    let failures = 0;
+    hook.before = async (_call, _ids, texts) => {
+      if (!texts.includes(title)) return;
+      failures += 1;
+      throw new AiError('ai_failed'); // a cut-off answer or a safety block, every time
+    };
+    const id = await newJob();
+    await runTranslationJobs(pool, { budgetMs: BIG, ids: [id] });
+    // Once more in the run, then the job waits for a person.
+    expect(failures).toBe(2);
+    expect(await jobById(pool, id)).toMatchObject({ status: 'paused', error: 'ai_failed', progress: { strikes: { 'offers#1': 2 } } });
+
+    await resumeJob(pool, ADMIN, id);
+    await runTranslationJobs(pool, { budgetMs: BIG, ids: [id] });
+    expect(failures).toBe(3);
+    const job = (await jobById(pool, id))!;
+    expect(job).toMatchObject({ status: 'done', error: null, progress: { remaining: 0 } });
+    expect(job.progress.skipped).toContain('offers#1');
+    expect(job.progress.strikes).toEqual({});
+    expect(await offerVi(1)).toBeUndefined();
+    expect(await offerVi(2)).toMatchObject({ status: 'machine' });
   });
 
   it('pauses on Vertex trouble (429 on the 7th call: ai_quota), keeps the six before, and "Tiếp tục" goes on from there', async () => {
