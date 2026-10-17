@@ -74,18 +74,13 @@ export async function assistStream(
     signal,
   });
 
-  // The row is settled once: whichever of end, error, abort or cancel comes first.
-  let open = true;
-  const settle = async (usage: AiUsage) => {
-    if (!open) return;
-    open = false;
-    await reservation.settle(usage).catch(() => console.error('[ai] usage settle failed', { code: 'settle' }));
-  };
-  const fail = async (err: unknown) => {
-    if (!open) return;
-    open = false;
-    await reservation.fail(err);
-  };
+  // The row is settled once: whichever of end, error, abort or cancel comes first. Every later
+  // caller awaits that same write, so nothing throws or answers before the row has left 'pending'
+  // (streamText's onError starts the failure before the reader sees the error part).
+  let closing: Promise<void> | null = null;
+  const settle = (usage: AiUsage) =>
+    (closing ??= reservation.settle(usage).catch(() => console.error('[ai] usage settle failed', { code: 'settle' })));
+  const fail = (err: unknown) => (closing ??= reservation.fail(err).then(() => {}));
 
   const result = streamText({
     model,
@@ -136,6 +131,7 @@ export async function assistStream(
   }
   if (first === null) {
     // The model answered nothing: the call is settled (onEnd), but there is nothing to show.
+    await closing;
     throw new AiError('ai_failed');
   }
 
