@@ -20,6 +20,7 @@ export async function StringsPanel({
   title,
   groups,
   searchParams,
+  asides,
   children,
 }: {
   screen: AdminScreen;
@@ -27,6 +28,8 @@ export async function StringsPanel({
   groups?: readonly StringGroup[];
   /** The page's searchParams: ?lang= picks the language. */
   searchParams?: ScreenSearchParams;
+  /** Controls drawn right after a key's field, inside the form (the SEO screen's "Gợi ý bằng AI"). */
+  asides?: Partial<Record<string, React.ReactNode>>;
   children?: React.ReactNode;
 }) {
   const pool = getPool();
@@ -59,6 +62,7 @@ export async function StringsPanel({
         title={title}
         fields={view}
         groups={groups}
+        asides={asides}
         locale={locale}
         localeName={language?.name ?? locale}
         isDefault={language?.isDefault ?? true}

@@ -59,7 +59,7 @@ Test unit nằm cạnh code (`foo.ts` + `foo.test.ts`). Test cần DB nằm ở 
 | `auth` | Better Auth, staff, quyền, email mời / đặt lại mật khẩu | email, kernel |
 | `dal` | phiên đăng nhập, `requirePermission`, `auditActor` | auth, kernel |
 | `ai` | Vertex AI (phase 9): dịch máy, glossary, cấu hình + ngân sách, chặn route AI, bảng `ai_jobs` (tạo, claim, lease, tạm dừng/tiếp tục/hủy). Nhận chữ/byte đã gom sẵn, không tự đọc bảng nội dung | dal, kernel |
-| `content-admin` | các màn sửa nội dung của CMS; phía CMS của AI: gom nội dung gửi model và ghi bản máy dịch (`machine-translations.ts`: chỗ còn thiếu, vòng chạy job, ghi `machine` chỉ vào chỗ trống) | content, email, history, media, ai, kernel |
+| `content-admin` | các màn sửa nội dung của CMS; phía CMS của AI: gom nội dung gửi model và ghi bản máy dịch (`machine-translations.ts`: chỗ còn thiếu, vòng chạy job, ghi `machine` chỉ vào chỗ trống; `seo-material.ts`: nội dung trang chủ / nhà hàng cho gợi ý SEO) | content, email, history, media, ai, kernel |
 | `guard` | BotID | — |
 
 Thứ tự trên là thứ tự từ dưới lên. Module mới đặt vào đúng tầng và cập nhật bảng này cùng PR.

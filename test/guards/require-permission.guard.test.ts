@@ -239,6 +239,9 @@ const AI_ROUTES: Record<string, Record<string, { permission: object; editor: boo
   'app/api/admin/ai/translate/route.ts': {
     POST: { permission: { content: ['ai'] }, editor: true },
   },
+  'app/api/admin/ai/seo/route.ts': {
+    POST: { permission: { content: ['ai'] }, editor: true },
+  },
   'app/api/admin/ai/jobs/route.ts': {
     POST: { permission: { content: ['ai'], settings: ['update'] }, editor: false },
     GET: { permission: { content: ['read'] }, editor: true },

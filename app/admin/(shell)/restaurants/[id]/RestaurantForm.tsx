@@ -10,6 +10,7 @@ import type { RestaurantEditor } from '@/lib/server/content-admin/restaurants';
 import { ImagePicker } from '../../_kit/ImagePicker';
 import { useLocaleTabs } from '../../_kit/LocaleTabs';
 import { SaveBar } from '../../_kit/SaveBar';
+import { SeoSuggestButton } from '../../_kit/SeoSuggestButton';
 import { LimitNote, moved, SortableList } from '../../_kit/SortableList';
 import { TextField } from '../../_kit/TextField';
 import { TranslatableField } from '../../_kit/TranslatableField';
@@ -179,6 +180,13 @@ function Fields({ id, token, values: v, destinations, cuisines, images, pdfs, up
       <h2 className="a-field--wide">SEO</h2>
       <TranslatableField name="seoTitle" label="Tiêu đề SEO" values={v.seoTitle} max={120} error={error('seoTitle')} />
       <TranslatableField name="seoDescription" label="Mô tả SEO" values={v.seoDescription} max={320} rows={3} error={error('seoDescription')} />
+      {/* R9-22: its own language choice (the fields' tabs are each their own), filling both boxes of that language. */}
+      <SeoSuggestButton
+        target={{ kind: 'restaurant', id }}
+        fields={{ title: 'seoTitle', description: 'seoDescription' }}
+        locales={menuLocales}
+        hint="AI gợi ý tiêu đề và mô tả SEO từ nội dung đã lưu của nhà hàng. Chưa lưu gì cho tới khi bạn bấm Lưu."
+      />
 
       <h2 className="a-field--wide">Ẩm thực</h2>
       <div className="a-field--wide">

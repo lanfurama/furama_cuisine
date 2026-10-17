@@ -2067,6 +2067,32 @@ fieldset.a-field legend {
   color: var(--a-ink);
 }
 
+/* "Gợi ý bằng AI" for SEO (_kit/SeoSuggestButton.tsx): its language and the button, then the hint and the outcome under them. */
+.a-ai-seo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* While it works the button keeps keyboard focus (aria-disabled, not disabled) and looks busy. */
+.a-ai-seo .a-btn[aria-disabled='true'] {
+  color: var(--a-ink-faint);
+  cursor: progress;
+}
+
+.a-ai-seo-locale {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The outcome's live region stays displayed while empty, so a screen reader announces what lands in it. */
+.a-ai-seo > p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
 /* String screens (phase 7): a titled group of keys (the emails screen, one per email), and the email preview. */
 .a-strings-group,
 .a-email-preview-box {

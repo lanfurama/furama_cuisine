@@ -50,6 +50,21 @@ describe('fake model', () => {
     expect(JSON.parse((await run('seo')).text)).toEqual({ title: 'Fake title', description: 'Fake description' });
     expect((await run('alt')).text).toBe('A fake description of the image.');
   });
+  it('answers seo in the TARGET language, keeping the first name token, with a description too long for search results', async () => {
+    const r = await generateText({
+      model: fakeModel(),
+      instructions: 'TASK: seo\nTARGET: vi\nWrite a title and a description.',
+      prompt: 'Page: restaurant\nName: ⟦G1⟧\nStory: At ⟦G2⟧ …',
+      maxRetries: 0,
+    });
+    const out = JSON.parse(r.text) as { title: string; description: string };
+    expect(out.title).toBe('«vi» ⟦G1⟧ — fake SEO title');
+    expect(out.description).toMatch(/^«vi» A fake description/);
+    expect([...out.description].length).toBeGreaterThan(155);
+    expect([...out.description].length).toBeLessThanOrEqual(200);
+    const bare = await generateText({ model: fakeModel(), instructions: 'TASK: seo\nTARGET: en', prompt: 'Page: home', maxRetries: 0 });
+    expect((JSON.parse(bare.text) as { title: string }).title).toBe('«en» Fake title — fake SEO title');
+  });
   it('streams the assist answer in three parts', async () => {
     const r = streamText({ model: fakeModel(), instructions: 'TASK: assist\nACTION: shorten', prompt: 'Long text here', maxRetries: 0 });
     const parts: string[] = [];
