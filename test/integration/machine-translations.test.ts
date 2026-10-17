@@ -8,6 +8,8 @@ import type { AuditActor } from '@/lib/server/audit';
 import { resetFake } from '@/lib/server/ai/fake';
 import { ceilingUsd } from '@/lib/server/ai/guard';
 import { cancelJob, createJob, jobById, resumeJob } from '@/lib/server/ai/jobs';
+import { priceUsd } from '@/lib/server/ai/models';
+import { MAX_CHARS } from '@/lib/server/ai/translate';
 import { loadStringRows } from '@/lib/server/content/strings.queries';
 import { missingDocs, runTranslationJobs } from '@/lib/server/content-admin/machine-translations';
 import { getOfferEditor, updateOffer } from '@/lib/server/content-admin/offers';
@@ -49,7 +51,12 @@ async function cleanUp() {
   await query(`DELETE FROM audit_log WHERE entity_type = 'ai_jobs' OR after->'meta' ? 'machine' OR actor_id = $1`, [ADMIN.id]);
   await query('TRUNCATE ai_jobs, ai_usage CASCADE');
   await query('TRUNCATE ai_glossary');
-  await query(`UPDATE ai_settings SET data = '{}'::jsonb WHERE id = 1`);
+  await setAiSettings({});
+}
+
+/** The AI configuration the job reads, by upsert: the row may be gone (an earlier file's TRUNCATE staff_user … CASCADE). */
+async function setAiSettings(data: object) {
+  await query(`INSERT INTO ai_settings (id, data) VALUES (1, $1::jsonb) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`, [JSON.stringify(data)]);
 }
 
 const newJob = async () => ((await createJob(pool, ADMIN, 'vi')) as { ok: true; data: { id: string } }).data.id;
@@ -200,10 +207,16 @@ describe.skipIf(!TEST_DATABASE_URL)('bulk machine translation (database)', () =>
   });
 
   it('pauses when the budget runs out (ai_budget) and keeps what it wrote', async () => {
-    const settings = AiSettingsSchema.parse({});
-    const cfg = settings.features.translate;
-    const ceiling = ceilingUsd({ feature: 'translate', model: cfg.model, region: cfg.region, actorId: null, inputChars: 3000, maxOutputTokens: cfg.maxOutputTokens });
-    await query(`UPDATE ai_settings SET data = $1::jsonb WHERE id = 1`, [JSON.stringify({ budgetUsd: Number((ceiling + 0.002).toFixed(6)) })]);
+    // An earlier file's TRUNCATE staff_user … CASCADE takes the ai_settings row with it (its updated_by points
+    // there), and an UPDATE of no row left the default $20 in force (CI, PR #23): the budget is written by upsert.
+    await query('DELETE FROM ai_settings');
+    const cfg = AiSettingsSchema.parse({}).features.translate;
+    // Room for the first call whatever its size (its text is at most MAX_CHARS, plus the instructions), then for
+    // three of the fake's calls (100 tokens in, 50 out) more: of the dozens of documents, a few are translated.
+    const first = ceilingUsd({ feature: 'translate', model: cfg.model, region: cfg.region, actorId: null, inputChars: 2 * MAX_CHARS, maxOutputTokens: cfg.maxOutputTokens });
+    const budgetUsd = Number((first + 3 * priceUsd(cfg.model, cfg.region, 100, 50)).toFixed(6));
+    await setAiSettings({ budgetUsd });
+    expect(await query(`SELECT data FROM ai_settings WHERE id = 1`)).toEqual([{ data: { budgetUsd } }]);
     const id = await newJob();
     await runTranslationJobs(pool, { budgetMs: BIG, ids: [id] });
     const paused = (await jobById(pool, id))!;
@@ -211,8 +224,10 @@ describe.skipIf(!TEST_DATABASE_URL)('bulk machine translation (database)', () =>
     expect(paused.progress.done).toBeGreaterThan(0);
     expect(paused.progress.remaining).toBeGreaterThan(0);
     expect(await machineRows()).toBe(paused.progress.done);
+    // The refused call left no row: every call that ran was settled.
+    expect(await query(`SELECT DISTINCT status FROM ai_usage`)).toEqual([{ status: 'ok' }]);
 
-    await query(`UPDATE ai_settings SET data = '{}'::jsonb WHERE id = 1`);
+    await setAiSettings({});
     await resumeJob(pool, ADMIN, id);
     await runTranslationJobs(pool, { budgetMs: BIG, ids: [id] });
     expect(await jobById(pool, id)).toMatchObject({ status: 'done' });
