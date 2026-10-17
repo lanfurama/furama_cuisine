@@ -2075,6 +2075,12 @@ fieldset.a-field legend {
   gap: 8px;
 }
 
+/* While it works the button keeps keyboard focus (aria-disabled, not disabled) and looks busy. */
+.a-ai-seo .a-btn[aria-disabled='true'] {
+  color: var(--a-ink-faint);
+  cursor: progress;
+}
+
 .a-ai-seo-locale {
   display: inline-flex;
   align-items: center;

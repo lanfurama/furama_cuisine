@@ -39,12 +39,25 @@ export function SeoSuggestButton({
   const [code, setCode] = useState(locales?.[0]?.code ?? DEFAULT_LOCALE);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ text: string; error: boolean } | null>(null);
-  // Leaving the form drops the request (the route forwards the abort to Vertex).
-  useEffect(() => () => controller.current?.abort(), []);
+  /*
+   * Leaving the page drops the request (the route forwards the abort to Vertex).
+   * <Activity> keeps a page left behind and runs this cleanup without
+   * unmounting it, so the cleanup also frees the button: coming back, it is
+   * usable again, not "Đang gợi ý…" for ever.
+   */
+  useEffect(
+    () => () => {
+      controller.current?.abort();
+      controller.current = null;
+      setBusy(false);
+    },
+    [],
+  );
   if (!ai.seo) return null;
 
   async function run() {
     const form = button.current?.form;
+    // aria-disabled keeps the button focusable while it works: the guard is here.
     if (!form || controller.current) return;
     const locale = locales ? code : ((form.elements.namedItem('locale') as HTMLInputElement | null)?.value ?? DEFAULT_LOCALE);
     const suffix = locales ? `.${locale}` : '';
@@ -76,7 +89,8 @@ export function SeoSuggestButton({
     } catch {
       if (!ctl.signal.aborted) setNotice({ text: 'Không kết nối được. Thử lại sau.', error: true });
     } finally {
-      if (!ctl.signal.aborted) {
+      // Only this request's own end frees the button (a cleanup may have freed it already, for a newer one).
+      if (controller.current === ctl) {
         controller.current = null;
         setBusy(false);
       }
@@ -98,7 +112,7 @@ export function SeoSuggestButton({
           </select>
         </span>
       ) : null}
-      <button ref={button} type="button" className="a-btn a-btn--ghost a-btn--small" onClick={run} disabled={busy} aria-describedby={`${uid}-hint`}>
+      <button ref={button} type="button" className="a-btn a-btn--ghost a-btn--small" onClick={run} aria-disabled={busy || undefined} aria-describedby={`${uid}-hint`}>
         {busy ? 'Đang gợi ý…' : 'Gợi ý bằng AI'}
       </button>
       <p className="a-muted" id={`${uid}-hint`}>

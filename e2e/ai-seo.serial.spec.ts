@@ -136,6 +136,38 @@ test('an Admin has Tàya House’s Vietnamese SEO suggested from its own languag
   expect(csp).toEqual([]);
 });
 
+test('a suggestion cut short by leaving the page leaves the button usable on the way back (<Activity> keeps the page)', async ({ page }) => {
+  test.setTimeout(90_000);
+  await signInAs(page, STAFF.editor);
+  await page.goto('/admin/content/seo?lang=vi');
+  await expectHydrated(page);
+  // The answer never comes while staff are away: the request is held, then dropped.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/api/admin/ai/seo', async (route) => {
+    await held;
+    await route.abort().catch(() => {});
+  });
+  const form = page.getByRole('form', { name: 'Chữ SEO' });
+  await form.getByRole('button', { name: 'Gợi ý bằng AI' }).click();
+  await expect(form.getByRole('button', { name: 'Đang gợi ý…' })).toBeVisible();
+  // Keyboard focus stays on the button while it works (aria-disabled, not disabled).
+  await expect(form.getByRole('button', { name: 'Đang gợi ý…' })).toBeFocused();
+  await page.getByRole('link', { name: '← Nội dung' }).click();
+  await expect(page).toHaveURL(/\/admin\/content$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/admin\/content\/seo/);
+  release();
+  await page.unroute('**/api/admin/ai/seo');
+
+  const again = form.getByRole('button', { name: 'Gợi ý bằng AI' });
+  await expect(again).toBeVisible();
+  await expect(again).not.toHaveAttribute('aria-disabled', 'true');
+  await again.click();
+  await expect(form.getByText('Đã điền tiêu đề và mô tả. Xem lại rồi bấm Lưu.')).toBeVisible();
+  await expect(form.locator('[name="v:seo.home_title"]')).toHaveValue(/^«vi» /);
+});
+
 test('the SEO route refuses a caller without a session', async ({ request }) => {
   const res = await request.post('/api/admin/ai/seo', { data: { target: { kind: 'home' }, locale: 'vi' } });
   expect([401, 403]).toContain(res.status());
