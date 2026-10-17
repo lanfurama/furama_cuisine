@@ -1,6 +1,6 @@
 import 'server-only';
 import type { Pool } from 'pg';
-import { MAX_UPLOAD_BYTES, parseUploadPathname } from '@/lib/media/rules';
+import { MAX_UPLOAD_BYTES, isImageType, parseUploadPathname } from '@/lib/media/rules';
 import type { AuditActor } from '@/lib/server/audit';
 import { deleteBlobs, downloadBlob, envPrefix, headBlob } from './blob';
 import { registerMediaRow } from './library';
@@ -15,8 +15,9 @@ import { measureMedia, type MeasureFailure } from './measure';
  * row); one whose deletion fails is left to the media-sweep cron (spec §12).
  */
 
+/** `created`: a new row (not a retried register); `kind`: what the bytes are (phase 9 D11 describes a new image, R9-21). */
 export type RegisterResult =
-  | { ok: true; data: { id: string; created: boolean } }
+  | { ok: true; data: { id: string; created: boolean; kind: 'image' | 'pdf' } }
   | { ok: false; code: 'invalid'; fieldErrors: { file: string[] } };
 
 const MESSAGES: Record<MeasureFailure | 'pathname' | 'missing', string> = {
@@ -56,5 +57,6 @@ export async function registerUploadedMedia(
     await discard();
     return invalid(measured.error);
   }
-  return registerMediaRow(pool, actor, { pathname: stored.pathname, url: stored.url, measured, alt: input.alt, decorative: input.decorative });
+  const row = await registerMediaRow(pool, actor, { pathname: stored.pathname, url: stored.url, measured, alt: input.alt, decorative: input.decorative });
+  return { ok: true, data: { ...row.data, kind: isImageType(measured.contentType) ? 'image' : 'pdf' } };
 }

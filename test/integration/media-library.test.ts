@@ -126,7 +126,7 @@ describe.skipIf(!TEST_DATABASE_URL)('media library (database + fake Blob)', () =
 
     // A retry (the answer was lost): same row, alt kept, an 'update' audit.
     const again = await registerUploadedMedia(pool, ADMIN, { pathname });
-    expect(again).toEqual({ ok: true, data: { id: first.data.id, created: false } });
+    expect(again).toEqual({ ok: true, data: { id: first.data.id, created: false, kind: 'image' } });
     expect((await getMedia(pool, first.data.id))!.alt).toBe('Terrace at dusk');
     const { rows: audit } = await pool.query(`SELECT action, actor_id, after FROM audit_log WHERE entity_type = 'media' AND entity_id = $1 ORDER BY id`, [first.data.id]);
     expect(audit.map((a) => [a.action, a.actor_id])).toEqual([

@@ -232,7 +232,7 @@ const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; edito
  * a job) is Admin only (spec §8), written as content:ai plus settings:update,
  * which an Editor lacks; the plan's owner question 2 is still open, and
  * loosening it is content:['ai'] in the two job routes and here. The jobs
- * panel's poll is content:read.
+ * panel's poll is content:read; "Viết alt bằng AI" (D11) is content:ai.
  * Every route under app/api/admin/ai needs its rows here.
  */
 const AI_ROUTES: Record<string, Record<string, { permission: object; editor: boolean }>> = {
@@ -245,6 +245,9 @@ const AI_ROUTES: Record<string, Record<string, { permission: object; editor: boo
   },
   'app/api/admin/ai/jobs/[id]/route.ts': {
     POST: { permission: { content: ['ai'], settings: ['update'] }, editor: false },
+  },
+  'app/api/admin/ai/alt/route.ts': {
+    POST: { permission: { content: ['ai'] }, editor: true },
   },
 };
 const HTTP_METHODS = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']);

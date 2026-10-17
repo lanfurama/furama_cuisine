@@ -664,7 +664,9 @@ body.admin {
   transform: translateY(1px);
 }
 
-.a-btn:disabled {
+/* aria-disabled: a busy AI button stays focusable (its live region still describes it) and looks the same. */
+.a-btn:disabled,
+.a-btn[aria-disabled='true'] {
   border-color: var(--a-line-strong);
   background: var(--a-surface-3);
   box-shadow: none;
