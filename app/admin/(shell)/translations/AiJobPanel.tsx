@@ -53,7 +53,7 @@ export function AiJobPanel({
 }: {
   jobs: JobView[];
   locales: JobLocale[];
-  /** Admin only (owner's default): create, resume and cancel. */
+  /** Admin only (spec §8; plan owner question 2 still open): create, resume and cancel. */
   canRun: boolean;
   kindLabels: Record<string, string>;
 }) {
@@ -63,7 +63,8 @@ export function AiJobPanel({
   const messageId = useId();
   const [locale, setLocale] = useState(locales[0]?.code ?? '');
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
+  // The last button's outcome: a success as the admin's notice, a refusal as its alert.
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   // The poll's answer, kept only while the page's own list is the one it was asked for.
   const [polled, setPolled] = useState<{ from: JobView[]; jobs: JobView[] } | null>(null);
   const jobs = polled && polled.from === initial ? polled.jobs : initial;
@@ -92,14 +93,14 @@ export function AiJobPanel({
   async function send(url: string, body: object, done: string) {
     if (busy) return;
     setBusy(true);
-    setMessage('');
+    setMessage(null);
     try {
       const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       const data = (await res.json().catch(() => null)) as { message?: string } | null;
-      setMessage(res.ok ? done : (data?.message ?? 'Không thực hiện được. Thử lại sau.'));
+      setMessage(res.ok ? { ok: true, text: done } : { ok: false, text: data?.message ?? 'Không thực hiện được. Thử lại sau.' });
       router.refresh();
     } catch {
-      setMessage('Không kết nối được. Thử lại sau.');
+      setMessage({ ok: false, text: 'Không kết nối được. Thử lại sau.' });
     } finally {
       setBusy(false);
     }
@@ -154,9 +155,10 @@ export function AiJobPanel({
           {chosen?.missing !== null && chosen?.missing !== undefined ? <span className="a-muted">Còn thiếu {chosen.missing} mục.</span> : null}
         </form>
       )}
-      <p aria-live="polite" id={messageId} className="a-field-error">
-        {message}
-      </p>
+      {/* Always mounted, so a screen reader announces what lands in it; not role=status, which is the review queue's save notice. */}
+      <div aria-live="polite" id={messageId}>
+        {message ? <p className={message.ok ? 'a-notice' : 'a-alert'}>{message.text}</p> : null}
+      </div>
 
       {jobs.length === 0 ? (
         <p className="a-muted">Chưa có lần dịch hàng loạt nào.</p>
@@ -179,7 +181,7 @@ export function AiJobPanel({
                 {job.error ? <p className="a-warn">{errorText(job.error)}</p> : null}
                 {skipped.length ? (
                   <details>
-                    <summary>{`Bỏ qua ${skipped.length} mục máy dịch sai 3 lần: hãy dịch tay`}</summary>
+                    <summary>{`Bỏ qua ${skipped.length} mục máy dịch lỗi 3 lần: hãy dịch tay`}</summary>
                     <ul>
                       {skipped.map((u) => (
                         <li key={u}>{unit(u)}</li>

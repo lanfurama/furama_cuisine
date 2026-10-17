@@ -291,7 +291,8 @@ const MARGIN_MS = 30_000;
  * (whatever is queued, or running with its lease run out). A job whose time
  * runs out goes back to `queued`; Vertex trouble or the budget pauses it with
  * the code, keeping what it wrote; an ai_failed document is tried once more
- * before the job pauses.
+ * before the job pauses, and each of its failures counts as a strike, so on
+ * the STRIKES-th it is skipped and the job goes on.
  */
 export async function runTranslationJobs(pool: Pool, opts: RunOptions): Promise<RunReport> {
   const now = opts.now ?? Date.now;
@@ -332,10 +333,16 @@ async function runJob(pool: Pool, job: ClaimedJob, settings: AiSettings, deadlin
         out = await translateItems(pool, { items: doc.items, locale: job.locale, actorId: null, jobId: job.id, settings });
       } catch (err) {
         const code = vertexErrorCode(err);
-        if (code === 'ai_failed' && !retried.has(units[0])) {
-          // Once more in this run: the document is still missing, so the next scan brings it back first.
-          retried.add(units[0]);
-          continue;
+        if (code === 'ai_failed') {
+          // A failure of this document (a cut-off answer, a safety block) counts against its units like a wrong
+          // answer: on the STRIKES-th they are skipped, so a document that always fails cannot hold the job for ever.
+          for (const u of units) strike(progress, u);
+          if (units.every((u) => progress.skipped.includes(u))) continue;
+          if (!retried.has(units[0])) {
+            // Once more in this run: the document is still missing, so the next scan brings it back first.
+            retried.add(units[0]);
+            continue;
+          }
         }
         await endRun(pool, job, { status: 'paused', error: code }, progress);
         return docs;

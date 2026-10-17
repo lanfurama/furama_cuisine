@@ -229,9 +229,10 @@ const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; edito
 /*
  * The AI route handlers (phase 9), method by method: using the AI is content:ai
  * (Editor and Admin, spec §7.1); bulk translation (D8: create, resume, cancel
- * a job) is Admin only, the owner's default, written as content:ai plus
- * settings:update, which an Editor lacks; the jobs panel's poll is content:read;
- * "Viết alt bằng AI" (D11) is content:ai.
+ * a job) is Admin only (spec §8), written as content:ai plus settings:update,
+ * which an Editor lacks; the plan's owner question 2 is still open, and
+ * loosening it is content:['ai'] in the two job routes and here. The jobs
+ * panel's poll is content:read; "Viết alt bằng AI" (D11) is content:ai.
  * Every route under app/api/admin/ai needs its rows here.
  */
 const AI_ROUTES: Record<string, Record<string, { permission: object; editor: boolean }>> = {

@@ -6,6 +6,8 @@ import { TEST_DATABASE_URL } from '../helpers/db';
 /* /api/cron/ai-jobs (spec §12, R9-2, R9-16): Vercel Cron's bearer secret or 401; with it, one SELECT when nothing waits, else a run. */
 
 const SECRET = 'cron-secret-ai-0123456789abcdef';
+/** A whole job is about a hundred fake calls, each with its usage and write transactions: past vitest's 5 s under load. */
+const JOB_TIMEOUT_MS = 60_000;
 const call = (authorization?: string) => GET(new Request('http://localhost/api/cron/ai-jobs', { headers: authorization ? { authorization } : {} }));
 
 async function cleanUp() {
@@ -17,7 +19,7 @@ async function cleanUp() {
   await query(`DELETE FROM audit_log WHERE after->'meta' ? 'machine'`);
 }
 
-describe.skipIf(!TEST_DATABASE_URL)('GET /api/cron/ai-jobs (database)', () => {
+describe.skipIf(!TEST_DATABASE_URL)('GET /api/cron/ai-jobs (database)', { timeout: JOB_TIMEOUT_MS }, () => {
   beforeEach(async () => {
     vi.stubEnv('AI_PROVIDER', 'fake');
     await cleanUp();

@@ -10,8 +10,10 @@ import { auditActor, requirePermission } from '@/lib/server/dal/session';
 
 /*
  * Bulk translation (spec §9.3, R9-2, R9-24). POST "Dịch tất cả phần còn thiếu
- * bằng AI" for one language: Admin only (owner's default; content:ai plus
- * settings:update, which an Editor lacks), from this site, not in a preview,
+ * bằng AI" for one language: Admin only (spec §8; content:ai plus
+ * settings:update, which an Editor lacks; the plan's owner question 2 is
+ * still open: loosening is content:['ai'] in the two job routes and the
+ * guard's AI_ROUTES table), from this site, not in a preview,
  * with AI on. The job is created, then run in after() within this function's
  * time; whatever is left goes on at the next cron or "Chạy tiếp ngay".
  * GET: the newest job of each language, for the panel's 5-second poll

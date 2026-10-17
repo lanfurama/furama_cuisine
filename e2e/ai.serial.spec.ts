@@ -136,6 +136,8 @@ test('an Admin translates what is missing with one job; guests see a machine tit
   await expect(panel.getByText(/Còn thiếu \d+ mục\./)).toBeVisible();
   await panel.getByLabel('Ngôn ngữ').selectOption('vi');
   await panel.getByRole('button', { name: 'Dịch tất cả phần còn thiếu bằng AI' }).click();
+  // The outcome is the admin's success notice, not an error line.
+  await expect(panel.locator('.a-notice')).toHaveText(/^Đã bắt đầu dịch/);
   // The panel polls every 5 seconds and refreshes the page when the status changes.
   await expect(jobRow(page).getByText('Xong', { exact: true })).toBeVisible({ timeout: 120_000 });
   expect(await sql(`SELECT DISTINCT status, origin FROM offer_i18n WHERE locale = 'vi' AND offer_id <> 2`)).toEqual([{ status: 'machine', origin: 'ai' }]);
