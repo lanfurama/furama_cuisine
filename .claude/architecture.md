@@ -58,8 +58,8 @@ Test unit nằm cạnh code (`foo.ts` + `foo.test.ts`). Test cần DB nằm ở 
 | `email` | outbox, render, gửi SMTP (`send.ts`), người nhận | booking, content, kernel |
 | `auth` | Better Auth, staff, quyền, email mời / đặt lại mật khẩu | email, kernel |
 | `dal` | phiên đăng nhập, `requirePermission`, `auditActor` | auth, kernel |
-| `ai` | Vertex AI (phase 9): dịch máy, glossary, cấu hình + ngân sách, chặn route AI | dal, kernel |
-| `content-admin` | các màn sửa nội dung của CMS | content, email, history, media, kernel |
+| `ai` | Vertex AI (phase 9): dịch máy, glossary, cấu hình + ngân sách, chặn route AI, bảng `ai_jobs` (tạo, claim, lease, tạm dừng/tiếp tục/hủy). Nhận chữ/byte đã gom sẵn, không tự đọc bảng nội dung | dal, kernel |
+| `content-admin` | các màn sửa nội dung của CMS; phía CMS của AI: gom nội dung gửi model và ghi bản máy dịch (`machine-translations.ts`: chỗ còn thiếu, vòng chạy job, ghi `machine` chỉ vào chỗ trống) | content, email, history, media, ai, kernel |
 | `guard` | BotID | — |
 
 Thứ tự trên là thứ tự từ dưới lên. Module mới đặt vào đúng tầng và cập nhật bảng này cùng PR.
@@ -156,8 +156,7 @@ Nội dung khách đọc thuộc CMS: migration chỉ *thêm* (file ảnh mới 
 | Không đọc cột cũ | `test/guards/legacy-columns.guard.test.ts` |
 | Admin: `instant = false`, không inline style (CSP), id không trùng giữa các trang (`<Activity>`), mỗi trang đúng một tiêu đề (`<h1>`/`PageHeader`) | `lib/admin/admin-pages.guard.test.ts` |
 | Admin CSS: màu cảnh báo chỉ là token `--a-warn*`, một class cho form inline | `test/guards/admin-css.guard.test.ts` |
-| AI SDK chỉ trong `lib/server/ai` | `test/guards/ai-imports.guard.test.ts` |
-| Mục nav khách trỏ tới section có anchor | `test/guards/nav-anchors.guard.test.ts` |
+| AI SDK chỉ trong `lib/server/ai`; `lib/server/ai` và `content-admin/machine-*.ts`, `seo-material.ts` không chạm dữ liệu khách (booking, email, `reservations`) | `test/guards/ai-imports.guard.test.ts` || Mục nav khách trỏ tới section có anchor | `test/guards/nav-anchors.guard.test.ts` |
 | Truy vấn DOM theo trang | `lib/page-scope.guard.test.ts` |
 | Cron khớp `vercel.json` | `test/guards/vercel-crons.guard.test.ts` |
 

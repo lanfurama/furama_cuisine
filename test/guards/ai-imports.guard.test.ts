@@ -11,7 +11,9 @@ import { describe, expect, it } from 'vitest';
  * and `ai` itself (createTextStreamResponse, toTextStream) in the AI route
  * handlers. Nothing under lib/server/ai/ may reach guest data: no booking or
  * email module and no `reservations` (spec §9.4: never send guests' personal
- * data to Vertex). Tests and test helpers are not app code.
+ * data to Vertex). The same holds for the CMS files that gather what is sent
+ * (R9-17): lib/server/content-admin/machine-*.ts and seo-material.ts. Tests
+ * and test helpers are not app code.
  */
 
 const ROOT = join(__dirname, '..', '..');
@@ -26,6 +28,9 @@ const restricted = (m: string) => RESTRICTED.has(packageOf(m)) || m.startsWith('
 const GATE = 'lib/server/ai/';
 const ASSIST_PANEL = 'app/admin/(shell)/_kit/AssistPanel.tsx';
 const AI_ROUTE = /^app\/api\/admin\/ai\/.+\/route\.ts$/;
+/** The CMS side of the AI (R9-17): it gathers the text and bytes the gate sends, so it is held to the gate's guest-data rule. */
+const AI_MATERIAL = /^lib\/server\/content-admin\/(?:machine-[^/]+|seo-material)\.ts$/;
+const sendsToVertex = (rel: string) => rel.startsWith(GATE) || AI_MATERIAL.test(rel);
 
 
 type Node = { type: string; [key: string]: unknown };
@@ -78,7 +83,7 @@ function aiImportProblems(rel: string, src: string): string[] {
       return true;
     })
     .map((m) => `${rel}: imports ${m}`);
-  if (rel.startsWith(GATE)) {
+  if (sendsToVertex(rel)) {
     for (const m of requests) {
       if (/(^|\/)(booking|email)(\/|$)/.test(m) && (m.startsWith('@/') || m.startsWith('.'))) problems.push(`${rel}: imports ${m} (guest data)`);
     }
@@ -93,6 +98,7 @@ describe('AI imports (spec §9.4: one gate to Vertex)', () => {
   it('only lib/server/ai/ imports the AI packages, and it never touches guest data', () => {
     expect(all.length).toBeGreaterThan(100);
     expect(all.some((f) => f.startsWith(GATE))).toBe(true);
+    expect(all.some((f) => AI_MATERIAL.test(f))).toBe(true);
     expect(all.flatMap((rel) => aiImportProblems(rel, readFileSync(join(ROOT, rel), 'utf8')))).toEqual([]);
   });
 
@@ -134,5 +140,17 @@ describe('AI imports (spec §9.4: one gate to Vertex)', () => {
     expect(aiImportProblems('lib/server/ai/x.ts', "import { send } from '@/lib/server/email/send';")).toHaveLength(1);
     expect(aiImportProblems('lib/server/ai/x.ts', "const q = 'SELECT * FROM reservations';")).toEqual(['lib/server/ai/x.ts: mentions reservations (guest data)']);
     expect(aiImportProblems('lib/server/booking/x.ts', "const q = 'SELECT * FROM reservations';")).toEqual([]);
+    // …and out of the CMS files that gather what the gate sends (R9-17).
+    expect(aiImportProblems('lib/server/content-admin/machine-translations.ts', "import { x } from '@/lib/server/booking/rules';")).toEqual([
+      'lib/server/content-admin/machine-translations.ts: imports @/lib/server/booking/rules (guest data)',
+    ]);
+    expect(aiImportProblems('lib/server/content-admin/machine-alt.ts', "import { x } from '../email/send';")).toHaveLength(1);
+    expect(aiImportProblems('lib/server/content-admin/seo-material.ts', "const q = 'SELECT * FROM reservations';")).toHaveLength(1);
+    expect(aiImportProblems('lib/server/content-admin/offers.ts', "const q = 'SELECT * FROM reservations';")).toEqual([]);
+    // The CMS side imports the gate, never the SDK.
+    expect(aiImportProblems('lib/server/content-admin/machine-translations.ts', "import { translateItems } from '@/lib/server/ai/translate';")).toEqual([]);
+    expect(aiImportProblems('lib/server/content-admin/machine-translations.ts', "import { generateText } from 'ai';")).toEqual([
+      'lib/server/content-admin/machine-translations.ts: imports ai',
+    ]);
   });
 });

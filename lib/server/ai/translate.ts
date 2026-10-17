@@ -2,6 +2,7 @@ import 'server-only';
 import { generateText, Output, type LanguageModel } from 'ai';
 import type { Pool } from 'pg';
 import { z } from 'zod';
+import type { AiSettings } from '@/lib/admin/ai-schemas';
 import { englishName } from '@/lib/i18n/catalog';
 import { checkMessage, messageArgs } from '@/lib/i18n/icu';
 import { AiError } from '@/lib/server/ai-error';
@@ -37,14 +38,17 @@ function referenceArgs(text: string) {
 
 const Result = z.object({ items: z.array(z.object({ id: z.string(), text: z.string() })) });
 
-/** `deps.model` is the tests' seam; the routes never pass it. */
+/**
+ * `deps.model` is the tests' seam; the routes never pass it. `input.settings`: the configuration as the
+ * caller read it (a bulk job reads it uncached at each run, outside any request); else the cached one.
+ */
 export async function translateItems(
   pool: Pool,
-  input: { items: TranslateItem[]; locale: string; actorId: string | null; jobId?: string; signal?: AbortSignal },
+  input: { items: TranslateItem[]; locale: string; actorId: string | null; jobId?: string; signal?: AbortSignal; settings?: AiSettings },
   deps: { model?: LanguageModel } = {},
 ): Promise<{ results: Translated[]; model: ModelId }> {
   const { items, locale, actorId, jobId, signal } = input;
-  const settings = await cachedAiSettings();
+  const settings = input.settings ?? (await cachedAiSettings());
   const cfg = settings.features.translate;
   if (!cfg.enabled) throw new AiError('ai_off');
 

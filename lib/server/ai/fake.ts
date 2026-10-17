@@ -10,7 +10,9 @@ type LanguageModelV4Prompt = Parameters<MockLanguageModelV4['doGenerate']>[0]['p
  * the instructions ("TASK: translate|assist|seo|alt|check"; the modules that
  * make the calls put it there). A translate call also carries "TARGET: <locale code>".
  *
- *   AI_FAKE_FAIL=<feature>:<status>   that feature's calls throw an APICallError with the status
+ *   AI_FAKE_FAIL=<feature>:<status>      that feature's calls throw an APICallError with the status
+ *   AI_FAKE_FAIL=<feature>:<status>@<n>  only the nth call of that feature does (a bulk job that
+ *                                        stops part-way); the count restarts on resetFake or a new flag
  *   AI_FAKE_DROP_TOKEN=1              the fake translation drops the ⟦G1⟧ token
  *
  * Both are read at call time, so a test route can flip them in the running
@@ -21,14 +23,16 @@ export type FakeFlags = { fail?: string | null; dropToken?: boolean };
  * Kept on globalThis: Next may bundle this module once per route, and the test
  * route that flips a flag must reach the instance the AI routes use.
  */
-const g = globalThis as typeof globalThis & { aiFakeState?: { flags: FakeFlags } };
+const g = globalThis as typeof globalThis & { aiFakeState?: { flags: FakeFlags; calls?: Record<string, number> } };
 const state = (g.aiFakeState ??= { flags: {} });
 
 export function setFakeFlags(flags: FakeFlags): void {
   state.flags = { ...state.flags, ...flags };
+  if ('fail' in flags) state.calls = {};
 }
 export function resetFake(): void {
   state.flags = {};
+  state.calls = {};
 }
 
 const USAGE = {
@@ -53,10 +57,14 @@ function read(prompt: LanguageModelV4Prompt): { instructions: string; user: stri
 }
 
 function maybeFail(kind: Kind): void {
+  const calls = (state.calls ??= {});
+  calls[kind] = (calls[kind] ?? 0) + 1;
   const spec = state.flags.fail !== undefined ? state.flags.fail : process.env.AI_FAKE_FAIL;
   if (!spec) return;
-  const [feature, status] = spec.split(':');
+  const [feature, rest = ''] = spec.split(':');
   if (feature !== kind && feature !== '*') return;
+  const [status, nth] = rest.split('@');
+  if (nth !== undefined && Number(nth) !== calls[kind]) return;
   const n = Number(status);
   const statusCode = Number.isInteger(n) && n >= 100 && n <= 599 ? n : 500;
   throw new APICallError({ message: `fake ${statusCode}`, url: 'fake://vertex', requestBodyValues: {}, statusCode, isRetryable: false });
