@@ -20,8 +20,13 @@ import { cachedAiSettings } from './settings';
 export const ASSIST_ACTIONS = ['rewrite', 'shorten', 'brand'] as const;
 export type AssistAction = (typeof ASSIST_ACTIONS)[number];
 
-/** The longest text the assistant takes (the route answers `invalid` beyond). */
-export const MAX_ASSIST_CHARS = 4000;
+/** The longest text the assistant takes (the route answers `invalid` beyond; the panel says so before calling). */
+export { MAX_ASSIST_CHARS } from '@/lib/admin/assist';
+
+/** The model call's own limit: well under the route's maxDuration (60 s), so the platform never kills the function first. */
+export const ASSIST_TIMEOUT_MS = 50_000;
+/** If no end, error, abort or cancel has closed the row by then, it is failed anyway: the kept-alive work always ends. */
+const CLOSE_DEADLINE_MS = ASSIST_TIMEOUT_MS + 2_000;
 
 const WHAT: Record<AssistAction, string> = {
   rewrite: 'Rewrite the text so it reads clearly and naturally, keeping its meaning and every fact.',
@@ -48,13 +53,26 @@ export function assistInstructions(input: { action: AssistAction; locale: string
     .join('\n');
 }
 
-/** A Response streaming the answer as text/plain; a refusal or a failure before the first words throws (the route answers JSON). `deps.model` is the tests' seam. */
+/**
+ * A Response streaming the answer as text/plain; a refusal or a failure before the first words throws (the route
+ * answers JSON). Once the stream is under way, `keepAlive` receives the work that closes the usage row: the route
+ * hands it to after(), so a function the client has left (the panel closed) is not frozen with the row still pending
+ * at its ceiling. `deps.model` is the tests' seam.
+ */
 export async function assistStream(
   pool: Pool,
-  input: { action: AssistAction; text: string; locale: string; maxLength?: number; actorId: string; signal: AbortSignal },
+  input: {
+    action: AssistAction;
+    text: string;
+    locale: string;
+    maxLength?: number;
+    actorId: string;
+    signal: AbortSignal;
+    keepAlive?: (work: Promise<void>) => void;
+  },
   deps: { model?: LanguageModel } = {},
 ): Promise<Response> {
-  const { action, text, locale, maxLength, actorId, signal } = input;
+  const { action, text, locale, maxLength, actorId, signal, keepAlive } = input;
   const settings = await cachedAiSettings();
   const cfg = settings.features.assist;
   if (!cfg.enabled) throw new AiError('ai_off');
@@ -77,10 +95,12 @@ export async function assistStream(
   // The row is settled once: whichever of end, error, abort or cancel comes first. Every later
   // caller awaits that same write, so nothing throws or answers before the row has left 'pending'
   // (streamText's onError starts the failure before the reader sees the error part).
+  let markClosed!: () => void;
+  const closed = new Promise<void>((resolve) => (markClosed = resolve));
   let closing: Promise<void> | null = null;
-  const settle = (usage: AiUsage) =>
-    (closing ??= reservation.settle(usage).catch(() => console.error('[ai] usage settle failed', { code: 'settle' })));
-  const fail = (err: unknown) => (closing ??= reservation.fail(err).then(() => {}));
+  const close = (write: () => Promise<void>) => (closing ??= write().finally(markClosed));
+  const settle = (usage: AiUsage) => close(() => reservation.settle(usage).catch(() => console.error('[ai] usage settle failed', { code: 'settle' })));
+  const fail = (err: unknown) => close(() => reservation.fail(err).then(() => {}));
 
   const result = streamText({
     model,
@@ -88,7 +108,7 @@ export async function assistStream(
     prompt: text,
     maxOutputTokens: cfg.maxOutputTokens,
     maxRetries: 1,
-    timeout: { totalMs: 60_000 },
+    timeout: { totalMs: ASSIST_TIMEOUT_MS },
     abortSignal: signal,
     providerOptions: providerOptions(cfg),
     onEnd: ({ totalUsage }) => settle({ inputTokens: totalUsage.inputTokens, outputTokens: totalUsage.outputTokens }),
@@ -134,6 +154,10 @@ export async function assistStream(
     await closing;
     throw new AiError('ai_failed');
   }
+
+  // From here the answer streams: keep the function alive until the row is closed, whatever ends the call.
+  const deadline = setTimeout(() => void fail(new AiError('ai_failed')), CLOSE_DEADLINE_MS);
+  keepAlive?.(closed.finally(() => clearTimeout(deadline)));
 
   const stream = new ReadableStream<string>({
     start(controller) {

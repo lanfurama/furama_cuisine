@@ -1,3 +1,4 @@
+import { after } from 'next/server';
 import { z } from '@/lib/admin/zod';
 import { getPool } from '@/db/client';
 import { LOCALE_CODE_RE } from '@/lib/i18n/locales';
@@ -13,7 +14,10 @@ import { requirePermission } from '@/lib/server/dal/session';
  * tab, streamed back as text/plain. Nothing is saved: the panel fills the box
  * and staff save as always. A refusal, or a failure before the first words,
  * is JSON `{ code, message }` like the translate route. Closing the panel
- * aborts the fetch; the request's signal stops the model call.
+ * aborts the fetch; the request's signal stops the model call, and after()
+ * keeps the function alive until the usage row is closed (a frozen function
+ * would leave it pending at its ceiling). The model call stops at 50 s
+ * (ASSIST_TIMEOUT_MS), well inside maxDuration.
  */
 export const maxDuration = 60;
 
@@ -37,7 +41,12 @@ export async function POST(request: Request): Promise<Response> {
     const staff = await requirePermission({ content: ['ai'] });
     await aiRoute(request, 'assist', staff);
     const body = Body.parse(await request.json().catch(() => null));
-    return await assistStream(getPool(), { ...body, actorId: staff.userId, signal: request.signal });
+    return await assistStream(getPool(), {
+      ...body,
+      actorId: staff.userId,
+      signal: request.signal,
+      keepAlive: (work) => after(() => work),
+    });
   } catch (err) {
     return aiErrorResponse(err);
   }

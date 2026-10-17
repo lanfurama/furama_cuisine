@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { ASSIST_TOO_LONG, assistRefusal } from '@/lib/admin/assist';
 import { checkLength } from '@/lib/admin/content-rules';
 import { readTextStream } from '@/lib/admin/text-stream';
 import { toBcp47 } from '@/lib/i18n/locales';
@@ -12,8 +13,11 @@ import { toBcp47 } from '@/lib/i18n/locales';
  * fetch and a reader (no AI package in the browser); "Dùng bản này" hands it
  * to onUse, which fills the box like typing. Nothing is saved here: staff
  * press Lưu as always. Closing the panel (Đóng, Esc), "Dừng", another action
- * or leaving the page aborts the request, and the route stops the model call.
- * A refusal or a cut stream says so in Vietnamese and leaves the box as it was.
+ * or leaving the page aborts the request, and the route stops the model call;
+ * so does hiding the panel (the field shows it in the open language tab only,
+ * and a page kept hidden by <Activity> runs this component's cleanup). A text
+ * too long for the assistant is not sent. A refusal or a cut stream says so in
+ * Vietnamese and leaves the box as it was.
  */
 type Action = 'rewrite' | 'shorten' | 'brand';
 const ACTIONS: readonly { action: Action; label: string }[] = [
@@ -33,7 +37,7 @@ export function AssistPanel({ text, locale, label, max, onUse }: { text: string;
   const controller = useRef<AbortController | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const firstAction = useRef<HTMLButtonElement>(null);
-  const panel = useRef<HTMLElement>(null);
+  const root = useRef<HTMLDivElement>(null);
 
   const stop = () => {
     controller.current?.abort();
@@ -52,9 +56,9 @@ export function AssistPanel({ text, locale, label, max, onUse }: { text: string;
 
   // Leaving the form drops the request (the route forwards the abort to Vertex).
   useEffect(() => () => controller.current?.abort(), []);
-  // Opened: focus the first action; Esc inside the panel closes it and gives focus back to the button.
+  // Opened: focus the first action; Esc on the button or inside the panel closes it and gives focus back to the button.
   useEffect(() => {
-    const el = panel.current;
+    const el = root.current;
     if (!open || !el) return;
     firstAction.current?.focus();
     const onKey = (event: KeyboardEvent) => {
@@ -69,6 +73,13 @@ export function AssistPanel({ text, locale, label, max, onUse }: { text: string;
 
   async function run(action: Action) {
     stop();
+    const refusal = assistRefusal(text);
+    if (refusal) {
+      setPhase('failed');
+      setResult('');
+      setMessage(refusal);
+      return;
+    }
     const ctl = new AbortController();
     controller.current = ctl;
     setPhase('streaming');
@@ -82,10 +93,11 @@ export function AssistPanel({ text, locale, label, max, onUse }: { text: string;
         body: JSON.stringify({ action, text, locale, maxLength: max }),
       });
       if (!res.ok || !res.body) {
-        const data = (await res.json().catch(() => null)) as { message?: string } | null;
+        const data = (await res.json().catch(() => null)) as { code?: string; message?: string } | null;
         if (ctl.signal.aborted) return;
         setPhase('failed');
-        setMessage(data?.message ?? 'Trợ lý không trả lời được. Thử lại sau.');
+        // The panel sends only a valid action, language and maximum: a refused body is the text (no field is marked to point at).
+        setMessage(data?.code === 'invalid' ? ASSIST_TOO_LONG : (data?.message ?? 'Trợ lý không trả lời được. Thử lại sau.'));
         return;
       }
       const all = await readTextStream(res.body, (t) => {
@@ -110,7 +122,7 @@ export function AssistPanel({ text, locale, label, max, onUse }: { text: string;
   const panelId = `${uid}-assist`;
 
   return (
-    <div className="a-assist">
+    <div ref={root} className="a-assist">
       <button
         ref={trigger}
         type="button"
@@ -122,7 +134,7 @@ export function AssistPanel({ text, locale, label, max, onUse }: { text: string;
         Trợ lý viết
       </button>
       {open ? (
-        <section ref={panel} id={panelId} className="a-assist-panel" aria-label={`Trợ lý viết: ${label}`}>
+        <section id={panelId} className="a-assist-panel" aria-label={`Trợ lý viết: ${label}`}>
           <div className="a-assist-actions" role="group" aria-label="Thao tác">
             {ACTIONS.map((a, i) => (
               // Never disabled (focus would drop to the page): another action replaces the one streaming.

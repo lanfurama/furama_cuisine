@@ -152,7 +152,8 @@ export function TranslatableField({
             {ai.translate && l.code !== DEFAULT_LOCALE && english.trim() ? (
               <AiTranslateButton english={english} locale={l.code} onResult={(t) => fill(l.code, t)} />
             ) : null}
-            {ai.assist && rows !== undefined && rows >= 3 && value.trim() ? (
+            {/* In the open tab only: switching tabs unmounts it, which aborts a stream still running (no hidden call, no hidden count). */}
+            {ai.assist && active === l.code && rows !== undefined && rows >= 3 && value.trim() ? (
               <AssistPanel
                 text={value}
                 locale={l.code}

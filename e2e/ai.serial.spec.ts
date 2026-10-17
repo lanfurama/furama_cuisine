@@ -137,6 +137,31 @@ test('an Editor shortens Tàya House’s story with the writing assistant, uses 
     await expect(panel).toHaveCount(0);
     await expect(open).toBeFocused();
     await expect(open).toHaveAttribute('aria-expanded', 'false');
+    // Esc also closes it while focus is back on the button.
+    await open.click();
+    await expect(panel).toHaveCount(1);
+    await open.focus();
+    await page.keyboard.press('Escape');
+    await expect(panel).toHaveCount(0);
+
+    // Another language tab: the panel of the tab left is gone (a stream there would be aborted, not run hidden).
+    await open.click();
+    await expect(panel).toHaveCount(1);
+    const tabs = form.getByRole('tablist', { name: 'Câu chuyện: ngôn ngữ', exact: true });
+    await tabs.getByRole('tab', { name: /^VI/ }).click();
+    await expect(panel).toHaveCount(0);
+    await tabs.getByRole('tab', { name: /^EN/ }).click();
+
+    // A text too long for the assistant is not sent: the panel says why.
+    const calls = async () => (await one<{ n: number }>(`SELECT count(*)::int AS n FROM ai_usage WHERE feature = 'assist'`))!.n;
+    const callsBefore = await calls();
+    await story.fill('x'.repeat(4001));
+    await open.click();
+    await panel.getByRole('button', { name: 'Rút gọn' }).click();
+    await expect(panel.locator('[aria-live="polite"]')).toHaveText('Đoạn văn quá dài cho trợ lý (tối đa 4.000 ký tự).');
+    expect(await calls()).toBe(callsBefore);
+    await panel.getByRole('button', { name: 'Đóng' }).click();
+    await story.fill(english);
 
     await open.click();
     await expect(panel.getByRole('button', { name: 'Dùng bản này' })).toBeDisabled();

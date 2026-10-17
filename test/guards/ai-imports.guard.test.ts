@@ -7,10 +7,11 @@ import { describe, expect, it } from 'vitest';
  * Phase 9 (spec §9.4): one gate to Vertex. Only files under lib/server/ai/ may
  * import the AI SDK, its providers, google-auth-library or @vercel/oidc, so
  * the budget, the per-person limit and the keyless auth cannot be bypassed.
- * One narrow exception: `ai` itself (createTextStreamResponse, toTextStream)
- * in the AI route handlers. No AI package reaches the browser bundle: the
- * writing assistant's panel reads its stream with fetch (R9-23), and
- * @ai-sdk/react is not even a dependency. Nothing under lib/server/ai/ may
+ * There is no exception: the AI route handlers call the gate (the assistant's
+ * stream is built in lib/server/ai/assist.ts), so none imports `ai` itself.
+ * No AI package reaches the browser bundle: the writing assistant's panel
+ * reads its stream with fetch (R9-23), and @ai-sdk/react is not even a
+ * dependency. Nothing under lib/server/ai/ may
  * reach guest data: no booking or email module and no `reservations` (spec
  * §9.4: never send guests' personal data to Vertex). Tests and test helpers
  * are not app code.
@@ -26,7 +27,6 @@ const RESTRICTED = new Set(['ai', 'google-auth-library', '@vercel/oidc']);
 /** Every @ai-sdk/* package is the gate's (providers and @ai-sdk/react alike). */
 const restricted = (m: string) => RESTRICTED.has(packageOf(m)) || m.startsWith('@ai-sdk/');
 const GATE = 'lib/server/ai/';
-const AI_ROUTE = /^app\/api\/admin\/ai\/.+\/route\.ts$/;
 
 
 type Node = { type: string; [key: string]: unknown };
@@ -74,9 +74,7 @@ function aiImportProblems(rel: string, src: string): string[] {
     .filter(restricted)
     .filter((m) => {
       if (packageOf(m) === '@ai-sdk/react') return true;
-      if (rel.startsWith(GATE)) return false;
-      if (m === 'ai') return !AI_ROUTE.test(rel);
-      return true;
+      return !rel.startsWith(GATE);
     })
     .map((m) => `${rel}: imports ${m}`);
   if (rel.startsWith(GATE)) {
@@ -103,7 +101,7 @@ describe('AI imports (spec §9.4: one gate to Vertex)', () => {
     expect(deps.filter((d) => d === '@ai-sdk/react' || d === 'swr')).toEqual([]);
   });
 
-  it('what it catches: any form of import, the wrong place for the one exception, guest data', () => {
+  it('what it catches: any form of import, anywhere outside the gate (route handlers too), guest data', () => {
     const fixture = [
       "import { generateText } from 'ai';",
       "import { MockLanguageModelV4 } from 'ai/test';",
@@ -132,10 +130,12 @@ describe('AI imports (spec §9.4: one gate to Vertex)', () => {
     expect(aiImportProblems('app/api/admin/ai/assist/route.ts', "import { useCompletion } from '@ai-sdk/react';")).toEqual([
       'app/api/admin/ai/assist/route.ts: imports @ai-sdk/react',
     ]);
-    // The route exception is narrow.
+    // No exception for the AI route handlers any more: they call the gate.
     expect(aiImportProblems('lib/x.ts', "import { openai } from '@ai-sdk/openai';")).toEqual(['lib/x.ts: imports @ai-sdk/openai']);
     expect(aiImportProblems('app/x/Other.tsx', "import { useCompletion } from '@ai-sdk/react';")).toEqual(['app/x/Other.tsx: imports @ai-sdk/react']);
-    expect(aiImportProblems('app/api/admin/ai/assist/route.ts', "import { createTextStreamResponse } from 'ai';")).toEqual([]);
+    expect(aiImportProblems('app/api/admin/ai/assist/route.ts', "import { createTextStreamResponse } from 'ai';")).toEqual([
+      'app/api/admin/ai/assist/route.ts: imports ai',
+    ]);
     expect(aiImportProblems('app/api/admin/ai/assist/route.ts', "import { MockLanguageModelV4 } from 'ai/test';")).toEqual([
       'app/api/admin/ai/assist/route.ts: imports ai/test',
     ]);
