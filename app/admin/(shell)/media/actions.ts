@@ -1,13 +1,16 @@
 'use server';
 
-import { refresh, updateTag } from 'next/cache';
+import { refresh, revalidateTag, updateTag } from 'next/cache';
+import { draftMode } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { getPool } from '@/db/client';
 import { checkbox, readForm, RestoreForm, Token } from '@/lib/admin/content-schemas';
 import type { Saved } from '@/lib/admin/save-state';
 import { z } from '@/lib/admin/zod';
 import { tagsForSave } from '@/lib/cache-plan';
 import { actionError, type ActionResult } from '@/lib/server/action-result';
+import { generateAltQuietly } from '@/lib/server/content-admin/machine-alt';
 import { auditActor, requirePermission } from '@/lib/server/dal/session';
 import { BlobNotConfiguredError } from '@/lib/server/media/blob';
 import { deleteMedia, getMedia, MEDIA, restoreMedia, saveMediaDetails } from '@/lib/server/media/library';
@@ -28,6 +31,13 @@ import { LOCALE_CODE_RE } from '@/lib/i18n/locales';
  * D2 (phase-6 ledger) makes every `media` expiry a re-render of every guest
  * page. refresh() re-renders this admin page when no tag expired
  * (node_modules/next/dist/docs/01-app/03-api-reference/04-functions/refresh.md:9,13).
+ *
+ * Phase 9 D11 (R9-12, R9-21): a new picture uploaded without alt text gets
+ * EN alt by AI in after() (node_modules/next/dist/docs/01-app/03-api-reference/04-functions/after.md),
+ * once the answer has gone: never in a Draft Mode preview (spec §3), and an AI
+ * failure never touches the upload. If some content shows the file by the time
+ * the alt is written, `media` is expired through the cache plan with
+ * revalidateTag(…, 'max') (updateTag belongs to the action's own response).
  */
 
 const MediaId = z.uuid({ error: 'File không hợp lệ.' });
@@ -50,10 +60,18 @@ export async function registerMediaAction(input: { pathname: string; alt?: strin
   try {
     const staff = await requirePermission({ content: ['update'] });
     const parsed = Register.parse(input);
-    const result = await registerUploadedMedia(getPool(), auditActor(staff), parsed);
+    const pool = getPool();
+    const result = await registerUploadedMedia(pool, auditActor(staff), parsed);
     if (!result.ok) return result;
+    const { id, created, kind } = result.data;
+    if (created && kind === 'image' && !parsed.decorative && !parsed.alt && !(await draftMode()).isEnabled) {
+      after(async () => {
+        const { shown } = await generateAltQuietly(pool, id);
+        if (shown) for (const tag of tagsForSave(MEDIA.tables)) revalidateTag(tag, 'max');
+      });
+    }
     refresh();
-    return { ok: true, data: { id: result.data.id } };
+    return { ok: true, data: { id } };
   } catch (err) {
     return err instanceof BlobNotConfiguredError ? { ok: false, code: 'blob_not_configured' } : actionError(err);
   }

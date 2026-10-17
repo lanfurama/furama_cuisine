@@ -8,6 +8,7 @@ import { conflictFromHistory, type Conflict } from '@/lib/server/conflict';
 import type { Db } from '@/db/client';
 import { getAuditRow } from '@/lib/server/history/history';
 import { readItem, snapshotToken, upsertTranslation, writeChangedTranslations, writeItem, type ItemDef, type ItemSnapshot } from '@/lib/server/history/snapshot';
+import { downloadBlob } from './blob';
 import type { Measured } from './measure';
 
 /*
@@ -179,6 +180,60 @@ export async function registerMediaRow(pool: Pool, actor: AuditActor, input: Reg
     if (!prior[0] && alt && m.contentType !== 'application/pdf') await upsertTranslation(client, MEDIA, id, DEFAULT_LOCALE, { alt }, actor.id);
     await insertAudit(client, actor, { action: prior[0] ? 'update' : 'create', entityType: 'media', entityId: id, before, after: await readItem(client, MEDIA, id) });
     return { ok: true as const, data: { id, created: !prior[0] } };
+  });
+}
+
+// ── alt text by AI (phase 9 D11, R9-17, R9-21) ─────────────────────────────
+// This module never calls the AI (it does not import lib/server/ai): the CMS
+// side (content-admin/machine-alt.ts) reads the bytes here, has the gate
+// describe them, and writes the answer back here.
+
+/**
+ * The bytes of a picture the AI may describe, or null: only a live file in
+ * Vercel Blob (a static file under /assets is not read through the Blob gate:
+ * "Before launch A" 1.3 moves them), an image, not decorative. `withoutAlt`:
+ * also null once the default language has alt text (the automatic path).
+ */
+export async function imageForAi(db: Db, id: string, opts: { withoutAlt?: boolean } = {}): Promise<{ bytes: Uint8Array; contentType: MediaContentType } | null> {
+  const { rows } = await db.query<{ url: string; contentType: MediaContentType }>(
+    `SELECT m.url, m.content_type AS "contentType" FROM media m
+      WHERE m.id = $1::uuid AND m.storage = 'blob' AND m.deleted_at IS NULL AND NOT m.is_decorative AND m.content_type <> 'application/pdf'
+        ${opts.withoutAlt ? `AND NOT EXISTS (SELECT 1 FROM media_i18n mi WHERE mi.media_id = m.id AND mi.locale = ${DEFAULT_LOCALE_SQL})` : ''}`,
+    [id],
+  );
+  return rows[0] ? { bytes: await downloadBlob(rows[0].url), contentType: rows[0].contentType } : null;
+}
+
+/**
+ * EN alt text an AI wrote (L9-1, R9-21): status 'machine', origin 'ai', the
+ * model, nobody's review; guests read it at once (it is the default
+ * language), and the review queue lists it until a person reviews it. Only
+ * into an empty place (ON CONFLICT DO NOTHING), and only while the file is
+ * live, an image and not decorative, under the row lock a save of the file
+ * takes (lockLive), so a person's words are never written over. Its audit
+ * row is an update by nobody with `after.meta.machine` (R9-20 as corrected:
+ * the action CHECK of 005 has no 'machine'; meta is not part of the token).
+ * `shown`: some content uses the file, so the caller expires `media` (Luật 3:
+ * the expiry is app/'s, after the commit).
+ */
+export async function writeMachineAlt(pool: Pool, id: string, alt: string, model: string): Promise<{ wrote: boolean; shown: boolean }> {
+  return withTransaction(pool, async (client) => {
+    const { rows } = await client.query<{ ok: boolean }>(
+      `SELECT deleted_at IS NULL AND NOT is_decorative AND content_type <> 'application/pdf' AS ok FROM media WHERE id = $1::uuid FOR UPDATE`,
+      [id],
+    );
+    if (!rows[0]?.ok) return { wrote: false, shown: false };
+    const before = await readItem(client, MEDIA, id);
+    const { rowCount } = await client.query(
+      `INSERT INTO media_i18n (media_id, locale, alt, status, origin, ai_model, updated_at)
+       VALUES ($1::uuid, $2, $3, 'machine', 'ai', $4, now())
+       ON CONFLICT (media_id, locale) DO NOTHING`,
+      [id, DEFAULT_LOCALE, alt, model],
+    );
+    if (rowCount !== 1) return { wrote: false, shown: false };
+    const after = await readItem(client, MEDIA, id);
+    await insertAudit(client, null, { action: 'update', entityType: MEDIA.entityType, entityId: id, before, after: after && { ...after, meta: { machine: { model } } } });
+    return { wrote: true, shown: (await mediaUsage(client, id)).length > 0 };
   });
 }
 

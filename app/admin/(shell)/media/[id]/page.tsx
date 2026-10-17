@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getPool } from '@/db/client';
 import { formatDateTimeVi, formatFileSize } from '@/lib/admin/format';
+import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
 import { formLocales, itemStates } from '@/lib/server/content-admin/form-locales';
 import { listHistory } from '@/lib/server/history/history';
 import { requirePagePermission } from '@/lib/server/dal/session';
@@ -38,7 +39,9 @@ const LABELS = {
  * decorative flag are edited here, once for every use; other languages are
  * phase 8): where it is shown, delete (refused while it is shown anywhere,
  * AC3), and its History. A file in the trash keeps this page, its History
- * and "Khôi phục mục đã xóa" (R14); one the sweep purged is a 404.
+ * and "Khôi phục mục đã xóa" (R14); one the sweep purged is a 404. Phase 9
+ * D11: the EN alt's state (an AI's alt is "Máy dịch" until reviewed) and,
+ * for a file in Blob, "Viết alt bằng AI" (R9-21).
  */
 export default async function MediaFilePage({ params }: { params: Promise<{ id: string }> }) {
   await requirePagePermission({ content: ['read'] });
@@ -49,6 +52,7 @@ export default async function MediaFilePage({ params }: { params: Promise<{ id: 
   if (!item) notFound();
   const name = item.pathname.split('/').pop() ?? item.pathname;
   const isPdf = item.contentType === 'application/pdf';
+  const enRow = item.snapshot.i18n.find((r) => r.locale === DEFAULT_LOCALE);
 
   return (
     <>
@@ -97,6 +101,8 @@ export default async function MediaFilePage({ params }: { params: Promise<{ id: 
           alt={item.alt}
           decorative={item.isDecorative}
           translations={Object.fromEntries(item.snapshot.i18n.map((r) => [r.locale, String(r.alt ?? '')]))}
+          altState={enRow ? (enRow.status === 'machine' ? 'machine' : 'reviewed') : null}
+          inBlob={item.storage === 'blob'}
           languages={(() => {
             const states = itemStates(MEDIA, item.snapshot, tabs);
             return tabs.filter((l) => !l.isDefault).map((l) => ({ code: l.code, label: l.code.toUpperCase(), state: states[l.code] }));
