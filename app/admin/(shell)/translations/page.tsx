@@ -33,7 +33,7 @@ export default async function TranslationsPage({ searchParams }: { searchParams:
   const locale = one(params.locale);
   const kind = CONTENT_KINDS.find((k) => k.key === one(params.kind))?.key;
   const page = Math.max(1, Number(one(params.page)) || 1);
-  // Bulk translation is Admin only (the owner's default): the job routes ask for the same.
+  // Bulk translation is Admin only (spec §8; plan owner question 2 still open): the job routes ask for the same.
   const canRun = roleCan(staff.role, { content: ['ai'], settings: ['update'] });
   const targets = SITE_LOCALE_ROWS.filter((l) => !l.isDefault);
   const [cover, queue, jobs, missing] = await Promise.all([
