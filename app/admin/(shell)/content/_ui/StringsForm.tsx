@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
+import { Fragment, useId, useRef, useState } from 'react';
 import { checkLength, TRANSLATION_STRETCH } from '@/lib/admin/content-rules';
 import { submitKeepingValues } from '@/lib/admin/form';
 import { toBcp47 } from '@/lib/i18n/locales';
@@ -56,6 +56,7 @@ export function StringsForm({
   title,
   fields,
   groups,
+  asides,
   locale,
   localeName,
   isDefault,
@@ -70,6 +71,8 @@ export function StringsForm({
   isDefault: boolean;
   /** Keys under a titled fieldset each; keys no group takes come first, ungrouped. */
   groups?: readonly StringGroup[];
+  /** Controls drawn right after a key's field (by key), inside the form. */
+  asides?: Partial<Record<string, React.ReactNode>>;
   /**
    * Extra controls inside the form, after the save bar: the save button stays
    * the form's first submit button, so Enter in a field saves (the emails
@@ -103,7 +106,7 @@ export function StringsForm({
         Đang sửa: <strong>{localeName}</strong>
         {isDefault ? '' : '. Ô để trống: khách thấy bản tiếng Anh.'}
       </p>
-      <StringFields key={save.fieldsKey} fields={save.view} groups={groups ?? []} state={save.state} lang={isDefault ? null : locale} />
+      <StringFields key={save.fieldsKey} fields={save.view} groups={groups ?? []} asides={asides ?? {}} state={save.state} lang={isDefault ? null : locale} />
       <SaveBar
         state={save.state as ActionResult<unknown> | null}
         pending={save.pending}
@@ -126,17 +129,22 @@ function versionOf(fields: readonly StringFieldView[], written: Partial<Record<s
 function StringFields({
   fields,
   groups,
+  asides,
   state,
   lang,
 }: {
   fields: StringFieldView[];
   groups: readonly StringGroup[];
+  asides: Partial<Record<string, React.ReactNode>>;
   state: ActionResult<StringsSaved> | null;
   /** A translation's language; null for the default one. */
   lang: string | null;
 }) {
   const field = (f: StringFieldView) => (
-    <StringField key={f.key} field={f} lang={lang} error={state && !state.ok ? state.fieldErrors?.[`v:${f.key}`] : undefined} />
+    <Fragment key={f.key}>
+      <StringField field={f} lang={lang} error={state && !state.ok ? state.fieldErrors?.[`v:${f.key}`] : undefined} />
+      {asides[f.key]}
+    </Fragment>
   );
   const grouped = (f: StringFieldView) => groups.some((g) => f.key.startsWith(g.prefix));
   return (

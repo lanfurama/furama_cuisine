@@ -8,6 +8,7 @@ import { getSettingsEditor, SHARE_IMAGE } from '@/lib/server/content-admin/setti
 import { requirePagePermission } from '@/lib/server/dal/session';
 import { envPrefix, isBlobConfigured } from '@/lib/server/media/blob';
 import { HistoryPanel } from '../../_kit/HistoryPanel';
+import { SeoSuggestButton } from '../../_kit/SeoSuggestButton';
 import { StringsPanel, type ScreenSearchParams } from '../_ui/StringsPanel';
 import { restoreShareImageAction } from './actions';
 import { ShareImageForm } from './ShareImageForm';
@@ -23,7 +24,8 @@ export const metadata: Metadata = { title: 'SEO' };
  * text, the other pages' title pattern, the not-found title) and the share
  * picture (site_settings.og_image_id, with History). A restaurant's own SEO
  * title, description and picture are on its screen; a restaurant page
- * without them uses these (L7-13).
+ * without them uses these (L7-13). "Gợi ý bằng AI" (phase 9, R9-22) under
+ * the home page's description fills its title and description.
  */
 export default async function SeoPage({ searchParams }: { searchParams: ScreenSearchParams }) {
   await requirePagePermission({ content: ['read'] });
@@ -49,7 +51,21 @@ export default async function SeoPage({ searchParams }: { searchParams: ScreenSe
 
       <section aria-labelledby="seo-copy" className="a-card-row">
         <h2 id="seo-copy">Tiêu đề và mô tả</h2>
-        <StringsPanel searchParams={searchParams} screen="seo" title="Chữ SEO" />
+        <StringsPanel
+          searchParams={searchParams}
+          screen="seo"
+          title="Chữ SEO"
+          asides={{
+            // R9-22: the home page's pair only; the share text and the title patterns are not suggested.
+            'seo.home_description': (
+              <SeoSuggestButton
+                target={{ kind: 'home' }}
+                fields={{ title: 'v:seo.home_title', description: 'v:seo.home_description' }}
+                hint="AI gợi ý tiêu đề và mô tả trang chủ từ nội dung đang hiện trên web, bằng ngôn ngữ đang sửa. Chưa lưu gì cho tới khi bạn bấm Lưu."
+              />
+            ),
+          }}
+        />
       </section>
 
       <section className="a-section-card" aria-labelledby="seo-share">
