@@ -54,8 +54,19 @@ export function AssistPanel({ text, locale, label, max, onUse }: { text: string;
     if (focusTrigger) trigger.current?.focus();
   }, []);
 
-  // Leaving the form drops the request (the route forwards the abort to Vertex).
-  useEffect(() => () => controller.current?.abort(), []);
+  // Leaving the form drops the request (the route forwards the abort to Vertex). Leaving the
+  // page only hides it (<Activity> keeps its state), so a stream cut off here reads as stopped
+  // when the editor comes back, not as still writing.
+  useEffect(
+    () => () => {
+      if (!controller.current) return;
+      controller.current.abort();
+      controller.current = null;
+      setPhase('stopped');
+      setMessage('Đã dừng. Ô vẫn giữ chữ cũ.');
+    },
+    [],
+  );
   // Opened: focus the first action; Esc on the button or inside the panel closes it and gives focus back to the button.
   useEffect(() => {
     const el = root.current;
