@@ -38,6 +38,9 @@ async function guest(browser: Browser): Promise<Page> {
 const fileId = async () => (await one<{ id: string }>(`SELECT id::text FROM media WHERE pathname LIKE $1`, [`development/media/%/${FILE}`]))?.id;
 const enAlt = async (id: string) => one<{ alt: string; status: string; origin: string }>(`SELECT alt, status, origin FROM media_i18n WHERE media_id = $1 AND locale = 'en'`, [id]);
 
+// The later tests use the first one's upload (named after this worker's RUN): a retry runs the file again from the upload.
+test.describe.configure({ mode: 'serial' });
+
 test.beforeAll(() => seedStaff());
 test.beforeEach(async ({ context }) => routeBlobToFake(context, outside));
 test.afterEach(() => {
@@ -169,4 +172,35 @@ test('a static file has no AI button, only the note to move it to Blob first', a
   const details = page.getByRole('form', { name: 'Mô tả ảnh' });
   await expect(details.getByText('Ảnh tĩnh: chuyển lên Blob trước để AI viết mô tả.')).toBeVisible();
   await expect(details.getByRole('button', { name: 'Viết alt bằng AI' })).toHaveCount(0);
+});
+
+test('leaving the page while “Viết alt bằng AI” waits, then coming back: the button is usable again (<Activity> keeps state)', async ({ page }) => {
+  const id = await fileId();
+  expect(id).toBeTruthy();
+  // Hold the answer so the request is still in flight when the page is left.
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/api/admin/ai/alt', async (route) => {
+    await held;
+    await route.continue().catch(() => undefined);
+  });
+  await signInAs(page, STAFF.editor);
+  await page.goto(`/admin/media/${id}`);
+  await expectHydrated(page);
+  const details = page.getByRole('form', { name: 'Mô tả ảnh' });
+  const sent = page.waitForRequest('**/api/admin/ai/alt');
+  await details.getByRole('button', { name: 'Viết alt bằng AI' }).click();
+  await sent;
+  await expect(details.getByRole('button', { name: 'Đang viết…' })).toHaveAttribute('aria-disabled', 'true');
+
+  // A client navigation hides this page in <Activity> (its effects clean up: the request is aborted); back shows it again.
+  await page.getByRole('link', { name: '← Thư viện' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Thư viện ảnh và PDF');
+  await page.goBack();
+  await expect(page.getByRole('form', { name: 'Mô tả ảnh' })).toBeVisible();
+  release();
+  const button = page.getByRole('form', { name: 'Mô tả ảnh' }).getByRole('button', { name: 'Viết alt bằng AI' });
+  await expect(button).toBeVisible();
+  await expect(button).not.toHaveAttribute('aria-disabled', 'true');
+  await page.unroute('**/api/admin/ai/alt');
 });

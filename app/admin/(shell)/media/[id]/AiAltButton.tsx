@@ -12,7 +12,8 @@ import { useEffect, useId, useRef, useState } from 'react';
  */
 export function AiAltButton({ mediaId, onResult }: { mediaId: string; onResult: (text: string) => void }) {
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
+  // One live region for both outcomes: a refusal (error style) or the fill (muted), read out either way.
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const statusId = useId();
   const inFlight = useRef(false);
   const controller = useRef<AbortController | null>(null);
@@ -24,7 +25,7 @@ export function AiAltButton({ mediaId, onResult }: { mediaId: string; onResult: 
     const ctl = new AbortController();
     controller.current = ctl;
     setBusy(true);
-    setMessage('');
+    setMessage(null);
     try {
       const res = await fetch('/api/admin/ai/alt', {
         method: 'POST',
@@ -33,23 +34,31 @@ export function AiAltButton({ mediaId, onResult }: { mediaId: string; onResult: 
         body: JSON.stringify({ mediaId }),
       });
       const data = (await res.json().catch(() => null)) as { message?: string; alt?: string } | null;
-      if (res.ok && typeof data?.alt === 'string') onResult(data.alt);
-      else setMessage(data?.message ?? 'Không viết được mô tả. Thử lại sau.');
+      if (res.ok && typeof data?.alt === 'string') {
+        onResult(data.alt);
+        setMessage({ text: 'Đã điền mô tả. Kiểm tra rồi bấm Lưu mô tả.', ok: true });
+      } else setMessage({ text: data?.message ?? 'Không viết được mô tả. Thử lại sau.', ok: false });
     } catch {
-      if (!ctl.signal.aborted) setMessage('Không kết nối được. Thử lại sau.');
+      if (!ctl.signal.aborted) setMessage({ text: 'Không kết nối được. Thử lại sau.', ok: false });
     } finally {
       inFlight.current = false;
-      if (!ctl.signal.aborted) setBusy(false);
+      // Still this call's controller, aborted or not: navigating away hides the page in <Activity> (its effect
+      // cleanup aborts the request) and keeps its state, so busy must end here or the button stays stuck on return
+      // (node_modules/next/dist/docs/01-app/02-guides/migrating-to-cache-components.md, "UI state preservation").
+      if (controller.current === ctl) {
+        controller.current = null;
+        setBusy(false);
+      }
     }
   }
 
   return (
     <span className="a-ai-translate">
-      <button type="button" className="a-btn a-btn--ghost a-btn--small" onClick={run} disabled={busy} aria-describedby={message ? statusId : undefined}>
+      <button type="button" className="a-btn a-btn--ghost a-btn--small" onClick={run} aria-disabled={busy || undefined} aria-describedby={message ? statusId : undefined}>
         {busy ? 'Đang viết…' : 'Viết alt bằng AI'}
       </button>
-      <span aria-live="polite" id={statusId} className="a-field-error">
-        {message}
+      <span aria-live="polite" id={statusId} className={message?.ok ? 'a-muted' : 'a-field-error'}>
+        {message?.text}
       </span>
     </span>
   );
