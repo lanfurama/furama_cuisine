@@ -309,7 +309,7 @@ async function abortServerActions(page: Page) {
 async function fillDetails(drawer: Locator) {
   await drawer.getByLabel('Full name *', { exact: true }).fill('Nguyễn Minh Anh');
   await drawer.getByLabel('Phone *', { exact: true }).fill('0905 000 000');
-  await drawer.getByRole('checkbox', { name: 'I agree to Furama Cuisine using my details as described in the privacy policy.' }).check();
+  await drawer.getByRole('checkbox', { name: 'I agree to Furama Dining World using my details as described in the privacy policy.' }).check();
 }
 
 /** Whether the focus is inside the modal booking dialog: not on <body>, whose next Tab reaches the page behind it. */
@@ -637,7 +637,7 @@ test('books a table against the real availability API', async ({ page }) => {
   await drawer.getByLabel('Full name *', { exact: true }).fill('Nguyễn Minh Anh');
   const digits = String(Date.now()).slice(-6);
   await drawer.getByLabel('Phone *', { exact: true }).fill(`0905 ${digits.slice(0, 3)} ${digits.slice(3)}`);
-  await drawer.getByRole('checkbox', { name: 'I agree to Furama Cuisine using my details as described in the privacy policy.' }).check();
+  await drawer.getByRole('checkbox', { name: 'I agree to Furama Dining World using my details as described in the privacy policy.' }).check();
   await drawer.getByRole('button', { name: 'REQUEST BOOKING' }).click();
 
   await expect(drawer.locator('.drawer-ref')).toHaveText(/^FC-[0-9A-HJKMNP-TV-Z]{8}$/);

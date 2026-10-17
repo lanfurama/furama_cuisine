@@ -1,20 +1,21 @@
 import { readFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { REGISTRY } from '@/lib/i18n/registry';
-import { AGREED_KEYS, PRIVACY_POLICY_VERSION } from '@/lib/legal';
+import { PRIVACY_POLICY_VERSION } from '@/lib/legal';
 import { TEST_DATABASE_URL, databaseUrl, migrate, resetDatabase, withClient } from '../helpers/db';
+import { RECORDED } from '../helpers/legal';
 
 /*
  * Migration 009 (phase 7): legal_versions, the privacy policy's versions,
  * append-only (R21). The upgrade from 008 with a booking that already stored
  * the phase-5 version, a re-run of the file, the CHECKs, and the runbook's
- * Neon checks (db/checks/*-009.sql) on the same database.
+ * Neon checks (db/checks/*-009.sql) on the same database, built up to 009:
+ * later migrations add versions of their own (015), and migration-015.test.ts
+ * pins the registry's agreed text to the newest.
  */
 
 const url = databaseUrl('furama_cuisine_migrate009_test');
 const FILE = 'db/migrations/009_legal_versions.sql';
-const SEED_HASH = 'f49aa3f58723d14d6491c1801466c411fe9439acab85b4da5272d4c7676e10d2';
+const SEED_HASH = RECORDED.sha256;
 const sql = (text: string, values: unknown[] = []) => withClient(url, (c) => c.query(text, values));
 const one = async (text: string, values: unknown[] = []) => (await sql(text, values)).rows[0];
 /** A psql file of several statements: pg answers with one result per statement, or one result for one. */
@@ -35,23 +36,13 @@ describe.skipIf(!TEST_DATABASE_URL)('migration 009: legal_versions (database)', 
 
   it('passes the runbook pre-flight at 008, then adds the table seeded with the phase-5 policy, and the post-check', async () => {
     expect((await checks('db/checks/preflight-009.sql')).filter((r) => !r.ok)).toEqual([]);
-    migrate(url);
+    migrate(url, '009_legal_versions.sql');
     expect((await sql(`SELECT version, to_char(effective_on, 'YYYY-MM-DD') AS on, text_sha256, created_by FROM legal_versions`)).rows).toEqual([
-      { version: '2026-10-03', on: '2026-10-03', text_sha256: SEED_HASH, created_by: 'seed' },
+      { version: RECORDED.version, on: RECORDED.version, text_sha256: SEED_HASH, created_by: 'seed' },
     ]);
     expect((await checks('db/checks/postcheck-009.sql')).filter((r) => !r.ok)).toEqual([]);
     // The booking keeps the version it stored, which is the seeded row's.
     expect(await one(`SELECT consent_version FROM reservations`)).toEqual({ consent_version: PRIVACY_POLICY_VERSION });
-  });
-
-  // This pins 009's seed to today's code defaults of the agreed text. If a default changes, do not edit
-  // 009 or its seed (a migration runs once per database, and the seed is the first version): add a new
-  // migration that inserts a legal_versions row for the new text (today's Da Nang date, the new hash),
-  // shipped in the same deploy window as the code, and move this registry check to that migration's
-  // test; here, keep only the seed's own SEED_HASH.
-  it('seeds the hash of the registry’s agreed English text, as the version check computes it', () => {
-    const text = JSON.stringify(AGREED_KEYS.map((k) => [k, REGISTRY[k].en]));
-    expect(createHash('sha256').update(text).digest('hex')).toBe(SEED_HASH);
   });
 
   it('re-runs without adding a row', async () => {

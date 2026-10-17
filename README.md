@@ -1089,7 +1089,7 @@ on. Do not run `--apply`, first or again, between 18:30 and 18:45 UTC, while
 the daily sweep runs.
 
 ```bash
-# 1. Dry run: expect "39 static row(s); 39 file(s) to upload."
+# 1. Dry run: expect "39 static row(s); 39 file(s) to upload." (76 and 76 once 013 is applied)
 DATABASE_URL_UNPOOLED=<production's direct URL> BLOB_READ_WRITE_TOKEN=<the store's token> \
   node scripts/move-assets-to-blob.mjs --prefix production
 # 2. Apply: uploads, then updates every row in one transaction.
@@ -1125,6 +1125,10 @@ undone by restoring the rows from their audit rows.
 | `SITE_URL` | `https://<production domain>` once there is one: the origin of canonical and hreflang links, the sitemap and robots.txt (`lib/site-origin.ts`). Unset: Vercel's `VERCEL_PROJECT_PRODUCTION_URL` (a system variable), so set it when a custom domain is added | unset: previews point canonical at production, and Vercel keeps them out of search engines (`X-Robots-Tag: noindex`) | unset (`http://localhost:3000`), or the test server's origin where a test checks absolute URLs |
 | `EMAIL_LOG_FILE` | never | never | a scratch file; log mode appends each email as one JSON line |
 | `BOOTSTRAP_ADMIN_EMAIL` | never (only in the shell that runs `scripts/create-admin.mjs`) | never | — |
+| `AI_PROVIDER` | unset (`fake` is refused on Production) | unset | `fake` (`lib/server/ai/mode.ts`) |
+| `GCP_PROJECT_ID`, `GCP_PROJECT_NUMBER`, `GCP_SERVICE_ACCOUNT_EMAIL`, `GCP_WORKLOAD_IDENTITY_POOL_ID`, `GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID` | phase 9, once Google Cloud is set up (spec §15 items 6–11): keyless Vertex AI through the deployment's OIDC token. Unset: the AI is off and `/admin/settings/ai` names what is missing | unset (the Workload Identity grant covers Production, not Preview, spec §9.1) | never set |
+| `GCP_SERVICE_ACCOUNT_KEY` | only as the fallback when Workload Identity is not complete (with `GCP_PROJECT_ID`) | unset | never a real one |
+| `GOOGLE_VERTEX_API_KEY` | **never** (the app refuses to call the AI while it is set) | **never** | **never** |
 
 `EMAIL_DELIVERY`, `EMAIL_FROM`, `EMAIL_REDIRECT_TO` and the `SMTP_*`
 settings are read at send time by the running deployment, and `CRON_SECRET`
@@ -1257,8 +1261,8 @@ build, the local one too: never request that prefix on a local `next start`.
 
 ### Before launch A: what the owner sets up
 
-Migrations 007 to 009, the Blob store, email, the three crons and BotID
-need these steps once, in this order. Until the last one, keep Production on
+The migrations (007 to 015), the Blob store, email, the three crons of
+`vercel.json` and BotID need these steps once, in this order. Until the last one, keep Production on
 `EMAIL_DELIVERY=redirect`, and nothing reaches a guest. Running Production
 on redirect also needs `EMAIL_REDIRECT_TO`, `EMAIL_FROM` and `SMTP_*`.
 Redirect sends every email to that inbox, staff's
@@ -1287,13 +1291,23 @@ a new deployment.
       `neon-violet-yacht`): pre-flight and post-check all true, then its
       schema and row counts matched a local `scripts/migrate.mjs` run of
       001–009 (no bookings or staff yet).
-   2. **Create and connect the one Blob store** ("Media in Vercel Blob"
+   2. **010 to 015.** The code on `main` needs more than 009. See which are
+      on production first (read-only:
+      `SELECT name FROM _migrations ORDER BY name`), then apply each one
+      missing, as its own section above says: 010 (done 2026-10-06), 012
+      and 014 before the first deploy that builds on them; 015 in the same
+      window as that deploy; 011 and 013 after it. Then the content packs
+      after it ("Content packs": the official photos after 013, then the
+      Dining Village pack; the destination websites after 014; the Furama
+      Dining World pack), and a redeploy.
+   3. **Create and connect the one Blob store** ("Media in Vercel Blob"
       above, "Setting up the store") before the first deploy: a Vercel
       build that names no store lets next/image draw no Blob picture, and
       the library refuses uploads.
-   3. **After the production deploy** (step 11), run
+   4. **After the production deploy** (step 11), run
       `scripts/move-assets-to-blob.mjs` ("Moving the phase-6 images to
-      Blob": the dry run, then `--apply`), then redeploy.
+      Blob": the dry run, then `--apply`), then redeploy. After 013 it moves
+      013's photographs too.
 2. **Neon plan:** the project is on Neon Free (owner, 2026-10-05). Free
    suspends an idle compute after 5 minutes, and its monthly compute
    allowance is limited; once it runs out, Neon suspends the compute and
@@ -1305,7 +1319,8 @@ a new deployment.
    month; if it nears the allowance, move to Launch (check
    neon.tech/pricing) and the cron can go back to `*/5 * * * *` (change
    `vercel.json` and `test/guards/vercel-crons.guard.test.ts` together).
-   Phase 9's AI-jobs cron must follow the same rule. The hourly outbox cron
+   Phase 9's AI-jobs cron (not in `vercel.json` yet) must follow the same
+   rule. The hourly outbox cron
    needs **Vercel Pro**: Hobby runs a cron at most once a day (the research
    synthesis, `docs/superpowers/research/2026-10-01-admin-cms/00-synthesis.md`
    §D item 7, records Pro).
@@ -1318,7 +1333,10 @@ a new deployment.
    instance) until it is **redeployed**. Email needs the system variables
    too: the outbox and the email gate read `VERCEL_ENV`; without it a
    Production deployment counts as `development`, and the refusal of `live`
-   on a Preview cannot work. The `after()` email sends (up to 25 s once the
+   on a Preview cannot work. So does Blob: a deployment's folder comes from
+   `VERCEL_ENV` and, on a preview, `VERCEL_GIT_COMMIT_REF`
+   (`lib/media/rules.ts` `blobEnvPrefix`); without them uploads land in
+   `development/`. The `after()` email sends (up to 25 s once the
    response is out) and the cron (`maxDuration` 300) assume Fluid Compute's
    300-second function limit. Decide on BotID's Deep Analysis (billed per
    check: read the current price on vercel.com/docs/botid); never set
@@ -1356,7 +1374,8 @@ a new deployment.
    test bookings made on a Preview. Remove `RESEND_API_KEY` from every
    environment.
 9. **First preview:** push a branch other than `main`. It builds on the
-   production database, which already has 007, 008 and 009 (step 1), and
+   production database, which already has what step 1 puts on before the
+   first deploy (007 to 010, 012 and 014), and
    writes into the one Blob store's `preview/<branch>/` folder. On the
    preview, "Gửi email thử" in `/admin/settings/notifications` arrives at
    the redirect inbox (that proves port 587/465 is reachable from Vercel
@@ -1387,14 +1406,16 @@ a new deployment.
     - **Autofill does not trip the honeypot.** On an iPhone (Safari) and an
       Android phone (Chrome), fill the form with the browser's autofill and
       book. Neither gets "We could not accept this request online".
-11. **Production deploy and crons:** 009 is already on production and the
-    store is connected (step 1); merge into `main` (Production starts on
-    redirect). After that deploy, Project → Settings → Cron Jobs shows
+11. **Production deploy and crons:** the migrations step 1 puts on before
+    the first deploy are on production and the store is connected (step 1);
+    merge into `main` (Production starts on redirect), with 015 in the same
+    window. After that deploy, Project → Settings → Cron Jobs shows
     three crons: `/api/cron/outbox` hourly (`0 * * * *`), `/api/cron/daily`
     at `5 17 * * *` (00:05 in Da Nang) and `/api/cron/media-sweep` at
     `35 18 * * *` (01:35 in Da Nang). The media sweep's dry run answers 200,
-    not 401 ("Media sweep" above has the `curl`). Then move the phase-6
-    images and redeploy (step 1.3).
+    not 401 ("Media sweep" above has the `curl`). Then the after-deploy
+    part of step 1: 011, 013 and the content packs (step 1.2), the image
+    move (step 1.4), and a redeploy.
 12. **Recipients:** in `/admin/settings/notifications`, add the notification
     emails per restaurant or destination (spec §15 item 15), and confirm
     `fb@furamavietnam.com` as the shared inbox (the fallback, and where
@@ -1499,7 +1520,7 @@ bootstrapping production is what you mean to do.
 | Route | Rendering | Notes |
 | --- | --- | --- |
 | `/` and other unprefixed paths | Proxy (`proxy.ts`) | 307 to `/<locale>…` by the `NEXT_LOCALE` cookie, then `Accept-Language` (a tag, then the tag without its last subtag: `zh-Hans-CN` finds `zh-hans`), then `en`, among the enabled languages of `lib/i18n/site-locales.ts` (no database read); the query is kept. An upper-case language prefix (`/EN/…`) gets a 308 to the lower-case one |
-| `/sitemap.xml`, `/robots.txt` | Static, tagged (`locales`, `restaurants`, …) | Every guest page in every enabled language with its hreflang alternates; robots.txt keeps `/admin` and `/api` out and names the sitemap. Both use `SITE_URL` (`lib/site-origin.ts`) |
+| `/sitemap.xml`, `/robots.txt` | Static, tagged (`restaurants`, …) | Every guest page in every enabled language with its hreflang alternates; robots.txt keeps `/admin` and `/api` out and names the sitemap. Both use `SITE_URL` (`lib/site-origin.ts`) |
 | `/en` | Static, revalidated hourly (`cacheLife('hours')`, for today's offers) | Home: hero, finder, cuisines, restaurants, destinations, experiences, heritage, stories, offers, read from the database; a section switched off or with nothing to show is left out |
 | `/en/restaurants/[slug]` | Static for each restaurant with `has_detail_page` at build time (`_none` when there is none), revalidated hourly (the layout reads today's offers for the nav); a page switched on later renders on its first visit. Any other slug is a 404, and one no restaurant can have (outside the pattern and length of 008's `restaurants.slug` CHECK, `lib/content/slug.ts`) is refused before any database read: the first visit is a soft 404 (status 200 with `noindex`), later visits get the cached 404, and without JavaScript the body is empty | Restaurant detail, read from the database (`taya-house` today). The cached 404 carries `restaurants`, so a save that expires the catalogue opens a page that was just switched on |
 | `/taya-house` | Redirect | 308 to `/en/restaurants/taya-house` (`next.config.ts`) |
@@ -1512,9 +1533,10 @@ bootstrapping production is what you mean to do.
 | `/admin/media`, `/admin/media/[id]` | Request time, nonce CSP | The library: upload, search, the trash; one file's alt text in each language, decorative flag, uses, delete (refused while it is shown) and History. `content:read`; writes `content:update`, restores `content:restore` |
 | `/admin/content` and `/admin/content/{sections,hero,offers,offers/new,offers/[id],cuisines,destinations,experiences,stories,heritage,navigation,contact,booking,seo,ui-text,legal,emails}` | Request time, nonce CSP | The content editors (spec §7.2), every language in one form (a tab per language with its state: Đã duyệt, Máy dịch, EN đã đổi, Chưa dịch) and the strings screens one language at a time (`?lang=`) ("Editing content" above): the home sections' switches, pictures and links; the hero's slides, words and pace and the film; the offers; the cuisines, destinations, Experiences rows, stories and menu items, each a list with its order and "Đã xóa gần đây"; the footer's social links and words; the booking bar's defaults and words; the page titles and the share picture; the registry's words by screen; the privacy policy (each change of the agreed wording is a policy version); the booking emails with a preview. Every record has its History. `content:read`; writes `content:update`, restores `content:restore` |
 | `/admin/restaurants/[id]` | Request time, nonce CSP | One restaurant's content: name, slug, pictures, contact, detail page, highlights, menu (a PDF from the library or a link), SEO, History. `content:read`; writes `content:update`, restores `content:restore` |
-| `/api/admin/preview?path=/<code>/…` | Dynamic | Draft Mode for staff (`content:read`): a guest page in a language that is in the table but off renders for them, with a "Preview" bar, `noindex` and no hreflang, outside the switcher and the sitemap (spec §6.1). Only a path on this site whose first segment is a language in the table (`lib/server/content/preview.ts`); anything else is a 400 |
+| `/api/admin/preview?path=/<code>/…` | Dynamic | Draft Mode for staff (`content:read`): a guest page in a language that is listed in `lib/i18n/site-locales.ts` but off renders for them, with a "Preview" bar, `noindex` and no hreflang, outside the switcher and the sitemap (spec §6.1). Only a path on this site whose first segment is a listed language (`lib/server/content/preview.ts`); anything else is a 400 |
 | `/api/preview/exit?path=` | Dynamic | Leaves Draft Mode, back to the path if its language is on, else to `/en`. Open to anyone: it only turns off the caller's own Draft Mode |
 | `/api/admin/emails/preview` | Dynamic, `no-store` | The emails screen's preview of unsaved text, framed by that screen only (its own CSP). `content:read`, then the `Origin` |
+| `/api/admin/ai/translate` | Dynamic, `maxDuration` 60 | "Dịch từ EN" in the content forms (phase 9): the English text into one listed language; nothing is saved. `content:ai`, then the `Origin`, never in Draft Mode, and only while the AI is configured and the feature is on |
 | `/admin/sign-in`, `/admin/accept-invite`, `/admin/reset-password` | Request time, nonce CSP | The only admin pages open without a session cookie |
 | `/admin`, `/admin/users`, `/admin/audit` | Request time, nonce CSP | Overview (with pending and today's bookings); staff and invitations (Admin); audit log of `audit_log` and booking events, paged with `?truoc=`/`?sau=` (Admin). Without a session cookie the proxy sends them to sign-in (307, `?next=` kept) |
 | `/admin/reservations`, `/admin/reservations/[id]`, `/admin/reservations/day` | Request time, nonce CSP | Inbox (Cần xử lý · Hôm nay · Sắp tới · Tất cả, search by reference, phone, name or email: the search posts, its text waits 30 minutes in an httpOnly cookie and the URL carries only `?tim=<id>`); a booking (status changes, edit, internal notes, timeline, its emails); the printable day sheet. `reservations:read` |
@@ -1610,8 +1632,9 @@ and `test/integration/content-seed.test.ts` checks the seed against it.
 `db/checks/preflight-008.sql` and `postcheck-008.sql` are the read-only
 checks of the 008 runbook (Deploying).
 
-`locales`, `content_strings` and `destinations` (migration 004) are the
-shared foundations of the CMS. Which UI strings exist is decided by
+`content_strings` and `destinations` (migration 004) are the shared
+foundations of the CMS (004's `locales` table is gone since 011: the
+languages are `lib/i18n/site-locales.ts`). Which UI strings exist is decided by
 `lib/i18n/registry.ts`; `content_strings` only overrides or translates them,
 and while it is empty the registry's English text is served. Guest pages
 read through cached functions in `lib/server/content/` (`'use cache'`; the
