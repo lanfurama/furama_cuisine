@@ -4,7 +4,6 @@ import type { Pool } from 'pg';
 import { z } from 'zod';
 import type { AiSettings } from '@/lib/admin/ai-schemas';
 import { englishName } from '@/lib/i18n/catalog';
-import { REGISTRY } from '@/lib/i18n/registry';
 import { AiError } from '@/lib/server/ai-error';
 import { languageModel, providerOptions } from './client';
 import { loadGlossary, mask, type Masked } from './glossary';
@@ -17,9 +16,10 @@ import { cachedAiSettings } from './settings';
  * arrives gathered (R9-17: lib/server/content-admin/seo-material.ts reads it,
  * never the client); this module only words it. Names (the glossary and every
  * restaurant's name) leave as ⟦G1⟧ tokens, so the model cannot respell them,
- * and an answer with a token it was not given is refused (ai_placeholder).
- * The answer is cut to TITLE_MAX / DESCRIPTION_MAX at a word boundary, never
- * inside a name. Nothing is saved: the form fills its boxes and staff press
+ * and an answer with a token it was not given is refused (ai_placeholder),
+ * as a failed call on the ledger. The answer loses control and invisible
+ * characters and is cut to TITLE_MAX / DESCRIPTION_MAX at a word boundary,
+ * never inside a name. Nothing is saved: the form fills its boxes and staff press
  * Lưu. Content only, no guest data.
  */
 
@@ -34,32 +34,56 @@ export type SeoMaterial = { page: 'home' | 'restaurant'; fields: { label: string
 export type SeoSuggestion = { title: string; description: string };
 
 /*
- * The model's answer may not pass the registry's own maximum for the home
- * page's title and description (the restaurant columns allow more), even
- * before it is cut to the search-result lengths above.
+ * Only a runaway answer is refused here: Claude on Vertex sends the schema
+ * without maxLength and checks it after the answer, so a cap at the
+ * registry's maximum (70/200) would bill a 72-character title as a failure.
+ * fitWords cuts every answer to TITLE_MAX / DESCRIPTION_MAX, within the
+ * registry's maxima and the restaurant columns'.
  */
-const Result = z.object({
-  title: z.string().min(1).max(REGISTRY['seo.home_title'].maxLength),
-  description: z.string().min(1).max(REGISTRY['seo.home_description'].maxLength),
-});
+const RUNAWAY = { title: 300, description: 600 };
+const Result = z.object({ title: z.string().min(1).max(RUNAWAY.title), description: z.string().min(1).max(RUNAWAY.description) });
 
 const chars = (s: string) => [...s];
 const TRAILING = /[\s\p{P}]+$/u;
+/** Control and invisible format characters (bidi overrides, NUL, BEL, zero-width space), except the joiners ZWNJ and ZWJ that some scripts and emoji need. */
+const INVISIBLE = /(?![\u200C\u200D])[\p{Cc}\p{Cf}]/gu;
+/** A token the model rewrote in other brackets (〚G1〛, [G1], ( V2 )): a name it did not copy. */
+const LOOK_ALIKE = /[\p{Ps}<]\s*[GV]\d+\s*[\p{Pe}>]/u;
+const HAS_WORD = /[\p{L}\p{N}]/u;
+
+/** NFC, every run of whitespace one space, no control or invisible character, trimmed. */
+function clean(text: string): string {
+  return text.normalize('NFC').replace(/\s+/g, ' ').replace(INVISIBLE, '').replace(/ {2,}/g, ' ').trim();
+}
+
+/** The first graphemes of `text` that fit in `max` code points (a hard cut never splits an emoji sequence or a letter from its mark). */
+function graphemesUpTo(text: string, max: number): string {
+  let out = '';
+  let used = 0;
+  for (const { segment } of new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)) {
+    const n = chars(segment).length;
+    if (used + n > max) break;
+    out += segment;
+    used += n;
+  }
+  return out;
+}
 
 /**
- * `text` in at most `max` characters (code points, NFC, spaces collapsed): cut at
- * the last space that fits and not inside one of `keep` (names stay whole),
+ * `text` in at most `max` characters (code points; cleaned: NFC, spaces
+ * collapsed, no control or invisible character): cut at the last space that
+ * fits and not inside one of `keep` (names stay whole, read the same way),
  * with no space or punctuation left at the end. A text without such a space
- * (one long word, or a long name) is cut hard.
+ * (one long word, or a long name) is cut hard, by whole graphemes.
  */
 export function fitWords(text: string, max: number, keep: readonly string[] = []): string {
-  const clean = text.normalize('NFC').replace(/\s+/g, ' ').trim();
-  const cs = chars(clean);
-  if (cs.length <= max) return clean;
+  const whole = clean(text);
+  const cs = chars(whole);
+  if (cs.length <= max) return whole;
   // Code-point ranges [start, end) of every kept name.
   const ranges: [number, number][] = [];
   for (const name of keep) {
-    const n = chars(name.normalize('NFC'));
+    const n = chars(clean(name));
     if (n.length === 0) continue;
     for (let i = 0; i + n.length <= cs.length; i++) {
       if (n.every((c, j) => cs[i + j] === c)) ranges.push([i, i + n.length]);
@@ -71,13 +95,14 @@ export function fitWords(text: string, max: number, keep: readonly string[] = []
     const cut = cs.slice(0, i).join('').replace(TRAILING, '');
     if (cut) return cut;
   }
-  return cs.slice(0, max).join('').replace(TRAILING, '');
+  return graphemesUpTo(whole, max).replace(TRAILING, '');
 }
 
 /**
  * Puts the masked names back. Unlike a translation, a title uses only some of
- * the page's names, and may repeat one; a token the model invented, or a
- * broken one, refuses the answer. `names`: the names the text now holds.
+ * the page's names, and may repeat one; a token the model invented, a broken
+ * one, or one rewritten in other brackets refuses the answer. `names`: the
+ * names the text now holds.
  */
 export function restoreNames(text: string, masked: Masked): { ok: true; text: string; names: string[] } | { ok: false } {
   const restore = new Map(masked.tokens.map((t) => [t.token, t.restore]));
@@ -92,7 +117,7 @@ export function restoreNames(text: string, masked: Masked): { ok: true; text: st
     names.add(name);
     return name;
   });
-  if (unknown || /[⟦⟧]/.test(out)) return { ok: false };
+  if (unknown || /[⟦⟧]/.test(out) || LOOK_ALIKE.test(out)) return { ok: false };
   return { ok: true, text: out, names: [...names] };
 }
 
@@ -145,7 +170,7 @@ export async function suggestSeo(
   const prompt = masked.text;
   const model = deps.model ?? languageModel(cfg);
 
-  const out = await runAiCall(
+  return runAiCall(
     pool,
     settings,
     { feature: 'seo', model: cfg.model, region: cfg.region, actorId, inputChars: prompt.length + instructions.length, maxOutputTokens: cfg.maxOutputTokens, signal },
@@ -161,14 +186,14 @@ export async function suggestSeo(
         abortSignal: sig,
         providerOptions: providerOptions(cfg),
       });
-      return { value: r.output, usage: r.totalUsage };
+      // A refused answer is a failed call on the ledger (its code, its tokens), still one row.
+      const refuse = (code: 'ai_placeholder' | 'ai_failed') => Object.assign(new AiError(code), { usage: r.totalUsage });
+      const title = restoreNames(r.output.title, masked);
+      const description = restoreNames(r.output.description, masked);
+      if (!title.ok || !description.ok) throw refuse('ai_placeholder');
+      const value = { title: fitWords(title.text, TITLE_MAX, title.names), description: fitWords(description.text, DESCRIPTION_MAX, description.names) };
+      if (!HAS_WORD.test(value.title) || !HAS_WORD.test(value.description)) throw refuse('ai_failed');
+      return { value, usage: r.totalUsage };
     },
   );
-
-  const title = restoreNames(out.title, masked);
-  const description = restoreNames(out.description, masked);
-  if (!title.ok || !description.ok) throw new AiError('ai_placeholder');
-  const suggestion = { title: fitWords(title.text, TITLE_MAX, title.names), description: fitWords(description.text, DESCRIPTION_MAX, description.names) };
-  if (!suggestion.title || !suggestion.description) throw new AiError('ai_failed');
-  return suggestion;
 }

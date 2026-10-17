@@ -25,6 +25,8 @@ let pool: Pool;
 
 const usage = async () =>
   (await pool.query<{ feature: string; actor_id: string | null; status: string }>(`SELECT feature, actor_id, status FROM ai_usage ORDER BY id`)).rows;
+const failures = async () =>
+  (await pool.query(`SELECT feature, actor_id, status, error_code, output_tokens FROM ai_usage ORDER BY id`)).rows;
 const field = (m: SeoMaterial | null, label: string) => m?.fields.find((f) => f.label === label)?.text;
 
 /** A model that answers one fixed JSON object, and keeps what it was sent. */
@@ -164,18 +166,49 @@ describe.skipIf(!TEST_DATABASE_URL)('SEO suggestions (database)', () => {
       expect(s.title).toBe('Plant-forward Vietnamese cooking classes and dinners at');
     });
 
-    it('refuses an answer with a token it was not given (ai_placeholder); the call is still on the ledger', async () => {
-      const model = answering({ title: '⟦G9⟧ — dinner', description: 'Fine.' });
+    it('refuses an answer with a token it was not given, or a look-alike (ai_placeholder): one ledger row, an error with that code, its tokens billed', async () => {
       const material = (await seoMaterial(pool, { kind: 'restaurant', id: 'taya-house' }, 'en'))!;
-      await expect(suggestSeo(pool, { material, locale: 'en', actorId: STAFF }, { model })).rejects.toMatchObject({ code: 'ai_placeholder' });
+      for (const title of ['⟦G9⟧ — dinner', '〚G1〛 — dinner']) {
+        await pool.query('TRUNCATE ai_usage');
+        await expect(suggestSeo(pool, { material, locale: 'en', actorId: STAFF }, { model: answering({ title, description: 'Fine.' }) })).rejects.toMatchObject({
+          code: 'ai_placeholder',
+        });
+        expect(await failures()).toEqual([{ feature: 'seo', actor_id: STAFF, status: 'error', error_code: 'ai_placeholder', output_tokens: 10 }]);
+      }
+    });
+
+    it('an answer past the registry maximum (70/200) is cut, not refused: Claude on Vertex does not hold the schema to maxLength', async () => {
+      const long = 'Vietnamese plant-forward cooking classes and slow dinners by the lagoon';
+      expect(long.length).toBeGreaterThan(REGISTRY['seo.home_title'].maxLength);
+      const description = 'Long lunches in a quiet garden. '.repeat(7).trim();
+      expect(description.length).toBeGreaterThan(REGISTRY['seo.home_description'].maxLength);
+      const material = (await seoMaterial(pool, { kind: 'home' }, 'en'))!;
+      const s = await suggestSeo(pool, { material, locale: 'en', actorId: STAFF }, { model: answering({ title: long, description }) });
+      expect(s.title).toBe('Vietnamese plant-forward cooking classes and slow dinners by');
+      expect([...s.description].length).toBeLessThanOrEqual(155);
       expect(await usage()).toEqual([{ feature: 'seo', actor_id: STAFF, status: 'ok' }]);
     });
 
-    it('an answer past the registry maximum is a failed call, billed as an error', async () => {
-      const model = answering({ title: 'x '.repeat(REGISTRY['seo.home_title'].maxLength), description: 'Fine.' });
+    it('a runaway answer (past 300/600) is a failed call, billed as an error', async () => {
+      const model = answering({ title: 'x '.repeat(200), description: 'Fine.' });
       const material = (await seoMaterial(pool, { kind: 'home' }, 'en'))!;
       await expect(suggestSeo(pool, { material, locale: 'en', actorId: STAFF }, { model })).rejects.toMatchObject({ code: 'ai_failed' });
       expect(await usage()).toEqual([{ feature: 'seo', actor_id: STAFF, status: 'error' }]);
+    });
+
+    it('a title or a description with no letter or digit, or nothing left once cleaned, is ai_failed (one error row)', async () => {
+      const material = (await seoMaterial(pool, { kind: 'home' }, 'en'))!;
+      for (const answer of [{ title: '—', description: 'Fine dining.' }, { title: 'Fine dining', description: '… !' }, { title: '\u200B\u0007', description: 'Fine.' }]) {
+        await pool.query('TRUNCATE ai_usage');
+        await expect(suggestSeo(pool, { material, locale: 'en', actorId: STAFF }, { model: answering(answer) }), JSON.stringify(answer)).rejects.toMatchObject({ code: 'ai_failed' });
+        expect(await failures()).toEqual([{ feature: 'seo', actor_id: STAFF, status: 'error', error_code: 'ai_failed', output_tokens: 10 }]);
+      }
+    });
+
+    it('strips control and invisible characters before the form gets them', async () => {
+      const material = (await seoMaterial(pool, { kind: 'restaurant', id: 'taya-house' }, 'en'))!;
+      const s = await suggestSeo(pool, { material, locale: 'en', actorId: STAFF }, { model: answering({ title: '⟦G1⟧\u202E\u0000 by the\u200B sea', description: 'Fine\u0007 dining.' }) });
+      expect(s).toEqual({ title: 'Tàya House by the sea', description: 'Fine dining.' });
     });
 
     it('goes through the guard: the feature off, the budget spent, the per-person limit', async () => {

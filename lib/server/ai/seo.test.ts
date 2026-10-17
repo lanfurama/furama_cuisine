@@ -35,11 +35,25 @@ describe('fitWords (R9-22: a suggestion is cut at the last word boundary that st
     expect(fitWords('Ẩm thực Việt Nam bên bờ biển Đà Nẵng', 20)).toBe('Ẩm thực Việt Nam bên');
   });
 
+  it('drops control and invisible format characters, keeping the joiners (ZWJ, ZWNJ)', () => {
+    expect(fitWords('Tàya\u202E House\u0007\u200B\u0000 by\u00ADthe\uFEFF sea', 60)).toBe('Tàya House bythe sea');
+    expect(fitWords('Bếp\tnhà\nTàya', 60)).toBe('Bếp nhà Tàya');
+    expect(fitWords('👩\u200D🍳 class, می\u200Cخواهم', 60)).toBe('👩\u200D🍳 class, می\u200Cخواهم');
+  });
+
+  it('cuts hard by whole graphemes, never inside an emoji sequence', () => {
+    const family = '👩\u200D👩\u200D👧\u200D👦'; // 7 code points, one grapheme
+    expect(fitWords(family + family, 10)).toBe(family);
+    expect(fitWords('q\u0307'.repeat(6), 5)).toBe('q\u0307'.repeat(2));
+  });
+
   it('never cuts inside a name it must keep: it cuts before the name instead', () => {
     expect(fitWords('Dinner at Tàya House tonight', 16, ['Tàya House'])).toBe('Dinner at');
     expect(fitWords('Dinner at Tàya House tonight', 20, ['Tàya House'])).toBe('Dinner at Tàya House');
     // A name that alone passes the maximum is cut hard like any long word.
     expect(fitWords('Tàya House', 6, ['Tàya House'])).toBe('Tàya H');
+    // The names are read the way the text is: NFC, one space.
+    expect(fitWords('Dinner at Tàya House tonight', 16, ['Ta\u0300ya   House'.normalize('NFD')])).toBe('Dinner at');
   });
 });
 
@@ -63,5 +77,11 @@ describe('restoreNames (the masked names come back exactly as written)', () => {
     expect(restoreNames('⟦G9⟧ by the sea', masked)).toEqual({ ok: false });
     expect(restoreNames('⟦G1 by the sea', masked)).toEqual({ ok: false });
     expect(restoreNames('G1⟧ by the sea', masked)).toEqual({ ok: false });
+  });
+
+  it('refuses a look-alike token left in the answer (other brackets around G1 or V1)', () => {
+    for (const text of ['〚G1〛 by the sea', '[G1] by the sea', '⟨V1⟩ tonight', '( G2 ) and ⟦G1⟧', '【G12】']) expect(restoreNames(text, masked), text).toEqual({ ok: false });
+    // Words that only look a little like one are fine.
+    expect(restoreNames('A G7 summit menu (V60 coffee)', masked)).toMatchObject({ ok: true });
   });
 });
