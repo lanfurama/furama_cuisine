@@ -16,7 +16,7 @@ import { expect, one, test } from './staff-fixtures';
  * books there.
  */
 
-const CONSENT = 'I agree to Furama Cuisine using my details as described in the privacy policy.';
+const CONSENT = 'I agree to Furama Dining World using my details as described in the privacy policy.';
 /* 10:00 on Friday 2 Oct in Da Nang. */
 const NOW = new Date('2026-10-02T03:00:00Z');
 
@@ -185,9 +185,9 @@ test('the privacy policy page, from the footer', async ({ page }) => {
   await page.goto(HOME_PATH);
   await page.getByRole('contentinfo').getByRole('link', { name: 'Privacy policy' }).click();
   await expect(page).toHaveURL(/\/en\/privacy$/);
-  await expect(page).toHaveTitle('Privacy policy — Furama Cuisine');
+  await expect(page).toHaveTitle('Privacy policy — Furama Dining World');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Privacy policy');
-  await expect(page.getByText('Last updated 3 October 2026')).toBeVisible();
+  await expect(page.getByText('Last updated 15 October 2026')).toBeVisible();
   // Scoped to main: the chrome's booking bar has a heading of its own on every guest page.
   await expect(page.getByRole('main').getByRole('heading', { level: 2 })).toHaveText([
     'What we collect',
@@ -222,7 +222,7 @@ function contrastInHeader(el: Element): number {
   return (Math.max(text, back) + 0.05) / (Math.min(text, back) + 0.05);
 }
 
-const LOGO = /^FURAMA\s*CUISINE$/;
+const LOGO = /^FURAMA\s*DINING WORLD$/;
 const CLEAR = 'rgba(20, 32, 28, 0)';
 
 /*
@@ -284,12 +284,12 @@ test('reached from the footer without a page load, the policy page’s header is
 
 test('the policy page sets its date line small, and a shared link previews the policy, not the home page', async ({ page }) => {
   await page.goto(`${HOME_PATH}/privacy`);
-  const updated = page.getByText('Last updated 3 October 2026');
+  const updated = page.getByText('Last updated 15 October 2026');
   await expect(updated).toHaveCSS('font-size', '12px');
   await expect(updated).toHaveCSS('margin-top', '12px');
   await expect(updated).toHaveCSS('margin-bottom', '32px');
-  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Privacy policy — Furama Cuisine');
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'Privacy policy — Furama Dining World');
   const description = await page.locator('meta[name="description"]').getAttribute('content');
-  expect(description).toMatch(/^Furama Cuisine is the dining brand/);
+  expect(description).toMatch(/^Furama Dining World is the dining brand/);
   await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', description!);
 });
