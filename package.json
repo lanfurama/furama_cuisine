@@ -19,7 +19,6 @@
     "@ai-sdk/anthropic": "4.0.79",
     "@ai-sdk/google": "4.0.94",
     "@ai-sdk/google-vertex": "^5.0.110",
-    "@ai-sdk/react": "^4.0.141",
     "@vercel/blob": "^2.8.0",
     "@vercel/functions": "^3.9.9",
     "@vercel/oidc": "^3.8.10",

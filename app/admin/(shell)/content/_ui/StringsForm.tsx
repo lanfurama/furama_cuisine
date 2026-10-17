@@ -3,11 +3,12 @@
 import { useId, useRef, useState } from 'react';
 import { checkLength, TRANSLATION_STRETCH } from '@/lib/admin/content-rules';
 import { submitKeepingValues } from '@/lib/admin/form';
-import { toBcp47 } from '@/lib/i18n/locales';
+import { DEFAULT_LOCALE, toBcp47 } from '@/lib/i18n/locales';
 import type { TranslationState } from '@/lib/i18n/source-hash';
 import type { ActionResult } from '@/lib/server/action-result';
 import type { StringsSaved, StringsWritten } from '@/lib/server/content/strings-admin';
 import { AiTranslateButton, fillLikeTyping } from '../../_kit/AiTranslateButton';
+import { AssistPanel } from '../../_kit/AssistPanel';
 import { SaveBar } from '../../_kit/SaveBar';
 import { STATUS_LABELS } from '../../_kit/TranslatableField';
 import { useAiFeatures } from '../../_kit/useAiFeatures';
@@ -197,6 +198,20 @@ function StringField({ field: f, lang, error }: { field: StringFieldView; lang: 
           itemKey={f.key}
           onResult={(t) => {
             if (ref.current) fillLikeTyping(ref.current, t);
+          }}
+        />
+      ) : null}
+      {/* "Trợ lý viết" (R9-10) on a multi-line key, in the screen's language. */}
+      {ai.assist && multiline && value.trim() ? (
+        <AssistPanel
+          text={value}
+          locale={lang ?? DEFAULT_LOCALE}
+          label={f.label}
+          max={f.maxLength}
+          onUse={(t) => {
+            if (!ref.current) return;
+            fillLikeTyping(ref.current, t);
+            ref.current.focus();
           }}
         />
       ) : null}
