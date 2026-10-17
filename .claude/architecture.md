@@ -156,7 +156,9 @@ Nội dung khách đọc thuộc CMS: migration chỉ *thêm* (file ảnh mới 
 | Không đọc cột cũ | `test/guards/legacy-columns.guard.test.ts` |
 | Admin: `instant = false`, không inline style (CSP), id không trùng giữa các trang (`<Activity>`), mỗi trang đúng một tiêu đề (`<h1>`/`PageHeader`) | `lib/admin/admin-pages.guard.test.ts` |
 | Admin CSS: màu cảnh báo chỉ là token `--a-warn*`, một class cho form inline | `test/guards/admin-css.guard.test.ts` |
-| AI SDK chỉ trong `lib/server/ai`; `lib/server/ai` và `content-admin/machine-*.ts`, `seo-material.ts` không chạm dữ liệu khách (booking, email, `reservations`) | `test/guards/ai-imports.guard.test.ts` || Mục nav khách trỏ tới section có anchor | `test/guards/nav-anchors.guard.test.ts` |
+| AI SDK chỉ trong `lib/server/ai`; `lib/server/ai` và `content-admin/machine-*.ts`, `seo-material.ts` không chạm dữ liệu khách (booking, email, `reservations`) | `test/guards/ai-imports.guard.test.ts` |
+| Route `app/api/admin/ai/*`: đúng quyền từng method (dịch hàng loạt chỉ Admin) | `test/guards/require-permission.guard.test.ts` |
+| `revalidateTag` cũng chỉ qua cache plan (trừ tag ưu đãi của cron daily) | `test/guards/content-tags.guard.test.ts` || Mục nav khách trỏ tới section có anchor | `test/guards/nav-anchors.guard.test.ts` |
 | Truy vấn DOM theo trang | `lib/page-scope.guard.test.ts` |
 | Cron khớp `vercel.json` | `test/guards/vercel-crons.guard.test.ts` |
 

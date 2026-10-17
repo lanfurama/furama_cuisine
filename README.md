@@ -1117,7 +1117,7 @@ undone by restoring the rows from their audit rows.
 | `SMTP_PORT` | `587` (STARTTLS, the default) or `465` (TLS) | same | never set |
 | `SMTP_SECURE` | only if the port rule does not fit: `true` (TLS from the first byte) or `false` (STARTTLS); unset means `true` on 465 only | same | never set |
 | `SMTP_USER`, `SMTP_PASSWORD` | the login (both or neither) | a separate login if the provider allows | never set |
-| `CRON_SECRET` | 16+ characters (`openssl rand -hex 32`); Vercel Cron sends it to `/api/cron/outbox`, `/api/cron/daily` and `/api/cron/media-sweep`, and a missing or shorter one answers every call to any of them 401 | not needed: crons run on Production only, and nobody calls one on a preview (the media sweep there would purge production's trash) | a fresh random value per E2E run |
+| `CRON_SECRET` | 16+ characters (`openssl rand -hex 32`); Vercel Cron sends it to `/api/cron/outbox`, `/api/cron/ai-jobs`, `/api/cron/daily` and `/api/cron/media-sweep`, and a missing or shorter one answers every call to any of them 401 | not needed: crons run on Production only, and nobody calls one on a preview (the media sweep there would purge production's trash) | a fresh random value per E2E run |
 | `BOTID_DEV_BYPASS` | **never** | **never** | only for the opt-in `e2e/botid.spec.ts` run (`BAD-BOT`); a deployment ignores it |
 | `BLOB_READ_WRITE_TOKEN` | set by connecting the Blob store | the same store's (Preview shares production's database, so it shares the store too) | **never** a real one: blank for the build, the visual server and local runs; Playwright gives the E2E app the fake store's token |
 | `FAKE_BLOB_SECRET` | never | never | a fresh `openssl rand -hex 16` per E2E run (16+ letters and digits); `FAKE_BLOB_PORT` moves the fake (default 3102) |
@@ -1257,7 +1257,7 @@ build, the local one too: never request that prefix on a local `next start`.
 
 ### Before launch A: what the owner sets up
 
-Migrations 007 to 009, the Blob store, email, the three crons and BotID
+Migrations 007 to 009, the Blob store, email, the crons and BotID
 need these steps once, in this order. Until the last one, keep Production on
 `EMAIL_DELIVERY=redirect`, and nothing reaches a guest. Running Production
 on redirect also needs `EMAIL_REDIRECT_TO`, `EMAIL_FROM` and `SMTP_*`.
@@ -1305,7 +1305,11 @@ a new deployment.
    month; if it nears the allowance, move to Launch (check
    neon.tech/pricing) and the cron can go back to `*/5 * * * *` (change
    `vercel.json` and `test/guards/vercel-crons.guard.test.ts` together).
-   Phase 9's AI-jobs cron must follow the same rule. The hourly outbox cron
+   Phase 9's AI-jobs cron follows the same rule: `/api/cron/ai-jobs` runs
+   at `0 * * * *`, the outbox's minute, so one wake-up an hour serves both,
+   and with no job waiting it answers after one `SELECT` (R9-16; if the
+   first month's numbers show two wake-ups an hour anyway, change
+   `vercel.json` and the guard together). The hourly outbox cron
    needs **Vercel Pro**: Hobby runs a cron at most once a day (the research
    synthesis, `docs/superpowers/research/2026-10-01-admin-cms/00-synthesis.md`
    §D item 7, records Pro).
@@ -1390,8 +1394,8 @@ a new deployment.
 11. **Production deploy and crons:** 009 is already on production and the
     store is connected (step 1); merge into `main` (Production starts on
     redirect). After that deploy, Project → Settings → Cron Jobs shows
-    three crons: `/api/cron/outbox` hourly (`0 * * * *`), `/api/cron/daily`
-    at `5 17 * * *` (00:05 in Da Nang) and `/api/cron/media-sweep` at
+    four crons: `/api/cron/outbox` and `/api/cron/ai-jobs` hourly
+    (`0 * * * *`), `/api/cron/daily` at `5 17 * * *` (00:05 in Da Nang) and `/api/cron/media-sweep` at
     `35 18 * * *` (01:35 in Da Nang). The media sweep's dry run answers 200,
     not 401 ("Media sweep" above has the `curl`). Then move the phase-6
     images and redeploy (step 1.3).
@@ -1409,8 +1413,8 @@ a new deployment.
     - "Gửi email thử" to an outside inbox says "Đã gửi email thử tới …"
       (not "chuyển hướng tới hộp thư thử nghiệm"), and the email arrives
       there;
-    - all three crons log 200, not 401, in Vercel → Settings → Cron Jobs:
-      `/api/cron/outbox` within the hour, `/api/cron/daily` after its next
+    - all four crons log 200, not 401, in Vercel → Settings → Cron Jobs:
+      `/api/cron/outbox` and `/api/cron/ai-jobs` within the hour, `/api/cron/daily` after its next
       run at 00:05 in Da Nang, and `/api/cron/media-sweep` after its next
       run at 01:35 in Da Nang;
     - a test booking made with an address you read: its `guest.ack` (or
@@ -1506,8 +1510,11 @@ bootstrapping production is what you mean to do.
 | `/en/privacy` | Static, revalidated hourly (the layout reads today's offers for the nav) | The privacy policy (`legal.*`) in the page's language, with the date of that language's own policy version (else the English one), linked from the footer and the reserve drawer's consent box. Every guest page carries `content:legal`: the layout hands the drawer the policy version a booking records (SEC-3) |
 | `/api/availability` | Dynamic, `no-store` | `?restaurant=&lang=[&from=&to=]`: each day's state (open, full, past, closed, too_large, outside) and public closure reason, with the clock, the party limit and the number to call; `?restaurant=&date=&lang=[&guests=]`: one day's services and slots with the covers left. 404 for an unknown restaurant or one with online booking off; a range given in full that is backwards or too long (400) and an id that cannot exist (404) are answered before any query. `scripts/check-prerender.mjs` fails if it is ever prerendered, or missing from the build |
 | `/api/cron/outbox` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, hourly: sends the due outbox rows of its environment (at most 500 or 240 s) and answers only the counts. 401 without `Authorization: Bearer $CRON_SECRET` |
+| `/api/cron/ai-jobs` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, hourly in the outbox's minute (phase 9, R9-16): runs the bulk-translation jobs that are queued (a run whose time ran out) or running with their lease run out (a function that died), for 240 s at most; with none, one `SELECT` and `{"jobs":0,"docs":0}`. 401 without `Authorization: Bearer $CRON_SECRET` |
 | `/api/cron/daily` | Dynamic, `no-store`, `maxDuration` 60 | Vercel Cron, daily at 17:05 UTC (00:05 in Da Nang): `revalidateTag('content:offers', 'max')`, so the home page drops an offer past its `valid_until` and shows one whose `valid_from` has come, and on a day with no offer every guest page's header and menu drop Offers. The first visit to each page after it may still get yesterday's offers and nav once; in exchange, a database that is down then cannot break a guest page. 401 without `Authorization: Bearer $CRON_SECRET` |
 | `/api/cron/media-sweep` | Dynamic, `no-store`, `maxDuration` 300 | Vercel Cron, daily at 18:35 UTC (01:35 in Da Nang), Production only: purges rows 30 days in the trash (a row content uses again stays) and deletes their files from whatever folder holds them; then, in `production/` only, deletes files no `media` row names after 24 hours. `?dry=1` lists what it would do and deletes nothing, rows included; `{"skipped":"blob_not_configured"}` without a store. 401 without `Authorization: Bearer $CRON_SECRET` |
+| `/api/admin/ai/translate` | Dynamic, `no-store`, `maxDuration` 60 | "Dịch từ EN" (phase 9): up to 20 items in one call, nothing saved. `content:ai` first, then the `Origin`, no Draft Mode, AI on |
+| `/api/admin/ai/jobs`, `/api/admin/ai/jobs/[id]` | Dynamic, `no-store`, `maxDuration` 300 | Bulk translation (phase 9): `POST` creates a language's job and runs it in `after()` (240 s); `POST [id]` `{action: resume|cancel}` is "Tiếp tục"/"Chạy tiếp ngay" (again in `after()`) or "Hủy". Admin only (`content:ai` and `settings:update`), then the `Origin`. `GET` is the panel's poll, the newest job per language (`content:read`) |
 | `/api/admin/media/upload` | Dynamic, `no-store` | Upload step 1: a presigned URL for one pathname of this environment's folder, its type, 15 MB and ten minutes. Session and `content:update` first, then the `Origin`; Vercel's completion callback is refused |
 | `/admin/media`, `/admin/media/[id]` | Request time, nonce CSP | The library: upload, search, the trash; one file's alt text in each language, decorative flag, uses, delete (refused while it is shown) and History. `content:read`; writes `content:update`, restores `content:restore` |
 | `/admin/content` and `/admin/content/{sections,hero,offers,offers/new,offers/[id],cuisines,destinations,experiences,stories,heritage,navigation,contact,booking,seo,ui-text,legal,emails}` | Request time, nonce CSP | The content editors (spec §7.2), every language in one form (a tab per language with its state: Đã duyệt, Máy dịch, EN đã đổi, Chưa dịch) and the strings screens one language at a time (`?lang=`) ("Editing content" above): the home sections' switches, pictures and links; the hero's slides, words and pace and the film; the offers; the cuisines, destinations, Experiences rows, stories and menu items, each a list with its order and "Đã xóa gần đây"; the footer's social links and words; the booking bar's defaults and words; the page titles and the share picture; the registry's words by screen; the privacy policy (each change of the agreed wording is a policy version); the booking emails with a preview. Every record has its History. `content:read`; writes `content:update`, restores `content:restore` |
@@ -1522,7 +1529,7 @@ bootstrapping production is what you mean to do.
 | `/admin/reservations/new` | Request time, nonce CSP | Phone bookings and walk-ins. `reservations:create` |
 | `/admin/reservations/closures`, `/admin/restaurants`, `/admin/restaurants/[id]/booking` | Request time, nonce CSP | Closures with the bookings each covers; the restaurants (add one, show or hide it, archive it: never deleted; their order with its History; the words every restaurant card and page shares); "Giờ và sức chứa" (switch, overrides, service periods, slot preview, affected bookings; auto-confirm for Admins). `schedule:read`; the list's writes `content:update`, restores `content:restore` |
 | `/admin/settings/booking` | Request time, nonce CSP | Booking defaults. Admin (`settings:read`) |
-| `/admin/translations` | Request time, nonce CSP | Coverage per kind of content and language, and the review queue: machine translations ("Duyệt") and translations whose English changed since ("Vẫn đúng"), one at a time or up to 50 ticked, each with its History row; "Sửa" opens the item's form in that language. Machine translation of what is missing comes with phase 9. `content:read`; reviews `content:update` |
+| `/admin/translations` | Request time, nonce CSP | Coverage per kind of content and language, and the review queue: machine translations ("Duyệt") and translations whose English changed since ("Vẫn đúng"), one at a time or up to 50 ticked, each with its History row; "Sửa" opens the item's form in that language; the bulk-translation panel (phase 9): each language's job, its progress, "Tiếp tục", "Chạy tiếp ngay" and "Hủy", and "Dịch tất cả phần còn thiếu bằng AI" (machine rows into empty places only, never the policy or consent text). `content:read`; reviews `content:update`; jobs Admin only |
 | `/admin/settings/notifications` | Request time, nonce CSP | Who hears about new bookings, the shared inbox, the restaurants that fall back to it, "Gửi email thử". Admin (`settings:read`; every save `settings:update`) |
 | `/admin/settings/ai` | Request time, nonce CSP | Vertex AI (phase 9): the connection and its check, this month's spend, the features and limits, the glossary. Admin (`settings:read`; every save `settings:update`) |
 | `/api/auth/*` | Dynamic | Better Auth; `/api/auth/admin/*` is refused with 403 |

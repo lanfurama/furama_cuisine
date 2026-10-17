@@ -15,9 +15,14 @@ import { cachedAiSettings } from './settings';
  * `staff` is taken so the order cannot be forgotten: no staff, no settings.
  */
 export async function aiRoute(request: Request, feature: AiFeature, staff: StaffSession): Promise<{ staff: StaffSession; settings: AiSettings }> {
-  if (request.headers.get('origin') !== new URL(request.url).origin) throw new AiOriginError();
+  assertSameOrigin(request);
   if ((await draftMode()).isEnabled) throw new AiError('ai_preview');
   const settings = await cachedAiSettings();
   if (resolveAiMode().mode === 'off' || !settings.features[feature].enabled) throw new AiError('ai_off');
   return { staff, settings };
+}
+
+/** A state-changing request comes from this site (spec §7.1), or AiOriginError: for a route that calls no model (cancelling a job). */
+export function assertSameOrigin(request: Request): void {
+  if (request.headers.get('origin') !== new URL(request.url).origin) throw new AiOriginError();
 }
