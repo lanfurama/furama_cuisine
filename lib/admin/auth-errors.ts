@@ -94,6 +94,9 @@ export function actionErrorMessage(code: ActionCode, params?: Record<string, str
   if (code === 'limit' && params?.max) {
     return `Tối đa ${params.max} mục được hiện (giới hạn bố cục). Hãy ẩn một mục khác trước.`;
   }
+  if (code === 'ai_off' && params?.missing === 'brandVoice') {
+    return 'Chưa có giọng thương hiệu: Admin điền ở Hệ thống › AI.';
+  }
   if (code === 'ai_rate_minute' && params?.limit) {
     return `Bạn đã dùng AI ${params.limit} lần trong một phút. Thử lại sau ít giây.`;
   }

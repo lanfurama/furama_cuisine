@@ -183,6 +183,10 @@ describe('actionErrorMessage for the AI codes', () => {
     expect(actionErrorMessage('ai_rate_minute')).toMatch(/một phút/);
   });
 
+  it('says the brand voice is missing when "Theo giọng thương hiệu" has none to follow', () => {
+    expect(actionErrorMessage('ai_off', { missing: 'brandVoice' })).toBe('Chưa có giọng thương hiệu: Admin điền ở Hệ thống › AI.');
+  });
+
   it.each([
     ['ai_off', 'AI chưa được cấu hình hoặc tính năng đang tắt.'],
     ['ai_budget', 'Đã dùng hết ngân sách AI tháng này.'],

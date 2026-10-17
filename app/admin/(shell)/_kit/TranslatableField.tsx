@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState, type ChangeEvent } from 'react';
 import { AiTranslateButton, fillLikeTyping } from './AiTranslateButton';
+import { AssistPanel } from './AssistPanel';
 import { useLocaleTabs } from './LocaleTabs';
 import { useAiFeatures } from './useAiFeatures';
 import { checkLength, TRANSLATION_STRETCH } from '@/lib/admin/content-rules';
@@ -23,7 +24,9 @@ export const STATUS_LABELS: Record<TranslationStatus, string> = { missing: 'Chư
  * tab with its state (Chưa dịch, Máy dịch, Đã duyệt, EN đã đổi); a translation
  * left empty means "use English", and a tab that needs work shows the English
  * text under its field. In a non-English tab "Dịch từ EN" (phase 9, AI on)
- * fills the box from the English text; it counts as typing, nothing is saved.
+ * fills the box from the English text; under a field of 3 rows or more,
+ * "Trợ lý viết" (R9-10) rewrites the text of the open tab, in its language.
+ * Both count as typing; nothing is saved until Lưu.
  *
  * The counter compares with the column's or registry's maximum (the server
  * refuses beyond it) and with an optional warning length (spec §6.5: a menu
@@ -71,6 +74,11 @@ export function TranslatableField({
   const [active, setActive] = useState(locales[0].code);
   const [typed, setTyped] = useState<Record<string, string>>({});
   const text = (code: string) => (onChange ? (values[code] ?? '') : (typed[code] ?? values[code] ?? ''));
+  /** An AI result into one language's box, like typing (SaveBar and the leave-page guard see it). */
+  const fill = (code: string, value: string) => {
+    if (onChange) onChange(code, value);
+    else if (boxes.current[code]) fillLikeTyping(boxes.current[code]!, value);
+  };
 
   return (
     <div className="a-field a-field--wide a-tfield">
@@ -102,6 +110,8 @@ export function TranslatableField({
         const enCount = [...english].length;
         const longerThanEn = l.code !== DEFAULT_LOCALE && enCount > 0 && length.count > enCount * TRANSLATION_STRETCH;
         const needsWork = l.code !== DEFAULT_LOCALE && (status?.[l.code] === 'stale' || status?.[l.code] === 'missing' || status?.[l.code] === 'machine');
+        // Each language's field has its own name: "Tiêu đề" (English), "Tiêu đề (VI)"; one hidden panel never shares the other's.
+        const fieldLabel = l.code === DEFAULT_LOCALE || locales.length === 1 ? label : `${label} (${l.code.toUpperCase()})`;
         const counterId = `${id}-count`;
         const errorId = `${id}-error`;
         const hintId = `${id}-hint`;
@@ -134,17 +144,25 @@ export function TranslatableField({
             hidden={active !== l.code}
           >
             <div className="a-tfield-head">
-              {/* Each language's field has its own name: "Tiêu đề" (English), "Tiêu đề (VI)"; one hidden panel never shares the other's. */}
-              <label htmlFor={id}>{l.code === DEFAULT_LOCALE || locales.length === 1 ? label : `${label} (${l.code.toUpperCase()})`}</label>
+              <label htmlFor={id}>{fieldLabel}</label>
               {locales.length === 1 ? <span className="a-tag">{l.label}</span> : null}
               {required && l.code === DEFAULT_LOCALE ? <span className="a-muted">bắt buộc</span> : null}
             </div>
             {rows ? <textarea rows={rows} {...props} /> : <input type="text" {...props} />}
             {ai.translate && l.code !== DEFAULT_LOCALE && english.trim() ? (
-              <AiTranslateButton
-                english={english}
+              <AiTranslateButton english={english} locale={l.code} onResult={(t) => fill(l.code, t)} />
+            ) : null}
+            {/* In the open tab only: switching tabs unmounts it, which aborts a stream still running (no hidden call, no hidden count). */}
+            {ai.assist && active === l.code && rows !== undefined && rows >= 3 && value.trim() ? (
+              <AssistPanel
+                text={value}
                 locale={l.code}
-                onResult={(t) => (onChange ? onChange(l.code, t) : boxes.current[l.code] && fillLikeTyping(boxes.current[l.code]!, t))}
+                label={fieldLabel}
+                max={max}
+                onUse={(t) => {
+                  fill(l.code, t);
+                  boxes.current[l.code]?.focus();
+                }}
               />
             ) : null}
             {hint ? (

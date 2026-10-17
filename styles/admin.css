@@ -1831,6 +1831,56 @@ fieldset.a-field legend {
   gap: 8px;
 }
 
+/* "Trợ lý viết" (_kit/AssistPanel.tsx): the button, then the panel under the field it serves. */
+.a-assist {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.a-assist-panel {
+  display: grid;
+  gap: 10px;
+  justify-self: stretch;
+  padding: 12px 14px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--a-radius);
+  background: var(--a-surface-2);
+}
+
+.a-assist-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.a-assist-result {
+  min-height: 4.5em;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--a-radius-sm);
+  background: var(--a-surface);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.a-assist-result[aria-busy='true'] {
+  border-color: var(--a-line-strong);
+}
+
+/* "Dừng" outside a stream: aria-disabled keeps it focusable, so it looks like a disabled ghost button. */
+.a-assist-panel .a-btn[aria-disabled='true'] {
+  color: var(--a-ink-faint);
+  cursor: not-allowed;
+}
+
+.a-assist-panel .a-counter,
+.a-assist-panel .a-sub,
+.a-assist-panel .a-field-error {
+  margin: 0;
+}
+
 .a-savebar {
   position: sticky;
   bottom: 12px;

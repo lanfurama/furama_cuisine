@@ -7,11 +7,14 @@ import { describe, expect, it } from 'vitest';
  * Phase 9 (spec §9.4): one gate to Vertex. Only files under lib/server/ai/ may
  * import the AI SDK, its providers, google-auth-library or @vercel/oidc, so
  * the budget, the per-person limit and the keyless auth cannot be bypassed.
- * Two narrow exceptions: @ai-sdk/react (useCompletion) in the assist panel,
- * and `ai` itself (createTextStreamResponse, toTextStream) in the AI route
- * handlers. Nothing under lib/server/ai/ may reach guest data: no booking or
- * email module and no `reservations` (spec §9.4: never send guests' personal
- * data to Vertex). Tests and test helpers are not app code.
+ * There is no exception: the AI route handlers call the gate (the assistant's
+ * stream is built in lib/server/ai/assist.ts), so none imports `ai` itself.
+ * No AI package reaches the browser bundle: the writing assistant's panel
+ * reads its stream with fetch (R9-23), and @ai-sdk/react is not even a
+ * dependency. Nothing under lib/server/ai/ may
+ * reach guest data: no booking or email module and no `reservations` (spec
+ * §9.4: never send guests' personal data to Vertex). Tests and test helpers
+ * are not app code.
  */
 
 const ROOT = join(__dirname, '..', '..');
@@ -24,8 +27,6 @@ const RESTRICTED = new Set(['ai', 'google-auth-library', '@vercel/oidc']);
 /** Every @ai-sdk/* package is the gate's (providers and @ai-sdk/react alike). */
 const restricted = (m: string) => RESTRICTED.has(packageOf(m)) || m.startsWith('@ai-sdk/');
 const GATE = 'lib/server/ai/';
-const ASSIST_PANEL = 'app/admin/(shell)/_kit/AssistPanel.tsx';
-const AI_ROUTE = /^app\/api\/admin\/ai\/.+\/route\.ts$/;
 
 
 type Node = { type: string; [key: string]: unknown };
@@ -72,10 +73,8 @@ function aiImportProblems(rel: string, src: string): string[] {
   const problems = requests
     .filter(restricted)
     .filter((m) => {
-      if (rel.startsWith(GATE)) return packageOf(m) === '@ai-sdk/react';
-      if (packageOf(m) === '@ai-sdk/react') return rel !== ASSIST_PANEL;
-      if (m === 'ai') return !AI_ROUTE.test(rel);
-      return true;
+      if (packageOf(m) === '@ai-sdk/react') return true;
+      return !rel.startsWith(GATE);
     })
     .map((m) => `${rel}: imports ${m}`);
   if (rel.startsWith(GATE)) {
@@ -96,7 +95,13 @@ describe('AI imports (spec §9.4: one gate to Vertex)', () => {
     expect(all.flatMap((rel) => aiImportProblems(rel, readFileSync(join(ROOT, rel), 'utf8')))).toEqual([]);
   });
 
-  it('what it catches: any form of import, the wrong place for the two exceptions, guest data', () => {
+  it('no AI package is a dependency the browser could load (R9-23: no @ai-sdk/react)', () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as Record<string, Record<string, string> | undefined>;
+    const deps = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
+    expect(deps.filter((d) => d === '@ai-sdk/react' || d === 'swr')).toEqual([]);
+  });
+
+  it('what it catches: any form of import, anywhere outside the gate (route handlers too), guest data', () => {
     const fixture = [
       "import { generateText } from 'ai';",
       "import { MockLanguageModelV4 } from 'ai/test';",
@@ -118,11 +123,19 @@ describe('AI imports (spec §9.4: one gate to Vertex)', () => {
     // Inside the gate everything but the React hook is fine.
     expect(aiImportProblems('lib/server/ai/client.ts', fixture)).toEqual([]);
     expect(aiImportProblems('lib/server/ai/x.ts', "import { useCompletion } from '@ai-sdk/react';")).toEqual(['lib/server/ai/x.ts: imports @ai-sdk/react']);
-    // The two exceptions are narrow.
-    expect(aiImportProblems(ASSIST_PANEL, "import { useCompletion } from '@ai-sdk/react';")).toEqual([]);
+    // The React hook has no exception left, not even in the assist panel (R9-23).
+    expect(aiImportProblems('app/admin/(shell)/_kit/AssistPanel.tsx', "import { useCompletion } from '@ai-sdk/react';")).toEqual([
+      'app/admin/(shell)/_kit/AssistPanel.tsx: imports @ai-sdk/react',
+    ]);
+    expect(aiImportProblems('app/api/admin/ai/assist/route.ts', "import { useCompletion } from '@ai-sdk/react';")).toEqual([
+      'app/api/admin/ai/assist/route.ts: imports @ai-sdk/react',
+    ]);
+    // No exception for the AI route handlers any more: they call the gate.
     expect(aiImportProblems('lib/x.ts', "import { openai } from '@ai-sdk/openai';")).toEqual(['lib/x.ts: imports @ai-sdk/openai']);
     expect(aiImportProblems('app/x/Other.tsx', "import { useCompletion } from '@ai-sdk/react';")).toEqual(['app/x/Other.tsx: imports @ai-sdk/react']);
-    expect(aiImportProblems('app/api/admin/ai/assist/route.ts', "import { createTextStreamResponse } from 'ai';")).toEqual([]);
+    expect(aiImportProblems('app/api/admin/ai/assist/route.ts', "import { createTextStreamResponse } from 'ai';")).toEqual([
+      'app/api/admin/ai/assist/route.ts: imports ai',
+    ]);
     expect(aiImportProblems('app/api/admin/ai/assist/route.ts', "import { MockLanguageModelV4 } from 'ai/test';")).toEqual([
       'app/api/admin/ai/assist/route.ts: imports ai/test',
     ]);
