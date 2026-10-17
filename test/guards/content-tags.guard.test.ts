@@ -8,7 +8,9 @@ import { describe, expect, it } from 'vitest';
  * guest cache only through the cache plan, `for (const tag of
  * tagsForSave(…)) updateTag(tag)` or the same over tagsForStrings(…), so the
  * tags of every table a transaction wrote are expired and lib/cache-plan.test.ts
- * keeps them in step with the loaders. The booking screens' own tag
+ * keeps them in step with the loaders. revalidateTag, for a write outside a
+ * Server Action (after(), a cron), is held to the same rule (R9-19); the daily
+ * cron's offers tag is listed. The booking screens' own tag
  * (TAGS.bookingRules(id)) and the AI configuration's (TAGS.aiSettings) are not content tags. One older call is listed
  * with its reason (phase 5's saveInbox went through the cache plan in plan
  * 7B task B5, L7-6).
@@ -22,6 +24,7 @@ const ALLOWED = new Map([
     'app/admin/(shell)/restaurants/[id]/booking/actions.ts: TAGS.restaurants',
     'the booking screen (phase 4): service periods and the booking switch change the catalogue’s meals and bookingEnabled',
   ],
+  ['app/api/cron/daily/route.ts: TAGS.contentOffers', 'the daily cron (spec §6.2): a new day in Da Nang changes which offers show; no write behind it'],
 ]);
 
 const CACHE_PLAN_FUNCTIONS = ['tagsForSave', 'tagsForStrings'];
@@ -53,7 +56,8 @@ const calls = (n: Node, names: string[]) => n.type === 'CallExpression' && names
 function rawTagCalls(rel: string, src: string): string[] {
   const found: string[] = [];
   walk(parseSync(rel, src).program, (n, ancestors) => {
-    if (!calls(n, ['updateTag'])) return;
+    // revalidateTag too (R9-19): a write outside a Server Action (after(), a cron) expires through the cache plan as well.
+    if (!calls(n, ['updateTag', 'revalidateTag'])) return;
     const arg = (n.arguments as Node[])[0];
     const text = src.slice(arg.start, arg.end);
     if (arg.type === 'CallExpression' && src.slice(arg.start, arg.end).startsWith('TAGS.bookingRules(')) return;
@@ -89,7 +93,9 @@ describe('content tags reach updateTag only through the cache plan (phase-7 code
       "updateTag('content:ui');",
       'for (const tag of [TAGS.media]) updateTag(tag);',
       'const tag = TAGS.contentHero; updateTag(tag);',
+      "for (const tag of tagsForSave(MEDIA.tables)) revalidateTag(tag, 'max');",
+      "revalidateTag(TAGS.contentOffers, 'max');",
     ].join('\n');
-    expect(rawTagCalls('x.ts', src)).toEqual(['x.ts: TAGS.contentOffers', "x.ts: 'content:ui'", 'x.ts: tag', 'x.ts: tag']);
+    expect(rawTagCalls('x.ts', src)).toEqual(['x.ts: TAGS.contentOffers', "x.ts: 'content:ui'", 'x.ts: tag', 'x.ts: tag', 'x.ts: TAGS.contentOffers']);
   });
 });

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -225,6 +225,53 @@ const CONTENT_ACTIONS: Record<string, Record<string, { permission: object; edito
     restoreMediaAction: { permission: { content: ['restore'] }, editor: true },
   },
 };
+
+/*
+ * The AI route handlers (phase 9), method by method: using the AI is content:ai
+ * (Editor and Admin, spec §7.1); bulk translation (D8: create, resume, cancel
+ * a job) is Admin only (spec §8), written as content:ai plus settings:update,
+ * which an Editor lacks; the plan's owner question 2 is still open, and
+ * loosening it is content:['ai'] in the two job routes and here. The jobs
+ * panel's poll is content:read.
+ * Every route under app/api/admin/ai needs its rows here.
+ */
+const AI_ROUTES: Record<string, Record<string, { permission: object; editor: boolean }>> = {
+  'app/api/admin/ai/translate/route.ts': {
+    POST: { permission: { content: ['ai'] }, editor: true },
+  },
+  'app/api/admin/ai/jobs/route.ts': {
+    POST: { permission: { content: ['ai'], settings: ['update'] }, editor: false },
+    GET: { permission: { content: ['read'] }, editor: true },
+  },
+  'app/api/admin/ai/jobs/[id]/route.ts': {
+    POST: { permission: { content: ['ai'], settings: ['update'] }, editor: false },
+  },
+};
+const HTTP_METHODS = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']);
+
+function routeFiles(dir: string): string[] {
+  return readdirSync(join(ROOT, dir), { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? routeFiles(join(dir, e.name)) : /^route\.[jt]sx?$/.test(e.name) ? [join(dir, e.name)] : [],
+  );
+}
+
+describe('AI route handlers follow the permission matrix (spec §7.1, phase 9)', () => {
+  it('every route under app/api/admin/ai has its rows in AI_ROUTES', () => {
+    expect(routeFiles('app/api/admin/ai').sort()).toEqual(Object.keys(AI_ROUTES).sort());
+  });
+
+  for (const [rel, methods] of Object.entries(AI_ROUTES)) {
+    it(rel, () => {
+      const found = Object.fromEntries(Object.entries(actionPermissions(ROOT, rel)).filter(([name]) => HTTP_METHODS.has(name)));
+      expect(Object.keys(found).sort()).toEqual(Object.keys(methods).sort());
+      for (const [name, { permission, editor }] of Object.entries(methods)) {
+        expect(found[name], name).toEqual(permission);
+        expect(roleCan('editor', permission), `${name}: Editor`).toBe(editor);
+        expect(roleCan('admin', permission), `${name}: Admin`).toBe(true);
+      }
+    });
+  }
+});
 
 /** Where content editors keep their Server Actions (spec §7.2): every 'use server' file here needs CONTENT_ACTIONS rows. */
 const CONTENT_SCREENS = ['app/admin/(shell)/content/', 'app/admin/(shell)/media/', 'app/admin/(shell)/restaurants/[id]/actions.ts', 'app/admin/(shell)/restaurants/actions.ts'];

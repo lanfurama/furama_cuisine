@@ -1,7 +1,7 @@
 import 'server-only';
 import { actionErrorMessage } from '@/lib/admin/auth-errors';
 import { z } from '@/lib/admin/zod';
-import type { ActionCode } from '@/lib/server/action-result';
+import type { ActionCode, ActionFailure } from '@/lib/server/action-result';
 import { PermissionError } from '@/lib/server/dal/session';
 import { AiError, AiOriginError, type AiErrorCode } from '@/lib/server/ai-error';
 import { vertexErrorCode } from './errors';
@@ -47,4 +47,15 @@ export function aiErrorResponse(err: unknown): Response {
     params = ai.params && Object.fromEntries(Object.entries(ai.params).map(([k, v]) => [k, String(v)]));
   }
   return Response.json({ code, message: actionErrorMessage(code, params) }, { status, headers: NO_STORE });
+}
+
+/** Status per refusal a job route answers with (D8): bad input 400, gone 404, a live job or a status that does not allow it 409. */
+const FAILURE_STATUS: Partial<Record<ActionCode, number>> = { invalid: 400, forbidden: 403, not_found: 404, conflict: 409, not_allowed: 409 };
+
+/** A route handler's answer to a refused ActionResult: `{ code, message, fieldErrors? }`, never cached. */
+export function actionFailureResponse(failure: ActionFailure): Response {
+  return Response.json(
+    { code: failure.code, message: actionErrorMessage(failure.code, failure.params), ...(failure.fieldErrors ? { fieldErrors: failure.fieldErrors } : {}) },
+    { status: FAILURE_STATUS[failure.code] ?? 500, headers: NO_STORE },
+  );
 }

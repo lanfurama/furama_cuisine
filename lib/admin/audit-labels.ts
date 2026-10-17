@@ -60,13 +60,20 @@ const ENTITIES: Record<string, string> = {
   media: 'File trong thư viện',
   // Languages: the phase-8 screen's rows (migration 011 took the screen and the table away; the history stays).
   locales: 'Ngôn ngữ',
-  // AI (phase 9): the configuration, and the glossary's terms.
+  // AI (phase 9): the configuration, the glossary's terms, a bulk-translation job (create, resume, cancel).
   ai_settings: 'Cấu hình AI',
   ai_glossary: 'Thuật ngữ AI',
+  ai_jobs: 'Dịch hàng loạt (AI)',
 };
 
 export function auditActionLabel(action: string): string {
   return ACTIONS[action] ?? action;
+}
+
+/** The label of one audit row: a machine translation's (phase 9, `after.meta.machine`, its action an ordinary update or create) says so. */
+export function auditEntryLabel(action: string, after: unknown): string {
+  const meta = (after as { meta?: { machine?: unknown } } | null)?.meta;
+  return meta && typeof meta === 'object' && meta.machine ? 'Máy dịch (AI)' : auditActionLabel(action);
 }
 
 export function auditEntityLabel(entityType: string): string {

@@ -1,4 +1,4 @@
-import { auditActionLabel } from '@/lib/admin/audit-labels';
+import { auditEntryLabel } from '@/lib/admin/audit-labels';
 import { formatDateTimeVi } from '@/lib/admin/format';
 import { changedFields, restoreChoices, type HistoryRow, type Snap } from '@/lib/admin/history';
 import type { ActionResult } from '@/lib/server/action-result';
@@ -58,7 +58,7 @@ export function HistoryPanel({
               return (
                 <li key={e.id} className="a-history-item">
                   <p>
-                    <strong>{auditActionLabel(e.action)}</strong> · {e.actor} · <time dateTime={new Date(e.at).toISOString()}>{when}</time>
+                    <strong>{auditEntryLabel(e.action, e.after)}</strong> · {e.actor} · <time dateTime={new Date(e.at).toISOString()}>{when}</time>
                   </p>
                   {fields ? <p className="a-muted">{describe ? fields : `Đổi: ${fields}`}</p> : null}
                   {e.after && tokenOf(e.after as never) === currentToken ? <p className="a-muted">Đây là phiên bản hiện tại.</p> : null}

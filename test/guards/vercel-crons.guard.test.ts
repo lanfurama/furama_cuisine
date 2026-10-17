@@ -12,6 +12,11 @@ import { describe, expect, it } from 'vitest';
  * them the Offers nav item, change at the venue's midnight instead of at the
  * next hourly revalidation. The media sweep (phase 7, spec §12) runs once a
  * day at 18:35 UTC, 01:35 in Da Nang: one more wake-up of the database a day.
+ * The AI bulk-translation cron (phase 9, R9-16) runs in the same minute as the
+ * outbox, so the hourly wake-up serves both instead of adding a second one;
+ * with no job to run it answers after one SELECT. If Neon's first month shows
+ * two wake-ups an hour anyway, or the plan moves past Free, change the
+ * schedule here and in vercel.json together, with a note.
  */
 
 type Cron = { path: string; schedule: string };
@@ -19,9 +24,10 @@ type Cron = { path: string; schedule: string };
 const crons = (): Cron[] => JSON.parse(readFileSync(join(process.cwd(), 'vercel.json'), 'utf8')).crons;
 
 describe('the crons in vercel.json', () => {
-  it('drain the outbox hourly, run the daily cron at 00:05 in Da Nang (17:05 UTC) and sweep media at 01:35 (18:35 UTC)', () => {
+  it('drain the outbox and run AI jobs hourly in the same minute, run the daily cron at 00:05 in Da Nang (17:05 UTC) and sweep media at 01:35 (18:35 UTC)', () => {
     expect(crons()).toEqual([
       { path: '/api/cron/outbox', schedule: '0 * * * *' },
+      { path: '/api/cron/ai-jobs', schedule: '0 * * * *' },
       { path: '/api/cron/daily', schedule: '5 17 * * *' },
       { path: '/api/cron/media-sweep', schedule: '35 18 * * *' },
     ]);

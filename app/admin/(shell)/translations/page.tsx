@@ -1,10 +1,13 @@
 import type { Metadata } from 'next';
 import { getPool } from '@/db/client';
+import { SITE_LOCALE_ROWS } from '@/lib/i18n/site-locales';
+import { latestJobs } from '@/lib/server/ai/jobs';
 import { roleCan } from '@/lib/server/auth/permissions';
+import { missingDocs } from '@/lib/server/content-admin/machine-translations';
 import { CONTENT_KINDS, QUEUE_PAGE, coverage, reviewQueue } from '@/lib/server/content-admin/translations';
 import { requirePagePermission } from '@/lib/server/dal/session';
-import { Icon } from '../_ui/Icon';
 import { PageHeader } from '../_ui/PageHeader';
+import { AiJobPanel, type JobLocale } from './AiJobPanel';
 import { ReviewQueue } from './ReviewQueue';
 
 // Request-time like the whole admin (app/admin/layout.tsx); also opts navigations between admin pages out of dev instant validation (instant-navigation.md:568).
@@ -20,7 +23,8 @@ const one = (v: string | string[] | undefined) => (typeof v === 'string' ? v : u
  * language, how many translations are reviewed, machine-made, out of date
  * ("EN đã đổi") or missing; and the queue of those that need a person,
  * filtered by language and kind (each cell links to its slice), 50 a page.
- * Machine translation of what is missing comes with phase 9 (R8-13).
+ * Above them, bulk machine translation of what is missing (phase 9, D8):
+ * every staff member sees the jobs, an Admin runs them.
  */
 export default async function TranslationsPage({ searchParams }: { searchParams: Params }) {
   const staff = await requirePagePermission({ content: ['read'] });
@@ -29,7 +33,17 @@ export default async function TranslationsPage({ searchParams }: { searchParams:
   const locale = one(params.locale);
   const kind = CONTENT_KINDS.find((k) => k.key === one(params.kind))?.key;
   const page = Math.max(1, Number(one(params.page)) || 1);
-  const [cover, queue] = await Promise.all([coverage(pool), reviewQueue(pool, { locale, kind, page })]);
+  // Bulk translation is Admin only (spec §8; plan owner question 2 still open): the job routes ask for the same.
+  const canRun = roleCan(staff.role, { content: ['ai'], settings: ['update'] });
+  const targets = SITE_LOCALE_ROWS.filter((l) => !l.isDefault);
+  const [cover, queue, jobs, missing] = await Promise.all([
+    coverage(pool),
+    reviewQueue(pool, { locale, kind, page }),
+    latestJobs(pool),
+    // What a job would translate, per language: only for whoever may start one.
+    canRun ? Promise.all(targets.map(async (l) => (await missingDocs(pool, l.code, 0)).remaining)) : null,
+  ]);
+  const jobLocales: JobLocale[] = targets.map((l, i) => ({ code: l.code, name: l.nativeName, enabled: l.isEnabled, missing: missing?.[i] ?? null }));
   const filtered = (l: string | undefined, k: string | undefined, p = 1) => {
     const q = new URLSearchParams();
     if (l) q.set('locale', l);
@@ -44,18 +58,9 @@ export default async function TranslationsPage({ searchParams }: { searchParams:
       <PageHeader
         title="Bản dịch"
         lede="Mỗi ngôn ngữ đã dịch được bao nhiêu, và các bản dịch cần người xem lại: bản máy dịch, và bản mà chữ tiếng Anh đã đổi sau khi dịch (EN đã đổi). Dịch và sửa ở tab ngôn ngữ của từng màn."
-        actions={
-          <>
-            <button type="button" className="a-btn a-btn--ghost" disabled aria-describedby="ai-later">
-              <Icon name="sparkles" size={16} />
-              Dịch tất cả phần còn thiếu bằng AI
-            </button>
-            <span className="a-tag" id="ai-later">
-              Sắp có
-            </span>
-          </>
-        }
       />
+
+      <AiJobPanel jobs={jobs} locales={jobLocales} canRun={canRun} kindLabels={Object.fromEntries(CONTENT_KINDS.map((k) => [k.key, k.label]))} />
 
       <section aria-labelledby="coverage-title" className="a-card-row">
         <h2 id="coverage-title">Độ phủ</h2>

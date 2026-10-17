@@ -77,4 +77,22 @@ describe('fake model', () => {
     resetFake();
     expect((await translate()).output.items[0].text).toBe('«vi» Hello ⟦G1⟧');
   });
+
+  it('AI_FAKE_FAIL=<feature>:<status>@<n> fails only the nth call of that feature; resetFake and a new flag restart the count', async () => {
+    process.env.AI_FAKE_FAIL = 'translate:429@3';
+    await expect(translate()).resolves.toBeDefined();
+    await generateText({ model: fakeModel(), instructions: 'TASK: alt', prompt: 'x', maxRetries: 0 }); // another feature does not count
+    await expect(translate()).resolves.toBeDefined();
+    await expect(translate()).rejects.toMatchObject({ statusCode: 429 });
+    await expect(translate()).resolves.toBeDefined();
+    resetFake();
+    await expect(translate()).resolves.toBeDefined();
+    await expect(translate()).resolves.toBeDefined();
+    await expect(translate()).rejects.toMatchObject({ statusCode: 429 });
+    delete process.env.AI_FAKE_FAIL;
+    await translate();
+    setFakeFlags({ fail: 'translate:503@1' });
+    await expect(translate()).rejects.toMatchObject({ statusCode: 503 });
+    await expect(translate()).resolves.toBeDefined();
+  });
 });
