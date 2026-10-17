@@ -8,7 +8,8 @@ type LanguageModelV4Prompt = Parameters<MockLanguageModelV4['doGenerate']>[0]['p
  * The stand-in model for dev, CI and E2E (AI_PROVIDER=fake, R9-1): answers are
  * predictable and never leave the process. The call kind is the first line of
  * the instructions ("TASK: translate|assist|seo|alt|check"; the modules that
- * make the calls put it there). A translate call also carries "TARGET: <locale code>".
+ * make the calls put it there). A translate call also carries "TARGET: <locale code>",
+ * and so may an seo call.
  *
  *   AI_FAKE_FAIL=<feature>:<status>      that feature's calls throw an APICallError with the status
  *   AI_FAKE_FAIL=<feature>:<status>@<n>  only the nth call of that feature does (a bulk job that
@@ -72,6 +73,18 @@ function maybeFail(kind: Kind): void {
 
 const dropToken = () => (state.flags.dropToken !== undefined ? state.flags.dropToken : process.env.AI_FAKE_DROP_TOKEN === '1');
 
+/*
+ * With a "TARGET: <locale code>" line (lib/server/ai/seo.ts): the title keeps the prompt's first
+ * name token, and the description passes the 155 characters search results show (the caller cuts it).
+ */
+function seoReply(instructions: string, user: string): string {
+  const locale = /^\s*TARGET:\s*(\S+)\s*$/m.exec(instructions)?.[1];
+  if (!locale) return JSON.stringify({ title: 'Fake title', description: 'Fake description' });
+  const name = /⟦G\d+⟧/.exec(user)?.[0] ?? 'Fake title';
+  const description = `«${locale}» ${'A fake description of this page, for search results. '.repeat(3).trim()}`;
+  return JSON.stringify({ title: `«${locale}» ${name} — fake SEO title`, description });
+}
+
 function reply(prompt: LanguageModelV4Prompt): string {
   const { instructions, user, kind } = read(prompt);
   if (kind === 'translate') {
@@ -81,7 +94,7 @@ function reply(prompt: LanguageModelV4Prompt): string {
     const doc = JSON.parse(user.slice(user.indexOf('{'))) as { items: { id: string; text: string }[] };
     return JSON.stringify({ items: doc.items.map((i) => ({ id: i.id, text: `«${locale}» ${drop ? i.text.replace('⟦G1⟧', '') : i.text}` })) });
   }
-  if (kind === 'seo') return JSON.stringify({ title: 'Fake title', description: 'Fake description' });
+  if (kind === 'seo') return seoReply(instructions, user);
   if (kind === 'alt') return 'A fake description of the image.';
   if (kind === 'assist') return `«${/^\s*ACTION:\s*(\w+)/m.exec(instructions)?.[1] ?? 'assist'}» ${user}`;
   if (kind === 'check' && user.includes('{"ok"')) return '{"ok":true}';
