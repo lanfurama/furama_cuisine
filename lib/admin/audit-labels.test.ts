@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { auditActionLabel, auditEntityLabel } from './audit-labels';
+import { auditActionLabel, auditEntityLabel, auditEntryLabel } from './audit-labels';
 
 describe('audit labels', () => {
   it('names every staff action the code writes, in Vietnamese', () => {
@@ -120,5 +120,13 @@ describe('audit labels', () => {
       'Mạng xã hội',
       'Câu chuyện',
     ]);
+  });
+
+  it('names a machine translation by its meta (phase 9: audit_log allows no new action), and the AI entities', () => {
+    expect(auditEntryLabel('update', { v: 1, row: {}, i18n: [], meta: { machine: { model: 'm' } } })).toBe('Máy dịch (AI)');
+    expect(auditEntryLabel('create', { value: 'x', overridden: true, meta: { machine: { model: 'm' } } })).toBe('Máy dịch (AI)');
+    expect(auditEntryLabel('update', { v: 1, row: {}, i18n: [], meta: { restored_from: '1' } })).toBe('Sửa');
+    expect(auditEntryLabel('delete', null)).toBe('Xóa');
+    expect(['ai_settings', 'ai_glossary', 'ai_jobs'].map(auditEntityLabel)).toEqual(['Cấu hình AI', 'Thuật ngữ AI', 'Dịch hàng loạt (AI)']);
   });
 });

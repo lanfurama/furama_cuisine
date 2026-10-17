@@ -1,4 +1,4 @@
-import { auditActionLabel } from '@/lib/admin/audit-labels';
+import { auditEntryLabel } from '@/lib/admin/audit-labels';
 import { formatDateTimeVi } from '@/lib/admin/format';
 import { restoreChoices, stringHistoryRow, type Snap } from '@/lib/admin/history';
 import { toBcp47 } from '@/lib/i18n/locales';
@@ -49,7 +49,7 @@ export function StringsHistory({
               return (
                 <li key={e.id} className="a-history-item">
                   <p>
-                    <strong>{field.def.label}</strong> · {auditActionLabel(e.action)} · {e.actor} · <time dateTime={new Date(e.at).toISOString()}>{when}</time>
+                    <strong>{field.def.label}</strong> · {auditEntryLabel(e.action, e.after)} · {e.actor} · <time dateTime={new Date(e.at).toISOString()}>{when}</time>
                   </p>
                   <p className="a-muted">
                     <span lang={toBcp47(locale)}>{text(e.before) || '(trống)'}</span> → <span lang={toBcp47(locale)}>{text(e.after) || '(trống)'}</span>
