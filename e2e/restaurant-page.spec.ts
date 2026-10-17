@@ -15,6 +15,8 @@ test.beforeEach(async ({ page }) => {
 
 test('the page carries its own title, description, CALL and MAP from the database', async ({ page }) => {
   await page.goto(DETAIL_PATH);
+  // 008's seeded seo_title; the content pack 2026-10-furama-dining-world renames it on production, and a database
+  // built by reset-db.mjs has no pack (as in content-seo.serial.spec.ts).
   await expect(page).toHaveTitle('Tàya House — Furama Cuisine');
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /^A wellness dining home beneath the Lagoon Garden/);
   const hero = page.locator('.taya-hero-copy');

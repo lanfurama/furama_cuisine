@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { SCRIPTS } from '@/lib/i18n/scripts';
 import { PRIVACY_POLICY_VERSION } from '@/lib/legal';
 import { BEFORE_011, TEST_DATABASE_URL, databaseUrl, migrate, resetDatabase, withClient } from '../helpers/db';
+import { RECORDED } from '../helpers/legal';
 
 /*
  * Migration 010 (phase 8): locales.script names a script this build has fonts
@@ -19,7 +20,7 @@ import { BEFORE_011, TEST_DATABASE_URL, databaseUrl, migrate, resetDatabase, wit
 
 const url = databaseUrl('furama_cuisine_migrate010_test');
 const FILE = 'db/migrations/010_locales_phase8.sql';
-const SEED_HASH = 'f49aa3f58723d14d6491c1801466c411fe9439acab85b4da5272d4c7676e10d2';
+const SEED_HASH = RECORDED.sha256;
 const sql = (text: string, values: unknown[] = []) => withClient(url, (c) => c.query(text, values));
 const one = async (text: string, values: unknown[] = []) => (await sql(text, values)).rows[0];
 /** A psql file of several statements: pg answers with one result per statement, or one result for one. */

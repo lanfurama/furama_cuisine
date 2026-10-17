@@ -8,6 +8,7 @@ import { loadOffers } from '@/lib/server/content/home.queries';
 import { currentPolicyVersion, policyTextHash, recordPolicyVersion } from '@/lib/server/content/policy-version';
 import { loadStringRows } from '@/lib/server/content/strings.queries';
 import { resolveStrings } from '@/lib/i18n/resolve';
+import { BRAND_RENAME, DELETE_ADDED_POLICY_VERSIONS } from '@/test/helpers/legal';
 
 /*
  * The content_strings editor's save (spec §7.4, §7.5, §11): validation against
@@ -44,7 +45,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content strings editor (databas
   beforeEach(async () => {
     await query('DELETE FROM content_strings');
     await query(`DELETE FROM audit_log WHERE entity_type IN ('content_strings', 'legal_versions')`);
-    await query(`DELETE FROM legal_versions WHERE created_by IS DISTINCT FROM 'seed'`);
+    await query(DELETE_ADDED_POLICY_VERSIONS);
     await query(`DELETE FROM staff_user WHERE id IN ('staff-lan', 'staff-mai')`);
     await query(
       `INSERT INTO staff_user (id, name, email, email_verified, role) VALUES
@@ -53,7 +54,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content strings editor (databas
   });
   afterAll(async () => {
     await query('DELETE FROM content_strings');
-    await query(`DELETE FROM legal_versions WHERE created_by IS DISTINCT FROM 'seed'`);
+    await query(DELETE_ADDED_POLICY_VERSIONS);
     await query(`DELETE FROM staff_user WHERE id IN ('staff-lan', 'staff-mai')`);
     await getPool().end();
   });
@@ -186,7 +187,7 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content strings editor (databas
   });
 
   it('changing the policy text adds a version once; a save that leaves it as it was adds none', async () => {
-    expect((await currentPolicyVersion(getPool())).version).toBe('2026-10-03');
+    expect((await currentPolicyVersion(getPool())).version).toBe(BRAND_RENAME.version);
     let s = await screen('legal');
     const first = await saveStrings(getPool(), LAN, s.input({ 'legal.keep_body': 'We keep your booking for 24 months, then anonymise it.' }));
     expect(first.ok && first.data.policyVersion).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -204,15 +205,15 @@ describe.skipIf(!process.env.TEST_DATABASE_URL)('content strings editor (databas
     expect((await currentPolicyVersion(getPool())).version).toBe(second.ok ? second.data.policyVersion : '');
   });
 
-  it('putting every agreed text back to the registry defaults returns to the seeded hash, still as a new version', async () => {
+  it('putting every agreed text back to the registry defaults returns to the hash in force (migration 015’s), still as a new version', async () => {
     let s = await screen('legal');
     await saveStrings(getPool(), LAN, s.input({ 'legal.title': 'Privacy' }));
     s = await screen('legal');
     const back = await saveStrings(getPool(), LAN, s.input({ 'legal.title': REGISTRY['legal.title'].en }));
-    // The text equals the seeded wording again, but the newest row is "Privacy": a version moves forward, never back.
+    // The text equals 015's wording again, but the newest row is "Privacy": a version moves forward, never back.
     expect(back.ok && back.data.policyVersion).toMatch(/\.2$/);
     const { sha256 } = await currentPolicyVersion(getPool());
-    expect(sha256).toBe('f49aa3f58723d14d6491c1801466c411fe9439acab85b4da5272d4c7676e10d2');
+    expect(sha256).toBe(BRAND_RENAME.sha256);
   });
 
   it('two policy saves at once: the one that commits last is the version in force, even when its transaction began first', async () => {
